@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
-/// Type scale — Manrope for headers, Inter for body, IBM Plex Mono for
-/// every number (peso amounts, quantities, timestamps). Register these
-/// three families in pubspec.yaml before using this file.
+/// Type scale — Lexend main font natin hihi, IBM Plex Mono for
+/// numbers (peso amounts, quantities, timestamps). Naka register na sa
+///  pubspec.yaml rawr.
 class AppText {
   AppText._();
 

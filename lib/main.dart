@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/search_screen.dart';
+import 'screens/scanner_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'widgets/docket_nav_bar.dart';
 
@@ -23,7 +24,6 @@ class SmartEventApp extends StatelessWidget {
   }
 }
 
-/// Holds the current tab and swaps between screens, sharing one nav bar.
 class RootShell extends StatefulWidget {
   const RootShell({super.key});
 
@@ -34,23 +34,23 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = 0;
 
-  // Only Dashboard, Search, and Inventory are built so far.
-  // Tapping Scanner or Risk (indexes 2, 3) does nothing yet.
-  static const _screens = [
-    DashboardScreen(),
-    SearchScreen(),
-    InventoryScreen(),
-  ];
+  // Keyed by nav bar position: 0=Dashboard, 1=Search, 2=Scanner,
+  // 3=Risk (not built yet), 4=Inventory.
+  static const Map<int, Widget> _screens = {
+    0: DashboardScreen(),
+    1: SearchScreen(),
+    2: ScannerScreen(),
+    4: InventoryScreen(),
+  };
 
   @override
   Widget build(BuildContext context) {
-    final screenIndex = _index > 2 ? 0 : _index; // safety fallback
     return Scaffold(
-      body: _screens[screenIndex],
+      body: _screens[_index] ?? const DashboardScreen(),
       bottomNavigationBar: DocketNavBar(
         activeIndex: _index,
         onTap: (i) {
-          if (i <= 2) setState(() => _index = i); // only wired tabs switch
+          if (_screens.containsKey(i)) setState(() => _index = i);
         },
       ),
     );
