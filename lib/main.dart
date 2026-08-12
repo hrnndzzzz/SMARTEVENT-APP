@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
+import 'screens/welcome_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/scanner_screen.dart';
+import 'screens/risk_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'widgets/docket_nav_bar.dart';
-import 'screens/risk_screen.dart';
 
 void main() {
   runApp(const SmartEventApp());
@@ -20,7 +21,7 @@ class SmartEventApp extends StatelessWidget {
       title: 'SmartEvent',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      home: const RootShell(),
+      home: const WelcomeScreen(),
     );
   }
 }
@@ -35,8 +36,6 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = 0;
 
-  // Keyed by nav bar position: 0=Dashboard, 1=Search, 2=Scanner,
-  // 3=Risk (not built yet), 4=Inventory.
   static const Map<int, Widget> _screens = {
     0: DashboardScreen(),
     1: SearchScreen(),
