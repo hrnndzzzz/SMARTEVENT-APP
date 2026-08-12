@@ -395,7 +395,7 @@ class _ExpenseDistributionCard extends StatelessWidget {
                     SizedBox(height: 6),
                     _LegendRow(color: AppColors.sageTeal, label: 'Catering (15%)'),
                     SizedBox(height: 6),
-                    _LegendRow(color: AppColors.inkFaint, label: 'Marketing (10%)'),
+                    _LegendRow(color: AppColors.inkFaint, label: 'Sigaw ni Joseph (10%)'),
                   ],
                 ),
               ],

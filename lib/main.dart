@@ -5,6 +5,7 @@ import 'screens/search_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'widgets/docket_nav_bar.dart';
+import 'screens/risk_screen.dart';
 
 void main() {
   runApp(const SmartEventApp());
@@ -40,6 +41,7 @@ class _RootShellState extends State<RootShell> {
     0: DashboardScreen(),
     1: SearchScreen(),
     2: ScannerScreen(),
+    3: RiskScreen(),
     4: InventoryScreen(),
   };
 

@@ -167,14 +167,14 @@ class _EventResultCard extends StatelessWidget {
       icon: Icons.event_outlined,
       label: 'EVENT',
       labelColor: AppColors.sageTeal,
-      timestamp: 'Oct 12 - 14',
+      timestamp: 'Feb 19 - 20',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Annual Fall Hackathon 2024', style: AppText.cardTitle),
           const SizedBox(height: 4),
           Text(
-            'The premier engineering and computer science hackathon focusing on sustainable tech.',
+            'Ung nag hack ng ig ni arian',
             style: AppText.caption,
           ),
           const SizedBox(height: 10),

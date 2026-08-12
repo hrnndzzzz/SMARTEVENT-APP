@@ -22,10 +22,10 @@ class InventoryScreen extends StatelessWidget {
             SizedBox(height: 14),
             _InventoryItemCard(
               icon: Icons.cable,
-              name: 'HDMI Cables (4K 10m)',
-              description: 'High-speed AV connectivity.',
+              name: 'HDMI Dongle ni Sir Demdam (4K 10m)',
+              description: 'Dong digidigidong.',
               qty: 1,
-              statusLabel: 'Low Stock',
+              statusLabel: 'Nanghihiram sakin',
               statusColor: AppColors.brick,
               statusBg: Color(0xFFFBEAE7),
               statusIcon: Icons.warning_amber_rounded,
