@@ -33,7 +33,6 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const _DocketNavBar(activeIndex: 0),
     );
   }
 }
@@ -158,7 +157,7 @@ class _ExpendedCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
-                value: 0.43, // total expended / total allocated
+                value: 0.43,
                 minHeight: 5,
                 backgroundColor: AppColors.trackBg,
                 color: AppColors.indigo,
@@ -219,7 +218,6 @@ class _RemainingBalanceCard extends StatelessWidget {
 class _AllocationVsActualCard extends StatelessWidget {
   const _AllocationVsActualCard();
 
-  // month label -> (allocated 0..1, actual 0..1, isOver)
   static const List<_MonthBars> _months = [
     _MonthBars('Jan', 0.60, 0.45, false),
     _MonthBars('Feb', 0.70, 0.80, true),
@@ -355,11 +353,11 @@ class _ExpenseDistributionCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: SweepGradient(
                       colors: [
-                        AppColors.indigo, AppColors.indigo, // 0-45%
-                        AppColors.marigold, AppColors.marigold, // 45-75%
-                        AppColors.sageTeal, AppColors.sageTeal, // 75-90%
-                        AppColors.inkFaint, AppColors.inkFaint, // 90-100%
-                        AppColors.indigo, // wrap
+                        AppColors.indigo, AppColors.indigo,
+                        AppColors.marigold, AppColors.marigold,
+                        AppColors.sageTeal, AppColors.sageTeal,
+                        AppColors.inkFaint, AppColors.inkFaint,
+                        AppColors.indigo,
                       ],
                       stops: [0.0, 0.45, 0.45, 0.75, 0.75, 0.90, 0.90, 1.0, 1.0],
                     ),
@@ -454,51 +452,6 @@ class _QuickReports extends StatelessWidget {
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
         ),
       ],
-    );
-  }
-}
-
-class _DocketNavBar extends StatelessWidget {
-  final int activeIndex;
-  const _DocketNavBar({required this.activeIndex});
-
-  static const _items = [
-    (Icons.grid_view_outlined, 'Dashboard'),
-    (Icons.search, 'Search'),
-    (Icons.document_scanner_outlined, 'Scanner'),
-    (Icons.warning_amber_outlined, 'Risk'),
-    (Icons.inventory_2_outlined, 'Inventory'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(_items.length, (i) {
-          final isActive = i == activeIndex;
-          final color = isActive ? AppColors.indigo : AppColors.inkFaint;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_items[i].$1, size: 19, color: color),
-              const SizedBox(height: 3),
-              Text(
-                _items[i].$2,
-                style: AppText.navLabel.copyWith(
-                  color: color,
-                  fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
     );
   }
 }
