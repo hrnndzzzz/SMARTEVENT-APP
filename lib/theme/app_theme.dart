@@ -7,8 +7,8 @@ import 'app_colors.dart';
 class AppText {
   AppText._();
 
-  static const String headerFamily = 'Manrope';
-  static const String bodyFamily = 'Inter';
+  static const String headerFamily = 'Lexend';
+  static const String bodyFamily = 'Lexend';
   static const String monoFamily = 'IBMPlexMono';
 
   static const TextStyle wordmark = TextStyle(
