@@ -1,3 +1,4 @@
+
 # Miscellaneous
 *.class
 *.log
@@ -43,3 +44,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+.idea/
+*.egg-info/
