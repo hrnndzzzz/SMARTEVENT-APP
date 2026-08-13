@@ -38,6 +38,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   int _index = 0;
   Timer? _timer;
+  UserRole _role = UserRole.officer;
 
   @override
   void initState() {
@@ -55,8 +56,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   void _enterApp() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RootShell()),
+      MaterialPageRoute(builder: (_) => RootShell(role: _role)),
     );
+  }
+
+  String get _roleLabel {
+    switch (_role) {
+      case UserRole.officer:
+        return 'Officer';
+      case UserRole.adviser:
+        return 'Adviser';
+      case UserRole.admin:
+        return 'Admin';
+    }
   }
 
   @override
@@ -131,20 +143,73 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   );
                 }),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
+              const Text('Continue as', style: AppText.caption, textAlign: TextAlign.center),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _RoleChip(role: UserRole.officer, label: 'Officer', icon: Icons.person_outline, selected: _role == UserRole.officer, onTap: () => setState(() => _role = UserRole.officer))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _RoleChip(role: UserRole.adviser, label: 'Adviser', icon: Icons.fact_check_outlined, selected: _role == UserRole.adviser, onTap: () => setState(() => _role = UserRole.adviser))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _RoleChip(role: UserRole.admin, label: 'Admin', icon: Icons.admin_panel_settings_outlined, selected: _role == UserRole.admin, onTap: () => setState(() => _role = UserRole.admin))),
+                ],
+              ),
+              const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _enterApp,
                 style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                child: const Text('Create Account'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton(
-                onPressed: _enterApp,
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                child: const Text('Log In'),
+                child: Text('Continue as $_roleLabel'),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleChip extends StatelessWidget {
+  final UserRole role;
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RoleChip({
+    required this.role,
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.indigo : AppColors.surface,
+          border: selected ? null : Border.all(color: AppColors.border, width: 0.8),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 18, color: selected ? Colors.white : AppColors.inkMuted),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppText.bodyFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: selected ? Colors.white : AppColors.ink,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -159,7 +224,7 @@ class _HeroBanner extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        height: 150,
+        height: 130,
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -172,23 +237,23 @@ class _HeroBanner extends StatelessWidget {
           children: [
             Center(
               child: Container(
-                width: 56,
-                height: 56,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.groups_outlined, color: Colors.white, size: 28),
+                child: const Icon(Icons.groups_outlined, color: Colors.white, size: 24),
               ),
             ),
             Positioned(
-              top: 12,
-              right: 12,
+              top: 10,
+              right: 10,
               child: _pill(Icons.receipt_outlined, '₱2,850.00'),
             ),
             Positioned(
-              bottom: 12,
-              left: 12,
+              bottom: 10,
+              left: 10,
               child: _pill(Icons.calendar_today_outlined, '3 events this week'),
             ),
           ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/admin_dashboard_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/risk_screen.dart';
@@ -11,6 +12,8 @@ import 'widgets/docket_nav_bar.dart';
 void main() {
   runApp(const SmartEventApp());
 }
+
+enum UserRole { officer, adviser, admin }
 
 class SmartEventApp extends StatelessWidget {
   const SmartEventApp({super.key});
@@ -27,7 +30,8 @@ class SmartEventApp extends StatelessWidget {
 }
 
 class RootShell extends StatefulWidget {
-  const RootShell({super.key});
+  final UserRole role;
+  const RootShell({super.key, this.role = UserRole.officer});
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -36,12 +40,12 @@ class RootShell extends StatefulWidget {
 class _RootShellState extends State<RootShell> {
   int _index = 0;
 
-  static const Map<int, Widget> _screens = {
-    0: DashboardScreen(),
-    1: SearchScreen(),
-    2: ScannerScreen(),
-    3: RiskScreen(),
-    4: InventoryScreen(),
+  Map<int, Widget> get _screens => {
+    0: widget.role == UserRole.admin ? const AdminDashboardScreen() : const DashboardScreen(),
+    1: const SearchScreen(),
+    2: const ScannerScreen(),
+    3: const RiskScreen(),
+    4: const InventoryScreen(),
   };
 
   @override
