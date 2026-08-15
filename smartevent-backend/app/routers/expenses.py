@@ -218,8 +218,8 @@ def approve_expense(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Approving this expense (₱{expense.amount:,.2f}) would exceed "
-                f"'{category.name}''s remaining budget (₱{category.remaining_budget:,.2f})"
+                f"Approving this expense (₱{expense.amount:,.2f}) would exceed the "
+                f"remaining budget for '{category.name}' (₱{category.remaining_budget:,.2f})"
             ),
         )
 

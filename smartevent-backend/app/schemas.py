@@ -202,3 +202,66 @@ class ExpenseOut(BaseModel):
     recorded_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
+
+
+# ---- Inventory --------------------------------------------------------------
+
+class InventoryCreate(BaseModel):
+    item_name: str = Field(min_length=1, max_length=150)
+    description: str | None = None
+    # Starting stock count — after creation, quantity only moves via
+    # POST /inventory/{id}/transactions, same pattern as
+    # remaining_budget only moving via expense approval.
+    quantity: int = Field(ge=0, default=0)
+    unit: str = Field(default="pcs", max_length=30)
+    low_stock_threshold: int = Field(ge=0, default=5)
+    location: str | None = None
+
+
+class InventoryUpdate(BaseModel):
+    """
+    PATCH semantics — only sent fields change. `quantity` is
+    deliberately excluded: stock levels only move through
+    POST /inventory/{id}/transactions so every change to quantity has
+    a matching InventoryTransaction row explaining why.
+    """
+    item_name: str | None = Field(default=None, min_length=1, max_length=150)
+    description: str | None = None
+    unit: str | None = Field(default=None, max_length=30)
+    low_stock_threshold: int | None = Field(default=None, ge=0)
+    location: str | None = None
+
+
+class InventoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    item_name: str
+    description: str | None
+    quantity: int
+    unit: str
+    low_stock_threshold: int
+    location: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class InventoryTransactionCreate(BaseModel):
+    # Positive change_qty = stock coming in (purchased, donated,
+    # returned). Negative = stock going out (checked out for an event,
+    # lost, damaged). Zero isn't a meaningful transaction.
+    event_id: uuid.UUID | None = None
+    change_qty: int = Field(ne=0)
+    reason: str | None = Field(default=None, max_length=100)
+
+
+class InventoryTransactionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    inventory_id: uuid.UUID
+    event_id: uuid.UUID | None
+    change_qty: int
+    reason: str | None
+    performed_by: uuid.UUID
+    created_at: datetime
