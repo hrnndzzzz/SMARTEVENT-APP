@@ -132,7 +132,7 @@ class EventOut(BaseModel):
 
 
 class ApprovalDecision(BaseModel):
-    """Optional body for POST /events/{id}/approve and /reject."""
+    """Optional body for POST .../approve and .../reject (events or expenses)."""
     remarks: str | None = None
 
 
@@ -148,3 +148,57 @@ class ApprovalOut(BaseModel):
     remarks: str | None
     decided_at: datetime | None
     created_at: datetime
+
+
+# ---- Expenses ---------------------------------------------------------------
+
+ExpenseStatus = Literal["pending", "approved", "rejected"]
+
+
+class ExpenseCreate(BaseModel):
+    event_id: uuid.UUID | None = None
+    category_id: uuid.UUID
+    description: str = Field(min_length=1)
+    amount: float = Field(gt=0)
+    # Real receipt upload (Supabase Storage) isn't wired up yet — this
+    # just accepts a URL string in the meantime, e.g. for testing or a
+    # manually-hosted receipt image.
+    receipt_url: str | None = None
+
+
+class ExpenseUpdate(BaseModel):
+    """
+    PATCH semantics — only sent fields change. `status` is excluded for
+    the same reason as EventUpdate: status changes only happen through
+    /approve and /reject, never a raw PATCH — that keeps the
+    budget-deduction trigger firing exactly once, from exactly one path.
+    OCR fields (`ocr_merchant`, `ocr_date`, `ocr_amount`) and
+    `is_flagged`/`flag_reason` aren't editable here either — those are
+    meant to be system/OCR-populated once that pipeline exists, not
+    something a client sets by hand.
+    """
+    event_id: uuid.UUID | None = None
+    category_id: uuid.UUID | None = None
+    description: str | None = Field(default=None, min_length=1)
+    amount: float | None = Field(default=None, gt=0)
+    receipt_url: str | None = None
+
+
+class ExpenseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    event_id: uuid.UUID | None
+    category_id: uuid.UUID
+    description: str
+    amount: float
+    receipt_url: str | None
+    ocr_merchant: str | None
+    ocr_date: date | None
+    ocr_amount: float | None
+    is_flagged: bool
+    flag_reason: str | None
+    status: ExpenseStatus
+    recorded_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
