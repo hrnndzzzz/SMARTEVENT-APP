@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
+import '../services/supabase_service.dart';
+
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -39,14 +41,26 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   int _index = 0;
   Timer? _timer;
 
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
-      setState(() => _index = (_index + 1) % _blurbs.length);
-    });
-  }
+ @override
+void initState() {
+  super.initState();
 
+  _initializeSupabase();
+
+  _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+    if (mounted) {
+      setState(() => _index = (_index + 1) % _blurbs.length);
+    }
+  });
+}
+Future<void> _initializeSupabase() async {
+  try {
+    await SupabaseService.initialize();
+    debugPrint('Supabase connected successfully!');
+  } catch (e) {
+    debugPrint('Supabase initialization error: $e');
+  }
+}
   @override
   void dispose() {
     _timer?.cancel();
