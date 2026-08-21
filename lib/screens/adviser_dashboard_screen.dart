@@ -9,29 +9,38 @@ class AdviserDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          children: const [
-            _AdviserHeader(),
-            SizedBox(height: 16),
-            _BalanceOverviewCard(),
-            SizedBox(height: 18),
-            Text('Pending requests', style: AppText.cardTitle),
-            SizedBox(height: 10),
-            _RequestCard(
-              title: 'Leadership Summit 2026 — Budget Proposal',
-              org: 'Engineering Soc.',
-              amount: '₱8,200.00',
-              type: 'Budget',
-            ),
-            SizedBox(height: 10),
-            _RequestCard(
-              title: 'CITE Sports Fest — Cash Advance',
-              org: 'CITE Student Council',
-              amount: '₱1,500.00',
-              type: 'Advance',
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            children: [
+              const _AdviserHeader(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: const [
+                    _BalanceOverviewCard(),
+                    SizedBox(height: 18),
+                    Text('Pending requests', style: AppText.cardTitle),
+                    SizedBox(height: 10),
+                    _RequestCard(
+                      title: 'Leadership Summit 2026 — Budget Proposal',
+                      org: 'Engineering Soc.',
+                      amount: '₱8,200.00',
+                      type: 'Budget',
+                    ),
+                    SizedBox(height: 10),
+                    _RequestCard(
+                      title: 'CITE Sports Fest — Cash Advance',
+                      org: 'CITE Student Council',
+                      amount: '₱1,500.00',
+                      type: 'Advance',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

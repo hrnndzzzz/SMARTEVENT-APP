@@ -9,28 +9,37 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          children: const [
-            _DashboardHeader(),
-            SizedBox(height: 16),
-            _MetricCard(
-              label: 'Total budget allocated',
-              value: '₱5,000.00',
-              icon: Icons.account_balance_wallet_outlined,
-              iconColor: AppColors.indigo,
-            ),
-            SizedBox(height: 10),
-            _ExpendedCard(),
-            SizedBox(height: 10),
-            _RemainingBalanceCard(),
-            SizedBox(height: 16),
-            _AllocationVsActualCard(),
-            SizedBox(height: 10),
-            _ExpenseDistributionCard(),
-            SizedBox(height: 16),
-            _QuickReports(),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            children: [
+              const _DashboardHeader(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: const [
+                    _MetricCard(
+                      label: 'Total budget allocated',
+                      value: '₱5,000.00',
+                      icon: Icons.account_balance_wallet_outlined,
+                      iconColor: AppColors.indigo,
+                    ),
+                    SizedBox(height: 10),
+                    _ExpendedCard(),
+                    SizedBox(height: 10),
+                    _RemainingBalanceCard(),
+                    SizedBox(height: 16),
+                    _AllocationVsActualCard(),
+                    SizedBox(height: 10),
+                    _ExpenseDistributionCard(),
+                    SizedBox(height: 16),
+                    _QuickReports(),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

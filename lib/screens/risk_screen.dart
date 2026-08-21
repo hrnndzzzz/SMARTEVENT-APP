@@ -9,53 +9,71 @@ class RiskScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          children: const [
-            Text(
-              'Event Spending Risk',
-              style: TextStyle(
-                fontFamily: AppText.headerFamily,
-                fontWeight: FontWeight.w500,
-                fontSize: 20,
-                color: AppColors.ink,
-                height: 1.25,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Text('SmartEvent', style: AppText.wordmark),
+                  Icon(Icons.notifications_none, color: AppColors.indigo, size: 22),
+                ],
               ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Flags events where spending has moved outside the usual range.',
-              style: AppText.caption,
-            ),
-            SizedBox(height: 16),
-            _AlertBanner(),
-            SizedBox(height: 18),
-            Text('Active event flags', style: AppText.cardTitle),
-            SizedBox(height: 10),
-            _RiskEventCard(
-              title: 'Seminar ni Sir Guevarra',
-              level: 'Medium',
-              levelColor: AppColors.marigold,
-              levelBg: Color(0xFFF0EAD9),
-              levelTextColor: AppColors.marigoldText,
-              detailLabel: 'Catering spend vs. category average',
-              detailValue: '+18%',
-            ),
-            SizedBox(height: 10),
-            _RiskEventCard(
-              title: 'Tekken esports???',
-              level: 'Low',
-              levelColor: AppColors.sageTeal,
-              levelBg: AppColors.sageTealTint,
-              levelTextColor: AppColors.sageTealText,
-              detailLabel: 'Catering spend vs. category average',
-              detailValue: '+4%',
-            ),
-            SizedBox(height: 18),
-            Text('Flag criteria', style: AppText.cardTitle),
-            SizedBox(height: 10),
-            _CriteriaCard(),
-          ],
+              const SizedBox(height: 10),
+              const Text(
+                'Event Spending Risk',
+                style: TextStyle(
+                  fontFamily: AppText.headerFamily,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 20,
+                  color: AppColors.ink,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Flags events where spending has moved outside the usual range.',
+                style: AppText.caption,
+              ),
+              const SizedBox(height: 16),
+              const _AlertBanner(),
+              const SizedBox(height: 18),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: const [
+                    Text('Active event flags', style: AppText.cardTitle),
+                    SizedBox(height: 10),
+                    _RiskEventCard(
+                      title: 'Leadership Summit 2026',
+                      level: 'Medium',
+                      levelColor: AppColors.marigold,
+                      levelBg: Color(0xFFF0EAD9),
+                      levelTextColor: AppColors.marigoldText,
+                      detailLabel: 'Catering spend vs. category average',
+                      detailValue: '+18%',
+                    ),
+                    SizedBox(height: 10),
+                    _RiskEventCard(
+                      title: 'CITE Sports Fest',
+                      level: 'Low',
+                      levelColor: AppColors.sageTeal,
+                      levelBg: AppColors.sageTealTint,
+                      levelTextColor: AppColors.sageTealText,
+                      detailLabel: 'Catering spend vs. category average',
+                      detailValue: '+4%',
+                    ),
+                    SizedBox(height: 18),
+                    Text('Flag criteria', style: AppText.cardTitle),
+                    SizedBox(height: 10),
+                    _CriteriaCard(),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -95,8 +113,8 @@ class _AlertBanner extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '"Annual CITE Night" catering spend is 32% above the category '
-                'average for similar events. Flagged for officer review. (walang carbonara)',
+            '"Annual IT Night" catering spend is 32% above the category '
+                'average for similar events. Flagged for officer review.',
             style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: Colors.white, height: 1.4),
           ),
           const SizedBox(height: 12),
