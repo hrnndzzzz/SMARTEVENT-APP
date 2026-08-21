@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screens/adviser_dashboard_screen.dart';
 import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -41,7 +42,11 @@ class _RootShellState extends State<RootShell> {
   int _index = 0;
 
   Map<int, Widget> get _screens => {
-    0: widget.role == UserRole.admin ? const AdminDashboardScreen() : const DashboardScreen(),
+    0: switch (widget.role) {
+      UserRole.admin => const AdminDashboardScreen(),
+      UserRole.adviser => const AdviserDashboardScreen(),
+      UserRole.officer => const DashboardScreen(),
+    },
     1: const SearchScreen(),
     2: const ScannerScreen(),
     3: const RiskScreen(),
