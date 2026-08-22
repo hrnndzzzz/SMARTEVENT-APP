@@ -404,8 +404,36 @@ class _LegendRow extends StatelessWidget {
   }
 }
 
-class _QuickReports extends StatelessWidget {
+class _QuickReports extends StatefulWidget {
   const _QuickReports();
+
+  @override
+  State<_QuickReports> createState() => _QuickReportsState();
+}
+
+class _QuickReportsState extends State<_QuickReports> {
+  bool _exporting = false;
+  bool _downloading = false;
+
+  Future<void> _exportPdf() async {
+    setState(() => _exporting = true);
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    setState(() => _exporting = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Liquidation report generated — liquidation_q2_2026.pdf')),
+    );
+  }
+
+  Future<void> _downloadJournal() async {
+    setState(() => _downloading = true);
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    setState(() => _downloading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Financial journal downloaded — financial_journal_q2_2026.csv')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -415,16 +443,28 @@ class _QuickReports extends StatelessWidget {
         const Text('Quick reports', style: AppText.caption),
         const SizedBox(height: 8),
         ElevatedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-          label: const Text('Export liquidation PDF'),
+          onPressed: _exporting ? null : _exportPdf,
+          icon: _exporting
+              ? const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          )
+              : const Icon(Icons.picture_as_pdf_outlined, size: 16),
+          label: Text(_exporting ? 'Generating...' : 'Export liquidation PDF'),
           style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.download_outlined, size: 16),
-          label: const Text('Download financial journal'),
+          onPressed: _downloading ? null : _downloadJournal,
+          icon: _downloading
+              ? const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.indigo),
+          )
+              : const Icon(Icons.download_outlined, size: 16),
+          label: Text(_downloading ? 'Downloading...' : 'Download financial journal'),
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
         ),
       ],

@@ -42,19 +42,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 18),
               _SwitchTile(
                 label: 'Dark mode',
-                subtitle: 'Not available yet — coming soon.',
+                subtitle: 'Next time na mahirap',
                 value: _darkMode,
                 onChanged: null,
               ),
               _SwitchTile(
                 label: 'Biometric login',
-                subtitle: 'Use fingerprint or face unlock to sign in.',
+                subtitle: 'Mahirap den to',
                 value: _biometricLogin,
                 onChanged: (v) => setState(() => _biometricLogin = v),
               ),
               _SwitchTile(
                 label: 'Data saver',
-                subtitle: 'Reduce image and animation quality.',
+                subtitle: 'Na para bang madaming animations',
                 value: _dataSaver,
                 onChanged: (v) => setState(() => _dataSaver = v),
               ),

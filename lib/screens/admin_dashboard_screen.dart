@@ -46,6 +46,115 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Future<void> _setCategoryBudget() async {
+    final categories = ['Equipment', 'Venue', 'Catering', 'Marketing'];
+    String selected = categories.first;
+    final controller = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Set Category Budget', style: AppText.cardTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Category', style: AppText.caption),
+              const SizedBox(height: 6),
+              DropdownButton<String>(
+                value: selected,
+                isExpanded: true,
+                items: [
+                  for (final c in categories) DropdownMenuItem(value: c, child: Text(c)),
+                ],
+                onChanged: (v) => setDialogState(() => selected = v!),
+              ),
+              const SizedBox(height: 14),
+              const Text('Amount (₱)', style: AppText.caption),
+              const SizedBox(height: 6),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(hintText: '0.00'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$selected budget updated to ₱${controller.text.isEmpty ? '0.00' : controller.text}')),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _generateReports() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Generating org-wide financial summary...')),
+    );
+  }
+
+  Future<void> _viewAnalytics() async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Org-Wide Analytics', style: AppText.cardTitle),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _analyticsRow('Total budget allocated', '₱14,150.00'),
+              _analyticsRow('Total expended (all orgs)', '₱6,850.00'),
+              _analyticsRow('Overall utilization', '48%'),
+              const SizedBox(height: 12),
+              const Text('By category', style: AppText.caption),
+              const SizedBox(height: 8),
+              _analyticsRow('Equipment', '45%', indent: true),
+              _analyticsRow('Venue', '30%', indent: true),
+              _analyticsRow('Catering', '15%', indent: true),
+              _analyticsRow('Marketing', '10%', indent: true),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  Widget _analyticsRow(String label, String value, {bool indent = false}) {
+    return Padding(
+      padding: EdgeInsets.only(left: indent ? 12 : 0, bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: AppText.body.copyWith(fontSize: 13)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: AppText.monoFamily,
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+              color: AppColors.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,7 +187,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 8),
                   children: [
-                    const _QuickActionsGrid(),
+                    _QuickActionsRow(
+                      onSetBudget: _setCategoryBudget,
+                      onGenerateReports: _generateReports,
+                      onViewAnalytics: _viewAnalytics,
+                    ),
                     const SizedBox(height: 18),
                     Text('Pending approvals (${_pending.length})', style: AppText.cardTitle),
                     const SizedBox(height: 10),
@@ -113,38 +226,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-class _QuickActionsGrid extends StatelessWidget {
-  const _QuickActionsGrid();
+class _QuickActionsRow extends StatelessWidget {
+  final VoidCallback onSetBudget;
+  final VoidCallback onGenerateReports;
+  final VoidCallback onViewAnalytics;
+
+  const _QuickActionsRow({
+    required this.onSetBudget,
+    required this.onGenerateReports,
+    required this.onViewAnalytics,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 1.5,
-      children: const [
-        _ActionTile(
-          icon: Icons.account_balance_wallet_outlined,
-          label: 'Set Category Budget',
-          accent: AppColors.indigo,
+    return Row(
+      children: [
+        Expanded(
+          child: _ActionTile(
+            icon: Icons.account_balance_wallet_outlined,
+            label: 'Set Budget',
+            accent: AppColors.indigo,
+            onTap: onSetBudget,
+          ),
         ),
-        _ActionTile(
-          icon: Icons.fact_check_outlined,
-          label: 'Approve / Reject Requests',
-          accent: AppColors.marigold,
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ActionTile(
+            icon: Icons.description_outlined,
+            label: 'Reports',
+            accent: AppColors.sageTeal,
+            onTap: onGenerateReports,
+          ),
         ),
-        _ActionTile(
-          icon: Icons.description_outlined,
-          label: 'Generate Reports',
-          accent: AppColors.sageTeal,
-        ),
-        _ActionTile(
-          icon: Icons.bar_chart_outlined,
-          label: 'View Analytics',
-          accent: AppColors.brick,
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ActionTile(
+            icon: Icons.bar_chart_outlined,
+            label: 'Analytics',
+            accent: AppColors.brick,
+            onTap: onViewAnalytics,
+          ),
         ),
       ],
     );
@@ -155,28 +276,34 @@ class _ActionTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color accent;
+  final VoidCallback? onTap;
 
-  const _ActionTile({required this.icon, required this.label, required this.accent});
+  const _ActionTile({required this.icon, required this.label, required this.accent, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, color: accent, size: 20),
-          Text(
-            label,
-            style: AppText.body.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
-          ),
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border, width: 0.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: accent, size: 20),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppText.body.copyWith(fontSize: 11, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
       ),
     );
   }

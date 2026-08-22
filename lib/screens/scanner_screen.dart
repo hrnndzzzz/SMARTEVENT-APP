@@ -17,12 +17,26 @@ class ScannerScreen extends StatefulWidget {
 class _ScannerScreenState extends State<ScannerScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _capturedImage;
+  bool _logging = false;
 
   Future<void> _capturePhoto() async {
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
     if (photo != null) {
       setState(() => _capturedImage = File(photo.path));
     }
+  }
+
+  Future<void> _confirmAndLog() async {
+    setState(() => _logging = true);
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    setState(() {
+      _logging = false;
+      _capturedImage = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Expense logged: Fresh Campus Catering — ₱2,500.00')),
+    );
   }
 
   @override
@@ -75,7 +89,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     if (_capturedImage != null) ...[
                       const _DetectedFieldsCard(),
                       const SizedBox(height: 14),
-                      const _ConfirmButton(),
+                      ElevatedButton(
+                        onPressed: _logging ? null : _confirmAndLog,
+                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                        child: _logging
+                            ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                            : const Text('Confirm & Log Expense'),
+                      ),
                     ],
                   ],
                 ),
@@ -201,19 +225,6 @@ class _DetectedFieldsCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ConfirmButton extends StatelessWidget {
-  const _ConfirmButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () {},
-      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-      child: const Text('Confirm & Log Expense'),
     );
   }
 }

@@ -14,12 +14,16 @@ class _SearchResult {
   final String timestamp;
   final String? amount;
   final List<String> tags;
+  final String quarter;
+  final String department;
 
   _SearchResult({
     required this.type,
     required this.title,
     required this.subtitle,
     required this.timestamp,
+    required this.quarter,
+    required this.department,
     this.amount,
     this.tags = const [],
   });
@@ -35,6 +39,11 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController(text: 'Hackathon');
   String _filter = 'All';
+  String _quarter = 'All Quarters';
+  String _department = 'All Depts';
+
+  static const _quarters = ['All Quarters', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4'];
+  static const _departments = ['All Depts', 'CITHM', 'CBEA', 'CAMP', 'CASE', 'CITE'];
 
   final List<_SearchResult> _dataset = [
     _SearchResult(
@@ -42,6 +51,8 @@ class _SearchScreenState extends State<SearchScreen> {
       title: 'Annual Fall Hackathon 2024',
       subtitle: 'The premier engineering and computer science hackathon focusing on sustainable tech.',
       timestamp: 'Oct 12 - 14',
+      quarter: 'Quarter 2',
+      department: 'Engineering Soc.',
       tags: ['Approved', 'Engineering Soc.'],
     ),
     _SearchResult(
@@ -49,6 +60,8 @@ class _SearchScreenState extends State<SearchScreen> {
       title: 'Catering Deposit — Hackathon',
       subtitle: 'Vendor: Fresh Campus Catering',
       timestamp: '2 hrs ago',
+      quarter: 'Quarter 2',
+      department: 'Engineering Soc.',
       amount: '-₱2,500.00',
     ),
     _SearchResult(
@@ -56,6 +69,8 @@ class _SearchScreenState extends State<SearchScreen> {
       title: 'Leadership Summit 2026',
       subtitle: 'Full-day leadership training for incoming officers across CITE orgs.',
       timestamp: 'Nov 20',
+      quarter: 'Quarter 2',
+      department: 'CITE Student Council',
       tags: ['Under Review', 'CITE Student Council'],
     ),
     _SearchResult(
@@ -63,6 +78,8 @@ class _SearchScreenState extends State<SearchScreen> {
       title: 'Venue Rental — Auditorium',
       subtitle: 'Vendor: LCUP Facilities Office',
       timestamp: 'Yesterday',
+      quarter: 'Quarter 2',
+      department: 'CITE Student Council',
       amount: '-₱3,000.00',
     ),
     _SearchResult(
@@ -70,7 +87,18 @@ class _SearchScreenState extends State<SearchScreen> {
       title: 'CITE Sports Fest',
       subtitle: 'Intramurals across all CITE student organizations.',
       timestamp: 'Aug 5 - 7',
+      quarter: 'Quarter 1',
+      department: 'CITE Student Council',
       tags: ['Active', 'CITE Student Council'],
+    ),
+    _SearchResult(
+      type: _ResultType.transaction,
+      title: 'Workshop Materials Purchase',
+      subtitle: 'Vendor: National Bookstore',
+      timestamp: '3 days ago',
+      quarter: 'Quarter 1',
+      department: 'IT Society',
+      amount: '-₱1,180.00',
     ),
   ];
 
@@ -82,7 +110,9 @@ class _SearchScreenState extends State<SearchScreen> {
         'Transactions' => r.type == _ResultType.transaction,
         _ => true,
       };
-      if (!matchesType) return false;
+      final matchesQuarter = _quarter == 'All Quarters' || r.quarter == _quarter;
+      final matchesDept = _department == 'All Depts' || r.department == _department;
+      if (!matchesType || !matchesQuarter || !matchesDept) return false;
       if (query.isEmpty) return true;
       return r.title.toLowerCase().contains(query) || r.subtitle.toLowerCase().contains(query);
     }).toList();
@@ -130,11 +160,31 @@ class _SearchScreenState extends State<SearchScreen> {
                 selected: _filter,
                 onSelect: (f) => setState(() => _filter = f),
               ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DropdownChip(
+                      value: _quarter,
+                      options: _quarters,
+                      onSelected: (v) => setState(() => _quarter = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DropdownChip(
+                      value: _department,
+                      options: _departments,
+                      onSelected: (v) => setState(() => _department = v),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               Text(
                 _controller.text.trim().isEmpty
-                    ? 'All results'
-                    : 'Results for "${_controller.text.trim()}"',
+                    ? 'All results (${results.length})'
+                    : 'Results for "${_controller.text.trim()}" (${results.length})',
                 style: AppText.cardTitle,
               ),
               const SizedBox(height: 10),
@@ -239,6 +289,53 @@ class _FilterChips extends StatelessWidget {
             fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
             color: isSelected ? Colors.white : AppColors.ink,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DropdownChip extends StatelessWidget {
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onSelected;
+
+  const _DropdownChip({required this.value, required this.options, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDefault = value == options.first;
+    return PopupMenuButton<String>(
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        for (final o in options)
+          PopupMenuItem(value: o, child: Text(o, style: AppText.body.copyWith(fontSize: 13))),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDefault ? AppColors.surface : AppColors.indigoLightTint,
+          border: Border.all(color: AppColors.border, width: 0.5),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(
+                value,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AppText.bodyFamily,
+                  fontSize: 12,
+                  fontWeight: isDefault ? FontWeight.w400 : FontWeight.w500,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down, size: 15, color: AppColors.inkMuted),
+          ],
         ),
       ),
     );
