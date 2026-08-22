@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     supabase_service_key: str | None = None
     supabase_receipts_bucket: str = "receipts"
 
+    # Gemini (used by app/services/ocr.py to parse OCR text extracted
+    # on-device by the Flutter app into structured merchant/date/amount)
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-3.5-flash-lite"
+
     # JWT
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"

@@ -33,7 +33,7 @@ Access rules:
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -45,7 +45,11 @@ from app.schemas import (
     ExpenseCreate,
     ExpenseOut,
     ExpenseUpdate,
+    ReceiptParseRequest,
+    ScanReceiptResponse,
 )
+from app.services.ocr import ReceiptParseError, parse_receipt_image, parse_receipt_text
+from app.services.storage import StorageError, prepare_image_for_upload, upload_receipt_image
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -104,6 +108,86 @@ def _record_decision(
         decided_at=datetime.now(timezone.utc),
     )
     db.add(approval)
+
+
+# NOTE: this route must be declared before any "/{expense_id}..." route
+# below, or FastAPI will try to parse "scan-receipt" as a UUID for
+# expense_id and return 422 instead of reaching this handler — same
+# gotcha as GET /inventory/low-stock in inventory.py.
+@router.post("/scan-receipt", response_model=ScanReceiptResponse, status_code=status.HTTP_200_OK)
+async def scan_receipt(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    "Snap first, fill later": takes a receipt photo BEFORE any Expense
+    exists, uploads it to Storage, and asks Gemini Vision to read it —
+    merchant, date, total, and itemized line items (each tagged
+    asset/consumable). Returns that data directly; nothing is written
+    to the database here, not even an Expense row.
+
+    The officer reviews/corrects the returned fields in the app, then
+    calls POST /expenses separately with the final values — referencing
+    the receipt_url this endpoint already uploaded, so the photo isn't
+    lost even if they abandon the form partway through.
+
+    This is the image-based counterpart to POST /expenses/{id}/parse-receipt,
+    which stays in place for the text-based (ML Kit) flow — see the
+    module docstring in app/services/ocr.py for why both exist.
+    """
+    allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Unsupported file type '{file.content_type}'. "
+                f"Allowed: {', '.join(sorted(allowed_types))}"
+            ),
+        )
+
+    raw_bytes = await file.read()
+
+    max_size_bytes = 10 * 1024 * 1024  # 10MB
+    if len(raw_bytes) > max_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 10MB",
+        )
+
+    try:
+        processed_bytes, content_type = prepare_image_for_upload(raw_bytes)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not process the uploaded image: {exc}",
+        )
+
+    try:
+        receipt_url = upload_receipt_image(processed_bytes, content_type)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    except StorageError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    try:
+        parsed = parse_receipt_image(processed_bytes, content_type)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    except ReceiptParseError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not reach the receipt parsing service: {exc}",
+        )
+
+    return ScanReceiptResponse(
+        receipt_url=receipt_url,
+        merchant=parsed["merchant"],
+        date=parsed["date"],
+        amount=parsed["amount"],
+        items=parsed["items"],
+    )
 
 
 @router.post("", response_model=ExpenseOut, status_code=status.HTTP_201_CREATED)
@@ -247,6 +331,139 @@ def reject_expense(
 
     _record_decision(db, expense, "rejected", current_user, payload.remarks)
     expense.status = "rejected"
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+@router.post("/{expense_id}/receipt", response_model=ExpenseOut)
+async def upload_receipt(
+    expense_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Uploads a receipt photo to Supabase Storage and saves the resulting
+    URL onto this expense's receipt_url.
+
+    This is separate from POST .../parse-receipt: this route stores the
+    photo itself, parse-receipt turns OCR text (extracted from that
+    photo on the phone, by ML Kit) into structured fields. They can be
+    called in either order, but uploading the photo first is the
+    natural flow.
+    """
+    expense = _get_expense_or_404(db, expense_id)
+    _assert_owner_or_admin(expense, current_user, "attach a receipt to")
+
+    if expense.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only pending expenses can have a receipt attached",
+        )
+
+    allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Unsupported file type '{file.content_type}'. "
+                f"Allowed: {', '.join(sorted(allowed_types))}"
+            ),
+        )
+
+    raw_bytes = await file.read()
+
+    max_size_bytes = 10 * 1024 * 1024  # 10MB
+    if len(raw_bytes) > max_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 10MB",
+        )
+
+    try:
+        processed_bytes, content_type = prepare_image_for_upload(raw_bytes)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not process the uploaded image: {exc}",
+        )
+
+    try:
+        receipt_url = upload_receipt_image(processed_bytes, content_type)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    except StorageError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    expense.receipt_url = receipt_url
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+@router.post("/{expense_id}/parse-receipt", response_model=ExpenseOut)
+def parse_receipt(
+    expense_id: uuid.UUID,
+    payload: ReceiptParseRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Takes raw OCR text (already extracted on-device by the Flutter app)
+    and asks Gemini to turn it into structured fields, saved onto this
+    expense's ocr_merchant/ocr_date/ocr_amount.
+
+    If the scanned total disagrees with the officer-entered `amount` by
+    more than the tolerance below, the expense is auto-flagged — this is
+    separate from (and happens earlier than) the over-budget check that
+    runs at approval time.
+    """
+    expense = _get_expense_or_404(db, expense_id)
+    _assert_owner_or_admin(expense, current_user, "attach a receipt scan to")
+
+    if expense.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only pending expenses can have a receipt scan attached",
+        )
+
+    try:
+        parsed = parse_receipt_text(payload.raw_text)
+    except RuntimeError as exc:
+        # Missing/misconfigured API key — an ops problem, not the
+        # caller's fault, so 503 rather than 400/422.
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    except ReceiptParseError as exc:
+        # Gemini responded but not in the shape we asked for.
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    except Exception as exc:
+        # Network/auth/rate-limit errors from the Gemini SDK itself.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not reach the receipt parsing service: {exc}",
+        )
+
+    expense.ocr_merchant = parsed["merchant"]
+    expense.ocr_date = parsed["date"]
+    expense.ocr_amount = parsed["amount"]
+
+    if parsed["amount"] is not None:
+        # Flag if the scanned total is off by more than ₱5 or 3%,
+        # whichever is bigger — small OCR/rounding noise shouldn't flag,
+        # a genuinely different amount should.
+        tolerance = max(5.0, float(expense.amount) * 0.03)
+        if abs(parsed["amount"] - float(expense.amount)) > tolerance:
+            expense.is_flagged = True
+            expense.flag_reason = (
+                f"Scanned receipt total (₱{parsed['amount']:,.2f}) differs from "
+                f"the entered amount (₱{expense.amount:,.2f}) by more than "
+                f"expected"
+            )
+        else:
+            expense.is_flagged = False
+            expense.flag_reason = None
+
     db.commit()
     db.refresh(expense)
     return expense

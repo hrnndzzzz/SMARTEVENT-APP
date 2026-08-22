@@ -265,3 +265,40 @@ class InventoryTransactionOut(BaseModel):
     reason: str | None
     performed_by: uuid.UUID
     created_at: datetime
+
+
+# ---- Receipt OCR ------------------------------------------------------------
+
+class ReceiptParseRequest(BaseModel):
+    """
+    Body for POST /expenses/{id}/parse-receipt.
+
+    `raw_text` is whatever the Flutter app's on-device OCR (ML Kit)
+    extracted from the receipt photo — unstructured text, not a file.
+    This endpoint doesn't accept images; the phone does the image-to-text
+    step, this API does the text-to-structured-fields step.
+    """
+    raw_text: str = Field(min_length=1)
+
+
+class ScannedReceiptItem(BaseModel):
+    name: str
+    amount: float
+    category: Literal["asset", "consumable"]
+
+
+class ScanReceiptResponse(BaseModel):
+    """
+    Response for POST /expenses/scan-receipt. Deliberately NOT ExpenseOut
+    — no Expense row exists yet at this point. "receipt_url" is filled
+    in because the image is uploaded to Storage as part of this same
+    call (so the officer's photo isn't lost even if they abandon the
+    form afterward), but merchant/date/amount/items are just Gemini's
+    read of the receipt for the officer to review and correct in the
+    app before calling POST /expenses with the final values.
+    """
+    receipt_url: str
+    merchant: str | None
+    date: date | None
+    amount: float | None
+    items: list[ScannedReceiptItem]
