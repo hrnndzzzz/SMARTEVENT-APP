@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'screens/adviser_dashboard_screen.dart';
 import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
+import 'screens/adviser_dashboard_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/risk_screen.dart';
 import 'screens/inventory_screen.dart';
+import 'screens/events_screen.dart';
 import 'widgets/docket_nav_bar.dart';
 
 void main() {
@@ -51,6 +52,7 @@ class _RootShellState extends State<RootShell> {
     2: const ScannerScreen(),
     3: const RiskScreen(),
     4: const InventoryScreen(),
+    5: const EventsScreen(),
   };
 
   @override

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
-/// Shared bottom nav bar for SmartEvent's five sections.
-/// Pass the index of whichever tab should show as active.
 class DocketNavBar extends StatelessWidget {
   final int activeIndex;
   final ValueChanged<int>? onTap;
@@ -16,6 +14,7 @@ class DocketNavBar extends StatelessWidget {
     (Icons.document_scanner_outlined, 'Scanner'),
     (Icons.warning_amber_outlined, 'Risk'),
     (Icons.inventory_2_outlined, 'Inventory'),
+    (Icons.event_outlined, 'Events'),
   ];
 
   @override
@@ -36,11 +35,12 @@ class DocketNavBar extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(_items[i].$1, size: 19, color: color),
+                Icon(_items[i].$1, size: 18, color: color),
                 const SizedBox(height: 3),
                 Text(
                   _items[i].$2,
                   style: AppText.navLabel.copyWith(
+                    fontSize: 9,
                     color: color,
                     fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
                   ),
