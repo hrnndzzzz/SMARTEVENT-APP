@@ -5,8 +5,54 @@ import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
-class AdviserDashboardScreen extends StatelessWidget {
+class _Request {
+  final String title;
+  final String org;
+  final String amount;
+  final String type;
+
+  _Request({
+    required this.title,
+    required this.org,
+    required this.amount,
+    required this.type,
+  });
+}
+
+class AdviserDashboardScreen extends StatefulWidget {
   const AdviserDashboardScreen({super.key});
+
+  @override
+  State<AdviserDashboardScreen> createState() => _AdviserDashboardScreenState();
+}
+
+class _AdviserDashboardScreenState extends State<AdviserDashboardScreen> {
+  final List<_Request> _pending = [
+    _Request(
+      title: 'Leadership Summit 2026 — Budget Proposal',
+      org: 'Engineering Soc.',
+      amount: '₱8,200.00',
+      type: 'Budget',
+    ),
+    _Request(
+      title: 'CITE Sports Fest — Cash Advance',
+      org: 'CITE Student Council',
+      amount: '₱1,500.00',
+      type: 'Advance',
+    ),
+  ];
+
+  final List<_Request> _handled = [];
+
+  void _decide(_Request req, {required bool approved}) {
+    setState(() {
+      _pending.remove(req);
+      _handled.insert(0, req);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${req.title} — ${approved ? 'Approved' : 'Rejected'}')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,24 +85,31 @@ class AdviserDashboardScreen extends StatelessWidget {
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 8),
-                  children: const [
-                    _BalanceOverviewCard(),
-                    SizedBox(height: 18),
-                    Text('Pending requests', style: AppText.cardTitle),
-                    SizedBox(height: 10),
-                    _RequestCard(
-                      title: 'Leadership Summit 2026 — Budget Proposal',
-                      org: 'Engineering Soc.',
-                      amount: '₱8,200.00',
-                      type: 'Budget',
-                    ),
-                    SizedBox(height: 10),
-                    _RequestCard(
-                      title: 'CITE Sports Fest — Cash Advance',
-                      org: 'CITE Student Council',
-                      amount: '₱1,500.00',
-                      type: 'Advance',
-                    ),
+                  children: [
+                    const _BalanceOverviewCard(),
+                    const SizedBox(height: 18),
+                    Text('Pending requests (${_pending.length})', style: AppText.cardTitle),
+                    const SizedBox(height: 10),
+                    if (_pending.isEmpty)
+                      const _EmptyState(text: 'No pending requests. All caught up.')
+                    else
+                      for (final req in _pending) ...[
+                        _RequestCard(
+                          request: req,
+                          onApprove: () => _decide(req, approved: true),
+                          onReject: () => _decide(req, approved: false),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    if (_handled.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      const Text('Recently handled', style: AppText.caption),
+                      const SizedBox(height: 8),
+                      for (final req in _handled) ...[
+                        _HandledRow(request: req),
+                        const SizedBox(height: 6),
+                      ],
+                    ],
                   ],
                 ),
               ),
@@ -113,16 +166,14 @@ class _BalanceOverviewCard extends StatelessWidget {
 }
 
 class _RequestCard extends StatelessWidget {
-  final String title;
-  final String org;
-  final String amount;
-  final String type;
+  final _Request request;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
   const _RequestCard({
-    required this.title,
-    required this.org,
-    required this.amount,
-    required this.type,
+    required this.request,
+    required this.onApprove,
+    required this.onReject,
   });
 
   @override
@@ -143,7 +194,7 @@ class _RequestCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    type,
+                    request.type,
                     style: const TextStyle(
                       fontFamily: AppText.bodyFamily,
                       fontSize: 10,
@@ -155,15 +206,15 @@ class _RequestCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(title, style: AppText.cardTitle),
+            Text(request.title, style: AppText.cardTitle),
             const SizedBox(height: 2),
-            Text(org, style: AppText.caption),
+            Text(request.org, style: AppText.caption),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  amount,
+                  request.amount,
                   style: const TextStyle(
                     fontFamily: AppText.monoFamily,
                     fontWeight: FontWeight.w500,
@@ -174,7 +225,7 @@ class _RequestCard extends StatelessWidget {
                 Row(
                   children: [
                     OutlinedButton(
-                      onPressed: () {},
+                      onPressed: onReject,
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         side: const BorderSide(color: AppColors.brick, width: 0.8),
@@ -184,7 +235,7 @@ class _RequestCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: onApprove,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       ),
@@ -197,6 +248,50 @@ class _RequestCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HandledRow extends StatelessWidget {
+  final _Request request;
+  const _HandledRow({required this.request});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F5F1),
+        border: Border.all(color: AppColors.border, width: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, size: 15, color: AppColors.inkFaint),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${request.title} · ${request.org}',
+              style: AppText.caption,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final String text;
+  const _EmptyState({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      alignment: Alignment.center,
+      child: Text(text, style: AppText.caption),
     );
   }
 }

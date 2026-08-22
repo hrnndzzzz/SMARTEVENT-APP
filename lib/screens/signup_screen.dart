@@ -50,16 +50,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 22),
               const _FieldLabel('Full Name'),
               const SizedBox(height: 6),
-              _buildTextField(hint: 'Juan Dela Cruz'),
+              _buildTextField(hint: 'Boope'),
               const SizedBox(height: 14),
               const _FieldLabel('LCUP Email'),
               const SizedBox(height: 6),
-              _buildTextField(hint: 'juan.delacruz@lcup.edu.ph'),
+              _buildTextField(hint: 'hrnndz@lcup.edu.manzano'),
               const SizedBox(height: 14),
               const _FieldLabel('Password'),
               const SizedBox(height: 6),
               _buildTextField(
-                hint: '••••••••••',
+                hint: 'basta asterisks mga siyam',
                 obscure: _obscurePassword,
                 suffix: IconButton(
                   icon: Icon(
@@ -115,7 +115,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       children: [
                         TextSpan(text: 'Already have an account? '),
                         TextSpan(
-                          text: 'Sign In',
+                          text: 'jusq may account ka na pala bwiset',
                           style: TextStyle(color: AppColors.indigo, fontWeight: FontWeight.w500),
                         ),
                       ],

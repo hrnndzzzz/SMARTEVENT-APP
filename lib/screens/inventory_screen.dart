@@ -5,8 +5,73 @@ import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
-class InventoryScreen extends StatelessWidget {
+class _InventoryItem {
+  final IconData icon;
+  final String name;
+  final String description;
+  int qty;
+  final int lowStockThreshold;
+
+  _InventoryItem({
+    required this.icon,
+    required this.name,
+    required this.description,
+    required this.qty,
+    this.lowStockThreshold = 2,
+  });
+
+  bool get isLowStock => qty < lowStockThreshold;
+}
+
+class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
+
+  @override
+  State<InventoryScreen> createState() => _InventoryScreenState();
+}
+
+class _InventoryScreenState extends State<InventoryScreen> {
+  final List<_InventoryItem> _items = [
+    _InventoryItem(
+      icon: Icons.cable,
+      name: 'HDMI Cables (4K 10m)',
+      description: 'High-speed AV connectivity.',
+      qty: 1,
+    ),
+    _InventoryItem(
+      icon: Icons.campaign_outlined,
+      name: 'PA Sound System Set',
+      description: 'Includes 2 speakers, mixer, and wireless mics.',
+      qty: 4,
+    ),
+  ];
+
+  final List<String> _log = [
+    'PA System — checked out by J. Doe · 2h ago',
+    'Projector Screen — returned by S. Smith · 5h ago',
+  ];
+
+  void _issue(_InventoryItem item) {
+    if (item.qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.name} is out of stock.')),
+      );
+      return;
+    }
+    setState(() {
+      item.qty -= 1;
+      _log.insert(0, '${item.name} — issued · just now');
+    });
+  }
+
+  void _restock(_InventoryItem item) {
+    setState(() {
+      item.qty += 5;
+      _log.insert(0, '${item.name} — restocked +5 · just now');
+    });
+  }
+
+  int get _lowStockCount => _items.where((i) => i.isLowStock).length;
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +110,10 @@ class InventoryScreen extends StatelessWidget {
               const SizedBox(height: 2),
               const Text('Track and manage campus resources.', style: AppText.caption),
               const SizedBox(height: 14),
-              const _LowStockBanner(),
-              const SizedBox(height: 12),
+              if (_lowStockCount > 0) ...[
+                _LowStockBanner(count: _lowStockCount),
+                const SizedBox(height: 12),
+              ],
               const _SearchField(),
               const SizedBox(height: 12),
               const _CategoryChips(),
@@ -54,36 +121,19 @@ class InventoryScreen extends StatelessWidget {
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 8),
-                  children: const [
-                    _InventoryItemCard(
-                      icon: Icons.cable,
-                      name: 'HDMI Cables (4K 10m)',
-                      description: 'High-speed AV connectivity.',
-                      qty: 1,
-                      statusLabel: 'Low Stock',
-                      statusColor: AppColors.brick,
-                      statusBg: Color(0xFFFBEAE7),
-                      statusIcon: Icons.warning_amber_rounded,
-                      tagColor: AppColors.brick,
-                      showRestock: true,
-                    ),
-                    SizedBox(height: 10),
-                    _InventoryItemCard(
-                      icon: Icons.campaign_outlined,
-                      name: 'PA Sound System Set',
-                      description: 'Includes 2 speakers, mixer, and wireless mics.',
-                      qty: 4,
-                      statusLabel: 'Operational',
-                      statusColor: AppColors.sageTealText,
-                      statusBg: AppColors.sageTealTint,
-                      statusIcon: Icons.check_circle_outline,
-                      tagColor: AppColors.sageTeal,
-                      showRestock: false,
-                    ),
-                    SizedBox(height: 16),
-                    Text('Recent transactions', style: AppText.caption),
-                    SizedBox(height: 8),
-                    _RecentTransactionsList(),
+                  children: [
+                    for (final item in _items) ...[
+                      _InventoryItemCard(
+                        item: item,
+                        onIssue: () => _issue(item),
+                        onRestock: () => _restock(item),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    const SizedBox(height: 6),
+                    const Text('Recent transactions', style: AppText.caption),
+                    const SizedBox(height: 8),
+                    _RecentTransactionsList(entries: _log),
                   ],
                 ),
               ),
@@ -96,7 +146,8 @@ class InventoryScreen extends StatelessWidget {
 }
 
 class _LowStockBanner extends StatelessWidget {
-  const _LowStockBanner();
+  final int count;
+  const _LowStockBanner({required this.count});
 
   @override
   Widget build(BuildContext context) {
@@ -120,16 +171,16 @@ class _LowStockBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '2 items below minimum threshold',
-                  style: TextStyle(
+                  '$count item${count == 1 ? '' : 's'} below minimum threshold',
+                  style: const TextStyle(
                     fontFamily: AppText.headerFamily,
                     fontWeight: FontWeight.w500,
                     fontSize: 13,
                     color: AppColors.marigoldText,
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
+                const SizedBox(height: 2),
+                const Text(
                   'Immediate action needed to ensure event continuity.',
                   style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.inkMuted),
                 ),
@@ -206,32 +257,25 @@ class _CategoryChips extends StatelessWidget {
 }
 
 class _InventoryItemCard extends StatelessWidget {
-  final IconData icon;
-  final String name;
-  final String description;
-  final int qty;
-  final String statusLabel;
-  final Color statusColor;
-  final Color statusBg;
-  final IconData statusIcon;
-  final Color tagColor;
-  final bool showRestock;
+  final _InventoryItem item;
+  final VoidCallback onIssue;
+  final VoidCallback onRestock;
 
   const _InventoryItemCard({
-    required this.icon,
-    required this.name,
-    required this.description,
-    required this.qty,
-    required this.statusLabel,
-    required this.statusColor,
-    required this.statusBg,
-    required this.statusIcon,
-    required this.tagColor,
-    required this.showRestock,
+    required this.item,
+    required this.onIssue,
+    required this.onRestock,
   });
 
   @override
   Widget build(BuildContext context) {
+    final low = item.isLowStock;
+    final statusLabel = low ? 'Low Stock' : 'Operational';
+    final statusColor = low ? AppColors.brick : AppColors.sageTealText;
+    final statusBg = low ? const Color(0xFFFBEAE7) : AppColors.sageTealTint;
+    final statusIcon = low ? Icons.warning_amber_rounded : Icons.check_circle_outline;
+    final tagColor = low ? AppColors.brick : AppColors.sageTeal;
+
     return Stack(
       children: [
         Container(
@@ -256,9 +300,10 @@ class _InventoryItemCard extends StatelessWidget {
                       color: const Color(0xFFF4F2EC),
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: Icon(icon, size: 18, color: AppColors.ink),
+                    child: Icon(item.icon, size: 18, color: AppColors.ink),
                   ),
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
                     child: Row(
@@ -281,15 +326,15 @@ class _InventoryItemCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(name, style: AppText.cardTitle),
+              Text(item.name, style: AppText.cardTitle),
               const SizedBox(height: 2),
-              Text(description, style: AppText.caption),
+              Text(item.description, style: AppText.caption),
               const SizedBox(height: 10),
               RichText(
                 text: TextSpan(
                   children: [
                     TextSpan(
-                      text: '$qty',
+                      text: '${item.qty}',
                       style: const TextStyle(
                         fontFamily: AppText.monoFamily,
                         fontWeight: FontWeight.w500,
@@ -309,21 +354,19 @@ class _InventoryItemCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: onIssue,
                       style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 9)),
                       child: const Text('Issue Item', style: TextStyle(fontSize: 12)),
                     ),
                   ),
-                  if (showRestock) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 9)),
-                        child: const Text('Restock', style: TextStyle(fontSize: 12)),
-                      ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onRestock,
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 9)),
+                      child: const Text('Restock +5', style: TextStyle(fontSize: 12)),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ],
@@ -347,7 +390,8 @@ class _InventoryItemCard extends StatelessWidget {
 }
 
 class _RecentTransactionsList extends StatelessWidget {
-  const _RecentTransactionsList();
+  final List<String> entries;
+  const _RecentTransactionsList({required this.entries});
 
   @override
   Widget build(BuildContext context) {
@@ -359,54 +403,26 @@ class _RecentTransactionsList extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _row(
-            icon: Icons.arrow_outward,
-            iconBg: const Color(0xFFF4F2EC),
-            iconColor: AppColors.ink,
-            text: 'PA System — checked out by J. Doe',
-            time: '2h ago',
-          ),
-          const Divider(height: 1, color: AppColors.border),
-          _row(
-            icon: Icons.reply,
-            iconBg: AppColors.sageTealTint,
-            iconColor: AppColors.sageTealText,
-            text: 'Projector Screen — returned by S. Smith',
-            time: '5h ago',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _row({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String text,
-    required String time,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, size: 14, color: iconColor),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(text, style: AppText.body.copyWith(fontSize: 13)),
-                const SizedBox(height: 1),
-                Text(time, style: AppText.moneySmall),
-              ],
+          for (int i = 0; i < entries.length; i++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(color: Color(0xFFF4F2EC), shape: BoxShape.circle),
+                    child: const Icon(Icons.swap_horiz, size: 14, color: AppColors.ink),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(entries[i], style: AppText.body.copyWith(fontSize: 12)),
+                  ),
+                ],
+              ),
             ),
-          ),
+            if (i != entries.length - 1) const Divider(height: 1, color: AppColors.border),
+          ],
         ],
       ),
     );

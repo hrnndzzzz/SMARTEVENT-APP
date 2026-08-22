@@ -5,8 +5,46 @@ import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
-class AdminDashboardScreen extends StatelessWidget {
+class _Approval {
+  final String title;
+  final String org;
+  final String amount;
+
+  _Approval({required this.title, required this.org, required this.amount});
+}
+
+class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
+
+  @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  final List<_Approval> _pending = [
+    _Approval(
+      title: 'Leadership Summit 2026 — Budget Proposal',
+      org: 'Engineering Soc.',
+      amount: '₱8,200.00',
+    ),
+    _Approval(
+      title: 'CITE Sports Fest — Cash Advance',
+      org: 'CITE Student Council',
+      amount: '₱1,500.00',
+    ),
+  ];
+
+  final List<_Approval> _handled = [];
+
+  void _decide(_Approval req, {required bool approved}) {
+    setState(() {
+      _pending.remove(req);
+      _handled.insert(0, req);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${req.title} — ${approved ? 'Approved' : 'Rejected'}')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,22 +77,31 @@ class AdminDashboardScreen extends StatelessWidget {
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 8),
-                  children: const [
-                    _QuickActionsGrid(),
-                    SizedBox(height: 18),
-                    Text('Pending approvals', style: AppText.cardTitle),
-                    SizedBox(height: 10),
-                    _ApprovalCard(
-                      title: 'Leadership Summit 2026 — Budget Proposal',
-                      org: 'Engineering Soc.',
-                      amount: '₱8,200.00',
-                    ),
-                    SizedBox(height: 10),
-                    _ApprovalCard(
-                      title: 'CITE Sports Fest — Cash Advance',
-                      org: 'CITE Student Council',
-                      amount: '₱1,500.00',
-                    ),
+                  children: [
+                    const _QuickActionsGrid(),
+                    const SizedBox(height: 18),
+                    Text('Pending approvals (${_pending.length})', style: AppText.cardTitle),
+                    const SizedBox(height: 10),
+                    if (_pending.isEmpty)
+                      const _EmptyState(text: 'No pending approvals. All caught up.')
+                    else
+                      for (final req in _pending) ...[
+                        _ApprovalCard(
+                          approval: req,
+                          onApprove: () => _decide(req, approved: true),
+                          onReject: () => _decide(req, approved: false),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    if (_handled.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      const Text('Recently handled', style: AppText.caption),
+                      const SizedBox(height: 8),
+                      for (final req in _handled) ...[
+                        _HandledRow(approval: req),
+                        const SizedBox(height: 6),
+                      ],
+                    ],
                   ],
                 ),
               ),
@@ -136,11 +183,15 @@ class _ActionTile extends StatelessWidget {
 }
 
 class _ApprovalCard extends StatelessWidget {
-  final String title;
-  final String org;
-  final String amount;
+  final _Approval approval;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
-  const _ApprovalCard({required this.title, required this.org, required this.amount});
+  const _ApprovalCard({
+    required this.approval,
+    required this.onApprove,
+    required this.onReject,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -151,15 +202,15 @@ class _ApprovalCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: AppText.cardTitle),
+            Text(approval.title, style: AppText.cardTitle),
             const SizedBox(height: 4),
-            Text(org, style: AppText.caption),
+            Text(approval.org, style: AppText.caption),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  amount,
+                  approval.amount,
                   style: const TextStyle(
                     fontFamily: AppText.monoFamily,
                     fontWeight: FontWeight.w500,
@@ -170,7 +221,7 @@ class _ApprovalCard extends StatelessWidget {
                 Row(
                   children: [
                     OutlinedButton(
-                      onPressed: () {},
+                      onPressed: onReject,
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         side: const BorderSide(color: AppColors.brick, width: 0.8),
@@ -180,7 +231,7 @@ class _ApprovalCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: onApprove,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       ),
@@ -193,6 +244,50 @@ class _ApprovalCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HandledRow extends StatelessWidget {
+  final _Approval approval;
+  const _HandledRow({required this.approval});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F5F1),
+        border: Border.all(color: AppColors.border, width: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, size: 15, color: AppColors.inkFaint),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${approval.title} · ${approval.org}',
+              style: AppText.caption,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final String text;
+  const _EmptyState({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      alignment: Alignment.center,
+      child: Text(text, style: AppText.caption),
     );
   }
 }

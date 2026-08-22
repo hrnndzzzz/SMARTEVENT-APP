@@ -5,11 +5,98 @@ import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
-class SearchScreen extends StatelessWidget {
+enum _ResultType { event, transaction }
+
+class _SearchResult {
+  final _ResultType type;
+  final String title;
+  final String subtitle;
+  final String timestamp;
+  final String? amount;
+  final List<String> tags;
+
+  _SearchResult({
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.timestamp,
+    this.amount,
+    this.tags = const [],
+  });
+}
+
+class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
   @override
+  State<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends State<SearchScreen> {
+  final TextEditingController _controller = TextEditingController(text: 'Hackathon');
+  String _filter = 'All';
+
+  final List<_SearchResult> _dataset = [
+    _SearchResult(
+      type: _ResultType.event,
+      title: 'Annual Fall Hackathon 2024',
+      subtitle: 'The premier engineering and computer science hackathon focusing on sustainable tech.',
+      timestamp: 'Oct 12 - 14',
+      tags: ['Approved', 'Engineering Soc.'],
+    ),
+    _SearchResult(
+      type: _ResultType.transaction,
+      title: 'Catering Deposit — Hackathon',
+      subtitle: 'Vendor: Fresh Campus Catering',
+      timestamp: '2 hrs ago',
+      amount: '-₱2,500.00',
+    ),
+    _SearchResult(
+      type: _ResultType.event,
+      title: 'Leadership Summit 2026',
+      subtitle: 'Full-day leadership training for incoming officers across CITE orgs.',
+      timestamp: 'Nov 20',
+      tags: ['Under Review', 'CITE Student Council'],
+    ),
+    _SearchResult(
+      type: _ResultType.transaction,
+      title: 'Venue Rental — Auditorium',
+      subtitle: 'Vendor: LCUP Facilities Office',
+      timestamp: 'Yesterday',
+      amount: '-₱3,000.00',
+    ),
+    _SearchResult(
+      type: _ResultType.event,
+      title: 'CITE Sports Fest',
+      subtitle: 'Intramurals across all CITE student organizations.',
+      timestamp: 'Aug 5 - 7',
+      tags: ['Active', 'CITE Student Council'],
+    ),
+  ];
+
+  List<_SearchResult> get _results {
+    final query = _controller.text.trim().toLowerCase();
+    return _dataset.where((r) {
+      final matchesType = switch (_filter) {
+        'Events' => r.type == _ResultType.event,
+        'Transactions' => r.type == _ResultType.transaction,
+        _ => true,
+      };
+      if (!matchesType) return false;
+      if (query.isEmpty) return true;
+      return r.title.toLowerCase().contains(query) || r.subtitle.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final results = _results;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -33,21 +120,34 @@ class SearchScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const _SearchBar(query: 'Hackathon'),
+              _SearchBar(
+                controller: _controller,
+                onChanged: (_) => setState(() {}),
+                onClear: () => setState(() => _controller.clear()),
+              ),
               const SizedBox(height: 12),
-              const _FilterChips(),
-              const SizedBox(height: 12),
-              const _QuickFilters(),
+              _FilterChips(
+                selected: _filter,
+                onSelect: (f) => setState(() => _filter = f),
+              ),
               const SizedBox(height: 16),
-              const Text('Results for "Hackathon"', style: AppText.cardTitle),
+              Text(
+                _controller.text.trim().isEmpty
+                    ? 'All results'
+                    : 'Results for "${_controller.text.trim()}"',
+                style: AppText.cardTitle,
+              ),
               const SizedBox(height: 10),
               Expanded(
-                child: ListView(
+                child: results.isEmpty
+                    ? const _EmptyResults()
+                    : ListView(
                   padding: const EdgeInsets.only(bottom: 8),
-                  children: const [
-                    _EventResultCard(),
-                    SizedBox(height: 10),
-                    _TransactionResultCard(),
+                  children: [
+                    for (final r in results) ...[
+                      _ResultCard(result: r),
+                      const SizedBox(height: 10),
+                    ],
                   ],
                 ),
               ),
@@ -60,13 +160,16 @@ class SearchScreen extends StatelessWidget {
 }
 
 class _SearchBar extends StatelessWidget {
-  final String query;
-  const _SearchBar({required this.query});
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  const _SearchBar({required this.controller, required this.onChanged, required this.onClear});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border.all(color: AppColors.border, width: 0.5),
@@ -76,8 +179,19 @@ class _SearchBar extends StatelessWidget {
         children: [
           const Icon(Icons.search, size: 18, color: AppColors.inkMuted),
           const SizedBox(width: 8),
-          Expanded(child: Text(query, style: AppText.body)),
-          const Icon(Icons.close, size: 16, color: AppColors.inkMuted),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              style: AppText.body,
+              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+            ),
+          ),
+          if (controller.text.isNotEmpty)
+            GestureDetector(
+              onTap: onClear,
+              child: const Icon(Icons.close, size: 16, color: AppColors.inkMuted),
+            ),
         ],
       ),
     );
@@ -85,7 +199,10 @@ class _SearchBar extends StatelessWidget {
 }
 
 class _FilterChips extends StatelessWidget {
-  const _FilterChips();
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  const _FilterChips({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +210,7 @@ class _FilterChips extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _chip('All', selected: true),
+          _chip('All'),
           const SizedBox(width: 8),
           _chip('Events'),
           const SizedBox(width: 8),
@@ -103,169 +220,61 @@ class _FilterChips extends StatelessWidget {
     );
   }
 
-  Widget _chip(String label, {bool selected = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.indigo : AppColors.surface,
-        border: selected ? null : Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-          color: selected ? Colors.white : AppColors.ink,
+  Widget _chip(String label) {
+    final isSelected = selected == label;
+    return GestureDetector(
+      onTap: () => onSelect(label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.indigo : AppColors.surface,
+          border: isSelected ? null : Border.all(color: AppColors.border, width: 0.5),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppText.bodyFamily,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+            color: isSelected ? Colors.white : AppColors.ink,
+          ),
         ),
       ),
     );
   }
 }
 
-class _QuickFilters extends StatelessWidget {
-  const _QuickFilters();
+class _EmptyResults extends StatelessWidget {
+  const _EmptyResults();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _dropdown('Quarter 1')),
-        const SizedBox(width: 8),
-        Expanded(child: _dropdown('All Depts')),
-      ],
-    );
-  }
-
-  Widget _dropdown(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: AppText.body.copyWith(fontSize: 12)),
-          const Icon(Icons.keyboard_arrow_down, size: 15, color: AppColors.inkMuted),
-        ],
-      ),
-    );
-  }
-}
-
-class _EventResultCard extends StatelessWidget {
-  const _EventResultCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _ResultCardShell(
-      tagColor: AppColors.sageTeal,
-      icon: Icons.event_outlined,
-      label: 'EVENT',
-      labelColor: AppColors.sageTeal,
-      timestamp: 'Oct 12 - 14',
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Annual Fall Hackathon 2024', style: AppText.cardTitle),
-          const SizedBox(height: 4),
-          Text(
-            'The premier engineering and computer science hackathon focusing on sustainable tech.',
-            style: AppText.caption,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _pill('Approved', bg: AppColors.sageTealTint, fg: AppColors.sageTealText),
-              const SizedBox(width: 6),
-              _pill('Engineering Soc.', bg: const Color(0xFFF4F2EC), fg: AppColors.inkMuted),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _pill(String text, {required Color bg, required Color fg}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: fg,
-        ),
-      ),
-    );
-  }
-}
-
-class _TransactionResultCard extends StatelessWidget {
-  const _TransactionResultCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _ResultCardShell(
-      tagColor: AppColors.marigold,
-      icon: Icons.receipt_long_outlined,
-      label: 'TRANSACTION',
-      labelColor: AppColors.marigoldText,
-      timestamp: '2 hrs ago',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Catering Deposit — Hackathon', style: AppText.cardTitle),
-                SizedBox(height: 4),
-                Text('Vendor: Fresh Campus Catering', style: AppText.caption),
-              ],
-            ),
-          ),
-          const Text(
-            '-₱2,500.00',
-            style: TextStyle(
-              fontFamily: AppText.monoFamily,
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-              color: AppColors.brick,
-            ),
-          ),
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.search_off, size: 34, color: AppColors.inkFaint),
+          SizedBox(height: 10),
+          Text('No results found.', style: AppText.caption),
         ],
       ),
     );
   }
 }
 
-class _ResultCardShell extends StatelessWidget {
-  final Color tagColor;
-  final IconData icon;
-  final String label;
-  final Color labelColor;
-  final String timestamp;
-  final Widget child;
-
-  const _ResultCardShell({
-    required this.tagColor,
-    required this.icon,
-    required this.label,
-    required this.labelColor,
-    required this.timestamp,
-    required this.child,
-  });
+class _ResultCard extends StatelessWidget {
+  final _SearchResult result;
+  const _ResultCard({required this.result});
 
   @override
   Widget build(BuildContext context) {
+    final isEvent = result.type == _ResultType.event;
+    final tagColor = isEvent ? AppColors.sageTeal : AppColors.marigold;
+    final labelColor = isEvent ? AppColors.sageTeal : AppColors.marigoldText;
+    final icon = isEvent ? Icons.event_outlined : Icons.receipt_long_outlined;
+    final label = isEvent ? 'EVENT' : 'TRANSACTION';
+
     return Stack(
       children: [
         Container(
@@ -299,7 +308,7 @@ class _ResultCardShell extends StatelessWidget {
                     ],
                   ),
                   Text(
-                    timestamp,
+                    result.timestamp,
                     style: const TextStyle(
                       fontFamily: AppText.monoFamily,
                       fontSize: 11,
@@ -309,7 +318,52 @@ class _ResultCardShell extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              child,
+              if (isEvent)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(result.title, style: AppText.cardTitle),
+                    const SizedBox(height: 4),
+                    Text(result.subtitle, style: AppText.caption),
+                    if (result.tags.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          for (int i = 0; i < result.tags.length; i++) ...[
+                            _pill(result.tags[i], i == 0),
+                            if (i != result.tags.length - 1) const SizedBox(width: 6),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(result.title, style: AppText.cardTitle),
+                          const SizedBox(height: 4),
+                          Text(result.subtitle, style: AppText.caption),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      result.amount ?? '',
+                      style: const TextStyle(
+                        fontFamily: AppText.monoFamily,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: AppColors.brick,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -326,6 +380,25 @@ class _ResultCardShell extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _pill(String text, bool primary) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: primary ? AppColors.sageTealTint : const Color(0xFFF4F2EC),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: AppText.bodyFamily,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: primary ? AppColors.sageTealText : AppColors.inkMuted,
+        ),
+      ),
     );
   }
 }

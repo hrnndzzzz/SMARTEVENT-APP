@@ -52,7 +52,7 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 22),
               const _FieldLabel('LCUP Email'),
               const SizedBox(height: 6),
-              _buildTextField(hint: 'juan.delacruz@lcup.edu.ph'),
+              _buildTextField(hint: 'puertoleon@rawr'),
               const SizedBox(height: 14),
               const _FieldLabel('Password'),
               const SizedBox(height: 6),
@@ -134,7 +134,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       children: [
                         TextSpan(text: "Don't have an account? "),
                         TextSpan(
-                          text: 'Sign Up',
+                          text: 'Gawa ka bago leche',
                           style: TextStyle(color: AppColors.indigo, fontWeight: FontWeight.w500),
                         ),
                       ],

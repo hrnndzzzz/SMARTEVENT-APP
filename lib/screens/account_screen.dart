@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'welcome_screen.dart';
+import 'settings_screen.dart';
+import 'edit_profile_screen.dart';
+import 'notification_prefs_screen.dart';
+import 'help_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   final String initials;
@@ -73,10 +77,34 @@ class AccountScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 28),
-              _MenuTile(icon: Icons.person_outline, label: 'Edit Profile', onTap: () {}),
-              _MenuTile(icon: Icons.settings_outlined, label: 'Settings', onTap: () {}),
-              _MenuTile(icon: Icons.notifications_none, label: 'Notification Preferences', onTap: () {}),
-              _MenuTile(icon: Icons.help_outline, label: 'Help & Support', onTap: () {}),
+              _MenuTile(
+                icon: Icons.person_outline,
+                label: 'Edit Profile',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => EditProfileScreen(name: name, role: role)),
+                ),
+              ),
+              _MenuTile(
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
+              _MenuTile(
+                icon: Icons.notifications_none,
+                label: 'Notification Preferences',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationPrefsScreen()),
+                ),
+              ),
+              _MenuTile(
+                icon: Icons.help_outline,
+                label: 'Help & Support',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const HelpScreen()),
+                ),
+              ),
               const Spacer(),
               _MenuTile(
                 icon: Icons.logout,
