@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
 class AdviserDashboardScreen extends StatelessWidget {
   const AdviserDashboardScreen({super.key});
@@ -12,8 +15,26 @@ class AdviserDashboardScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _AdviserHeader(),
+              AppHeader(
+                initials: 'FA',
+                subtitle: 'Faculty Adviser',
+                subtitleBg: AppColors.sageTealTint,
+                subtitleColor: AppColors.sageTealText,
+                onAvatarTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AccountScreen(
+                      initials: 'FA',
+                      name: 'Prof. Maria Santos',
+                      role: 'Faculty Adviser',
+                    ),
+                  ),
+                ),
+                onBellTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView(
@@ -43,58 +64,6 @@ class AdviserDashboardScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AdviserHeader extends StatelessWidget {
-  const _AdviserHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const CircleAvatar(
-          radius: 17,
-          backgroundColor: AppColors.indigo,
-          child: Text(
-            'FA',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              fontFamily: AppText.bodyFamily,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('SmartEvent', style: AppText.wordmark),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.sageTealTint,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Faculty Adviser',
-                  style: TextStyle(
-                    fontFamily: AppText.bodyFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 10,
-                    color: AppColors.sageTealText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.notifications_none, color: AppColors.indigo, size: 22),
-      ],
     );
   }
 }

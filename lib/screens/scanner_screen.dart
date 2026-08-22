@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -26,33 +29,59 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          children: [
-            const Text(
-              'Receipt Scanner',
-              style: TextStyle(
-                fontFamily: AppText.headerFamily,
-                fontWeight: FontWeight.w500,
-                fontSize: 20,
-                color: AppColors.ink,
-                height: 1.25,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppHeader(
+                initials: 'SO',
+                onAvatarTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AccountScreen(
+                      initials: 'SO',
+                      name: 'Juan Dela Cruz',
+                      role: 'CITE Dept Officer',
+                    ),
+                  ),
+                ),
+                onBellTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Capture a receipt to auto-fill the expense entry.',
-              style: AppText.caption,
-            ),
-            const SizedBox(height: 16),
-            _CapturePreview(image: _capturedImage, onCapture: _capturePhoto),
-            const SizedBox(height: 16),
-            if (_capturedImage != null) ...[
-              const _DetectedFieldsCard(),
-              const SizedBox(height: 14),
-              const _ConfirmButton(),
+              const SizedBox(height: 16),
+              const Text(
+                'Receipt Scanner',
+                style: TextStyle(
+                  fontFamily: AppText.headerFamily,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 20,
+                  color: AppColors.ink,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Capture a receipt to auto-fill the expense entry.',
+                style: AppText.caption,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: [
+                    _CapturePreview(image: _capturedImage, onCapture: _capturePhoto),
+                    const SizedBox(height: 16),
+                    if (_capturedImage != null) ...[
+                      const _DetectedFieldsCard(),
+                      const SizedBox(height: 14),
+                      const _ConfirmButton(),
+                    ],
+                  ],
+                ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );

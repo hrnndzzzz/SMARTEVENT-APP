@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -9,81 +12,56 @@ class AdminDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          children: const [
-            _AdminHeader(),
-            SizedBox(height: 16),
-            _QuickActionsGrid(),
-            SizedBox(height: 18),
-            Text('Pending approvals', style: AppText.cardTitle),
-            SizedBox(height: 10),
-            _ApprovalCard(
-              title: 'Leadership Summit 2026 — Budget Proposal',
-              org: 'Engineering Soc.',
-              amount: '₱8,200.00',
-            ),
-            SizedBox(height: 10),
-            _ApprovalCard(
-              title: 'CITE Sports Fest — Cash Advance',
-              org: 'CITE Student Council',
-              amount: '₱1,500.00',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AdminHeader extends StatelessWidget {
-  const _AdminHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const CircleAvatar(
-          radius: 17,
-          backgroundColor: AppColors.indigo,
-          child: Text(
-            'SA',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              fontFamily: AppText.bodyFamily,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('SmartEvent', style: AppText.wordmark),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8ECF3),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'System Administrator',
-                  style: TextStyle(
-                    fontFamily: AppText.bodyFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 10,
-                    color: AppColors.indigo,
+              AppHeader(
+                initials: 'SA',
+                subtitle: 'System Administrator',
+                subtitleBg: const Color(0xFFE8ECF3),
+                subtitleColor: AppColors.indigo,
+                onAvatarTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AccountScreen(
+                      initials: 'SA',
+                      name: 'Admin User',
+                      role: 'System Administrator',
+                    ),
                   ),
+                ),
+                onBellTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: const [
+                    _QuickActionsGrid(),
+                    SizedBox(height: 18),
+                    Text('Pending approvals', style: AppText.cardTitle),
+                    SizedBox(height: 10),
+                    _ApprovalCard(
+                      title: 'Leadership Summit 2026 — Budget Proposal',
+                      org: 'Engineering Soc.',
+                      amount: '₱8,200.00',
+                    ),
+                    SizedBox(height: 10),
+                    _ApprovalCard(
+                      title: 'CITE Sports Fest — Cash Advance',
+                      org: 'CITE Student Council',
+                      amount: '₱1,500.00',
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-        const Icon(Icons.notifications_none, color: AppColors.indigo, size: 22),
-      ],
+      ),
     );
   }
 }

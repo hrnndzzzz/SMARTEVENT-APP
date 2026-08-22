@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
 class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
@@ -14,7 +17,33 @@ class InventoryScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _InventoryHeader(),
+              AppHeader(
+                initials: 'SO',
+                onAvatarTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AccountScreen(
+                      initials: 'SO',
+                      name: 'Juan Dela Cruz',
+                      role: 'CITE Dept Officer',
+                    ),
+                  ),
+                ),
+                onBellTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Inventory & Equipment',
+                style: TextStyle(
+                  fontFamily: AppText.headerFamily,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 18,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text('Track and manage campus resources.', style: AppText.caption),
               const SizedBox(height: 14),
               const _LowStockBanner(),
               const SizedBox(height: 12),
@@ -62,38 +91,6 @@ class InventoryScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _InventoryHeader extends StatelessWidget {
-  const _InventoryHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text('SmartEvent', style: AppText.wordmark),
-            Icon(Icons.notifications_none, color: AppColors.indigo, size: 22),
-          ],
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'Inventory & Equipment',
-          style: TextStyle(
-            fontFamily: AppText.headerFamily,
-            fontWeight: FontWeight.w500,
-            fontSize: 18,
-            color: AppColors.ink,
-          ),
-        ),
-        const SizedBox(height: 2),
-        const Text('Track and manage campus resources.', style: AppText.caption),
-      ],
     );
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -12,8 +15,24 @@ class DashboardScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _DashboardHeader(),
+              AppHeader(
+                initials: 'SO',
+                subtitle: 'CITE Dept Officer',
+                onAvatarTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AccountScreen(
+                      initials: 'SO',
+                      name: 'Juan Dela Cruz',
+                      role: 'CITE Dept Officer',
+                    ),
+                  ),
+                ),
+                onBellTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView(
@@ -42,58 +61,6 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const CircleAvatar(
-          radius: 17,
-          backgroundColor: AppColors.indigo,
-          child: Text(
-            'SO',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              fontFamily: AppText.bodyFamily,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('SmartEvent', style: AppText.wordmark),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.marigoldTint,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'CITE Dept Officer',
-                  style: TextStyle(
-                    fontFamily: AppText.bodyFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 10,
-                    color: AppColors.marigoldText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.notifications_none, color: AppColors.indigo, size: 22),
-      ],
     );
   }
 }

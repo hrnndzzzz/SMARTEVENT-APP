@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
 class SearchScreen extends StatelessWidget {
   const SearchScreen({super.key});
@@ -9,52 +12,49 @@ class SearchScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          children: const [
-            _SearchHeader(),
-            SizedBox(height: 16),
-            _SearchBar(query: 'Hackathon'),
-            SizedBox(height: 12),
-            _FilterChips(),
-            SizedBox(height: 12),
-            _QuickFilters(),
-            SizedBox(height: 16),
-            Text('Results for "Hackathon"', style: AppText.cardTitle),
-            SizedBox(height: 10),
-            _EventResultCard(),
-            SizedBox(height: 10),
-            _TransactionResultCard(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchHeader extends StatelessWidget {
-  const _SearchHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: const [
-        Text('SmartEvent', style: AppText.wordmark),
-        CircleAvatar(
-          radius: 15,
-          backgroundColor: AppColors.indigo,
-          child: Text(
-            'SO',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              fontFamily: AppText.bodyFamily,
-            ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppHeader(
+                initials: 'SO',
+                onAvatarTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AccountScreen(
+                      initials: 'SO',
+                      name: 'Juan Dela Cruz',
+                      role: 'CITE Dept Officer',
+                    ),
+                  ),
+                ),
+                onBellTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const _SearchBar(query: 'Hackathon'),
+              const SizedBox(height: 12),
+              const _FilterChips(),
+              const SizedBox(height: 12),
+              const _QuickFilters(),
+              const SizedBox(height: 16),
+              const Text('Results for "Hackathon"', style: AppText.cardTitle),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: const [
+                    _EventResultCard(),
+                    SizedBox(height: 10),
+                    _TransactionResultCard(),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -167,14 +167,14 @@ class _EventResultCard extends StatelessWidget {
       icon: Icons.event_outlined,
       label: 'EVENT',
       labelColor: AppColors.sageTeal,
-      timestamp: 'Feb 19 - 20',
+      timestamp: 'Oct 12 - 14',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Annual Fall Hackathon 2024', style: AppText.cardTitle),
           const SizedBox(height: 4),
           Text(
-            'Ung nag hack ng ig ni arian',
+            'The premier engineering and computer science hackathon focusing on sustainable tech.',
             style: AppText.caption,
           ),
           const SizedBox(height: 10),

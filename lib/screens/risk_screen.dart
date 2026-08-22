@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
 class RiskScreen extends StatelessWidget {
   const RiskScreen({super.key});
@@ -14,14 +17,22 @@ class RiskScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text('SmartEvent', style: AppText.wordmark),
-                  Icon(Icons.notifications_none, color: AppColors.indigo, size: 22),
-                ],
+              AppHeader(
+                initials: 'SO',
+                onAvatarTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AccountScreen(
+                      initials: 'SO',
+                      name: 'Juan Dela Cruz',
+                      role: 'CITE Dept Officer',
+                    ),
+                  ),
+                ),
+                onBellTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               const Text(
                 'Event Spending Risk',
                 style: TextStyle(
