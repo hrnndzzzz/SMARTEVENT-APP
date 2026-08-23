@@ -105,6 +105,11 @@ def create_event(
         status=payload.status,
         event_date=payload.event_date,
         estimated_cost=payload.estimated_cost,
+        allocated_budget=payload.allocated_budget,
+        # A brand-new event starts with its full allocation available —
+        # remaining_budget only ever decreases from here via the
+        # fn_deduct_event_budget trigger, same pattern as categories.
+        remaining_budget=payload.allocated_budget,
     )
     db.add(event)
     db.commit()

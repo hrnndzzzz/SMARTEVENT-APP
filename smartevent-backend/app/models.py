@@ -59,6 +59,8 @@ class Event(Base):
     status = Column(String(20), nullable=False, default="draft")
     event_date = Column(Date, nullable=True)
     estimated_cost = Column(Numeric(12, 2), default=0)
+    allocated_budget = Column(Numeric(12, 2), nullable=False, default=0)
+    remaining_budget = Column(Numeric(12, 2), nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 

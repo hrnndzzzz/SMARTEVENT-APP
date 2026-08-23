@@ -95,6 +95,11 @@ class EventCreate(BaseModel):
     description: str | None = None
     event_date: date | None = None
     estimated_cost: float = Field(ge=0, default=0)
+    # The event's REAL, trackable budget — separate from estimated_cost
+    # (which stays a planning figure). Expenses tied to this event draw
+    # down remaining_budget, same relationship categories have between
+    # allocated_budget and remaining_budget.
+    allocated_budget: float = Field(ge=0, default=0)
     # Officers can save a proposal as a draft first, or submit it for
     # review right away — both are valid starting states, so this is
     # constrained to just those two rather than reusing EventStatus.
@@ -114,6 +119,10 @@ class EventUpdate(BaseModel):
     description: str | None = None
     event_date: date | None = None
     estimated_cost: float | None = Field(default=None, ge=0)
+    # remaining_budget is deliberately NOT here — same reasoning as
+    # CategoryUpdate: it's only ever changed by the DB trigger
+    # (fn_deduct_event_budget) on expense approval, never a direct PATCH.
+    allocated_budget: float | None = Field(default=None, ge=0)
 
 
 class EventOut(BaseModel):
@@ -127,6 +136,8 @@ class EventOut(BaseModel):
     status: EventStatus
     event_date: date | None
     estimated_cost: float
+    allocated_budget: float
+    remaining_budget: float
     created_at: datetime
     updated_at: datetime
 

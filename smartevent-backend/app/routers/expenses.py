@@ -12,16 +12,18 @@ money has actually been spent and someone is recording/claiming it, so
 it starts straight at "pending" and goes to a reviewer from there.
 
 Budget check on approval:
-    remaining_budget only ever changes via the database trigger
-    (fn_deduct_category_balance), which fires when status flips to
-    'approved' — this router never sets remaining_budget directly.
-    But nothing stops that trigger from running the category negative
-    if two big expenses land back-to-back. So before approving, this
-    router checks expense.amount against category.remaining_budget
-    itself and blocks the approval with a 409 if it would overdraw the
-    category. This is a belt-and-suspenders check on top of the
-    trigger, not a replacement for it — the trigger is still what
-    actually performs the deduction.
+    remaining_budget (on both the expense's category AND, if set, its
+    event) only ever changes via database triggers
+    (fn_deduct_category_balance / fn_deduct_event_budget), which fire
+    when status flips to 'approved' — this router never sets either
+    remaining_budget directly. But nothing stops those triggers from
+    running a category or event negative if two big expenses land
+    back-to-back. So before approving, this router checks
+    expense.amount against BOTH category.remaining_budget and (when
+    expense.event_id is set) event.remaining_budget, and blocks with a
+    409 if either would be overdrawn. This is a belt-and-suspenders
+    check on top of the triggers, not a replacement for them — the
+    triggers are still what actually perform the deductions.
 
 Access rules:
   - Anyone logged in can VIEW expenses.
@@ -38,7 +40,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
-from app.models import Approval, Category, Expense, User
+from app.models import Approval, Category, Event, Expense, User
 from app.schemas import (
     ApprovalDecision,
     ApprovalOut,
@@ -307,8 +309,28 @@ def approve_expense(
             ),
         )
 
+    # Same guard as the category check above, but for the event's own
+    # allocated_budget — a separate, narrower pool than the category.
+    # Not every expense is tied to an event (event_id is nullable), so
+    # this only runs when one is set.
+    if expense.event_id is not None:
+        event = db.query(Event).filter(Event.id == expense.event_id).first()
+        if event is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This expense's event no longer exists",
+            )
+        if expense.amount > event.remaining_budget:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Approving this expense (₱{expense.amount:,.2f}) would exceed the "
+                    f"remaining budget for event '{event.title}' (₱{event.remaining_budget:,.2f})"
+                ),
+            )
+
     _record_decision(db, expense, "approved", current_user, payload.remarks)
-    expense.status = "approved"  # DB trigger deducts category.remaining_budget on this flip
+    expense.status = "approved"  # DB triggers deduct category AND event remaining_budget on this flip
     db.commit()
     db.refresh(expense)
     return expense
