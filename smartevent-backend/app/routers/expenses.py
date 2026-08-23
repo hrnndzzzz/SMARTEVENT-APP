@@ -36,15 +36,26 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
-from app.models import Approval, Category, Event, Expense, User
+from app.models import (
+    Approval,
+    Category,
+    Event,
+    Expense,
+    ExpenseItem,
+    Inventory,
+    InventoryTransaction,
+    User,
+)
 from app.schemas import (
     ApprovalDecision,
     ApprovalOut,
     ExpenseCreate,
+    ExpenseItemOut,
     ExpenseOut,
     ExpenseUpdate,
     ReceiptParseRequest,
@@ -210,9 +221,37 @@ def create_expense(
         status="pending",
     )
     db.add(expense)
+    db.flush()  # assigns expense.id without committing, so the items
+                # below can reference it in the same commit
+
+    for item in payload.items:
+        db.add(
+            ExpenseItem(
+                expense_id=expense.id,
+                name=item.name,
+                amount=item.amount,
+                category=item.category,
+            )
+        )
+
     db.commit()
     db.refresh(expense)
     return expense
+
+
+@router.get("/{expense_id}/items", response_model=list[ExpenseItemOut])
+def list_expense_items(
+    expense_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _get_expense_or_404(db, expense_id)
+    return (
+        db.query(ExpenseItem)
+        .filter(ExpenseItem.expense_id == expense_id)
+        .order_by(ExpenseItem.created_at)
+        .all()
+    )
 
 
 @router.get("", response_model=list[ExpenseOut])
@@ -276,6 +315,68 @@ def update_expense(
     return expense
 
 
+def _convert_asset_items_to_inventory(
+    db: Session,
+    expense: Expense,
+    performed_by: User,
+) -> None:
+    """
+    For each 'asset'-tagged ExpenseItem on this expense: if an
+    Inventory item with a matching name already exists, its quantity
+    is incremented by 1 via a normal InventoryTransaction (no draft
+    needed — the catalog entry is already an established, reviewed
+    item; only NEW items need review). If no match exists, a NEW
+    Inventory row is created with is_draft=True and quantity=1.
+
+    Known limitation: receipt line items don't carry a quantity field
+    (Gemini extracts name/amount/category, not "x3" multipliers), so
+    every asset item converts as quantity=1 regardless of what the
+    actual receipt line said. Flagging this here rather than silently
+    guessing a quantity.
+
+    Called from approve_expense, in the same transaction as flipping
+    expense.status to 'approved' — if anything here raises, the whole
+    approval rolls back rather than leaving a half-converted state.
+    """
+    asset_items = (
+        db.query(ExpenseItem)
+        .filter(ExpenseItem.expense_id == expense.id, ExpenseItem.category == "asset")
+        .all()
+    )
+
+    for item in asset_items:
+        existing = (
+            db.query(Inventory)
+            .filter(func.lower(Inventory.item_name) == item.name.strip().lower())
+            .first()
+        )
+
+        if existing is not None:
+            existing.quantity += 1
+            db.add(
+                InventoryTransaction(
+                    inventory_id=existing.id,
+                    event_id=expense.event_id,
+                    change_qty=1,
+                    reason=f"Auto: approved expense {expense.id}",
+                    performed_by=performed_by.id,
+                )
+            )
+            item.converted_inventory_id = existing.id
+        else:
+            new_item = Inventory(
+                item_name=item.name,
+                description=f"Auto-created from approved expense {expense.id}",
+                quantity=1,
+                unit="pcs",
+                low_stock_threshold=5,
+                is_draft=True,
+            )
+            db.add(new_item)
+            db.flush()  # assigns new_item.id so item.converted_inventory_id can reference it
+            item.converted_inventory_id = new_item.id
+
+
 @router.post("/{expense_id}/approve", response_model=ExpenseOut)
 def approve_expense(
     expense_id: uuid.UUID,
@@ -331,6 +432,7 @@ def approve_expense(
 
     _record_decision(db, expense, "approved", current_user, payload.remarks)
     expense.status = "approved"  # DB triggers deduct category AND event remaining_budget on this flip
+    _convert_asset_items_to_inventory(db, expense, current_user)
     db.commit()
     db.refresh(expense)
     return expense

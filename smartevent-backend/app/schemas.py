@@ -166,6 +166,18 @@ class ApprovalOut(BaseModel):
 ExpenseStatus = Literal["pending", "approved", "rejected"]
 
 
+class ExpenseItemInput(BaseModel):
+    """
+    One line item on an expense, submitted at creation time. Same shape
+    as ScannedReceiptItem (see below) on purpose — an officer who used
+    scan-receipt can pass its reviewed/corrected items straight through
+    here without any reshaping.
+    """
+    name: str = Field(min_length=1, max_length=150)
+    amount: float = Field(gt=0)
+    category: Literal["asset", "consumable"]
+
+
 class ExpenseCreate(BaseModel):
     event_id: uuid.UUID | None = None
     category_id: uuid.UUID
@@ -175,6 +187,11 @@ class ExpenseCreate(BaseModel):
     # just accepts a URL string in the meantime, e.g. for testing or a
     # manually-hosted receipt image.
     receipt_url: str | None = None
+    # Optional itemized breakdown (typically populated from a prior
+    # POST /expenses/scan-receipt call, reviewed/edited by the officer).
+    # Only 'asset' items here get converted to inventory on approval —
+    # see approve_expense in routers/expenses.py.
+    items: list[ExpenseItemInput] = Field(default_factory=list)
 
 
 class ExpenseUpdate(BaseModel):
@@ -215,6 +232,21 @@ class ExpenseOut(BaseModel):
     updated_at: datetime
 
 
+class ExpenseItemOut(BaseModel):
+    """Response shape for GET /expenses/{id}/items."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    expense_id: uuid.UUID
+    name: str
+    amount: float
+    category: Literal["asset", "consumable"]
+    # Set only for 'asset' items on an APPROVED expense, once
+    # approve_expense has converted it into an Inventory row.
+    converted_inventory_id: uuid.UUID | None
+    created_at: datetime
+
+
 # ---- Inventory --------------------------------------------------------------
 
 class InventoryCreate(BaseModel):
@@ -253,6 +285,7 @@ class InventoryOut(BaseModel):
     unit: str
     low_stock_threshold: int
     location: str | None
+    is_draft: bool
     created_at: datetime
     updated_at: datetime
 
@@ -313,3 +346,71 @@ class ScanReceiptResponse(BaseModel):
     date: date | None
     amount: float | None
     items: list[ScannedReceiptItem]
+
+
+# ---- Analytics / Reports / Recommendations --------------------------------
+
+class DashboardSummary(BaseModel):
+    """Response for GET /analytics/dashboard — a single-call overview."""
+    total_categories: int
+    total_allocated_budget: float
+    total_remaining_budget: float
+    events_by_status: dict[str, int]
+    expenses_by_status: dict[str, int]
+    flagged_expense_count: int
+    low_stock_item_count: int
+    draft_inventory_count: int
+
+
+class SpendingTrendPoint(BaseModel):
+    """One point in GET /analytics/spending-trends — one calendar month."""
+    month: str  # "YYYY-MM"
+    total_amount: float
+    expense_count: int
+
+
+class CategoryReport(BaseModel):
+    """Response for GET /reports/category/{category_id}."""
+    category_id: uuid.UUID
+    category_name: str
+    allocated_budget: float
+    remaining_budget: float
+    total_spent: float
+    approved_expense_count: int
+    pending_expense_count: int
+    rejected_expense_count: int
+
+
+class EventReport(BaseModel):
+    """
+    Response for GET /reports/event/{event_id} — a liquidation-style
+    report. Expenses are embedded directly here (unlike the general
+    pattern elsewhere of a separate GET .../items endpoint) because a
+    report is meant to be one consolidated call, not something the
+    client stitches together from several requests.
+    """
+    event_id: uuid.UUID
+    title: str
+    status: EventStatus
+    estimated_cost: float
+    allocated_budget: float
+    remaining_budget: float
+    total_spent: float
+    expenses: list[ExpenseOut]
+
+
+class BudgetRecommendation(BaseModel):
+    """
+    Response for GET /recommendations/event-budget?category_id=...
+
+    avg_allocated_budget and avg_actual_spend are deliberately separate
+    numbers — what past events PLANNED to spend (allocated_budget) and
+    what they ACTUALLY spent (sum of their approved expenses) often
+    diverge, and an officer proposing a new event benefits from seeing
+    both rather than one blended figure.
+    """
+    category_id: uuid.UUID
+    sample_size: int
+    avg_allocated_budget: float | None
+    avg_actual_spend: float | None
+    note: str

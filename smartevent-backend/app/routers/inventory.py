@@ -76,10 +76,20 @@ def create_item(
 
 @router.get("", response_model=list[InventoryOut])
 def list_items(
+    is_draft: bool | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Inventory).order_by(Inventory.item_name).all()
+    """
+    is_draft=true doubles as the review queue for items auto-created
+    by approve_expense from a scanned 'asset' receipt line (see
+    _convert_asset_items_to_inventory in routers/expenses.py).
+    Omit the param entirely to see everything, draft or not.
+    """
+    query = db.query(Inventory)
+    if is_draft is not None:
+        query = query.filter(Inventory.is_draft == is_draft)
+    return query.order_by(Inventory.item_name).all()
 
 
 # NOTE: this route must be declared before GET /{inventory_id}, or
@@ -104,6 +114,33 @@ def get_item(
     current_user: User = Depends(get_current_user),
 ):
     return _get_item_or_404(db, inventory_id)
+
+
+@router.post("/{inventory_id}/confirm-draft", response_model=InventoryOut)
+def confirm_draft_item(
+    inventory_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    Admin review step for items auto-created by approve_expense from a
+    scanned 'asset' receipt line. Flips is_draft to False — everything
+    else about the item (name, quantity, etc.) is left as-is; if it
+    needs correcting, use PATCH /{inventory_id} either before or after
+    confirming, they're independent actions.
+    """
+    item = _get_item_or_404(db, inventory_id)
+
+    if not item.is_draft:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This item is not a draft — nothing to confirm",
+        )
+
+    item.is_draft = False
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 @router.get("/{inventory_id}/transactions", response_model=list[InventoryTransactionOut])

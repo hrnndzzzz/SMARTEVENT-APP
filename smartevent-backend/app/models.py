@@ -111,8 +111,27 @@ class Inventory(Base):
     unit = Column(String(30), default="pcs")
     low_stock_threshold = Column(Numeric, nullable=False, default=5)
     location = Column(String(100), nullable=True)
+    # True for items auto-created by approve_expense from a scanned
+    # "asset" receipt line — not yet reviewed/confirmed by an admin.
+    # False for everything created directly through POST /inventory,
+    # and flipped to False by POST /inventory/{id}/confirm-draft.
+    is_draft = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExpenseItem(Base):
+    __tablename__ = "expense_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    expense_id = Column(UUID(as_uuid=True), ForeignKey("expenses.id"), nullable=False)
+    name = Column(String(150), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    category = Column(String(20), nullable=False)  # 'asset' | 'consumable'
+    # Set on expense approval, for 'asset' items only — traces this
+    # line item to the exact Inventory row it was converted into.
+    converted_inventory_id = Column(UUID(as_uuid=True), ForeignKey("inventory.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class InventoryTransaction(Base):

@@ -11,7 +11,16 @@ before wiring up Flutter.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import auth, categories, events, expenses, inventory
+from app.routers import (
+    analytics,
+    auth,
+    categories,
+    events,
+    expenses,
+    inventory,
+    recommendations,
+    reports,
+)
 
 app = FastAPI(
     title="SMARTEVENT API",
@@ -39,6 +48,9 @@ app.include_router(categories.router)
 app.include_router(events.router)
 app.include_router(expenses.router)
 app.include_router(inventory.router)
+app.include_router(analytics.router)
+app.include_router(reports.router)
+app.include_router(recommendations.router)
 
 
 @app.get("/health", tags=["health"])
