@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -22,11 +24,14 @@ class SmartEventApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SmartEvent',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      home: const WelcomeScreen(),
+    return ChangeNotifierProvider(
+      create: (_) => AppState(),
+      child: MaterialApp(
+        title: 'SmartEvent',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        home: const WelcomeScreen(),
+      ),
     );
   }
 }

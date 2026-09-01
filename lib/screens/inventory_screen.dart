@@ -1,27 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
-
-class _InventoryItem {
-  final IconData icon;
-  final String name;
-  final String description;
-  int qty;
-  final int lowStockThreshold;
-
-  _InventoryItem({
-    required this.icon,
-    required this.name,
-    required this.description,
-    required this.qty,
-    this.lowStockThreshold = 2,
-  });
-
-  bool get isLowStock => qty < lowStockThreshold;
-}
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -31,47 +15,7 @@ class InventoryScreen extends StatefulWidget {
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
-  final List<_InventoryItem> _items = [
-    _InventoryItem(
-      icon: Icons.cable,
-      name: 'HDMI Cables (4K 10m)',
-      description: 'High-speed AV connectivity.',
-      qty: 1,
-    ),
-    _InventoryItem(
-      icon: Icons.campaign_outlined,
-      name: 'PA Sound System Set',
-      description: 'Includes 2 speakers, mixer, and wireless mics.',
-      qty: 4,
-    ),
-  ];
-
-  final List<String> _log = [
-    'PA System — checked out by J. Doe · 2h ago',
-    'Projector Screen — returned by S. Smith · 5h ago',
-  ];
-
-  void _issue(_InventoryItem item) {
-    if (item.qty <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${item.name} is out of stock.')),
-      );
-      return;
-    }
-    setState(() {
-      item.qty -= 1;
-      _log.insert(0, '${item.name} — issued · just now');
-    });
-  }
-
-  void _restock(_InventoryItem item) {
-    setState(() {
-      item.qty += 5;
-      _log.insert(0, '${item.name} — restocked +5 · just now');
-    });
-  }
-
-  int get _lowStockCount => _items.where((i) => i.isLowStock).length;
+  String _category = 'All Items';
 
   @override
   Widget build(BuildContext context) {
@@ -110,31 +54,63 @@ class _InventoryScreenState extends State<InventoryScreen> {
               const SizedBox(height: 2),
               const Text('Track and manage campus resources.', style: AppText.caption),
               const SizedBox(height: 14),
-              if (_lowStockCount > 0) ...[
-                _LowStockBanner(count: _lowStockCount),
-                const SizedBox(height: 12),
-              ],
+              Consumer<AppState>(
+                builder: (context, app, _) {
+                  return app.lowStockCount > 0
+                      ? Column(
+                    children: [
+                      _LowStockBanner(count: app.lowStockCount),
+                      const SizedBox(height: 12),
+                    ],
+                  )
+                      : const SizedBox.shrink();
+                },
+              ),
               const _SearchField(),
               const SizedBox(height: 12),
-              const _CategoryChips(),
+              _CategoryChips(
+                selected: _category,
+                onSelect: (c) => setState(() => _category = c),
+              ),
               const SizedBox(height: 14),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: [
-                    for (final item in _items) ...[
-                      _InventoryItemCard(
-                        item: item,
-                        onIssue: () => _issue(item),
-                        onRestock: () => _restock(item),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    const SizedBox(height: 6),
-                    const Text('Recent transactions', style: AppText.caption),
-                    const SizedBox(height: 8),
-                    _RecentTransactionsList(entries: _log),
-                  ],
+                child: Consumer<AppState>(
+                  builder: (context, app, _) {
+                    final filtered = app.inventory.where((item) {
+                      switch (_category) {
+                        case 'In-Stock':
+                          return item.qty > 0;
+                        case 'Issued':
+                          return item.hasBeenIssued;
+                        default:
+                          return true;
+                      }
+                    }).toList();
+
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      children: [
+                        if (filtered.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: Text('No items in this category.', style: AppText.caption)),
+                          )
+                        else
+                          for (final item in filtered) ...[
+                            _InventoryItemCard(
+                              item: item,
+                              onIssue: () => app.issueItem(item),
+                              onRestock: () => app.restockItem(item),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        const SizedBox(height: 6),
+                        const Text('Recent transactions', style: AppText.caption),
+                        const SizedBox(height: 8),
+                        _RecentTransactionsList(entries: app.inventoryLog),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -217,7 +193,10 @@ class _SearchField extends StatelessWidget {
 }
 
 class _CategoryChips extends StatelessWidget {
-  const _CategoryChips();
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  const _CategoryChips({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +204,7 @@ class _CategoryChips extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _chip('All Items', selected: true),
+          _chip('All Items'),
           const SizedBox(width: 8),
           _chip('In-Stock'),
           const SizedBox(width: 8),
@@ -235,21 +214,25 @@ class _CategoryChips extends StatelessWidget {
     );
   }
 
-  Widget _chip(String label, {bool selected = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.indigo : AppColors.surface,
-        border: selected ? null : Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-          color: selected ? Colors.white : AppColors.ink,
+  Widget _chip(String label) {
+    final isSelected = selected == label;
+    return GestureDetector(
+      onTap: () => onSelect(label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.indigo : AppColors.surface,
+          border: isSelected ? null : Border.all(color: AppColors.border, width: 0.5),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppText.bodyFamily,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+            color: isSelected ? Colors.white : AppColors.ink,
+          ),
         ),
       ),
     );
@@ -257,7 +240,7 @@ class _CategoryChips extends StatelessWidget {
 }
 
 class _InventoryItemCard extends StatelessWidget {
-  final _InventoryItem item;
+  final InventoryItem item;
   final VoidCallback onIssue;
   final VoidCallback onRestock;
 

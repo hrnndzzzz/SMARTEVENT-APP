@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -9,6 +11,27 @@ import 'event_detail_screen.dart';
 
 class EventsScreen extends StatelessWidget {
   const EventsScreen({super.key});
+
+  Color _statusBg(int step) => switch (step) {
+    3 => AppColors.sageTealTint,
+    2 => AppColors.sageTealTint,
+    1 => AppColors.marigoldTint,
+    _ => const Color(0xFFEDEBE6),
+  };
+
+  Color _statusColor(int step) => switch (step) {
+    3 => AppColors.sageTealText,
+    2 => AppColors.sageTealText,
+    1 => AppColors.marigoldText,
+    _ => AppColors.inkMuted,
+  };
+
+  Color _tagColor(int step) => switch (step) {
+    3 => AppColors.sageTeal,
+    2 => AppColors.sageTeal,
+    1 => AppColors.marigold,
+    _ => AppColors.inkFaint,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -61,57 +84,28 @@ class EventsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: [
-                    _EventCard(
-                      title: 'Annual Fall Hackathon',
-                      org: 'Engineering Soc.',
-                      date: 'Oct 12-14',
-                      statusLabel: 'Active',
-                      statusBg: AppColors.sageTealTint,
-                      statusColor: AppColors.sageTealText,
-                      tagColor: AppColors.sageTeal,
-                      detail: '62 attendees',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const EventDetailScreen(
-                            title: 'Annual Fall Hackathon',
-                            org: 'Engineering Soc.',
-                            date: 'Oct 12-14, 2026',
-                            venue: 'CITE Auditorium',
-                            budget: '₱8,200.00',
-                            attendees: '62',
-                            approvalStep: 3,
+                child: Consumer<AppState>(
+                  builder: (context, app, _) {
+                    if (app.events.isEmpty) {
+                      return const Center(
+                        child: Text('No events yet. Tap "New" to submit one.', style: AppText.caption),
+                      );
+                    }
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      children: [
+                        for (final event in app.events) ...[
+                          _EventCard(
+                            event: event,
+                            statusBg: _statusBg(event.approvalStep),
+                            statusColor: _statusColor(event.approvalStep),
+                            tagColor: _tagColor(event.approvalStep),
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _EventCard(
-                      title: 'Leadership Summit 2026',
-                      org: 'CITE Student Council',
-                      date: 'Nov 20',
-                      statusLabel: 'Under Review',
-                      statusBg: AppColors.marigoldTint,
-                      statusColor: AppColors.marigoldText,
-                      tagColor: AppColors.marigold,
-                      detail: 'Awaiting adviser',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const EventDetailScreen(
-                            title: 'Leadership Summit 2026',
-                            org: 'CITE Student Council',
-                            date: 'Nov 20, 2026',
-                            venue: 'CITE Auditorium',
-                            budget: '₱8,200.00',
-                            attendees: '120 (expected)',
-                            approvalStep: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                          const SizedBox(height: 10),
+                        ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -123,32 +117,26 @@ class EventsScreen extends StatelessWidget {
 }
 
 class _EventCard extends StatelessWidget {
-  final String title;
-  final String org;
-  final String date;
-  final String statusLabel;
+  final EventItem event;
   final Color statusBg;
   final Color statusColor;
   final Color tagColor;
-  final String detail;
-  final VoidCallback onTap;
 
   const _EventCard({
-    required this.title,
-    required this.org,
-    required this.date,
-    required this.statusLabel,
+    required this.event,
     required this.statusBg,
     required this.statusColor,
     required this.tagColor,
-    required this.detail,
-    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => EventDetailScreen(event: event),
+        ),
+      ),
       child: Stack(
         children: [
           Container(
@@ -169,7 +157,7 @@ class _EventCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                       decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
                       child: Text(
-                        statusLabel,
+                        event.statusLabel,
                         style: TextStyle(
                           fontFamily: AppText.bodyFamily,
                           fontSize: 10,
@@ -179,7 +167,7 @@ class _EventCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      date,
+                      event.date,
                       style: const TextStyle(
                         fontFamily: AppText.monoFamily,
                         fontSize: 11,
@@ -189,9 +177,9 @@ class _EventCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(title, style: AppText.cardTitle),
+                Text(event.title, style: AppText.cardTitle),
                 const SizedBox(height: 2),
-                Text('$org · $detail', style: AppText.caption),
+                Text('${event.org} · ${event.attendees}', style: AppText.caption),
               ],
             ),
           ),

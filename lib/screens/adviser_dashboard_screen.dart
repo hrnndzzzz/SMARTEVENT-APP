@@ -1,58 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
-class _Request {
-  final String title;
-  final String org;
-  final String amount;
-  final String type;
-
-  _Request({
-    required this.title,
-    required this.org,
-    required this.amount,
-    required this.type,
-  });
-}
-
-class AdviserDashboardScreen extends StatefulWidget {
+class AdviserDashboardScreen extends StatelessWidget {
   const AdviserDashboardScreen({super.key});
-
-  @override
-  State<AdviserDashboardScreen> createState() => _AdviserDashboardScreenState();
-}
-
-class _AdviserDashboardScreenState extends State<AdviserDashboardScreen> {
-  final List<_Request> _pending = [
-    _Request(
-      title: 'Leadership Summit 2026 — Budget Proposal',
-      org: 'Engineering Soc.',
-      amount: '₱8,200.00',
-      type: 'Budget',
-    ),
-    _Request(
-      title: 'CITE Sports Fest — Cash Advance',
-      org: 'CITE Student Council',
-      amount: '₱1,500.00',
-      type: 'Advance',
-    ),
-  ];
-
-  final List<_Request> _handled = [];
-
-  void _decide(_Request req, {required bool approved}) {
-    setState(() {
-      _pending.remove(req);
-      _handled.insert(0, req);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${req.title} — ${approved ? 'Approved' : 'Rejected'}')),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +28,7 @@ class _AdviserDashboardScreenState extends State<AdviserDashboardScreen> {
                   MaterialPageRoute(
                     builder: (_) => const AccountScreen(
                       initials: 'FA',
-                      name: 'Prof. Maria Santos',
+                      name: 'Engr Bañares',
                       role: 'Faculty Adviser',
                     ),
                   ),
@@ -83,34 +39,38 @@ class _AdviserDashboardScreenState extends State<AdviserDashboardScreen> {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: [
-                    const _BalanceOverviewCard(),
-                    const SizedBox(height: 18),
-                    Text('Pending requests (${_pending.length})', style: AppText.cardTitle),
-                    const SizedBox(height: 10),
-                    if (_pending.isEmpty)
-                      const _EmptyState(text: 'No pending requests. All caught up.')
-                    else
-                      for (final req in _pending) ...[
-                        _RequestCard(
-                          request: req,
-                          onApprove: () => _decide(req, approved: true),
-                          onReject: () => _decide(req, approved: false),
-                        ),
+                child: Consumer<AppState>(
+                  builder: (context, app, _) {
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      children: [
+                        const _BalanceOverviewCard(),
+                        const SizedBox(height: 18),
+                        Text('Pending requests (${app.pendingRequests.length})', style: AppText.cardTitle),
                         const SizedBox(height: 10),
+                        if (app.pendingRequests.isEmpty)
+                          const _EmptyState(text: 'No pending requests. All caught up.')
+                        else
+                          for (final req in app.pendingRequests) ...[
+                            _RequestCard(
+                              request: req,
+                              onApprove: () => app.decideRequest(req, approved: true),
+                              onReject: () => app.decideRequest(req, approved: false),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        if (app.handledRequests.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          const Text('Recently handled', style: AppText.caption),
+                          const SizedBox(height: 8),
+                          for (final req in app.handledRequests) ...[
+                            _HandledRow(request: req),
+                            const SizedBox(height: 6),
+                          ],
+                        ],
                       ],
-                    if (_handled.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      const Text('Recently handled', style: AppText.caption),
-                      const SizedBox(height: 8),
-                      for (final req in _handled) ...[
-                        _HandledRow(request: req),
-                        const SizedBox(height: 6),
-                      ],
-                    ],
-                  ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -166,7 +126,7 @@ class _BalanceOverviewCard extends StatelessWidget {
 }
 
 class _RequestCard extends StatelessWidget {
-  final _Request request;
+  final PendingRequest request;
   final VoidCallback onApprove;
   final VoidCallback onReject;
 
@@ -253,7 +213,7 @@ class _RequestCard extends StatelessWidget {
 }
 
 class _HandledRow extends StatelessWidget {
-  final _Request request;
+  final PendingRequest request;
   const _HandledRow({required this.request});
 
   @override

@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -30,6 +32,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
     setState(() => _logging = true);
     await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
+
+    context.read<AppState>().logExpense('Fresh Campus Catering', 2500.00);
+
     setState(() {
       _logging = false;
       _capturedImage = null;

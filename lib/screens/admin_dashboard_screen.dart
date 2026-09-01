@@ -1,52 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
-class _Approval {
-  final String title;
-  final String org;
-  final String amount;
-
-  _Approval({required this.title, required this.org, required this.amount});
-}
-
-class AdminDashboardScreen extends StatefulWidget {
+class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
-  @override
-  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
-}
-
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final List<_Approval> _pending = [
-    _Approval(
-      title: 'Leadership Summit 2026 — Budget Proposal',
-      org: 'Engineering Soc.',
-      amount: '₱8,200.00',
-    ),
-    _Approval(
-      title: 'CITE Sports Fest — Cash Advance',
-      org: 'CITE Student Council',
-      amount: '₱1,500.00',
-    ),
-  ];
-
-  final List<_Approval> _handled = [];
-
-  void _decide(_Approval req, {required bool approved}) {
-    setState(() {
-      _pending.remove(req);
-      _handled.insert(0, req);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${req.title} — ${approved ? 'Approved' : 'Rejected'}')),
-    );
-  }
-
-  Future<void> _setCategoryBudget() async {
+  Future<void> _setCategoryBudget(BuildContext context) async {
     final categories = ['Equipment', 'Venue', 'Catering', 'Marketing'];
     String selected = categories.first;
     final controller = TextEditingController();
@@ -97,13 +61,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  void _generateReports() {
+  void _generateReports(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Generating org-wide financial summary...')),
     );
   }
 
-  Future<void> _viewAnalytics() async {
+  Future<void> _viewAnalytics(BuildContext context) async {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -184,38 +148,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: [
-                    _QuickActionsRow(
-                      onSetBudget: _setCategoryBudget,
-                      onGenerateReports: _generateReports,
-                      onViewAnalytics: _viewAnalytics,
-                    ),
-                    const SizedBox(height: 18),
-                    Text('Pending approvals (${_pending.length})', style: AppText.cardTitle),
-                    const SizedBox(height: 10),
-                    if (_pending.isEmpty)
-                      const _EmptyState(text: 'No pending approvals. All caught up.')
-                    else
-                      for (final req in _pending) ...[
-                        _ApprovalCard(
-                          approval: req,
-                          onApprove: () => _decide(req, approved: true),
-                          onReject: () => _decide(req, approved: false),
+                child: Consumer<AppState>(
+                  builder: (context, app, _) {
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      children: [
+                        _QuickActionsRow(
+                          onSetBudget: () => _setCategoryBudget(context),
+                          onGenerateReports: () => _generateReports(context),
+                          onViewAnalytics: () => _viewAnalytics(context),
                         ),
+                        const SizedBox(height: 18),
+                        Text('Pending approvals (${app.pendingRequests.length})', style: AppText.cardTitle),
                         const SizedBox(height: 10),
+                        if (app.pendingRequests.isEmpty)
+                          const _EmptyState(text: 'No pending approvals. All caught up.')
+                        else
+                          for (final req in app.pendingRequests) ...[
+                            _ApprovalCard(
+                              approval: req,
+                              onApprove: () => app.decideRequest(req, approved: true),
+                              onReject: () => app.decideRequest(req, approved: false),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        if (app.handledRequests.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          const Text('Recently handled', style: AppText.caption),
+                          const SizedBox(height: 8),
+                          for (final req in app.handledRequests) ...[
+                            _HandledRow(approval: req),
+                            const SizedBox(height: 6),
+                          ],
+                        ],
                       ],
-                    if (_handled.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      const Text('Recently handled', style: AppText.caption),
-                      const SizedBox(height: 8),
-                      for (final req in _handled) ...[
-                        _HandledRow(approval: req),
-                        const SizedBox(height: 6),
-                      ],
-                    ],
-                  ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -310,7 +278,7 @@ class _ActionTile extends StatelessWidget {
 }
 
 class _ApprovalCard extends StatelessWidget {
-  final _Approval approval;
+  final PendingRequest approval;
   final VoidCallback onApprove;
   final VoidCallback onReject;
 
@@ -376,7 +344,7 @@ class _ApprovalCard extends StatelessWidget {
 }
 
 class _HandledRow extends StatelessWidget {
-  final _Approval approval;
+  final PendingRequest approval;
   const _HandledRow({required this.approval});
 
   @override

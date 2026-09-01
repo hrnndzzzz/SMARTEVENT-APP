@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -19,13 +21,13 @@ class DashboardScreen extends StatelessWidget {
             children: [
               AppHeader(
                 initials: 'SO',
-                subtitle: 'CITE Dept Officer',
+                subtitle: 'QA, Testing',
                 onAvatarTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const AccountScreen(
                       initials: 'SO',
-                      name: 'Juan Dela Cruz',
-                      role: 'CITE Dept Officer',
+                      name: 'John Paul Buffe',
+                      role: 'QA, Testing',
                     ),
                   ),
                 ),
@@ -35,26 +37,37 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: const [
-                    _MetricCard(
-                      label: 'Total budget allocated',
-                      value: '₱5,000.00',
-                      icon: Icons.account_balance_wallet_outlined,
-                      iconColor: AppColors.indigo,
-                    ),
-                    SizedBox(height: 10),
-                    _ExpendedCard(),
-                    SizedBox(height: 10),
-                    _RemainingBalanceCard(),
-                    SizedBox(height: 16),
-                    _AllocationVsActualCard(),
-                    SizedBox(height: 10),
-                    _ExpenseDistributionCard(),
-                    SizedBox(height: 16),
-                    _QuickReports(),
-                  ],
+                child: Consumer<AppState>(
+                  builder: (context, app, _) {
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      children: [
+                        _MetricCard(
+                          label: 'Total budget allocated',
+                          value: '₱${app.totalAllocated.toStringAsFixed(2)}',
+                          icon: Icons.account_balance_wallet_outlined,
+                          iconColor: AppColors.indigo,
+                        ),
+                        const SizedBox(height: 10),
+                        _ExpendedCard(
+                          expended: app.totalExpended,
+                          allocated: app.totalAllocated,
+                        ),
+                        const SizedBox(height: 10),
+                        _RemainingBalanceCard(balance: app.remainingBalance),
+                        const SizedBox(height: 16),
+                        const _AllocationVsActualCard(),
+                        const SizedBox(height: 10),
+                        const _ExpenseDistributionCard(),
+                        const SizedBox(height: 16),
+                        const _QuickReports(),
+                        const SizedBox(height: 16),
+                        const Text('Recent activity', style: AppText.caption),
+                        const SizedBox(height: 8),
+                        _RecentExpensesList(entries: app.expenseLog),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -104,10 +117,14 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _ExpendedCard extends StatelessWidget {
-  const _ExpendedCard();
+  final double expended;
+  final double allocated;
+
+  const _ExpendedCard({required this.expended, required this.allocated});
 
   @override
   Widget build(BuildContext context) {
+    final progress = allocated == 0 ? 0.0 : (expended / allocated).clamp(0.0, 1.0);
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -117,26 +134,26 @@ class _ExpendedCard extends StatelessWidget {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total expended', style: AppText.caption),
-                    SizedBox(height: 4),
-                    Text('₱2,150.00', style: AppText.moneyLarge),
+                    const Text('Total expended', style: AppText.caption),
+                    const SizedBox(height: 4),
+                    Text('₱${expended.toStringAsFixed(2)}', style: AppText.moneyLarge),
                   ],
                 ),
-                Icon(Icons.receipt_long_outlined, color: AppColors.inkMuted, size: 20),
+                const Icon(Icons.receipt_long_outlined, color: AppColors.inkMuted, size: 20),
               ],
             ),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
-                value: 0.43,
+                value: progress,
                 minHeight: 5,
                 backgroundColor: AppColors.trackBg,
-                color: AppColors.indigo,
+                color: progress >= 1.0 ? AppColors.brick : AppColors.indigo,
               ),
             ),
           ],
@@ -147,44 +164,43 @@ class _ExpendedCard extends StatelessWidget {
 }
 
 class _RemainingBalanceCard extends StatelessWidget {
-  const _RemainingBalanceCard();
+  final double balance;
+  const _RemainingBalanceCard({required this.balance});
 
   @override
   Widget build(BuildContext context) {
+    final isLow = balance < 500;
+    final bg = isLow ? const Color(0xFFFBEAE7) : AppColors.sageTealTint;
+    final border = isLow ? const Color(0xFFE3B3AA) : AppColors.sageTealBorder;
+    final textColor = isLow ? AppColors.brick : AppColors.sageTealText;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.sageTealTint,
+        color: bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.sageTealBorder, width: 0.5),
+        border: Border.all(color: border, width: 0.5),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
+        children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text('Current remaining balance', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: textColor)),
+              const SizedBox(height: 4),
               Text(
-                'Current remaining balance',
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 12,
-                  color: AppColors.sageTealText,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '₱2,850.00',
+                '₱${balance.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontFamily: AppText.monoFamily,
                   fontWeight: FontWeight.w500,
                   fontSize: 21,
-                  color: AppColors.sageTealText,
+                  color: textColor,
                 ),
               ),
             ],
           ),
-          Icon(Icons.savings_outlined, color: AppColors.sageTealText, size: 20),
+          Icon(isLow ? Icons.warning_amber_rounded : Icons.savings_outlined, color: textColor, size: 20),
         ],
       ),
     );
@@ -371,7 +387,7 @@ class _ExpenseDistributionCard extends StatelessWidget {
                     SizedBox(height: 6),
                     _LegendRow(color: AppColors.sageTeal, label: 'Catering (15%)'),
                     SizedBox(height: 6),
-                    _LegendRow(color: AppColors.inkFaint, label: 'Sigaw ni Joseph (10%)'),
+                    _LegendRow(color: AppColors.inkFaint, label: 'Marketing (10%)'),
                   ],
                 ),
               ],
@@ -468,6 +484,50 @@ class _QuickReportsState extends State<_QuickReports> {
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
         ),
       ],
+    );
+  }
+}
+
+class _RecentExpensesList extends StatelessWidget {
+  final List<String> entries;
+  const _RecentExpensesList({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text('No expenses logged yet.', style: AppText.caption),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border, width: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < entries.length; i++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(color: Color(0xFFF4F2EC), shape: BoxShape.circle),
+                    child: const Icon(Icons.receipt_outlined, size: 14, color: AppColors.ink),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(entries[i], style: AppText.body.copyWith(fontSize: 12))),
+                ],
+              ),
+            ),
+            if (i != entries.length - 1) const Divider(height: 1, color: AppColors.border),
+          ],
+        ],
+      ),
     );
   }
 }
