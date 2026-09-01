@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'signin_screen.dart';
@@ -11,13 +13,59 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _agreedToTerms = false;
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  bool get _canSubmit =>
+      _agreedToTerms &&
+          _nameController.text.trim().isNotEmpty &&
+          _emailController.text.trim().isNotEmpty &&
+          _passwordController.text.isNotEmpty &&
+          !_submitting;
 
   void _goToSignIn() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const SignInScreen()),
     );
+  }
+
+  Future<void> _submit() async {
+    if (!_canSubmit) return;
+    setState(() => _submitting = true);
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    final success = context.read<AppState>().signUp(
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    setState(() => _submitting = false);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account created. Please sign in.')),
+      );
+      _goToSignIn();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An account with this email already exists.')),
+      );
+    }
   }
 
   @override
@@ -50,17 +98,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 22),
               const _FieldLabel('Full Name'),
               const SizedBox(height: 6),
-              _buildTextField(hint: 'Boope'),
+              _buildTextField(controller: _nameController, hint: 'Juan Dela Cruz', onChanged: (_) => setState(() {})),
               const SizedBox(height: 14),
               const _FieldLabel('LCUP Email'),
               const SizedBox(height: 6),
-              _buildTextField(hint: 'hrnndz@lcup.edu.manzano'),
+              _buildTextField(
+                controller: _emailController,
+                hint: 'juan.delacruz@lcup.edu.ph',
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() {}),
+              ),
               const SizedBox(height: 14),
               const _FieldLabel('Password'),
               const SizedBox(height: 6),
               _buildTextField(
-                hint: 'basta asterisks mga siyam',
+                controller: _passwordController,
+                hint: '••••••••••',
                 obscure: _obscurePassword,
+                onChanged: (_) => setState(() {}),
                 suffix: IconButton(
                   icon: Icon(
                     _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -100,9 +155,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _agreedToTerms ? _goToSignIn : null,
+                  onPressed: _canSubmit ? _submit : null,
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                  child: const Text('Sign Up'),
+                  child: _submitting
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                      : const Text('Sign Up'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -115,7 +176,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       children: [
                         TextSpan(text: 'Already have an account? '),
                         TextSpan(
-                          text: 'jusq may account ka na pala bwiset',
+                          text: 'Sign In',
                           style: TextStyle(color: AppColors.indigo, fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -130,7 +191,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  Widget _buildTextField({required String hint, bool obscure = false, Widget? suffix}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    bool obscure = false,
+    Widget? suffix,
+    TextInputType? keyboardType,
+    ValueChanged<String>? onChanged,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -138,7 +206,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         borderRadius: BorderRadius.circular(10),
       ),
       child: TextField(
+        controller: controller,
         obscureText: obscure,
+        keyboardType: keyboardType,
+        onChanged: onChanged,
         style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.ink),
         decoration: InputDecoration(
           hintText: hint,

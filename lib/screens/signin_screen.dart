@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
@@ -12,13 +14,57 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  final _emailController = TextEditingController(text: 'juan.delacruz@lcup.edu.ph');
+  final _passwordController = TextEditingController();
+
   UserRole _role = UserRole.officer;
   bool _obscurePassword = true;
   bool _rememberMe = true;
+  bool _submitting = false;
 
-  void _signIn() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => RootShell(role: _role)),
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signIn() async {
+    setState(() => _submitting = true);
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    final success = context.read<AppState>().signIn(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    setState(() => _submitting = false);
+
+    if (success) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => RootShell(role: _role)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid email or password.')),
+      );
+    }
+  }
+
+  void _showForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Password', style: AppText.cardTitle),
+        content: const Text(
+          'Password reset isn\'t available in this preview yet. In the full version, a reset link would be sent to your LCUP email.',
+          style: AppText.caption,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+        ],
+      ),
     );
   }
 
@@ -52,11 +98,16 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 22),
               const _FieldLabel('LCUP Email'),
               const SizedBox(height: 6),
-              _buildTextField(hint: 'puertoleon@rawr'),
+              _buildTextField(
+                controller: _emailController,
+                hint: 'juan.delacruz@lcup.edu.ph',
+                keyboardType: TextInputType.emailAddress,
+              ),
               const SizedBox(height: 14),
               const _FieldLabel('Password'),
               const SizedBox(height: 6),
               _buildTextField(
+                controller: _passwordController,
                 hint: '••••••••••',
                 obscure: _obscurePassword,
                 suffix: IconButton(
@@ -88,13 +139,16 @@ class _SignInScreenState extends State<SignInScreen> {
                       const Text('Remember me', style: AppText.caption),
                     ],
                   ),
-                  const Text(
-                    'Forgot password?',
-                    style: TextStyle(
-                      fontFamily: AppText.bodyFamily,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.indigo,
+                  GestureDetector(
+                    onTap: _showForgotPasswordDialog,
+                    child: const Text(
+                      'Forgot password?',
+                      style: TextStyle(
+                        fontFamily: AppText.bodyFamily,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.indigo,
+                      ),
                     ),
                   ),
                 ],
@@ -115,9 +169,15 @@ class _SignInScreenState extends State<SignInScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _signIn,
+                  onPressed: _submitting ? null : _signIn,
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                  child: const Text('Sign In'),
+                  child: _submitting
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                      : const Text('Sign In'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -134,7 +194,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       children: [
                         TextSpan(text: "Don't have an account? "),
                         TextSpan(
-                          text: 'Gawa ka bago leche',
+                          text: 'Sign Up',
                           style: TextStyle(color: AppColors.indigo, fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -149,7 +209,13 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Widget _buildTextField({required String hint, bool obscure = false, Widget? suffix}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    bool obscure = false,
+    Widget? suffix,
+    TextInputType? keyboardType,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -157,7 +223,9 @@ class _SignInScreenState extends State<SignInScreen> {
         borderRadius: BorderRadius.circular(10),
       ),
       child: TextField(
+        controller: controller,
         obscureText: obscure,
+        keyboardType: keyboardType,
         style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.ink),
         decoration: InputDecoration(
           hintText: hint,
