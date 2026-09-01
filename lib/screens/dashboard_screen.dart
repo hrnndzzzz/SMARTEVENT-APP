@@ -58,7 +58,7 @@ class DashboardScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         const _AllocationVsActualCard(),
                         const SizedBox(height: 10),
-                        const _ExpenseDistributionCard(),
+                         _ExpenseDistributionCard(spendByCategory: app.spendByCategory),
                         const SizedBox(height: 16),
                         const _QuickReports(),
                         const SizedBox(height: 16),
@@ -323,10 +323,51 @@ class _LegendDot extends StatelessWidget {
 }
 
 class _ExpenseDistributionCard extends StatelessWidget {
-  const _ExpenseDistributionCard();
+  final Map<String, double> spendByCategory;
+  const _ExpenseDistributionCard({required this.spendByCategory});
+
+  static const _categoryColors = {
+    'Equipment': AppColors.indigo,
+    'Venue': AppColors.marigold,
+    'Catering': AppColors.sageTeal,
+    'Marketing': AppColors.inkFaint,
+  };
 
   @override
   Widget build(BuildContext context) {
+    final total = spendByCategory.values.fold(0.0, (a, b) => a + b);
+    final entries = spendByCategory.entries.where((e) => e.value > 0).toList();
+
+    if (total == 0) {
+      return Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('Expense distribution', style: AppText.cardTitle),
+              SizedBox(height: 10),
+              Text('No expenses logged yet.', style: AppText.caption),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final colors = <Color>[];
+    final stops = <double>[];
+    double cursor = 0.0;
+    for (final e in entries) {
+      final share = e.value / total;
+      final color = _categoryColors[e.key] ?? AppColors.inkFaint;
+      colors.addAll([color, color]);
+      stops.addAll([cursor, cursor + share]);
+      cursor += share;
+    }
+    colors.add(colors.first);
+    stops.add(1.0);
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -341,18 +382,9 @@ class _ExpenseDistributionCard extends StatelessWidget {
                 Container(
                   width: 96,
                   height: 96,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: SweepGradient(
-                      colors: [
-                        AppColors.indigo, AppColors.indigo,
-                        AppColors.marigold, AppColors.marigold,
-                        AppColors.sageTeal, AppColors.sageTeal,
-                        AppColors.inkFaint, AppColors.inkFaint,
-                        AppColors.indigo,
-                      ],
-                      stops: [0.0, 0.45, 0.45, 0.75, 0.75, 0.90, 0.90, 1.0, 1.0],
-                    ),
+                    gradient: SweepGradient(colors: colors, stops: stops),
                   ),
                   child: Center(
                     child: Container(
@@ -362,10 +394,10 @@ class _ExpenseDistributionCard extends StatelessWidget {
                         color: AppColors.surface,
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          '₱2,150',
-                          style: TextStyle(
+                          '₱${total.toStringAsFixed(0)}',
+                          style: const TextStyle(
                             fontFamily: AppText.monoFamily,
                             fontWeight: FontWeight.w500,
                             fontSize: 13,
@@ -377,18 +409,20 @@ class _ExpenseDistributionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 18),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _LegendRow(color: AppColors.indigo, label: 'Equipment (45%)'),
-                    SizedBox(height: 6),
-                    _LegendRow(color: AppColors.marigold, label: 'Venue (30%)'),
-                    SizedBox(height: 6),
-                    _LegendRow(color: AppColors.sageTeal, label: 'Catering (15%)'),
-                    SizedBox(height: 6),
-                    _LegendRow(color: AppColors.inkFaint, label: 'Marketing (10%)'),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final e in entries) ...[
+                        _LegendRow(
+                          color: _categoryColors[e.key] ?? AppColors.inkFaint,
+                          label: '${e.key} (${(e.value / total * 100).round()}%)',
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),

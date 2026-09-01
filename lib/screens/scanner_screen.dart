@@ -20,6 +20,19 @@ class _ScannerScreenState extends State<ScannerScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _capturedImage;
   bool _logging = false;
+  String _category = AppState.expenseCategories.first;
+
+  final _vendorController = TextEditingController(text: 'Fresh Campus Catering');
+  final _dateController = TextEditingController(text: 'Aug 12, 2026');
+  final _totalController = TextEditingController(text: '2500.00');
+
+  @override
+  void dispose() {
+    _vendorController.dispose();
+    _dateController.dispose();
+    _totalController.dispose();
+    super.dispose();
+  }
 
   Future<void> _capturePhoto() async {
     final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
@@ -28,19 +41,52 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: now,
+    );
+    if (picked != null) {
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      setState(() {
+        _dateController.text = '${months[picked.month - 1]} ${picked.day}, ${picked.year}';
+      });
+    }
+  }
+
   Future<void> _confirmAndLog() async {
+    final vendor = _vendorController.text.trim().isEmpty ? 'Unknown Vendor' : _vendorController.text.trim();
+    final amount = double.tryParse(_totalController.text.trim());
+
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid total amount.')),
+      );
+      return;
+    }
+
     setState(() => _logging = true);
     await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
 
-    context.read<AppState>().logExpense('Fresh Campus Catering', 2500.00);
+    context.read<AppState>().logExpense(vendor, amount, category: _category);
 
     setState(() {
       _logging = false;
       _capturedImage = null;
+      _category = AppState.expenseCategories.first;
+      _vendorController.text = 'Fresh Campus Catering';
+      _dateController.text = 'Aug 12, 2026';
+      _totalController.text = '2500.00';
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Expense logged: Fresh Campus Catering — ₱2,500.00')),
+      SnackBar(content: Text('Expense logged: $vendor — ₱${amount.toStringAsFixed(2)} ($_category)')),
     );
   }
 
@@ -92,7 +138,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     _CapturePreview(image: _capturedImage, onCapture: _capturePhoto),
                     const SizedBox(height: 16),
                     if (_capturedImage != null) ...[
-                      const _DetectedFieldsCard(),
+                      _DetectedFieldsCard(
+                        vendorController: _vendorController,
+                        dateController: _dateController,
+                        totalController: _totalController,
+                        onDateTap: _pickDate,
+                        category: _category,
+                        onCategoryChanged: (c) => setState(() => _category = c),
+                      ),
                       const SizedBox(height: 14),
                       ElevatedButton(
                         onPressed: _logging ? null : _confirmAndLog,
@@ -170,7 +223,21 @@ class _CapturePreview extends StatelessWidget {
 }
 
 class _DetectedFieldsCard extends StatelessWidget {
-  const _DetectedFieldsCard();
+  final TextEditingController vendorController;
+  final TextEditingController dateController;
+  final TextEditingController totalController;
+  final VoidCallback onDateTap;
+  final String category;
+  final ValueChanged<String> onCategoryChanged;
+
+  const _DetectedFieldsCard({
+    required this.vendorController,
+    required this.dateController,
+    required this.totalController,
+    required this.onDateTap,
+    required this.category,
+    required this.onCategoryChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -181,17 +248,43 @@ class _DetectedFieldsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Detected fields', style: AppText.cardTitle),
+            Row(
+              children: [
+                const Text('Detected fields', style: AppText.cardTitle),
+                const Spacer(),
+                Icon(Icons.edit_outlined, size: 13, color: AppColors.inkFaint),
+                const SizedBox(width: 4),
+                const Text('Tap to edit', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 10, color: AppColors.inkFaint)),
+              ],
+            ),
             const SizedBox(height: 10),
-            _fieldRow('Vendor', 'Fresh Campus Catering', bottomBorder: true),
-            _fieldRow('Date', 'Aug 12, 2026', mono: true, bottomBorder: true),
-            _fieldRow(
-              'Total',
-              '₱2,500.00',
+            _editableRow(
+              label: 'Vendor',
+              controller: vendorController,
+              bottomBorder: true,
+            ),
+            GestureDetector(
+              onTap: onDateTap,
+              child: AbsorbPointer(
+                child: _editableRow(
+                  label: 'Date',
+                  controller: dateController,
+                  mono: true,
+                  bottomBorder: true,
+                  trailingIcon: Icons.calendar_today_outlined,
+                ),
+              ),
+            ),
+            _categoryRow(),
+            const SizedBox(height: 4),
+            _editableRow(
+              label: 'Total',
+              controller: totalController,
               mono: true,
               valueColor: AppColors.brick,
-              valueSize: 14,
               bold: true,
+              prefix: '₱',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
           ],
         ),
@@ -199,35 +292,82 @@ class _DetectedFieldsCard extends StatelessWidget {
     );
   }
 
-  Widget _fieldRow(
-      String label,
-      String value, {
-        bool mono = false,
-        bool bold = false,
-        bool bottomBorder = false,
-        Color valueColor = AppColors.ink,
-        double valueSize = 12,
-      }) {
+  Widget _categoryRow() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Category', style: AppText.caption),
+          DropdownButton<String>(
+            value: category,
+            underline: const SizedBox.shrink(),
+            style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: AppColors.ink),
+            items: [
+              for (final c in AppState.expenseCategories)
+                DropdownMenuItem(value: c, child: Text(c)),
+            ],
+            onChanged: (v) {
+              if (v != null) onCategoryChanged(v);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _editableRow({
+    required String label,
+    required TextEditingController controller,
+    bool mono = false,
+    bool bold = false,
+    bool bottomBorder = false,
+    Color valueColor = AppColors.ink,
+    String? prefix,
+    IconData? trailingIcon,
+    TextInputType? keyboardType,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: bottomBorder
           ? const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
       )
           : null,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppText.caption),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: mono ? AppText.monoFamily : AppText.bodyFamily,
-              fontWeight: bold ? FontWeight.w500 : FontWeight.w400,
-              fontSize: valueSize,
-              color: valueColor,
+          SizedBox(width: 60, child: Text(label, style: AppText.caption)),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              textAlign: TextAlign.right,
+              keyboardType: keyboardType,
+              style: TextStyle(
+                fontFamily: mono ? AppText.monoFamily : AppText.bodyFamily,
+                fontWeight: bold ? FontWeight.w500 : FontWeight.w400,
+                fontSize: bold ? 14 : 12,
+                color: valueColor,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                prefixText: prefix,
+                prefixStyle: TextStyle(
+                  fontFamily: mono ? AppText.monoFamily : AppText.bodyFamily,
+                  fontWeight: bold ? FontWeight.w500 : FontWeight.w400,
+                  fontSize: bold ? 14 : 12,
+                  color: valueColor,
+                ),
+              ),
             ),
           ),
+          if (trailingIcon != null) ...[
+            const SizedBox(width: 4),
+            Icon(trailingIcon, size: 14, color: AppColors.inkMuted),
+          ],
         ],
       ),
     );

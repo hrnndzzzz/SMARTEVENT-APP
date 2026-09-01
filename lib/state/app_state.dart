@@ -89,6 +89,13 @@ class Account {
 
   Account({required this.name, required this.email, required this.password});
 }
+class ExpenseEntry {
+  final String vendor;
+  final double amount;
+  final String category;
+
+  ExpenseEntry({required this.vendor, required this.amount, required this.category});
+}
 
 class AppState extends ChangeNotifier {
   double totalAllocated = 5000.00;
@@ -96,13 +103,22 @@ class AppState extends ChangeNotifier {
 
   double get remainingBalance => totalAllocated - totalExpended;
 
-  final List<String> expenseLog = [
-    'Catering Deposit — Hackathon · -₱2,150.00',
+  final List<ExpenseEntry> expenses = [
+    ExpenseEntry(vendor: 'Fresh Campus Catering', amount: 950.00, category: 'Catering'),
+    ExpenseEntry(vendor: 'CITE Auditorium Rental', amount: 650.00, category: 'Venue'),
+    ExpenseEntry(vendor: 'National Bookstore', amount: 350.00, category: 'Equipment'),
+    ExpenseEntry(vendor: 'Print Shop Flyers', amount: 200.00, category: 'Marketing'),
   ];
 
-  void logExpense(String vendor, double amount) {
+  /// Legacy string log kept for the Dashboard's "Recent activity" list.
+  List<String> get expenseLog =>
+      expenses.map((e) => '${e.vendor} · -₱${e.amount.toStringAsFixed(2)}').toList();
+
+  static const List<String> expenseCategories = ['Equipment', 'Venue', 'Catering', 'Marketing'];
+
+  void logExpense(String vendor, double amount, {String category = 'Equipment'}) {
     totalExpended += amount;
-    expenseLog.insert(0, '$vendor · -₱${amount.toStringAsFixed(2)}');
+    expenses.insert(0, ExpenseEntry(vendor: vendor, amount: amount, category: category));
     addNotification(AppNotification(
       icon: Icons.receipt_long_outlined,
       tagColor: const Color(0xFF2B3A67),
@@ -112,6 +128,15 @@ class AppState extends ChangeNotifier {
       destination: NotifDestination.dashboard,
     ));
     notifyListeners();
+  }
+
+  /// Category -> total spent, computed live from [expenses].
+  Map<String, double> get spendByCategory {
+    final totals = {for (final c in expenseCategories) c: 0.0};
+    for (final e in expenses) {
+      totals[e.category] = (totals[e.category] ?? 0) + e.amount;
+    }
+    return totals;
   }
 
   final List<InventoryItem> inventory = [
