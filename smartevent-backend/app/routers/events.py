@@ -1,37 +1,29 @@
 """
 CRUD + approval workflow for event proposals.
 
-Status flow (two-stage, matching the Flutter app's existing UX):
-    draft --submit--> pending_adviser --approve--> pending_admin --approve--> approved
-                            \--reject--> rejected         \--reject--> rejected
+Status flow:
+    draft --submit--> pending --approve--> approved
+                          \\--reject--> rejected
     ("completed" exists as a status value for later — once an approved
     event has actually happened — but nothing transitions an event to
     it yet. Add a POST /events/{id}/complete route when you get there,
     same shape as submit/approve.)
 
-Whoever PROPOSES an event skips their own review stage — approving your
-own proposal is redundant, and an admin has nothing above them in the
-hierarchy to review it:
-    - officer proposes  -> starts at pending_adviser (needs both stages)
-    - adviser proposes  -> starts at pending_admin (adviser stage skipped)
-    - admin proposes     -> auto-approved immediately (no review needed)
-
 Access rules:
   - Anyone logged in can VIEW events (GET routes) — officers need to
     see what's proposed, advisers need the queue to review.
-  - The officer (or admin) who proposed an event can edit it while it's
-    still a draft OR rejected (editing a rejected event and resubmitting
-    is how an officer fixes and retries a proposal — this restarts the
-    approval chain via _initial_pending_status, same rule as above).
-  - Only advisers can approve/reject events at the pending_adviser stage.
-  - Only admins can approve/reject events at the pending_admin stage.
+  - The officer (or admin) who proposed an event can edit, submit, or
+    delete it while it's still a draft.
+  - Only advisers/admins can approve or reject a submitted event.
   - Every approve/reject writes a row to `approvals` instead of just
     flipping the status, so GET /events/{id}/approvals gives a full
     review timeline (who decided what, and when) rather than only the
-    final outcome. Resubmission doesn't erase this history — a new
-    submission just adds new approval rows with the next step_order,
-    so the full back-and-forth (reject, edit, resubmit, approve) stays
-    visible in the timeline.
+    final outcome.
+
+Note: this doesn't stop an adviser from approving an event they also
+proposed (self-review). If you want strict segregation of duties later,
+that's a one-line check in approve_event/reject_event comparing
+event.proposed_by to current_user.id.
 """
 
 import uuid
@@ -70,9 +62,8 @@ def _assert_owner_or_admin(event: Event, current_user: User, action: str) -> Non
 
 
 def _next_step_order(db: Session, event_id: uuid.UUID) -> int:
-    # Approval rows accumulate per event (across resubmissions too), so
-    # each new approve/reject gets the next step number in that event's
-    # full review timeline.
+    # Approval rows accumulate per event, so each new approve/reject
+    # gets the next step number in that event's review timeline.
     count = (
         db.query(Approval)
         .filter(Approval.entity_type == "event", Approval.entity_id == event_id)
@@ -100,37 +91,18 @@ def _record_decision(
     db.add(approval)
 
 
-def _initial_pending_status(proposer_role: str) -> str:
-    """
-    Maps whoever is proposing/resubmitting an event to the correct
-    starting stage, skipping their own review step.
-    """
-    if proposer_role == "adviser":
-        return "pending_admin"
-    if proposer_role == "admin":
-        return "approved"
-    return "pending_adviser"
-
-
 @router.post("", response_model=EventOut, status_code=status.HTTP_201_CREATED)
 def create_event(
     payload: EventCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # If the client is creating straight into review (not saving a
-    # draft first), route it through the same creator-skip logic as
-    # submit_event rather than a bare "pending".
-    initial_status = payload.status
-    if initial_status == "pending":
-        initial_status = _initial_pending_status(current_user.role)
-
     event = Event(
         category_id=payload.category_id,
         title=payload.title,
         description=payload.description,
         proposed_by=current_user.id,
-        status=initial_status,
+        status=payload.status,
         event_date=payload.event_date,
         estimated_cost=payload.estimated_cost,
         allocated_budget=payload.allocated_budget,
@@ -142,12 +114,6 @@ def create_event(
     db.add(event)
     db.commit()
     db.refresh(event)
-
-    if event.status == "approved":
-        _record_decision(db, event, "approved", current_user, "Auto-approved: proposed by admin.")
-        db.commit()
-        db.refresh(event)
-
     return event
 
 
@@ -193,10 +159,10 @@ def update_event(
     event = _get_event_or_404(db, event_id)
     _assert_owner_or_admin(event, current_user, "edit")
 
-    if event.status not in ("draft", "rejected"):
+    if event.status != "draft":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Only draft or rejected events can be edited",
+            detail="Only draft events can be edited",
         )
 
     updates = payload.model_dump(exclude_unset=True)
@@ -214,36 +180,16 @@ def submit_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Moves a draft into review, OR resubmits a previously rejected event
-    (the Flutter app's "Edit Proposal" -> "Save Changes" flow on a
-    rejected event calls PATCH then this, in that order). Either way,
-    the starting stage is chosen by _initial_pending_status based on
-    who's doing the submitting right now — not who originally proposed
-    it — so if an admin edits and resubmits someone else's rejected
-    proposal, it correctly skips straight to approved.
-    """
     event = _get_event_or_404(db, event_id)
     _assert_owner_or_admin(event, current_user, "submit")
 
-    if event.status not in ("draft", "rejected"):
+    if event.status != "draft":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Event is already '{event.status}' — only draft or rejected events can be submitted",
+            detail=f"Event is already '{event.status}' — only drafts can be submitted",
         )
 
-    was_resubmission = event.status == "rejected"
-    event.status = _initial_pending_status(current_user.role)
-
-    if was_resubmission:
-        _record_decision(
-            db, event, "resubmitted", current_user,
-            "Event revised and resubmitted for review.",
-        )
-
-    if event.status == "approved":
-        _record_decision(db, event, "approved", current_user, "Auto-approved: submitted by admin.")
-
+    event.status = "pending"
     db.commit()
     db.refresh(event)
     return event
@@ -258,24 +204,14 @@ def approve_event(
 ):
     event = _get_event_or_404(db, event_id)
 
-    if current_user.role == "adviser":
-        if event.status != "pending_adviser":
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Event is '{event.status}' — advisers can only act while it's pending adviser review",
-            )
-        _record_decision(db, event, "approved", current_user, payload.remarks)
-        event.status = "pending_admin"
+    if event.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Event is '{event.status}' — only pending events can be approved",
+        )
 
-    else:  # admin
-        if event.status != "pending_admin":
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Event is '{event.status}' — admins can only give final approval while it's pending admin approval",
-            )
-        _record_decision(db, event, "approved", current_user, payload.remarks)
-        event.status = "approved"
-
+    _record_decision(db, event, "approved", current_user, payload.remarks)
+    event.status = "approved"
     db.commit()
     db.refresh(event)
     return event
@@ -290,20 +226,14 @@ def reject_event(
 ):
     event = _get_event_or_404(db, event_id)
 
-    if current_user.role == "adviser" and event.status != "pending_adviser":
+    if event.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Event is '{event.status}' — advisers can only act while it's pending adviser review",
-        )
-    if current_user.role == "admin" and event.status not in ("pending_adviser", "pending_admin"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Event is '{event.status}' — nothing pending to reject",
+            detail=f"Event is '{event.status}' — only pending events can be rejected",
         )
 
     _record_decision(db, event, "rejected", current_user, payload.remarks)
     event.status = "rejected"
-
     db.commit()
     db.refresh(event)
     return event
