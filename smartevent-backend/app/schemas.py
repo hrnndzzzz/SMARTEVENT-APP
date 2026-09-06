@@ -86,7 +86,7 @@ class CategoryOut(BaseModel):
 
 # ---- Events ---------------------------------------------------------------
 
-EventStatus = Literal["draft", "pending", "approved", "rejected", "completed"]
+EventStatus = Literal["draft", "pending_adviser", "pending_admin", "approved", "rejected", "completed"]
 
 
 class EventCreate(BaseModel):
