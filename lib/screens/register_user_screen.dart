@@ -3,16 +3,19 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import 'signin_screen.dart';
 
-class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+/// Admin-only. Matches the real backend's POST /auth/register contract:
+/// only an already-signed-in Admin can create a new account, and the
+/// role is assigned right here at creation time — not chosen by the
+/// new user, and not re-choosable later at Sign In.
+class RegisterUserScreen extends StatefulWidget {
+  const RegisterUserScreen({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  State<RegisterUserScreen> createState() => _RegisterUserScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _RegisterUserScreenState extends State<RegisterUserScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -20,6 +23,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _obscurePassword = true;
   bool _agreedToTerms = false;
   bool _submitting = false;
+  UserRole _role = UserRole.officer;
+  Department _department = Department.cite;
 
   @override
   void dispose() {
@@ -36,34 +41,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _passwordController.text.isNotEmpty &&
           !_submitting;
 
-  void _goToSignIn() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const SignInScreen()),
-    );
-  }
-
   Future<void> _submit() async {
     if (!_canSubmit) return;
     setState(() => _submitting = true);
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
 
-    final success = context.read<AppState>().signUp(
+    final app = context.read<AppState>();
+    final error = app.registerUser(
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
+      role: _role,
+      department: _department,
     );
 
     setState(() => _submitting = false);
 
-    if (success) {
+    if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created. Please sign in.')),
+        SnackBar(content: Text('Account created for ${_nameController.text.trim()} (${_role.name}).')),
       );
-      _goToSignIn();
+      Navigator.of(context).pop();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An account with this email already exists.')),
+        SnackBar(content: Text(error)),
       );
     }
   }
@@ -85,7 +87,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Get Started',
+                'Register New User',
                 style: TextStyle(
                   fontFamily: AppText.headerFamily,
                   fontWeight: FontWeight.w500,
@@ -94,7 +96,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text('Create your SmartEvent account.', style: AppText.caption),
+              const Text('Create an account and assign its role.', style: AppText.caption),
               const SizedBox(height: 22),
               const _FieldLabel('Full Name'),
               const SizedBox(height: 6),
@@ -104,12 +106,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 6),
               _buildTextField(
                 controller: _emailController,
-                hint: 'juan.delacruz@lcup.edu.ph',
+                hint: 'yourname@lcup.edu.ph',
                 keyboardType: TextInputType.emailAddress,
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 14),
-              const _FieldLabel('Password'),
+              const _FieldLabel('Temporary Password'),
               const SizedBox(height: 6),
               _buildTextField(
                 controller: _passwordController,
@@ -124,6 +126,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                 ),
+              ),
+              const SizedBox(height: 16),
+              const _FieldLabel('Role'),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: _RoleChip(role: UserRole.officer, label: 'Officer', selected: _role == UserRole.officer, onTap: () => setState(() => _role = UserRole.officer))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _RoleChip(role: UserRole.adviser, label: 'Adviser', selected: _role == UserRole.adviser, onTap: () => setState(() => _role = UserRole.adviser))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _RoleChip(role: UserRole.admin, label: 'Admin', selected: _role == UserRole.admin, onTap: () => setState(() => _role = UserRole.admin))),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const _FieldLabel('Department'),
+              const SizedBox(height: 2),
+              const Text(
+                'Visual demo only, just in case sabihin na "paano pag gagamitin ng buong campus"',
+                style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 10, color: AppColors.inkFaint),
+              ),
+              const SizedBox(height: 8),
+              _DepartmentGrid(
+                selected: _department,
+                onSelect: (d) => setState(() => _department = d),
+                includeSystemWide: _role == UserRole.admin,
               ),
               const SizedBox(height: 16),
               Row(
@@ -144,7 +171,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     child: Padding(
                       padding: EdgeInsets.only(top: 2),
                       child: Text(
-                        'I consent to the processing of my personal data per RA 10173.',
+                        'I confirm this user has consented to the processing of their personal data per RA 10173.',
                         style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.inkMuted, height: 1.4),
                       ),
                     ),
@@ -163,25 +190,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                      : const Text('Sign Up'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: GestureDetector(
-                  onTap: _goToSignIn,
-                  child: RichText(
-                    text: const TextSpan(
-                      style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: AppColors.inkMuted),
-                      children: [
-                        TextSpan(text: 'Already have an account? '),
-                        TextSpan(
-                          text: 'Sign In',
-                          style: TextStyle(color: AppColors.indigo, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
+                      : const Text('Create Account'),
                 ),
               ),
             ],
@@ -230,5 +239,102 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: AppText.caption);
+  }
+}
+
+class _RoleChip extends StatelessWidget {
+  final UserRole role;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RoleChip({required this.role, required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.indigo : AppColors.surface,
+          border: selected ? null : Border.all(color: AppColors.border, width: 0.8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppText.bodyFamily,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: selected ? Colors.white : AppColors.ink,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DepartmentGrid extends StatelessWidget {
+  final Department selected;
+  final ValueChanged<Department> onSelect;
+  final bool includeSystemWide;
+
+  const _DepartmentGrid({required this.selected, required this.onSelect, this.includeSystemWide = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final options = includeSystemWide
+        ? Department.values
+        : Department.values.where((d) => d != Department.systemWide);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final d in options) _chip(d),
+      ],
+    );
+  }
+
+  Widget _chip(Department d) {
+    final isSelected = d == selected;
+    return GestureDetector(
+      onTap: () => onSelect(d),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? d.color : AppColors.surface,
+          border: isSelected ? null : Border.all(color: AppColors.border, width: 0.8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white : d.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              d.label,
+              style: TextStyle(
+                fontFamily: AppText.bodyFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

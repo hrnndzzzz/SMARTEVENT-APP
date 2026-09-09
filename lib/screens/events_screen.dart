@@ -12,25 +12,25 @@ import 'event_detail_screen.dart';
 class EventsScreen extends StatelessWidget {
   const EventsScreen({super.key});
 
-  Color _statusBg(int step) => switch (step) {
-    3 => AppColors.sageTealTint,
-    2 => AppColors.sageTealTint,
-    1 => AppColors.marigoldTint,
-    _ => const Color(0xFFEDEBE6),
+  Color _statusBg(EventApprovalStatus s) => switch (s) {
+    EventApprovalStatus.approved => AppColors.sageTealTint,
+    EventApprovalStatus.rejected => const Color(0xFFFBEAE7),
+    EventApprovalStatus.pendingAdmin => AppColors.marigoldTint,
+    EventApprovalStatus.pendingAdviser => const Color(0xFFEDEBE6),
   };
 
-  Color _statusColor(int step) => switch (step) {
-    3 => AppColors.sageTealText,
-    2 => AppColors.sageTealText,
-    1 => AppColors.marigoldText,
-    _ => AppColors.inkMuted,
+  Color _statusColor(EventApprovalStatus s) => switch (s) {
+    EventApprovalStatus.approved => AppColors.sageTealText,
+    EventApprovalStatus.rejected => AppColors.brick,
+    EventApprovalStatus.pendingAdmin => AppColors.marigoldText,
+    EventApprovalStatus.pendingAdviser => AppColors.inkMuted,
   };
 
-  Color _tagColor(int step) => switch (step) {
-    3 => AppColors.sageTeal,
-    2 => AppColors.sageTeal,
-    1 => AppColors.marigold,
-    _ => AppColors.inkFaint,
+  Color _tagColor(EventApprovalStatus s) => switch (s) {
+    EventApprovalStatus.approved => AppColors.sageTeal,
+    EventApprovalStatus.rejected => AppColors.brick,
+    EventApprovalStatus.pendingAdmin => AppColors.marigold,
+    EventApprovalStatus.pendingAdviser => AppColors.inkFaint,
   };
 
   @override
@@ -43,15 +43,8 @@ class EventsScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppHeader(
-                initials: 'SO',
                 onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AccountScreen(
-                      initials: 'SO',
-                      name: 'Juan Dela Cruz',
-                      role: 'CITE Dept Officer',
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),
@@ -97,9 +90,9 @@ class EventsScreen extends StatelessWidget {
                         for (final event in app.events) ...[
                           _EventCard(
                             event: event,
-                            statusBg: _statusBg(event.approvalStep),
-                            statusColor: _statusColor(event.approvalStep),
-                            tagColor: _tagColor(event.approvalStep),
+                            statusBg: _statusBg(event.status),
+                            statusColor: _statusColor(event.status),
+                            tagColor: _tagColor(event.status),
                           ),
                           const SizedBox(height: 10),
                         ],

@@ -4,7 +4,6 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
-import 'signup_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -14,10 +13,9 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final _emailController = TextEditingController(text: 'juan.delacruz@lcup.edu.ph');
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  UserRole _role = UserRole.officer;
   bool _obscurePassword = true;
   bool _rememberMe = true;
   bool _submitting = false;
@@ -34,7 +32,8 @@ class _SignInScreenState extends State<SignInScreen> {
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
 
-    final success = context.read<AppState>().signIn(
+    final app = context.read<AppState>();
+    final success = app.signIn(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
@@ -43,7 +42,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
     if (success) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => RootShell(role: _role)),
+        MaterialPageRoute(builder: (_) => RootShell(role: app.currentRole!)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,6 +67,48 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
+  void _showQuickLoginSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Dev Quick Login', style: AppText.cardTitle),
+            const SizedBox(height: 4),
+            const Text('Testing shortcut — not part of the real sign-in flow.', style: AppText.caption),
+            const SizedBox(height: 16),
+            for (final role in UserRole.values) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(switch (role) {
+                  UserRole.officer => Icons.person_outline,
+                  UserRole.adviser => Icons.fact_check_outlined,
+                  UserRole.admin => Icons.admin_panel_settings_outlined,
+                }),
+                title: Text('Sign in as ${role.name[0].toUpperCase()}${role.name.substring(1)}'),
+                onTap: () {
+                  context.read<AppState>().devQuickLogin(role);
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => RootShell(role: role)),
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,13 +125,16 @@ class _SignInScreenState extends State<SignInScreen> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Welcome back',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 24,
-                  color: AppColors.ink,
+              GestureDetector(
+                onLongPress: () => _showQuickLoginSheet(context),
+                child: const Text(
+                  'Welcome back',
+                  style: TextStyle(
+                    fontFamily: AppText.headerFamily,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 24,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -100,7 +144,7 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 6),
               _buildTextField(
                 controller: _emailController,
-                hint: 'juan.delacruz@lcup.edu.ph',
+                hint: 'yourname@lcup.edu.ph',
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 14),
@@ -154,18 +198,6 @@ class _SignInScreenState extends State<SignInScreen> {
                 ],
               ),
               const SizedBox(height: 22),
-              const Text('Continue as', style: AppText.caption),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: _RoleChip(role: UserRole.officer, label: 'Officer', icon: Icons.person_outline, selected: _role == UserRole.officer, onTap: () => setState(() => _role = UserRole.officer))),
-                  const SizedBox(width: 8),
-                  Expanded(child: _RoleChip(role: UserRole.adviser, label: 'Adviser', icon: Icons.fact_check_outlined, selected: _role == UserRole.adviser, onTap: () => setState(() => _role = UserRole.adviser))),
-                  const SizedBox(width: 8),
-                  Expanded(child: _RoleChip(role: UserRole.admin, label: 'Admin', icon: Icons.admin_panel_settings_outlined, selected: _role == UserRole.admin, onTap: () => setState(() => _role = UserRole.admin))),
-                ],
-              ),
-              const SizedBox(height: 22),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -178,28 +210,6 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                       : const Text('Sign In'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const SignUpScreen()),
-                    );
-                  },
-                  child: RichText(
-                    text: const TextSpan(
-                      style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: AppColors.inkMuted),
-                      children: [
-                        TextSpan(text: "Don't have an account? "),
-                        TextSpan(
-                          text: 'Sign Up',
-                          style: TextStyle(color: AppColors.indigo, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -246,48 +256,5 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: AppText.caption);
-  }
-}
-
-class _RoleChip extends StatelessWidget {
-  final UserRole role;
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _RoleChip({
-    required this.role,
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.indigo : AppColors.surface,
-          border: selected ? null : Border.all(color: AppColors.border, width: 0.8),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: selected ? Colors.white : AppColors.ink,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

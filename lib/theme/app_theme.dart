@@ -64,14 +64,18 @@ class AppText {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light() {
+  /// [primary] defaults to the app's original indigo, but can be
+  /// overridden to reflect the signed-in account's department color
+  /// (see AppState.themeColor) — a visual demo of how SmartEvent could
+  /// theme itself per college if this were ever scaled campus-wide.
+  static ThemeData light({Color primary = AppColors.indigo}) {
     return ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: AppColors.background,
       fontFamily: AppText.bodyFamily,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.indigo,
-        primary: AppColors.indigo,
+        seedColor: primary,
+        primary: primary,
         secondary: AppColors.marigold,
         tertiary: AppColors.sageTeal,
         error: AppColors.brick,
@@ -87,7 +91,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.indigo,
+          backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 13),

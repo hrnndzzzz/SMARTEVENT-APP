@@ -4,16 +4,27 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
+import '../widgets/expense_review.dart';
+import '../widgets/financial_overview.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
+import 'event_detail_screen.dart';
 
-class AdminDashboardScreen extends StatelessWidget {
+class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
+  @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  bool _generatingReport = false;
+
   Future<void> _setCategoryBudget(BuildContext context) async {
-    final categories = ['Equipment', 'Venue', 'Catering', 'Marketing'];
+    final app = context.read<AppState>();
+    final categories = AppState.expenseCategories;
     String selected = categories.first;
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: app.categoryBudgets[selected]!.toStringAsFixed(2));
 
     await showDialog(
       context: context,
@@ -32,14 +43,19 @@ class AdminDashboardScreen extends StatelessWidget {
                 items: [
                   for (final c in categories) DropdownMenuItem(value: c, child: Text(c)),
                 ],
-                onChanged: (v) => setDialogState(() => selected = v!),
+                onChanged: (v) {
+                  setDialogState(() {
+                    selected = v!;
+                    controller.text = app.categoryBudgets[selected]!.toStringAsFixed(2);
+                  });
+                },
               ),
               const SizedBox(height: 14),
               const Text('Amount (₱)', style: AppText.caption),
               const SizedBox(height: 6),
               TextField(
                 controller: controller,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(hintText: '0.00'),
               ),
             ],
@@ -48,9 +64,17 @@ class AdminDashboardScreen extends StatelessWidget {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () {
+                final amount = double.tryParse(controller.text.trim());
                 Navigator.pop(context);
+                if (amount == null || amount < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid amount.')),
+                  );
+                  return;
+                }
+                app.setCategoryBudget(selected, amount);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$selected budget updated to ₱${controller.text.isEmpty ? '0.00' : controller.text}')),
+                  SnackBar(content: Text('$selected budget set to ₱${amount.toStringAsFixed(2)}')),
                 );
               },
               child: const Text('Save'),
@@ -61,13 +85,23 @@ class AdminDashboardScreen extends StatelessWidget {
     );
   }
 
-  void _generateReports(BuildContext context) {
+  Future<void> _generateReports() async {
+    setState(() => _generatingReport = true);
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    setState(() => _generatingReport = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Generating org-wide financial summary...')),
+      const SnackBar(content: Text('Org-wide financial summary generated — org_summary_q2_2026.pdf')),
     );
   }
 
   Future<void> _viewAnalytics(BuildContext context) async {
+    final app = context.read<AppState>();
+    final allocated = app.totalAllocated;
+    final expended = app.totalExpended;
+    final utilization = allocated == 0 ? 0.0 : (expended / allocated * 100);
+    final spend = app.spendByCategory;
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -78,16 +112,21 @@ class AdminDashboardScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _analyticsRow('Total budget allocated', '₱14,150.00'),
-              _analyticsRow('Total expended (all orgs)', '₱6,850.00'),
-              _analyticsRow('Overall utilization', '48%'),
+              _analyticsRow('Total budget allocated', '₱${allocated.toStringAsFixed(2)}'),
+              _analyticsRow('Total expended (approved)', '₱${expended.toStringAsFixed(2)}'),
+              _analyticsRow('Overall utilization', '${utilization.toStringAsFixed(0)}%'),
               const SizedBox(height: 12),
               const Text('By category', style: AppText.caption),
               const SizedBox(height: 8),
-              _analyticsRow('Equipment', '45%', indent: true),
-              _analyticsRow('Venue', '30%', indent: true),
-              _analyticsRow('Catering', '15%', indent: true),
-              _analyticsRow('Marketing', '10%', indent: true),
+              if (expended == 0)
+                const Text('No approved expenses yet.', style: AppText.caption)
+              else
+                for (final entry in spend.entries.where((e) => e.value > 0))
+                  _analyticsRow(
+                    entry.key,
+                    '${(entry.value / expended * 100).toStringAsFixed(0)}%',
+                    indent: true,
+                  ),
             ],
           ),
         ),
@@ -129,18 +168,11 @@ class AdminDashboardScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppHeader(
-                initials: 'SA',
                 subtitle: 'System Administrator',
                 subtitleBg: const Color(0xFFE8ECF3),
                 subtitleColor: AppColors.indigo,
                 onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AccountScreen(
-                      initials: 'SA',
-                      name: 'Admin User',
-                      role: 'System Administrator',
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),
@@ -150,34 +182,93 @@ class AdminDashboardScreen extends StatelessWidget {
               Expanded(
                 child: Consumer<AppState>(
                   builder: (context, app, _) {
+                    final pendingEvents = app.pendingAdminEvents;
+                    final handledEvents = app.adminHandledEvents;
+                    final pendingExpenses = app.pendingExpenses;
+                    final handledExpenses = app.expenses.where((e) => e.status != ExpenseStatus.pending).toList();
+
                     return ListView(
                       padding: const EdgeInsets.only(bottom: 8),
                       children: [
+                        MetricCard(
+                          label: 'Total budget allocated',
+                          value: '₱${app.totalAllocated.toStringAsFixed(2)}',
+                          icon: Icons.account_balance_wallet_outlined,
+                          iconColor: AppColors.indigo,
+                        ),
+                        const SizedBox(height: 10),
+                        ExpendedCard(
+                          expended: app.totalExpended,
+                          allocated: app.totalAllocated,
+                        ),
+                        const SizedBox(height: 10),
+                        RemainingBalanceCard(balance: app.remainingBalance),
+                        const SizedBox(height: 16),
+                        AllocationVsActualCard(
+                          budgets: app.categoryBudgets,
+                          spend: app.spendByCategory,
+                        ),
+                        const SizedBox(height: 10),
+                        ExpenseDistributionCard(spendByCategory: app.spendByCategory),
+                        const SizedBox(height: 16),
                         _QuickActionsRow(
                           onSetBudget: () => _setCategoryBudget(context),
-                          onGenerateReports: () => _generateReports(context),
+                          onGenerateReports: _generatingReport ? null : _generateReports,
                           onViewAnalytics: () => _viewAnalytics(context),
+                          isGenerating: _generatingReport,
                         ),
                         const SizedBox(height: 18),
-                        Text('Pending approvals (${app.pendingRequests.length})', style: AppText.cardTitle),
+                        Text('Pending final approval (${pendingEvents.length})', style: AppText.cardTitle),
+                        const SizedBox(height: 4),
+                        const Text('Tap a request to review and decide.', style: AppText.caption),
                         const SizedBox(height: 10),
-                        if (app.pendingRequests.isEmpty)
+                        if (pendingEvents.isEmpty)
                           const _EmptyState(text: 'No pending approvals. All caught up.')
                         else
-                          for (final req in app.pendingRequests) ...[
-                            _ApprovalCard(
-                              approval: req,
-                              onApprove: () => app.decideRequest(req, approved: true),
-                              onReject: () => app.decideRequest(req, approved: false),
+                          for (final event in pendingEvents) ...[
+                            _EventSummaryCard(
+                              event: event,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+                              ),
                             ),
                             const SizedBox(height: 10),
                           ],
-                        if (app.handledRequests.isNotEmpty) ...[
+                        if (pendingExpenses.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          Text('Pending expenses (${pendingExpenses.length})', style: AppText.cardTitle),
+                          const SizedBox(height: 4),
+                          const Text('Tap to approve or reject.', style: AppText.caption),
                           const SizedBox(height: 10),
-                          const Text('Recently handled', style: AppText.caption),
+                          for (final expense in pendingExpenses) ...[
+                            ExpensePendingCard(
+                              expense: expense,
+                              reviewerRole: 'Admin',
+                              onInsufficientBudget: () => _setCategoryBudget(context),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                        if (handledEvents.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          const Text('Recently handled events', style: AppText.caption),
                           const SizedBox(height: 8),
-                          for (final req in app.handledRequests) ...[
-                            _HandledRow(approval: req),
+                          for (final event in handledEvents) ...[
+                            _HandledEventRow(
+                              event: event,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                          ],
+                        ],
+                        if (handledExpenses.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          const Text('Recently handled expenses', style: AppText.caption),
+                          const SizedBox(height: 8),
+                          for (final expense in handledExpenses) ...[
+                            _HandledExpenseRow(expense: expense),
                             const SizedBox(height: 6),
                           ],
                         ],
@@ -196,13 +287,15 @@ class AdminDashboardScreen extends StatelessWidget {
 
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onSetBudget;
-  final VoidCallback onGenerateReports;
+  final VoidCallback? onGenerateReports;
   final VoidCallback onViewAnalytics;
+  final bool isGenerating;
 
   const _QuickActionsRow({
     required this.onSetBudget,
     required this.onGenerateReports,
     required this.onViewAnalytics,
+    required this.isGenerating,
   });
 
   @override
@@ -221,9 +314,10 @@ class _QuickActionsRow extends StatelessWidget {
         Expanded(
           child: _ActionTile(
             icon: Icons.description_outlined,
-            label: 'Reports',
+            label: isGenerating ? 'Generating...' : 'Reports',
             accent: AppColors.sageTeal,
             onTap: onGenerateReports,
+            loading: isGenerating,
           ),
         ),
         const SizedBox(width: 8),
@@ -245,8 +339,15 @@ class _ActionTile extends StatelessWidget {
   final String label;
   final Color accent;
   final VoidCallback? onTap;
+  final bool loading;
 
-  const _ActionTile({required this.icon, required this.label, required this.accent, this.onTap});
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.accent,
+    this.onTap,
+    this.loading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -263,7 +364,13 @@ class _ActionTile extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: accent, size: 20),
+            loading
+                ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: accent),
+            )
+                : Icon(icon, color: accent, size: 20),
             const SizedBox(height: 6),
             Text(
               label,
@@ -277,65 +384,111 @@ class _ActionTile extends StatelessWidget {
   }
 }
 
-class _ApprovalCard extends StatelessWidget {
-  final PendingRequest approval;
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
+class _EventSummaryCard extends StatelessWidget {
+  final EventItem event;
+  final VoidCallback onTap;
 
-  const _ApprovalCard({
-    required this.approval,
-    required this.onApprove,
-    required this.onReject,
-  });
+  const _EventSummaryCard({required this.event, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(approval.title, style: AppText.cardTitle),
-            const SizedBox(height: 4),
-            Text(approval.org, style: AppText.caption),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  approval.amount,
-                  style: const TextStyle(
-                    fontFamily: AppText.monoFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 15,
-                    color: AppColors.ink,
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (event.adviserApprovalNote?.isNotEmpty == true)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.sageTealTint,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 13, color: AppColors.sageTealText),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Adviser-approved · "${event.adviserApprovalNote}"',
+                          style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.sageTealText),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Row(
-                  children: [
-                    OutlinedButton(
-                      onPressed: onReject,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        side: const BorderSide(color: AppColors.brick, width: 0.8),
-                        foregroundColor: AppColors.brick,
-                      ),
-                      child: const Text('Reject', style: TextStyle(fontSize: 12)),
+              Text(event.title, style: AppText.cardTitle),
+              const SizedBox(height: 2),
+              Text('${event.org} · ${event.date}', style: AppText.caption),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    event.budget,
+                    style: const TextStyle(
+                      fontFamily: AppText.monoFamily,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                      color: AppColors.ink,
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: onApprove,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      ),
-                      child: const Text('Approve', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.indigo)),
+                      Icon(Icons.chevron_right, size: 16, color: AppColors.indigo),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HandledEventRow extends StatelessWidget {
+  final EventItem event;
+  final VoidCallback onTap;
+  const _HandledEventRow({required this.event, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isRejected = event.status == EventApprovalStatus.rejected;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F5F1),
+          border: Border.all(color: AppColors.border, width: 0.5),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
+              size: 15,
+              color: isRejected ? AppColors.brick : AppColors.inkFaint,
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${event.title} · ${event.statusLabel}',
+                style: AppText.caption,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 14, color: AppColors.inkFaint),
           ],
         ),
       ),
@@ -343,12 +496,13 @@ class _ApprovalCard extends StatelessWidget {
   }
 }
 
-class _HandledRow extends StatelessWidget {
-  final PendingRequest approval;
-  const _HandledRow({required this.approval});
+class _HandledExpenseRow extends StatelessWidget {
+  final ExpenseEntry expense;
+  const _HandledExpenseRow({required this.expense});
 
   @override
   Widget build(BuildContext context) {
+    final isRejected = expense.status == ExpenseStatus.rejected;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -358,11 +512,15 @@ class _HandledRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_outline, size: 15, color: AppColors.inkFaint),
+          Icon(
+            isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
+            size: 15,
+            color: isRejected ? AppColors.brick : AppColors.inkFaint,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${approval.title} · ${approval.org}',
+              '${expense.vendor} · ₱${expense.amount.toStringAsFixed(2)} · ${isRejected ? 'Rejected' : 'Approved'}',
               style: AppText.caption,
               overflow: TextOverflow.ellipsis,
             ),

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import 'signup_screen.dart';
 import 'signin_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -21,7 +20,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     'Scan receipts instantly.',
     'Spot overspending early.',
     'Search records in seconds.',
-    'Built for CITE student leaders.',
+    'Built for LCUP student leaders.',
   ];
 
   int _taglineIndex = 0;
@@ -43,9 +42,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     super.dispose();
   }
 
-  void _goToSignUp() {
-    Navigator.of(context).push(_fadeUpRoute(const SignUpScreen()));
-  }
 
   void _goToSignIn() {
     Navigator.of(context).push(_fadeUpRoute(const SignInScreen()));
@@ -80,55 +76,57 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(
             children: [
-              const Spacer(flex: 3),
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  color: AppColors.indigo,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.groups_outlined, color: Colors.white, size: 32),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Welcome to\nSmartEvent',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 30,
-                  height: 1.25,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 20,
-                child: AnimatedSwitcher(
-                  duration: const Duration(seconds: 1),
-                  transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-                  child: Text(
-                    _taglines[_taglineIndex],
-                    key: ValueKey(_taglineIndex),
-                    style: const TextStyle(
-                      fontFamily: AppText.bodyFamily,
-                      fontSize: 14,
-                      color: AppColors.inkMuted,
-                    ),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          color: AppColors.indigo,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(Icons.groups_outlined, color: Colors.white, size: 32),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Welcome to\nSmartEvent',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: AppText.headerFamily,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 30,
+                          height: 1.25,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 20,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(seconds: 1),
+                          transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                          child: Text(
+                            _taglines[_taglineIndex],
+                            key: ValueKey(_taglineIndex),
+                            style: const TextStyle(
+                              fontFamily: AppText.bodyFamily,
+                              fontSize: 14,
+                              color: AppColors.inkMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const Spacer(flex: 4),
-              ElevatedButton(
-                onPressed: _goToSignUp,
-                style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                child: const Text('Sign Up'),
-              ),
               const SizedBox(height: 10),
-              OutlinedButton(
+              ElevatedButton(
                 onPressed: _goToSignIn,
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                 child: const Text('Sign In'),
               ),
             ],

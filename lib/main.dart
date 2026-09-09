@@ -11,13 +11,11 @@ import 'screens/scanner_screen.dart';
 import 'screens/risk_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'screens/events_screen.dart';
-import 'widgets/docket_nav_bar.dart';
+import 'widgets/circle_menu.dart';
 
 void main() {
   runApp(const SmartEventApp());
 }
-
-enum UserRole { officer, adviser, admin }
 
 class SmartEventApp extends StatelessWidget {
   const SmartEventApp({super.key});
@@ -60,15 +58,30 @@ class _RootShellState extends State<RootShell> {
     5: const EventsScreen(),
   };
 
+  void _goTo(int i) {
+    if (_screens.containsKey(i)) setState(() => _index = i);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final themeColor = context.watch<AppState>().themeColor;
+
     return Scaffold(
-      body: _screens[_index] ?? const DashboardScreen(),
-      bottomNavigationBar: DocketNavBar(
-        activeIndex: _index,
-        onTap: (i) {
-          if (_screens.containsKey(i)) setState(() => _index = i);
-        },
+      body: Stack(
+        children: [
+          _screens[_index] ?? const DashboardScreen(),
+          CircleMenu(
+            color: themeColor,
+            items: [
+              CircleMenuItem(icon: Icons.grid_view_outlined, label: 'Dashboard', onTap: () => _goTo(0)),
+              CircleMenuItem(icon: Icons.search, label: 'Search', onTap: () => _goTo(1)),
+              CircleMenuItem(icon: Icons.document_scanner_outlined, label: 'Scanner', onTap: () => _goTo(2)),
+              CircleMenuItem(icon: Icons.warning_amber_outlined, label: 'Risk', onTap: () => _goTo(3)),
+              CircleMenuItem(icon: Icons.inventory_2_outlined, label: 'Inventory', onTap: () => _goTo(4)),
+              CircleMenuItem(icon: Icons.event_outlined, label: 'Events', onTap: () => _goTo(5)),
+            ],
+          ),
+        ],
       ),
     );
   }

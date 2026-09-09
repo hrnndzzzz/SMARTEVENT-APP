@@ -100,15 +100,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppHeader(
-                initials: 'SO',
                 onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AccountScreen(
-                      initials: 'SO',
-                      name: 'Juan Dela Cruz',
-                      role: 'CITE Dept Officer',
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),

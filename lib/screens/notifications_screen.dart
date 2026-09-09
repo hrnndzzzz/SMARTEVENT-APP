@@ -19,7 +19,7 @@ class NotificationsScreen extends StatelessWidget {
       NotifDestination.none => null,
     };
     if (target != null) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => target));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => target!));
     }
   }
 
@@ -52,7 +52,7 @@ class NotificationsScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () => context.read<AppState>().markAllNotificationsRead(),
+                    onPressed: () => context.read<AppState>().markAllNotificationsReadFor(context.read<AppState>().currentRole),
                     child: const Text('Mark all read', style: TextStyle(fontSize: 12)),
                   ),
                 ],
@@ -61,7 +61,8 @@ class NotificationsScreen extends StatelessWidget {
               Expanded(
                 child: Consumer<AppState>(
                   builder: (context, app, _) {
-                    if (app.notifications.isEmpty) {
+                    final visible = app.notificationsFor(app.currentRole);
+                    if (visible.isEmpty) {
                       return const Center(
                         child: Text('No notifications yet.', style: AppText.caption),
                       );
@@ -69,7 +70,7 @@ class NotificationsScreen extends StatelessWidget {
                     return ListView(
                       padding: const EdgeInsets.only(bottom: 8),
                       children: [
-                        for (final n in app.notifications) ...[
+                        for (final n in visible) ...[
                           _NotificationTile(
                             notification: n,
                             onTap: () => _handleTap(context, n),

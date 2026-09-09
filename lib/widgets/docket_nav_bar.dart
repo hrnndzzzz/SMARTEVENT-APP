@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
+/// Shared bottom nav bar for SmartEvent's six sections.
+/// Pass the index of whichever tab should show as active.
 class DocketNavBar extends StatelessWidget {
   final int activeIndex;
   final ValueChanged<int>? onTap;
@@ -19,6 +23,8 @@ class DocketNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = context.watch<AppState>().themeColor;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: const BoxDecoration(
@@ -29,7 +35,7 @@ class DocketNavBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(_items.length, (i) {
           final isActive = i == activeIndex;
-          final color = isActive ? AppColors.indigo : AppColors.inkFaint;
+          final color = isActive ? themeColor : AppColors.inkFaint;
           return GestureDetector(
             onTap: onTap == null ? null : () => onTap!(i),
             child: Column(

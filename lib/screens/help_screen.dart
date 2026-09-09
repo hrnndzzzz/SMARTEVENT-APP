@@ -30,12 +30,43 @@ class HelpScreen extends StatelessWidget {
                   color: AppColors.ink,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 4),
+              const Text('Getting started', style: AppText.caption),
+              const SizedBox(height: 8),
               const _FaqTile(
                 question: 'How do I request a budget for a new event?',
-                answer: 'Go to the Events tab, tap "New", and fill out the proposal form. Your adviser will review it and it will move through the approval timeline.',
+                answer: 'Go to the Events tab, tap "New", and fill out the proposal form. It first goes to your Faculty Adviser for review, then to the System Administrator for final approval.',
               ),
               const SizedBox(height: 10),
+              const _FaqTile(
+                question: 'Who approves my event proposal, and in what order?',
+                answer: 'Every proposal is reviewed by a Faculty Adviser first. If approved, it moves on to a System Administrator for final sign-off. Either reviewer can reject it with an optional reason.',
+              ),
+              const SizedBox(height: 10),
+              const _FaqTile(
+                question: 'My event got rejected — can I fix and resubmit it?',
+                answer: 'Yes. Open the event, tap "Edit Proposal", make your changes, and resubmit. This restarts the review from the Adviser stage. Proposals can only be edited while rejected — not while pending or already approved.',
+              ),
+              const SizedBox(height: 10),
+              const _FaqTile(
+                question: 'As an Adviser or Admin, where do I approve or reject requests?',
+                answer: 'Your dashboard lists everything awaiting your decision. Tap any item to open its details, where you\'ll find Approve and Reject buttons along with an optional feedback field.',
+              ),
+              const SizedBox(height: 18),
+              const Text('Events & attendance', style: AppText.caption),
+              const SizedBox(height: 8),
+              const _FaqTile(
+                question: 'How does attendance tracking work?',
+                answer: 'On an event\'s detail page, tap "Check In" each time someone arrives. The counter and progress bar update live against the expected attendee count from the proposal.',
+              ),
+              const SizedBox(height: 10),
+              const _FaqTile(
+                question: 'Who fills out the Post-Event Evaluation?',
+                answer: 'Only the Faculty Adviser can submit official ratings and comments after an event. Officers and Admins can view a submitted evaluation, but only the Adviser can add or edit one.',
+              ),
+              const SizedBox(height: 18),
+              const Text('Inventory & finances', style: AppText.caption),
+              const SizedBox(height: 8),
               const _FaqTile(
                 question: 'Why is an inventory item marked "Low Stock"?',
                 answer: 'Items fall below the minimum threshold automatically after being issued. Use "Restock" on the item card to replenish it.',
@@ -43,12 +74,34 @@ class HelpScreen extends StatelessWidget {
               const SizedBox(height: 10),
               const _FaqTile(
                 question: 'How do I scan a receipt?',
-                answer: 'Open the Scanner tab and tap the camera button. This opens your phone\'s camera to capture the receipt image.',
+                answer: 'Open the Scanner tab and tap the camera button to capture the receipt. Detected fields (vendor, date, total, category) are all editable before you confirm and log the expense.',
               ),
               const SizedBox(height: 10),
               const _FaqTile(
-                question: 'Who can approve budget requests?',
-                answer: 'Faculty Advisers and System Administrators can approve or reject pending requests from their respective dashboards.',
+                question: 'How does the Admin set category budgets?',
+                answer: 'From the Admin dashboard, tap "Set Budget", choose a category, and enter the new amount. This updates the Dashboard\'s charts immediately.',
+              ),
+              const SizedBox(height: 18),
+              const Text('Account & app', style: AppText.caption),
+              const SizedBox(height: 8),
+              const _FaqTile(
+                question: 'How do notifications work?',
+                answer: 'Notifications are targeted to whoever needs to act — for example, a new proposal notifies the Adviser, not the Admin, until it reaches their stage. You only see notifications relevant to your current role.',
+              ),
+              const SizedBox(height: 10),
+              const _FaqTile(
+                question: 'What is the Department selector on my profile?',
+                answer: 'This is a visual concept for the capstone defense, showing how SmartEvent could theme itself if adopted campus-wide beyond CITE. Choosing a department retints the app header and navigation bar. It doesn\'t change any actual data.',
+              ),
+              const SizedBox(height: 10),
+              const _FaqTile(
+                question: 'How do I update my name or email?',
+                answer: 'Go to Account > Edit Profile. Changes save immediately and apply across the app.',
+              ),
+              const SizedBox(height: 10),
+              const _FaqTile(
+                question: 'I forgot my password — what do I do?',
+                answer: 'Tap "Forgot password?" on the Sign In screen. Password reset isn\'t available in this preview build yet.',
               ),
               const SizedBox(height: 22),
               Card(

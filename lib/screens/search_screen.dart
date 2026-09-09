@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
+import 'event_detail_screen.dart';
 
 enum _ResultType { event, transaction }
 
@@ -13,19 +16,19 @@ class _SearchResult {
   final String subtitle;
   final String timestamp;
   final String? amount;
+  final String? category;
   final List<String> tags;
-  final String quarter;
-  final String department;
+  final EventItem? event;
 
   _SearchResult({
     required this.type,
     required this.title,
     required this.subtitle,
     required this.timestamp,
-    required this.quarter,
-    required this.department,
     this.amount,
+    this.category,
     this.tags = const [],
+    this.event,
   });
 }
 
@@ -37,82 +40,52 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final TextEditingController _controller = TextEditingController(text: 'Hackathon');
+  final TextEditingController _controller = TextEditingController();
   String _filter = 'All';
-  String _quarter = 'All Quarters';
-  String _department = 'All Depts';
+  String _category = 'All Categories';
 
-  static const _quarters = ['All Quarters', 'Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4'];
-  static const _departments = ['All Depts', 'CITHM', 'CBEA', 'CAMP', 'CASE', 'CITE'];
+  List<String> get _categoryOptions => ['All Categories', ...AppState.expenseCategories];
 
-  final List<_SearchResult> _dataset = [
-    _SearchResult(
-      type: _ResultType.event,
-      title: 'Annual Fall Hackathon 2024',
-      subtitle: 'The premier engineering and computer science hackathon focusing on sustainable tech.',
-      timestamp: 'Oct 12 - 14',
-      quarter: 'Quarter 2',
-      department: 'Engineering Soc.',
-      tags: ['Approved', 'Engineering Soc.'],
-    ),
-    _SearchResult(
-      type: _ResultType.transaction,
-      title: 'Catering Deposit — Hackathon',
-      subtitle: 'Vendor: Fresh Campus Catering',
-      timestamp: '2 hrs ago',
-      quarter: 'Quarter 2',
-      department: 'Engineering Soc.',
-      amount: '-₱2,500.00',
-    ),
-    _SearchResult(
-      type: _ResultType.event,
-      title: 'Leadership Summit 2026',
-      subtitle: 'Full-day leadership training for incoming officers across CITE orgs.',
-      timestamp: 'Nov 20',
-      quarter: 'Quarter 2',
-      department: 'CITE Student Council',
-      tags: ['Under Review', 'CITE Student Council'],
-    ),
-    _SearchResult(
-      type: _ResultType.transaction,
-      title: 'Venue Rental — Auditorium',
-      subtitle: 'Vendor: LCUP Facilities Office',
-      timestamp: 'Yesterday',
-      quarter: 'Quarter 2',
-      department: 'CITE Student Council',
-      amount: '-₱3,000.00',
-    ),
-    _SearchResult(
-      type: _ResultType.event,
-      title: 'CITE Sports Fest',
-      subtitle: 'Intramurals across all CITE student organizations.',
-      timestamp: 'Aug 5 - 7',
-      quarter: 'Quarter 1',
-      department: 'CITE Student Council',
-      tags: ['Active', 'CITE Student Council'],
-    ),
-    _SearchResult(
-      type: _ResultType.transaction,
-      title: 'Workshop Materials Purchase',
-      subtitle: 'Vendor: National Bookstore',
-      timestamp: '3 days ago',
-      quarter: 'Quarter 1',
-      department: 'IT Society',
-      amount: '-₱1,180.00',
-    ),
-  ];
+  List<_SearchResult> _buildResults(AppState app) {
+    final results = <_SearchResult>[
+      for (final e in app.events)
+        _SearchResult(
+          type: _ResultType.event,
+          title: e.title,
+          subtitle: '${e.org} · ${e.venue}',
+          timestamp: e.date,
+          tags: [e.statusLabel],
+          event: e,
+        ),
+      for (final ex in app.expenses)
+        _SearchResult(
+          type: _ResultType.transaction,
+          title: ex.vendor,
+          subtitle: ex.category,
+          timestamp: switch (ex.status) {
+            ExpenseStatus.pending => 'Pending',
+            ExpenseStatus.approved => 'Approved',
+            ExpenseStatus.rejected => 'Rejected',
+          },
+          amount: '-₱${ex.amount.toStringAsFixed(2)}',
+          category: ex.category,
+        ),
+    ];
 
-  List<_SearchResult> get _results {
     final query = _controller.text.trim().toLowerCase();
-    return _dataset.where((r) {
+
+    return results.where((r) {
       final matchesType = switch (_filter) {
         'Events' => r.type == _ResultType.event,
         'Transactions' => r.type == _ResultType.transaction,
         _ => true,
       };
-      final matchesQuarter = _quarter == 'All Quarters' || r.quarter == _quarter;
-      final matchesDept = _department == 'All Depts' || r.department == _department;
-      if (!matchesType || !matchesQuarter || !matchesDept) return false;
+      // Category filter only narrows transactions — events don't carry
+      // a category dimension in this app's data model.
+      final matchesCategory = _category == 'All Categories' ||
+          r.type == _ResultType.event ||
+          r.category == _category;
+      if (!matchesType || !matchesCategory) return false;
       if (query.isEmpty) return true;
       return r.title.toLowerCase().contains(query) || r.subtitle.toLowerCase().contains(query);
     }).toList();
@@ -126,7 +99,6 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final results = _results;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -135,15 +107,8 @@ class _SearchScreenState extends State<SearchScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppHeader(
-                initials: 'SO',
                 onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AccountScreen(
-                      initials: 'SO',
-                      name: 'Juan Dela Cruz',
-                      role: 'CITE Dept Officer',
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),
@@ -161,44 +126,51 @@ class _SearchScreenState extends State<SearchScreen> {
                 onSelect: (f) => setState(() => _filter = f),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DropdownChip(
-                      value: _quarter,
-                      options: _quarters,
-                      onSelected: (v) => setState(() => _quarter = v),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _DropdownChip(
-                      value: _department,
-                      options: _departments,
-                      onSelected: (v) => setState(() => _department = v),
-                    ),
-                  ),
-                ],
+              _DropdownChip(
+                value: _category,
+                options: _categoryOptions,
+                onSelected: (v) => setState(() => _category = v),
               ),
               const SizedBox(height: 16),
-              Text(
-                _controller.text.trim().isEmpty
-                    ? 'All results (${results.length})'
-                    : 'Results for "${_controller.text.trim()}" (${results.length})',
-                style: AppText.cardTitle,
-              ),
-              const SizedBox(height: 10),
               Expanded(
-                child: results.isEmpty
-                    ? const _EmptyResults()
-                    : ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: [
-                    for (final r in results) ...[
-                      _ResultCard(result: r),
-                      const SizedBox(height: 10),
-                    ],
-                  ],
+                child: Consumer<AppState>(
+                  builder: (context, app, _) {
+                    final results = _buildResults(app);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          _controller.text.trim().isEmpty
+                              ? 'All results (${results.length})'
+                              : 'Results for "${_controller.text.trim()}" (${results.length})',
+                          style: AppText.cardTitle,
+                        ),
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: results.isEmpty
+                              ? const _EmptyResults()
+                              : ListView(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            children: [
+                              for (final r in results) ...[
+                                _ResultCard(
+                                  result: r,
+                                  onTap: r.event == null
+                                      ? null
+                                      : () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => EventDetailScreen(event: r.event!),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -234,7 +206,11 @@ class _SearchBar extends StatelessWidget {
               controller: controller,
               onChanged: onChanged,
               style: AppText.body,
-              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                hintText: 'Search events or transactions...',
+              ),
             ),
           ),
           if (controller.text.isNotEmpty)
@@ -319,7 +295,7 @@ class _DropdownChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
               child: Text(
@@ -362,7 +338,8 @@ class _EmptyResults extends StatelessWidget {
 
 class _ResultCard extends StatelessWidget {
   final _SearchResult result;
-  const _ResultCard({required this.result});
+  final VoidCallback? onTap;
+  const _ResultCard({required this.result, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -372,128 +349,131 @@ class _ResultCard extends StatelessWidget {
     final icon = isEvent ? Icons.event_outlined : Icons.receipt_long_outlined;
     final label = isEvent ? 'EVENT' : 'TRANSACTION';
 
-    return Stack(
-      children: [
-        Container(
-          margin: const EdgeInsets.only(left: 4),
-          padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border.all(color: AppColors.border, width: 0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(icon, size: 13, color: labelColor),
-                      const SizedBox(width: 6),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontFamily: AppText.bodyFamily,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: labelColor,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    result.timestamp,
-                    style: const TextStyle(
-                      fontFamily: AppText.monoFamily,
-                      fontSize: 11,
-                      color: AppColors.inkMuted,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (isEvent)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(result.title, style: AppText.cardTitle),
-                    const SizedBox(height: 4),
-                    Text(result.subtitle, style: AppText.caption),
-                    if (result.tags.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          for (int i = 0; i < result.tags.length; i++) ...[
-                            _pill(result.tags[i], i == 0),
-                            if (i != result.tags.length - 1) const SizedBox(width: 6),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ],
-                )
-              else
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border, width: 0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(result.title, style: AppText.cardTitle),
-                          const SizedBox(height: 4),
-                          Text(result.subtitle, style: AppText.caption),
-                        ],
-                      ),
+                    Row(
+                      children: [
+                        Icon(icon, size: 13, color: labelColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontFamily: AppText.bodyFamily,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: labelColor,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
-                      result.amount ?? '',
+                      result.timestamp,
                       style: const TextStyle(
                         fontFamily: AppText.monoFamily,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        color: AppColors.brick,
+                        fontSize: 11,
+                        color: AppColors.inkMuted,
                       ),
                     ),
                   ],
                 ),
-            ],
-          ),
-        ),
-        Positioned(
-          left: 0,
-          top: 12,
-          bottom: 12,
-          child: Container(
-            width: 4,
-            decoration: BoxDecoration(
-              color: tagColor,
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(2)),
+                const SizedBox(height: 6),
+                if (isEvent)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(result.title, style: AppText.cardTitle),
+                      const SizedBox(height: 4),
+                      Text(result.subtitle, style: AppText.caption),
+                      if (result.tags.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            for (int i = 0; i < result.tags.length; i++) ...[
+                              _pill(result.tags[i]),
+                              if (i != result.tags.length - 1) const SizedBox(width: 6),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ],
+                  )
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(result.title, style: AppText.cardTitle),
+                            const SizedBox(height: 4),
+                            Text(result.subtitle, style: AppText.caption),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        result.amount ?? '',
+                        style: const TextStyle(
+                          fontFamily: AppText.monoFamily,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                          color: AppColors.brick,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
-        ),
-      ],
+          Positioned(
+            left: 0,
+            top: 12,
+            bottom: 12,
+            child: Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: tagColor,
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(2)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _pill(String text, bool primary) {
+  Widget _pill(String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: primary ? AppColors.sageTealTint : const Color(0xFFF4F2EC),
+        color: AppColors.sageTealTint,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: const TextStyle(
           fontFamily: AppText.bodyFamily,
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: primary ? AppColors.sageTealText : AppColors.inkMuted,
+          color: AppColors.sageTealText,
         ),
       ),
     );

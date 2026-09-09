@@ -91,12 +91,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       e.venue = venue;
       e.budget = budget;
       e.attendees = attendees;
-      context.read<AppState>().updateEvent();
+      context.read<AppState>().resubmitEvent(e);
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$title updated.')),
+        SnackBar(content: Text('$title revised and resubmitted for adviser review.')),
       );
+
     } else {
+      final app = context.read<AppState>();
+      final creatorRole = app.currentRole ?? UserRole.officer;
       final event = EventItem(
         title: title,
         org: 'CITE Student Council',
@@ -104,12 +107,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         venue: venue,
         budget: budget,
         attendees: attendees,
-        approvalStep: 0,
       );
-      context.read<AppState>().addEvent(event);
+      app.addEvent(event, creatorRole: creatorRole);
       Navigator.of(context).pop();
+      final message = switch (event.status) {
+        EventApprovalStatus.pendingAdviser => '$title submitted for adviser review.',
+        EventApprovalStatus.pendingAdmin => '$title submitted for admin approval.',
+        EventApprovalStatus.approved => '$title created and automatically approved.',
+        EventApprovalStatus.rejected => '$title submitted.',
+      };
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$title submitted for review.')),
+        SnackBar(content: Text(message)),
       );
     }
   }

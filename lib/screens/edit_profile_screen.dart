@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
@@ -15,12 +17,15 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
+  late Department _department;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.name);
-    _emailController = TextEditingController(text: 'juan.delacruz@lcup.edu.ph');
+    final account = context.read<AppState>().currentAccount;
+    _nameController = TextEditingController(text: account?.name ?? widget.name);
+    _emailController = TextEditingController(text: account?.email ?? '');
+    _department = account?.department ?? Department.cite;
   }
 
   @override
@@ -31,6 +36,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _save() {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+
+    if (name.isEmpty || email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name and email cannot be empty.')),
+      );
+      return;
+    }
+
+    context.read<AppState>().updateProfile(name: name, email: email, department: _department);
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile updated.')),
@@ -81,6 +97,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 child: Text(widget.role, style: const TextStyle(fontSize: 13, color: AppColors.inkMuted)),
               ),
+              const SizedBox(height: 14),
+              const _FieldLabel('Department'),
+              const SizedBox(height: 2),
+              const Text(
+                'Visual demo only — shows how SmartEvent could theme itself per college.',
+                style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 10, color: AppColors.inkFaint),
+              ),
+              const SizedBox(height: 8),
+              _DepartmentGrid(
+                selected: _department,
+                onSelect: (d) => setState(() => _department = d),
+                includeSystemWide: context.watch<AppState>().currentRole == UserRole.admin,
+              ),
               const SizedBox(height: 22),
               SizedBox(
                 width: double.infinity,
@@ -123,5 +152,70 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: AppText.caption);
+  }
+}
+
+class _DepartmentGrid extends StatelessWidget {
+  final Department selected;
+  final ValueChanged<Department> onSelect;
+  final bool includeSystemWide;
+
+  const _DepartmentGrid({
+    required this.selected,
+    required this.onSelect,
+    this.includeSystemWide = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final options = includeSystemWide
+        ? Department.values
+        : Department.values.where((d) => d != Department.systemWide);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final d in options) _chip(d),
+      ],
+    );
+  }
+
+  Widget _chip(Department d) {
+    final isSelected = d == selected;
+    return GestureDetector(
+      onTap: () => onSelect(d),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? d.color : AppColors.surface,
+          border: isSelected ? null : Border.all(color: AppColors.border, width: 0.8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white : d.color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              d.label,
+              style: TextStyle(
+                fontFamily: AppText.bodyFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
