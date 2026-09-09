@@ -44,11 +44,9 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
   Future<void> _submit() async {
     if (!_canSubmit) return;
     setState(() => _submitting = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
 
     final app = context.read<AppState>();
-    final error = app.registerUser(
+    final error = await app.registerUser(
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
@@ -56,6 +54,7 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
       department: _department,
     );
 
+    if (!mounted) return;
     setState(() => _submitting = false);
 
     if (error == null) {

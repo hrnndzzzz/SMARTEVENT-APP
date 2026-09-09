@@ -29,28 +29,26 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _signIn() async {
     setState(() => _submitting = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
 
     final app = context.read<AppState>();
-    final success = app.signIn(
+    final error = await app.signIn(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
 
+    if (!mounted) return;
     setState(() => _submitting = false);
 
-    if (success) {
+    if (error == null) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => RootShell(role: app.currentRole!)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid email or password.')),
+        SnackBar(content: Text(error)),
       );
     }
   }
-
   void _showForgotPasswordDialog() {
     showDialog(
       context: context,

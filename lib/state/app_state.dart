@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../api/api_client.dart';
+import '../api/auth_service.dart';
 
 enum UserRole { officer, adviser, admin }
 
@@ -589,30 +591,63 @@ class AppState extends ChangeNotifier {
   /// the real backend's POST /auth/register contract exactly (no
   /// self-service Sign Up exists in this app anymore). Returns null on
   /// success, or an error message.
-  String? registerUser({
+  final ApiClient _apiClient = ApiClient();
+  late final AuthService _authService = AuthService(_apiClient);
+
+  UserRole _roleFromString(String role) => switch (role) {
+    'adviser' => UserRole.adviser,
+    'admin' => UserRole.admin,
+    _ => UserRole.officer,
+  };
+
+  /// Admin-only, now a REAL backend call. Requires the caller to
+  /// already be signed in as Admin (enforced server-side too, not
+  /// just by hiding the UI).
+  Future<String?> registerUser({
     required String name,
     required String email,
     required String password,
     required UserRole role,
     Department department = Department.cite,
-  }) {
-    if (currentRole != UserRole.admin) {
-      return 'Only an Admin can register new users.';
+  }) async {
+    try {
+      await _authService.registerUser(
+        fullName: name,
+        email: email,
+        password: password,
+        role: role.name,
+      );
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Could not reach the server. Check your connection and try again.';
     }
-    if (_accounts.any((a) => a.email == email)) {
-      return 'A user with this email already exists.';
-    }
-    _accounts.add(Account(name: name, email: email, password: password, role: role, department: department));
-    return null;
   }
 
-  bool signIn({required String email, required String password}) {
-    final match = _accounts.where((a) => a.email == email && a.password == password);
-    if (match.isEmpty) return false;
-    currentAccount = match.first;
-    currentRole = match.first.role;
-    notifyListeners();
-    return true;
+  /// REAL backend call: logs in, then fetches the signed-in user's
+  /// profile (login alone doesn't return it). On success, bridges the
+  /// result into the existing local Account/UserRole model so the rest
+  /// of the app keeps working unchanged.
+  Future<String?> signIn({required String email, required String password}) async {
+    try {
+      await _authService.login(email: email, password: password);
+      final profile = await _authService.getCurrentUser();
+
+      currentAccount = Account(
+        name: profile.fullName,
+        email: profile.email,
+        password: password,
+        role: _roleFromString(profile.role),
+      );
+      currentRole = _roleFromString(profile.role);
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Could not reach the server. Check your connection and try again.';
+    }
   }
 
   /// pang shortcut sa login kasi tinatamad na ko mag type all the time
