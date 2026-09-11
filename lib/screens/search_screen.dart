@@ -44,8 +44,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String _filter = 'All';
   String _category = 'All Categories';
 
-  List<String> get _categoryOptions => ['All Categories', ...AppState.expenseCategories];
-
+  List<String> get _categoryOptions => ['All Categories', ...context.read<AppState>().expenseCategories];
   List<_SearchResult> _buildResults(AppState app) {
     final results = <_SearchResult>[
       for (final e in app.events)

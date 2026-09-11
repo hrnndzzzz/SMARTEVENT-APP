@@ -20,11 +20,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _capturedImage;
   bool _logging = false;
-  String _category = AppState.expenseCategories.first;
+  String _category = '';
 
   final _vendorController = TextEditingController(text: 'Fresh Campus Catering');
   final _dateController = TextEditingController(text: 'Aug 12, 2026');
   final _totalController = TextEditingController(text: '2500.00');
+
+  @override
+  void initState() {
+    super.initState();
+    final cats = context.read<AppState>().expenseCategories;
+    if (cats.isNotEmpty) _category = cats.first;
+  }
 
   @override
   void dispose() {
@@ -80,7 +87,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
     setState(() {
       _logging = false;
       _capturedImage = null;
-      _category = AppState.expenseCategories.first;
+      final cats = context.read<AppState>().expenseCategories;
+      _category = cats.isNotEmpty ? cats.first : '';
       _vendorController.text = 'Fresh Campus Catering';
       _dateController.text = 'Aug 12, 2026';
       _totalController.text = '2500.00';
@@ -268,7 +276,7 @@ class _DetectedFieldsCard extends StatelessWidget {
                 ),
               ),
             ),
-            _categoryRow(),
+            _categoryRow(context),
             const SizedBox(height: 4),
             _editableRow(
               label: 'Total',
@@ -285,7 +293,7 @@ class _DetectedFieldsCard extends StatelessWidget {
     );
   }
 
-  Widget _categoryRow() {
+  Widget _categoryRow(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: const BoxDecoration(
@@ -300,7 +308,7 @@ class _DetectedFieldsCard extends StatelessWidget {
             underline: const SizedBox.shrink(),
             style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: AppColors.ink),
             items: [
-              for (final c in AppState.expenseCategories)
+              for (final c in context.watch<AppState>().expenseCategories)
                 DropdownMenuItem(value: c, child: Text(c)),
             ],
             onChanged: (v) {

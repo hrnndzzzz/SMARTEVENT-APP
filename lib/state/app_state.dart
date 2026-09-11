@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
+import '../api/category_service.dart';
+import '../api/models/category.dart';
 
 enum UserRole { officer, adviser, admin }
 
@@ -172,20 +174,55 @@ class ExpenseEntry {
 }
 
 class AppState extends ChangeNotifier {
-  final Map<String, double> categoryBudgets = {
-    'Equipment': 2000.00,
-    'Venue': 1200.00,
-    'Catering': 1300.00,
-    'Marketing': 500.00,
-  };
+  late final CategoryService _categoryService = CategoryService(_apiClient);
+
+  /// Real categories fetched from the backend — replaces the old fixed
+  /// 4-category mock. Populated after a successful real Sign In.
+  List<Category> categories = [];
+
+  Map<String, double> get categoryBudgets => {for (final c in categories) c.name: c.allocatedBudget};
+
+  /// Server-authoritative — comes straight from the database trigger
+  /// (fn_deduct_category_balance), not computed locally.
+  Map<String, double> get categoryRemainingBudgets => {for (final c in categories) c.name: c.remainingBudget};
+
+  List<String> get expenseCategories => categories.map((c) => c.name).toList();
 
   double get totalAllocated => categoryBudgets.values.fold(0.0, (a, b) => a + b);
-  double get totalExpended => spendByCategory.values.fold(0.0, (a, b) => a + b);
-  double get remainingBalance => totalAllocated - totalExpended;
+  double get remainingBalance => categoryRemainingBudgets.values.fold(0.0, (a, b) => a + b);
+  double get totalExpended => totalAllocated - remainingBalance;
 
-  void setCategoryBudget(String category, double amount) {
-    categoryBudgets[category] = amount;
-    notifyListeners();
+  Future<void> loadCategories() async {
+    try {
+      categories = await _categoryService.list();
+      notifyListeners();
+    } catch (_) {
+      // Silent failure is acceptable — screens just show ₱0 until the
+      // relevant screen is reopened once connectivity is restored.
+    }
+  }
+
+  /// Admin-only. Creates the category if it doesn't exist yet by name,
+  /// otherwise updates its allocated budget. Returns null on success,
+  /// or an error message.
+  Future<String?> setCategoryBudget(String categoryName, double amount) async {
+    try {
+      final existing = categories.where((c) => c.name == categoryName).firstOrNull;
+      if (existing != null) {
+        final updated = await _categoryService.update(existing.id, allocatedBudget: amount);
+        final index = categories.indexWhere((c) => c.id == existing.id);
+        categories[index] = updated;
+      } else {
+        final created = await _categoryService.create(name: categoryName, allocatedBudget: amount);
+        categories.add(created);
+      }
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Could not reach the server. Check your connection and try again.';
+    }
   }
 
   final List<ExpenseEntry> expenses = [
@@ -197,8 +234,6 @@ class AppState extends ChangeNotifier {
 
   List<String> get expenseLog =>
       expenses.map((e) => '${e.vendor} · -₱${e.amount.toStringAsFixed(2)}').toList();
-
-  static const List<String> expenseCategories = ['Equipment', 'Venue', 'Catering', 'Marketing'];
 
   void logExpense(String vendor, double amount, {String category = 'Equipment'}) {
     expenses.insert(0, ExpenseEntry(vendor: vendor, amount: amount, category: category));
@@ -587,10 +622,6 @@ class AppState extends ChangeNotifier {
   Account? currentAccount;
   UserRole? currentRole;
 
-  /// Admin-only: creates a new account with an assigned role, matching
-  /// the real backend's POST /auth/register contract exactly (no
-  /// self-service Sign Up exists in this app anymore). Returns null on
-  /// success, or an error message.
   final ApiClient _apiClient = ApiClient();
   late final AuthService _authService = AuthService(_apiClient);
 
@@ -629,6 +660,15 @@ class AppState extends ChangeNotifier {
   /// profile (login alone doesn't return it). On success, bridges the
   /// result into the existing local Account/UserRole model so the rest
   /// of the app keeps working unchanged.
+  ///
+  /// TEMP DEBUG: the catch below shows the raw exception in the
+  /// snackbar instead of a generic message, so we can see exactly
+  /// what's actually failing. Revert to the generic message once
+  /// diagnosed.
+  /// REAL backend call: logs in, then fetches the signed-in user's
+  /// profile (login alone doesn't return it). On success, bridges the
+  /// result into the existing local Account/UserRole model so the rest
+  /// of the app keeps working unchanged.
   Future<String?> signIn({required String email, required String password}) async {
     try {
       await _authService.login(email: email, password: password);
@@ -641,6 +681,7 @@ class AppState extends ChangeNotifier {
         role: _roleFromString(profile.role),
       );
       currentRole = _roleFromString(profile.role);
+      await loadCategories();
       notifyListeners();
       return null;
     } on ApiException catch (e) {
@@ -649,7 +690,6 @@ class AppState extends ChangeNotifier {
       return 'Could not reach the server. Check your connection and try again.';
     }
   }
-
   /// pang shortcut sa login kasi tinatamad na ko mag type all the time
   void devQuickLogin(UserRole role) {
     final testEmail = 'test.${role.name}@dev.local';

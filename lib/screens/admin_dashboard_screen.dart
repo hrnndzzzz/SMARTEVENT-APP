@@ -22,7 +22,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _setCategoryBudget(BuildContext context) async {
     final app = context.read<AppState>();
-    final categories = AppState.expenseCategories;
+    final categories = context.read<AppState>().expenseCategories;
     String selected = categories.first;
     final controller = TextEditingController(text: app.categoryBudgets[selected]!.toStringAsFixed(2));
 
