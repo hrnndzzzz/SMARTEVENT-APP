@@ -3,6 +3,8 @@ import '../api/api_client.dart';
 import '../api/auth_service.dart';
 import '../api/category_service.dart';
 import '../api/models/category.dart';
+import '../api/event_service.dart';
+import '../api/models/remote_event.dart';
 
 enum UserRole { officer, adviser, admin }
 
@@ -29,6 +31,7 @@ class InventoryItem {
 enum EventApprovalStatus { pendingAdviser, pendingAdmin, approved, rejected }
 
 class EventItem {
+  String? remoteId; // real backend UUID, null for locally-created-not-yet-synced events
   String title;
   String org;
   String date;
@@ -60,6 +63,7 @@ class EventItem {
   bool get hasFeedback => adviserComment != null || adviserRating != null;
 
   EventItem({
+    this.remoteId,
     required this.title,
     required this.org,
     required this.date,
@@ -202,6 +206,46 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  late final EventService _eventService = EventService(_apiClient);
+
+  EventApprovalStatus _eventStatusFromString(String status) => switch (status) {
+    'pending_adviser' => EventApprovalStatus.pendingAdviser,
+    'pending_admin' => EventApprovalStatus.pendingAdmin,
+    'approved' => EventApprovalStatus.approved,
+    'rejected' => EventApprovalStatus.rejected,
+    _ => EventApprovalStatus.pendingAdviser, // "draft"/"completed" fall back here for now
+  };
+
+  /// Maps a real backend event into our existing local EventItem shape.
+  /// venue/attendees/org have no backend equivalent yet (a real gap,
+  /// not an oversight) — left as placeholders until either the
+  /// backend adds these fields or we decide to drop them from the UI.
+  EventItem _mapRemoteEvent(RemoteEvent remote) {
+    return EventItem(
+      remoteId: remote.id,
+      title: remote.title,
+      org: 'CITE', // no backend equivalent yet — single-org placeholder
+      date: remote.eventDate == null
+          ? 'No date set'
+          : '${remote.eventDate!.month}/${remote.eventDate!.day}/${remote.eventDate!.year}',
+      venue: 'Not tracked yet', // no backend equivalent yet
+      budget: '₱${remote.allocatedBudget.toStringAsFixed(2)}',
+      attendees: 'Not tracked yet', // no backend equivalent yet
+      status: _eventStatusFromString(remote.status),
+    );
+  }
+
+  Future<void> loadEvents() async {
+    try {
+      final remoteEvents = await _eventService.list();
+      events
+        ..clear()
+        ..addAll(remoteEvents.map(_mapRemoteEvent));
+      notifyListeners();
+    } catch (_) {
+      // Silent failure — screens just show whatever was already loaded.
+    }
+  }
   /// Admin-only. Creates the category if it doesn't exist yet by name,
   /// otherwise updates its allocated budget. Returns null on success,
   /// or an error message.
@@ -682,6 +726,7 @@ class AppState extends ChangeNotifier {
       );
       currentRole = _roleFromString(profile.role);
       await loadCategories();
+      await loadEvents();
       notifyListeners();
       return null;
     } on ApiException catch (e) {
