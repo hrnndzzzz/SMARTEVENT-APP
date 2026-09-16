@@ -426,60 +426,82 @@ class AppState extends ChangeNotifier {
     ),
   ];
 
-  void addEvent(EventItem event, {required UserRole creatorRole}) {
-    switch (creatorRole) {
-      case UserRole.officer:
-        event.status = EventApprovalStatus.pendingAdviser;
-        break;
-      case UserRole.adviser:
-        event.status = EventApprovalStatus.pendingAdmin;
-        break;
-      case UserRole.admin:
-        event.status = EventApprovalStatus.approved;
-        break;
+  /// Returns null on success, or an error message. Creates a real
+  /// backend event (draft), then submits it — the server itself
+  /// decides which stage it lands on based on who's signed in
+  /// (matching the two-stage design), so we don't need to compute
+  /// that locally anymore.
+  Future<String?> addEvent({
+    required String title,
+    String? categoryId,
+    required double estimatedCost,
+    DateTime? eventDate,
+    String? description,
+    required String venue,
+    required String attendees,
+  }) async {
+    try {
+      final created = await _eventService.create(
+        categoryId: categoryId,
+        title: title,
+        description: description,
+        eventDate: eventDate,
+        estimatedCost: estimatedCost,
+        allocatedBudget: estimatedCost,
+        status: 'draft',
+      );
+      final submitted = await _eventService.submit(created.id);
+
+      final mapped = _mapRemoteEvent(submitted);
+      mapped.venue = venue;
+      mapped.attendees = attendees;
+      events.insert(0, mapped);
+
+      switch (mapped.status) {
+        case EventApprovalStatus.pendingAdviser:
+          addNotification(AppNotification(
+            icon: Icons.event_outlined,
+            tagColor: const Color(0xFFE8A33D),
+            title: 'New proposal to review',
+            body: '${mapped.title} is awaiting your review.',
+            time: 'Just now',
+            destination: NotifDestination.events,
+            targetRoles: {UserRole.adviser},
+          ));
+          break;
+        case EventApprovalStatus.pendingAdmin:
+          addNotification(AppNotification(
+            icon: Icons.event_outlined,
+            tagColor: const Color(0xFFE8A33D),
+            title: 'New proposal to approve',
+            body: '${mapped.title} is awaiting your final approval.',
+            time: 'Just now',
+            destination: NotifDestination.events,
+            targetRoles: {UserRole.admin},
+          ));
+          break;
+        case EventApprovalStatus.approved:
+          addNotification(AppNotification(
+            icon: Icons.check_circle_outline,
+            tagColor: const Color(0xFF3F8272),
+            title: 'Event auto-approved',
+            body: '${mapped.title} was created by Admin and is now active.',
+            time: 'Just now',
+            destination: NotifDestination.events,
+            targetRoles: {UserRole.officer, UserRole.adviser},
+          ));
+          break;
+        case EventApprovalStatus.rejected:
+          break;
+      }
+
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Could not reach the server. Check your connection and try again.';
     }
-
-    events.insert(0, event);
-
-    switch (event.status) {
-      case EventApprovalStatus.pendingAdviser:
-        addNotification(AppNotification(
-          icon: Icons.event_outlined,
-          tagColor: const Color(0xFFE8A33D),
-          title: 'New proposal to review',
-          body: '${event.title} is awaiting your review.',
-          time: 'Just now',
-          destination: NotifDestination.events,
-          targetRoles: {UserRole.adviser},
-        ));
-        break;
-      case EventApprovalStatus.pendingAdmin:
-        addNotification(AppNotification(
-          icon: Icons.event_outlined,
-          tagColor: const Color(0xFFE8A33D),
-          title: 'New proposal to approve',
-          body: '${event.title} is awaiting your final approval.',
-          time: 'Just now',
-          destination: NotifDestination.events,
-          targetRoles: {UserRole.admin},
-        ));
-        break;
-      case EventApprovalStatus.approved:
-        addNotification(AppNotification(
-          icon: Icons.check_circle_outline,
-          tagColor: const Color(0xFF3F8272),
-          title: 'Event auto-approved',
-          body: '${event.title} was created by Admin and is now active.',
-          time: 'Just now',
-          destination: NotifDestination.events,
-          targetRoles: {UserRole.officer, UserRole.adviser},
-        ));
-        break;
-      case EventApprovalStatus.rejected:
-        break;
-    }
-
-    notifyListeners();
   }
 
   void updateEvent() {
@@ -523,11 +545,20 @@ class AppState extends ChangeNotifier {
       (e.status == EventApprovalStatus.rejected && e.rejectedBy == 'Admin'))
       .toList();
 
-  void adviserDecision(EventItem event, {required bool approved, String? note}) {
-    event.adviserApprovalNote = note;
-    if (approved) {
-      event.status = EventApprovalStatus.pendingAdmin;
-      addNotification(AppNotification(
+  /// Returns null on success, or an error message.
+  Future<String?> adviserDecision(EventItem event, {required bool approved, String? note}) async {
+    if (event.remoteId == null) return 'This event has no real backend record yet.';
+    try {
+      final RemoteEvent updated = approved
+          ? await _eventService.approve(event.remoteId!, remarks: note)
+          : await _eventService.reject(event.remoteId!, remarks: note);
+
+      event.status = _eventStatusFromString(updated.status);
+      event.adviserApprovalNote = note;
+      if (!approved) event.rejectedBy = 'Adviser';
+
+      addNotification(approved
+          ? AppNotification(
         icon: Icons.fact_check_outlined,
         tagColor: const Color(0xFFE8A33D),
         title: 'Advanced to Admin: ${event.title}',
@@ -535,11 +566,8 @@ class AppState extends ChangeNotifier {
         time: 'Just now',
         destination: NotifDestination.events,
         targetRoles: {UserRole.admin, UserRole.officer},
-      ));
-    } else {
-      event.status = EventApprovalStatus.rejected;
-      event.rejectedBy = 'Adviser';
-      addNotification(AppNotification(
+      )
+          : AppNotification(
         icon: Icons.cancel_outlined,
         tagColor: const Color(0xFFC1503D),
         title: 'Rejected by Adviser: ${event.title}',
@@ -548,15 +576,29 @@ class AppState extends ChangeNotifier {
         destination: NotifDestination.events,
         targetRoles: {UserRole.officer},
       ));
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Could not reach the server. Check your connection and try again.';
     }
-    notifyListeners();
   }
 
-  void adminDecision(EventItem event, {required bool approved, String? note}) {
-    event.adminApprovalNote = note;
-    if (approved) {
-      event.status = EventApprovalStatus.approved;
-      addNotification(AppNotification(
+  /// Returns null on success, or an error message.
+  Future<String?> adminDecision(EventItem event, {required bool approved, String? note}) async {
+    if (event.remoteId == null) return 'This event has no real backend record yet.';
+    try {
+      final RemoteEvent updated = approved
+          ? await _eventService.approve(event.remoteId!, remarks: note)
+          : await _eventService.reject(event.remoteId!, remarks: note);
+
+      event.status = _eventStatusFromString(updated.status);
+      event.adminApprovalNote = note;
+      if (!approved) event.rejectedBy = 'Admin';
+
+      addNotification(approved
+          ? AppNotification(
         icon: Icons.check_circle_outline,
         tagColor: const Color(0xFF3F8272),
         title: 'Approved: ${event.title}',
@@ -564,11 +606,8 @@ class AppState extends ChangeNotifier {
         time: 'Just now',
         destination: NotifDestination.events,
         targetRoles: {UserRole.officer, UserRole.adviser},
-      ));
-    } else {
-      event.status = EventApprovalStatus.rejected;
-      event.rejectedBy = 'Admin';
-      addNotification(AppNotification(
+      )
+          : AppNotification(
         icon: Icons.cancel_outlined,
         tagColor: const Color(0xFFC1503D),
         title: 'Rejected by Admin: ${event.title}',
@@ -577,8 +616,13 @@ class AppState extends ChangeNotifier {
         destination: NotifDestination.events,
         targetRoles: {UserRole.officer, UserRole.adviser},
       ));
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Could not reach the server. Check your connection and try again.';
     }
-    notifyListeners();
   }
 
   void checkInAttendee(EventItem event) {
@@ -762,6 +806,7 @@ class AppState extends ChangeNotifier {
   Color get themeColor => currentAccount?.department.color ?? Department.systemWide.color;
 
   void signOut() {
+    _apiClient.setToken(null);
     currentAccount = null;
     currentRole = null;
     notifyListeners();

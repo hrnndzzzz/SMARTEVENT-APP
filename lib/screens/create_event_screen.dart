@@ -21,6 +21,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   late final TextEditingController _budgetController;
   final _descriptionController = TextEditingController();
 
+  DateTime? _pickedDate;
+  String? _selectedCategoryId;
+  bool _submitting = false;
+
   bool get _isEditing => widget.existingEvent != null;
 
   @override
@@ -63,12 +67,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
       ];
       setState(() {
+        _pickedDate = picked;
         _dateController.text = '${months[picked.month - 1]} ${picked.day}, ${picked.year}';
       });
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter an event name.')),
@@ -79,7 +84,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final title = _nameController.text.trim();
     final date = _dateController.text.trim().isEmpty ? 'TBD' : _dateController.text.trim();
     final venue = _venueController.text.trim().isEmpty ? 'TBD' : _venueController.text.trim();
-    final budget = _budgetController.text.trim().isEmpty ? '₱0.00' : '₱${_budgetController.text.trim()}';
+    final budgetValue = double.tryParse(_budgetController.text.trim()) ?? 0.0;
+    final budget = '₱${budgetValue.toStringAsFixed(2)}';
     final attendees = _attendeesController.text.trim().isEmpty
         ? 'TBD'
         : '${_attendeesController.text.trim()} (expected)';
@@ -96,34 +102,39 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$title revised and resubmitted for adviser review.')),
       );
-
     } else {
+      setState(() => _submitting = true);
       final app = context.read<AppState>();
-      final creatorRole = app.currentRole ?? UserRole.officer;
-      final event = EventItem(
+      final error = await app.addEvent(
         title: title,
-        org: 'CITE Student Council',
-        date: date,
+        categoryId: _selectedCategoryId,
+        estimatedCost: budgetValue,
+        eventDate: _pickedDate,
+        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
         venue: venue,
-        budget: budget,
         attendees: attendees,
       );
-      app.addEvent(event, creatorRole: creatorRole);
-      Navigator.of(context).pop();
-      final message = switch (event.status) {
-        EventApprovalStatus.pendingAdviser => '$title submitted for adviser review.',
-        EventApprovalStatus.pendingAdmin => '$title submitted for admin approval.',
-        EventApprovalStatus.approved => '$title created and automatically approved.',
-        EventApprovalStatus.rejected => '$title submitted.',
-      };
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+
+      if (!mounted) return;
+      setState(() => _submitting = false);
+
+      if (error == null) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$title submitted for review.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final categories = context.watch<AppState>().categories;
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -157,6 +168,31 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               const SizedBox(height: 6),
               _buildTextField(controller: _nameController, hint: 'e.g. Leadership Summit 2026'),
               const SizedBox(height: 14),
+              if (!_isEditing) ...[
+                const _FieldLabel('Category'),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    border: Border.all(color: AppColors.border, width: 1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _selectedCategoryId,
+                      hint: const Text('Select a category', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.inkFaint)),
+                      items: [
+                        for (final c in categories)
+                          DropdownMenuItem(value: c.id, child: Text(c.name, style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13))),
+                      ],
+                      onChanged: (v) => setState(() => _selectedCategoryId = v),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
               const _FieldLabel('Date'),
               const SizedBox(height: 6),
               GestureDetector(
@@ -189,9 +225,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _submit,
+                  onPressed: _submitting ? null : _submit,
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                  child: Text(_isEditing ? 'Save Changes' : 'Submit for Review'),
+                  child: _submitting
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                      : Text(_isEditing ? 'Save Changes' : 'Submit for Review'),
                 ),
               ),
             ],

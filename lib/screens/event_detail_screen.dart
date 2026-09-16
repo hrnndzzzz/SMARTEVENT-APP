@@ -133,16 +133,14 @@ class EventDetailScreen extends StatelessWidget {
 
     if (confirmed == true) {
       final app = context.read<AppState>();
-      if (isAdviserStage) {
-        app.adviserDecision(event, approved: approved, note: controller.text.trim());
-      } else {
-        app.adminDecision(event, approved: approved, note: controller.text.trim());
-      }
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${event.title} — ${approved ? 'Approved' : 'Rejected'}')),
-        );
-      }
+      final String? error = isAdviserStage
+          ? await app.adviserDecision(event, approved: approved, note: controller.text.trim())
+          : await app.adminDecision(event, approved: approved, note: controller.text.trim());
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? '${event.title} — ${approved ? 'Approved' : 'Rejected'}')),
+      );
     }
   }
 
