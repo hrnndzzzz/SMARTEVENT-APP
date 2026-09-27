@@ -5,6 +5,10 @@ ownership, account management endpoints, and database rollout, see
 [Roles and permissions](ROLES_AND_PERMISSIONS.md). That policy supersedes the
 legacy role and registration descriptions below.
 
+For the Flutter/frontend team's complete screen, button, form, API, permission,
+and acceptance-test checklist, see [Frontend implementation README](FRONTEND_README.md).
+This current handoff supersedes the legacy feature and workflow examples below.
+
 Backend for **SMARTEVENT**: a Mobile-Based Inventory, Financial Management,
 Event Monitoring, and Data Analytics Reporting System for Student
 Organizations (LCUP CITE Department capstone project).
