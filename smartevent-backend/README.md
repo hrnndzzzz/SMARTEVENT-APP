@@ -1,5 +1,10 @@
 # SMARTEVENT — Backend API
 
+For the current administrator hierarchy, officer read-only policy, organization
+ownership, account management endpoints, and database rollout, see
+[Roles and permissions](ROLES_AND_PERMISSIONS.md). That policy supersedes the
+legacy role and registration descriptions below.
+
 Backend for **SMARTEVENT**: a Mobile-Based Inventory, Financial Management,
 Event Monitoring, and Data Analytics Reporting System for Student
 Organizations (LCUP CITE Department capstone project).
@@ -249,6 +254,25 @@ Wiring the mobile app to these endpoints, end-to-end testing, and
 deployment hardening (see gaps above — CORS, open registration, etc.).
 
 ---
+
+## Core System Features handoff
+
+See [CORE_SYSTEM_FEATURES.md](CORE_SYSTEM_FEATURES.md) for current registration
+admission rules, notifications, academic-year validation, migration 005,
+authorized exports, frontend integration contracts, and acceptance tests.
+This handoff supersedes the older registration/reporting roadmap notes below.
+
+## Financial Management handoff
+
+See [FINANCIAL_MANAGEMENT.md](FINANCIAL_MANAGEMENT.md) for actual fund sources,
+receipt duplication/review rules, financial report contracts, migration 006,
+legacy-data import, and acceptance tests.
+
+## Inventory Management handoff
+
+See [INVENTORY_MANAGEMENT.md](INVENTORY_MANAGEMENT.md) for required event links,
+typed movements, the new paid-and-received purchase completion endpoint,
+migration 007, legacy reconciliation, and frontend acceptance tests.
 
 ## 9. Quick sanity checklist for a new developer
 

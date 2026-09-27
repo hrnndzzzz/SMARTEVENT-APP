@@ -19,7 +19,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import (
+    assert_department_scope,
+    assert_record_scope,
+    require_operational_read,
+    scope_query_by_department,
+)
 from app.models import Category, Event, Expense, User
 from app.schemas import BudgetRecommendation
 
@@ -35,18 +40,19 @@ _MIN_SAMPLE_SIZE = 2
 def recommend_event_budget(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_operational_read),
 ):
     category = db.query(Category).filter(Category.id == category_id).first()
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    assert_record_scope(current_user, category, allow_officer_read=True)
 
     # Only look at events that actually went somewhere (approved or
     # completed) — a draft or rejected event's allocated_budget was
     # never real money, so including it would skew the average toward
     # numbers that were proposed but never actually happened.
     past_events = (
-        db.query(Event)
+        scope_query_by_department(db.query(Event), Event.department_id, current_user)
         .filter(Event.category_id == category_id, Event.status.in_(["approved", "completed"]))
         .all()
     )
@@ -69,8 +75,11 @@ def recommend_event_budget(
     avg_allocated = sum(float(e.allocated_budget) for e in past_events) / sample_size
 
     event_ids = [e.id for e in past_events]
+    expense_query = scope_query_by_department(
+        db.query(Expense), Expense.department_id, current_user
+    )
     per_event_spend = (
-        db.query(Expense.event_id, func.coalesce(func.sum(Expense.amount), 0))
+        expense_query.with_entities(Expense.event_id, func.coalesce(func.sum(Expense.amount), 0))
         .filter(Expense.event_id.in_(event_ids), Expense.status == "approved")
         .group_by(Expense.event_id)
         .all()

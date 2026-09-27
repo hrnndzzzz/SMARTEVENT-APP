@@ -7,21 +7,67 @@ model still has that column internally.
 
 import uuid
 from datetime import date, datetime
-from typing import Literal
+from decimal import Decimal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
-Role = Literal["admin", "adviser", "officer"]
+Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
+FundSource = Literal["registration_fees", "sponsorship", "donation", "other"]
+
+Role = Literal["super_admin", "admin", "adviser", "officer", "treasurer", "sds_staff"]
 
 
 # ---- Auth / Users --------------------------------------------------------
 
-class UserCreate(BaseModel):
+class CiteSelfRegisterRequest(BaseModel):
+    """
+    Body for POST /auth/register. The user supplies their email and chosen
+    password. The role and full_name are looked up from the pre-approved
+    CiteMember roster entry, preventing arbitrary role self-assignment.
+    Account starts inactive/unverified until verified via POST /auth/verify-otp.
+    """
+    email: EmailStr
+    password: str = Field(min_length=8)
+
+
+class VerifyOtpRequest(BaseModel):
+    """Body for POST /auth/verify-otp to verify registration OTP and activate account."""
+    email: EmailStr
+    otp_code: str = Field(min_length=6, max_length=6)
+
+
+class AdminRegisterRequest(BaseModel):
+    """Body for POST /auth/register/admin — a super_admin creates a department-scoped Admin account."""
     full_name: str = Field(min_length=1, max_length=150)
     email: EmailStr
-    password: str = Field(min_length=8, description="Min 8 characters")
-    role: Role
+    organization_id: uuid.UUID
+    department_id: uuid.UUID = Field(
+        description="Department this Admin will manage. Select an ID from GET /departments."
+    )
     position: str | None = None
+
+
+class SdsRegisterRequest(BaseModel):
+    """Body for POST /auth/register/sds — a super_admin creates an SDS account."""
+    full_name: str = Field(min_length=1, max_length=150)
+    email: EmailStr
+    position: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp_code: str = Field(min_length=6, max_length=6)
+    new_password: str = Field(min_length=8)
 
 
 class UserLogin(BaseModel):
@@ -37,7 +83,65 @@ class UserOut(BaseModel):
     email: EmailStr
     role: Role
     position: str | None
+    department_id: uuid.UUID | None
+    organization_id: uuid.UUID | None = None
     is_active: bool
+    is_suspended: bool = False
+    must_change_password: bool
+    created_at: datetime
+
+
+class DepartmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    code: str
+    name: str
+    description: str | None
+    created_at: datetime
+
+
+class UserDepartmentUpdate(BaseModel):
+    department_id: uuid.UUID
+    organization_id: uuid.UUID
+
+
+class OrganizationCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=30)
+    name: str = Field(min_length=1, max_length=150)
+    department_id: uuid.UUID
+
+
+class DepartmentCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1, max_length=150)
+    description: str | None = None
+
+
+class OrganizationOut(OrganizationCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    created_at: datetime
+
+
+class UserAccessUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["admin", "adviser", "treasurer", "officer", "sds_staff"] | None = None
+    organization_id: uuid.UUID | None = None
+    position: str | None = Field(default=None, max_length=50)
+    is_suspended: bool | None = None
+
+
+class AuditLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    user_id: uuid.UUID | None
+    organization_id: uuid.UUID | None
+    department_id: uuid.UUID | None
+    action: str
+    entity_type: str | None
+    entity_id: uuid.UUID | None
+    details: dict | None
     created_at: datetime
 
 
@@ -53,7 +157,9 @@ class TokenData(BaseModel):
 # ---- Categories -----------------------------------------------------------
 
 class CategoryCreate(BaseModel):
+    organization_id: uuid.UUID | None = None
     name: str = Field(min_length=1, max_length=100)
+    department_id: uuid.UUID | None = None
     allocated_budget: float = Field(ge=0, default=0)
     low_balance_threshold: float = Field(ge=0, default=0)
 
@@ -67,14 +173,17 @@ class CategoryUpdate(BaseModel):
     never directly by a client, so there's no field here to bypass it.
     """
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    department_id: uuid.UUID | None = None
     allocated_budget: float | None = Field(default=None, ge=0)
     low_balance_threshold: float | None = Field(default=None, ge=0)
 
 
 class CategoryOut(BaseModel):
+    organization_id: uuid.UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    department_id: uuid.UUID | None
     name: str
     allocated_budget: float
     remaining_budget: float
@@ -86,11 +195,38 @@ class CategoryOut(BaseModel):
 
 # ---- Events ---------------------------------------------------------------
 
-EventStatus = Literal["draft", "pending_adviser", "pending_admin", "approved", "rejected", "completed"]
+EventStatus = Literal[
+    "draft",
+    "pending",
+    "pending_adviser",
+    "pending_admin",
+    "approved",
+    "rejected",
+    "completed",
+]
+Semester = Literal["1st", "2nd", "summer"]
+EventScope = Literal["departmental", "organizational"]
 
 
 class EventCreate(BaseModel):
+    @field_validator("school_year")
+    @classmethod
+    def valid_school_year(cls, value):
+        from app.services.academic_year import validate_school_year
+        return validate_school_year(value)
+
+    organization_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
+    department_id: uuid.UUID | None = None
+    school_year: str = Field(
+        ...,
+        min_length=9,
+        max_length=9,
+        pattern=r"^\d{4}-\d{4}$",
+        description='Academic year format: "2025-2026"',
+    )
+    semester: Semester
+    event_scope: EventScope
     title: str = Field(min_length=1, max_length=200)
     description: str | None = None
     event_date: date | None = None
@@ -100,13 +236,23 @@ class EventCreate(BaseModel):
     # down remaining_budget, same relationship categories have between
     # allocated_budget and remaining_budget.
     allocated_budget: float = Field(ge=0, default=0)
-    # Officers can save a proposal as a draft first, or submit it for
+    # Authorized writers can save a proposal as a draft first, or submit it for
     # review right away — both are valid starting states, so this is
     # constrained to just those two rather than reusing EventStatus.
     status: Literal["draft", "pending"] = "draft"
 
 
 class EventUpdate(BaseModel):
+    @field_validator("school_year", "semester", "event_scope")
+    @classmethod
+    def academic_metadata_cannot_be_cleared(cls, value, info):
+        if value is None:
+            raise ValueError(f"{info.field_name} cannot be null")
+        if info.field_name == "school_year":
+            from app.services.academic_year import validate_school_year
+            return validate_school_year(value)
+        return value
+
     """
     PATCH semantics — only sent fields change. `status` is deliberately
     excluded: moving an event between statuses goes through the
@@ -115,6 +261,15 @@ class EventUpdate(BaseModel):
     status="approved" here.
     """
     category_id: uuid.UUID | None = None
+    department_id: uuid.UUID | None = None
+    school_year: str | None = Field(
+        default=None,
+        min_length=9,
+        max_length=9,
+        pattern=r"^\d{4}-\d{4}$",
+    )
+    semester: Semester | None = None
+    event_scope: EventScope | None = None
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     event_date: date | None = None
@@ -125,11 +280,49 @@ class EventUpdate(BaseModel):
     allocated_budget: float | None = Field(default=None, ge=0)
 
 
+class EventAcademicMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    school_year: str
+    semester: Semester
+    event_scope: EventScope
+
+    @field_validator("school_year")
+    @classmethod
+    def valid_school_year(cls, value):
+        from app.services.academic_year import validate_school_year
+        return validate_school_year(value)
+
+
+class RegistrationVerificationOut(BaseModel):
+    detail: str
+    registration_status: Literal["approved"] = "approved"
+    notification_id: uuid.UUID | None = None
+    confirmation_email_status: Literal["pending", "sent", "failed"] | None = None
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    kind: str
+    title: str
+    body: str
+    read_at: datetime | None
+    email_status: Literal["pending", "sent", "failed"]
+    created_at: datetime
+
+
 class EventOut(BaseModel):
+    organization_id: uuid.UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    department_id: uuid.UUID | None
     category_id: uuid.UUID | None
+    # Optional only while legacy rows are being backfilled. New API-created
+    # events always contain these values.
+    school_year: str | None
+    semester: Semester | None
+    event_scope: EventScope | None
     title: str
     description: str | None
     proposed_by: uuid.UUID
@@ -167,6 +360,8 @@ ExpenseStatus = Literal["pending", "approved", "rejected"]
 
 
 class ExpenseItemInput(BaseModel):
+    quantity: int = Field(default=1, gt=0)
+    unit: str = Field(default="pcs", min_length=1, max_length=30)
     """
     One line item on an expense, submitted at creation time. Same shape
     as ScannedReceiptItem (see below) on purpose — an officer who used
@@ -174,24 +369,86 @@ class ExpenseItemInput(BaseModel):
     here without any reshaping.
     """
     name: str = Field(min_length=1, max_length=150)
-    amount: float = Field(gt=0)
+    amount: Money
     category: Literal["asset", "consumable"]
 
 
+class ReceiptDetails(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    receipt_url: HttpUrl
+    purpose: str = Field(min_length=1, max_length=2000)
+    merchant: str | None = Field(default=None, min_length=1, max_length=150)
+    receipt_number: str | None = Field(default=None, min_length=1, max_length=100)
+    issued_on: date | None = None
+    amount: Money | None = None
+
+
+class ReceiptCreate(ReceiptDetails):
+    expense_id: uuid.UUID | None = None
+    income_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def one_transaction(self):
+        if (self.expense_id is None) == (self.income_id is None):
+            raise ValueError("Provide exactly one expense_id or income_id")
+        return self
+
+
+class ReceiptOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    department_id: uuid.UUID
+    event_id: uuid.UUID
+    expense_id: uuid.UUID | None
+    income_id: uuid.UUID | None
+    purpose: str
+    receipt_url: str
+    merchant: str | None
+    receipt_number: str | None
+    issued_on: date
+    amount: float
+    is_flagged: bool
+    similar_receipt_ids: list[uuid.UUID]
+    review_status: Literal["clear", "pending", "cleared", "rejected"]
+    review_reason: str | None
+    reviewed_by: uuid.UUID | None
+    reviewed_at: datetime | None
+    recorded_by: uuid.UUID
+    created_at: datetime
+
+
+class ReceiptReview(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    reason: str = Field(min_length=10, max_length=2000)
+    decision: Literal["cleared", "rejected"] = "cleared"
+
+
 class ExpenseCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    organization_id: uuid.UUID | None = None
     event_id: uuid.UUID | None = None
     category_id: uuid.UUID
+    department_id: uuid.UUID | None = None
     description: str = Field(min_length=1)
-    amount: float = Field(gt=0)
+    amount: Money
+    expense_date: date = Field(default_factory=date.today)
     # Real receipt upload (Supabase Storage) isn't wired up yet — this
     # just accepts a URL string in the meantime, e.g. for testing or a
     # manually-hosted receipt image.
-    receipt_url: str | None = None
+    receipt_url: HttpUrl | None = None
+    receipt: ReceiptDetails | None = None
     # Optional itemized breakdown (typically populated from a prior
     # POST /expenses/scan-receipt call, reviewed/edited by the officer).
-    # Only 'asset' items here get converted to inventory on approval —
-    # see approve_expense in routers/expenses.py.
+    # Only asset items enter stock, after approved expenses are paid and
+    # received through POST /expenses/{id}/complete-purchase.
     items: list[ExpenseItemInput] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def itemized_total_cannot_exceed_expense(self):
+        if sum((item.amount for item in self.items), Decimal("0.00")) > self.amount:
+            raise ValueError("Itemized line amounts cannot exceed the expense total")
+        return self
 
 
 class ExpenseUpdate(BaseModel):
@@ -207,19 +464,40 @@ class ExpenseUpdate(BaseModel):
     """
     event_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
+    department_id: uuid.UUID | None = None
     description: str | None = Field(default=None, min_length=1)
-    amount: float | None = Field(default=None, gt=0)
-    receipt_url: str | None = None
+    amount: Money | None = None
+    expense_date: date | None = None
+    receipt_url: HttpUrl | None = None
+
+    @field_validator("event_id", "category_id", "description", "amount", "expense_date")
+    @classmethod
+    def cannot_clear_required_transaction_fields(cls, value):
+        if value is None:
+            raise ValueError("Transaction fields cannot be cleared")
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("Description cannot be blank")
+        return value.strip() if isinstance(value, str) else value
 
 
 class ExpenseOut(BaseModel):
+    purchase_completed_at: datetime | None = None
+    paid_on: date | None = None
+    received_on: date | None = None
+    payment_method: str | None = None
+    payment_reference: str | None = None
+    purchase_vendor: str | None = None
+    paid_amount: float | None = None
+    organization_id: uuid.UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    department_id: uuid.UUID | None
     event_id: uuid.UUID | None
     category_id: uuid.UUID
     description: str
     amount: float
+    expense_date: date
     receipt_url: str | None
     ocr_merchant: str | None
     ocr_date: date | None
@@ -232,7 +510,35 @@ class ExpenseOut(BaseModel):
     updated_at: datetime
 
 
+class IncomeCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    event_id: uuid.UUID
+    source: str = Field(min_length=1, max_length=100)
+    source_type: FundSource = "other"
+    purpose: str = Field(min_length=1)
+    amount: Money
+    received_on: date = Field(default_factory=date.today)
+    receipt: ReceiptDetails | None = None
+
+
+class IncomeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    event_id: uuid.UUID
+    source: str
+    source_type: FundSource = "other"
+    receipt_review_status: Literal["clear", "pending", "cleared", "rejected"] = "clear"
+    purpose: str
+    amount: float
+    received_on: date
+    recorded_by: uuid.UUID
+    created_at: datetime
+
+
 class ExpenseItemOut(BaseModel):
+    quantity: int = 1
+    unit: str = "pcs"
     """Response shape for GET /expenses/{id}/items."""
     model_config = ConfigDict(from_attributes=True)
 
@@ -241,27 +547,69 @@ class ExpenseItemOut(BaseModel):
     name: str
     amount: float
     category: Literal["asset", "consumable"]
-    # Set only for 'asset' items on an APPROVED expense, once
-    # approve_expense has converted it into an Inventory row.
+    # Set for asset items after documented purchase completion.
     converted_inventory_id: uuid.UUID | None
     created_at: datetime
 
 
 # ---- Inventory --------------------------------------------------------------
 
+InventoryTransactionType = Literal["opening_balance", "acquisition", "donation", "purchase", "issue", "return", "disposal", "adjustment", "legacy"]
+
+
+class PurchaseItemConfirmation(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    expense_item_id: uuid.UUID
+    quantity: int = Field(gt=0)
+    unit: str = Field(min_length=1, max_length=30)
+
+
+class PurchaseCompletion(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    paid_on: date
+    received_on: date
+    paid_amount: Money
+    payment_method: Literal["cash", "bank_transfer", "card", "other"]
+    payment_reference: str = Field(min_length=1, max_length=150)
+    vendor: str = Field(min_length=1, max_length=150)
+    items: list[PurchaseItemConfirmation] = Field(min_length=1)
+
+    @field_validator("paid_on", "received_on")
+    @classmethod
+    def dates_cannot_be_future(cls, value):
+        if value > date.today():
+            raise ValueError("Completed payment/delivery dates cannot be in the future")
+        return value
+
+
 class InventoryCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    event_id: uuid.UUID
+    initial_transaction_type: Literal["opening_balance", "acquisition", "donation"] = "opening_balance"
+    reason: str = Field(default="Opening stock", min_length=1, max_length=100)
+    organization_id: uuid.UUID | None = None
     item_name: str = Field(min_length=1, max_length=150)
+    department_id: uuid.UUID | None = None
     description: str | None = None
     # Starting stock count — after creation, quantity only moves via
     # POST /inventory/{id}/transactions, same pattern as
     # remaining_budget only moving via expense approval.
     quantity: int = Field(ge=0, default=0)
-    unit: str = Field(default="pcs", max_length=30)
+    unit: str = Field(default="pcs", min_length=1, max_length=30)
     low_stock_threshold: int = Field(ge=0, default=5)
     location: str | None = None
 
 
 class InventoryUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    event_id: uuid.UUID | None = None
+
+    @field_validator("event_id", "item_name", "unit", "low_stock_threshold")
+    @classmethod
+    def required_values_cannot_be_cleared(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            raise ValueError("Inventory fields cannot be cleared")
+        return value.strip() if isinstance(value, str) else value
     """
     PATCH semantics — only sent fields change. `quantity` is
     deliberately excluded: stock levels only move through
@@ -276,9 +624,12 @@ class InventoryUpdate(BaseModel):
 
 
 class InventoryOut(BaseModel):
+    event_id: uuid.UUID | None = None
+    organization_id: uuid.UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    department_id: uuid.UUID | None
     item_name: str
     description: str | None
     quantity: int
@@ -291,15 +642,41 @@ class InventoryOut(BaseModel):
 
 
 class InventoryTransactionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    transaction_type: Literal["acquisition", "donation", "purchase", "issue", "return", "disposal", "adjustment"]
     # Positive change_qty = stock coming in (purchased, donated,
     # returned). Negative = stock going out (checked out for an event,
     # lost, damaged). Zero isn't a meaningful transaction.
-    event_id: uuid.UUID | None = None
-    change_qty: int = Field(ne=0)
-    reason: str | None = Field(default=None, max_length=100)
+    event_id: uuid.UUID
+    change_qty: int
+    reason: str = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def transaction_direction(self):
+        if self.transaction_type in {"acquisition", "donation", "purchase", "return"} and self.change_qty <= 0:
+            raise ValueError("Incoming transactions require positive change_qty")
+        if self.transaction_type in {"issue", "disposal"} and self.change_qty >= 0:
+            raise ValueError("Outgoing transactions require negative change_qty")
+        return self
+
+    @field_validator("change_qty")
+    @classmethod
+    def change_qty_must_not_be_zero(cls, value: int) -> int:
+        if value == 0:
+            raise ValueError("change_qty must not be zero")
+        return value
+
+
+class InventoryTransactionRepair(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    event_id: uuid.UUID
+    transaction_type: Literal["opening_balance", "acquisition", "donation", "issue", "return", "disposal", "adjustment"]
+    reason: str = Field(min_length=1, max_length=100)
 
 
 class InventoryTransactionOut(BaseModel):
+    transaction_type: InventoryTransactionType = "legacy"
+    expense_item_id: uuid.UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
@@ -381,6 +758,13 @@ class CategoryReport(BaseModel):
     rejected_expense_count: int
 
 
+class IncomeSourceSummary(BaseModel):
+    source_type: FundSource
+    source: str
+    income_count: int
+    total_income: float
+
+
 class EventReport(BaseModel):
     """
     Response for GET /reports/event/{event_id} — a liquidation-style
@@ -390,13 +774,55 @@ class EventReport(BaseModel):
     client stitches together from several requests.
     """
     event_id: uuid.UUID
+    school_year: str | None = None
+    semester: Semester | None = None
+    event_scope: EventScope | None = None
     title: str
     status: EventStatus
     estimated_cost: float
     allocated_budget: float
     remaining_budget: float
+    total_income: float
     total_spent: float
+    net_balance: float
+    income_by_source: list[IncomeSourceSummary] = Field(default_factory=list)
+    withheld_income_total: float = 0
+    withheld_income_count: int = 0
+    receipts: list[ReceiptOut] = Field(default_factory=list)
+    incomes: list[IncomeOut]
     expenses: list[ExpenseOut]
+
+
+class FinancialEventSummary(BaseModel):
+    event_id: uuid.UUID
+    title: str
+    school_year: str | None
+    semester: Semester | None
+    event_scope: EventScope | None
+    income_count: int
+    expense_count: int
+    total_income: float
+    total_expenses: float
+    net_balance: float
+    withheld_income_total: float = 0
+    withheld_income_count: int = 0
+
+
+class ConsolidatedFinancialReport(BaseModel):
+    period: Literal["weekly", "monthly", "school_year", "semester"]
+    start_date: date | None
+    end_date: date | None
+    school_year: str | None
+    semester: Semester | None
+    event_scope: EventScope | None
+    total_income: float
+    total_expenses: float
+    unassigned_expense_total: float
+    net_balance: float
+    events: list[FinancialEventSummary]
+    income_by_source: list[IncomeSourceSummary] = Field(default_factory=list)
+    withheld_income_total: float = 0
+    withheld_income_count: int = 0
 
 
 class BudgetRecommendation(BaseModel):
@@ -414,3 +840,51 @@ class BudgetRecommendation(BaseModel):
     avg_allocated_budget: float | None
     avg_actual_spend: float | None
     note: str
+
+
+# ---- CITE Member Roster ---------------------------------------------------
+
+class CiteMemberCreate(BaseModel):
+    organization_id: uuid.UUID | None = None
+    full_name: str = Field(min_length=1, max_length=150)
+    email: EmailStr
+    role: Literal["officer", "adviser", "treasurer"]
+    position: str | None = None
+    department_id: uuid.UUID | None = Field(
+        default=None,
+        description="Admins may omit this to use their assigned department. Super_Admin must select a department from GET /departments.",
+    )
+
+
+class CiteMemberOut(BaseModel):
+    organization_id: uuid.UUID | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    full_name: str
+    email: EmailStr
+    role: Literal["officer", "adviser", "treasurer"]
+    position: str | None
+    department_id: uuid.UUID | None
+    claimed_by_user_id: uuid.UUID | None
+    created_at: datetime
+
+
+class CiteMemberUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["officer", "adviser", "treasurer"] | None = None
+    position: str | None = Field(default=None, max_length=50)
+    organization_id: uuid.UUID | None = None
+
+
+# ---- Event Proposal Letters -------------------------------------------------
+
+class EventProposalLetterOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    event_id: uuid.UUID
+    title: str
+    document_url: str
+    submitted_by: uuid.UUID
+    created_at: datetime

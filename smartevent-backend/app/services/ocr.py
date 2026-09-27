@@ -29,27 +29,48 @@ one round trip. parse_receipt_image is the primary path going forward.
 """
 
 import json
+import re
 from datetime import date
+from typing import Any
 
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
 
 from app.config import settings
 
+
+class ReceiptTextExtraction(BaseModel):
+    merchant: str | None = Field(default=None, description="The merchant or store name")
+    date: str | None = Field(default=None, description="Transaction date in YYYY-MM-DD format")
+    amount: float | None = Field(default=None, description="Grand total amount paid")
+
+
+class ReceiptItemExtraction(BaseModel):
+    name: str = Field(description="Name or description of the purchased item")
+    amount: float = Field(description="Line amount or price")
+    category: str = Field(
+        default="consumable",
+        description="'asset' for reusable equipment or 'consumable' for single-use supplies",
+    )
+
+
+class ReceiptImageExtraction(BaseModel):
+    merchant: str | None = Field(default=None, description="The merchant or store name")
+    date: str | None = Field(default=None, description="Transaction date in YYYY-MM-DD format")
+    amount: float | None = Field(default=None, description="Grand total amount paid")
+    items: list[ReceiptItemExtraction] = Field(
+        default_factory=list,
+        description="List of itemized lines",
+    )
+
+
 _PROMPT_TEMPLATE = """You are extracting structured data from OCR text scanned from a physical receipt. The OCR text may contain errors, extra whitespace, or misaligned lines - that is expected and not a problem.
 
-Return ONLY a JSON object with exactly these three keys and nothing else (no markdown fences, no explanation, no extra keys):
-{{
-  "merchant": string or null,
-  "date": string in YYYY-MM-DD format or null,
-  "amount": number or null
-}}
-
-Rules:
-- "merchant" is the store/business name, usually near the top of the receipt.
-- "date" is the transaction date, converted to YYYY-MM-DD.
-- "amount" is the receipt's grand TOTAL - not the subtotal, not an individual line item, not a tax line.
-- If a field cannot be confidently determined, use null for that field. Do not guess.
+Return a JSON object with:
+- "merchant": the store/business name, usually near the top of the receipt, or null.
+- "date": the transaction date converted to YYYY-MM-DD format, or null.
+- "amount": the receipt grand TOTAL (not subtotal or tax line), or null.
 
 OCR text:
 ---
@@ -57,22 +78,79 @@ OCR text:
 ---"""
 
 
+_VISION_PROMPT = """You are extracting structured data from a photo of a physical receipt. The image may be angled, have glare, or show a slightly crumpled receipt - that is expected and not a problem.
+
+Extract:
+- "merchant": the store/business name, usually near the top of the receipt, or null.
+- "date": the transaction date converted to YYYY-MM-DD format, or null.
+- "amount": the receipt grand TOTAL (not subtotal or tax line), or null.
+- "items": array of itemized lines. For each item:
+  - "name": item name
+  - "amount": item price/total
+  - "category": "asset" if reusable equipment (chairs, cables, tarps, speakers, tools) or "consumable" if consumable/supplies (food, drinks, paper, tape). If unclear, use "consumable"."""
+
+
 class ReceiptParseError(Exception):
     """Raised when Gemini's response can't be parsed into the expected shape."""
+
+
+def _clean_json_text(text: str) -> str:
+    """Defensively strips markdown code fences if present."""
+    cleaned = (text or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.lower().startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+    return cleaned
+
+
+def _safe_parse_date(raw_date: Any) -> date | None:
+    if not raw_date or not isinstance(raw_date, str):
+        return None
+    cleaned = raw_date.strip()
+    try:
+        return date.fromisoformat(cleaned)
+    except (ValueError, TypeError):
+        pass
+    # Match YYYY-MM-DD or YYYY/MM/DD
+    match = re.search(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", cleaned)
+    if match:
+        try:
+            return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        except (ValueError, TypeError):
+            pass
+    # Match MM-DD-YYYY or DD-MM-YYYY
+    match = re.search(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", cleaned)
+    if match:
+        try:
+            p1, p2, yr = int(match.group(1)), int(match.group(2)), int(match.group(3))
+            if p1 <= 12:
+                return date(yr, p1, p2)
+            return date(yr, p2, p1)
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def _safe_parse_float(raw_amount: Any) -> float | None:
+    if raw_amount is None:
+        return None
+    if isinstance(raw_amount, (int, float)):
+        return float(raw_amount)
+    if isinstance(raw_amount, str):
+        cleaned = re.sub(r"[^\d.-]", "", raw_amount.replace(",", ""))
+        try:
+            return float(cleaned)
+        except (ValueError, TypeError):
+            return None
+    return None
 
 
 def parse_receipt_text(raw_text: str) -> dict:
     """
     Sends raw OCR text to Gemini and returns:
         {"merchant": str | None, "date": date | None, "amount": float | None}
-
-    Raises:
-        RuntimeError        if GEMINI_API_KEY isn't configured.
-        ReceiptParseError   if Gemini's response isn't valid JSON in the
-                            expected shape.
-        Exception           (from the Gemini SDK) on network/auth/API
-                            failures - left unwrapped so the caller can
-                            decide how to report it.
     """
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
@@ -85,103 +163,40 @@ def parse_receipt_text(raw_text: str) -> dict:
         config=types.GenerateContentConfig(
             temperature=0,
             response_mime_type="application/json",
+            response_schema=ReceiptTextExtraction,
         ),
     )
 
-    text = (response.text or "").strip()
-
-    # Defensive: strip markdown fences if the model adds them anyway,
-    # despite response_mime_type="application/json". Cheap insurance
-    # against a format drift breaking every request.
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.lower().startswith("json"):
-            text = text[4:]
-        text = text.strip()
+    text = _clean_json_text(response.text)
 
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ReceiptParseError(f"Gemini did not return valid JSON: {exc}") from exc
 
-    if not isinstance(parsed, dict) or set(parsed.keys()) - {"merchant", "date", "amount"}:
+    if not isinstance(parsed, dict):
         raise ReceiptParseError("Gemini's response did not match the expected shape")
 
-    merchant = parsed.get("merchant")
-    if merchant is not None and not isinstance(merchant, str):
-        raise ReceiptParseError("'merchant' must be a string or null")
+    raw_merchant = parsed.get("merchant")
+    merchant = str(raw_merchant).strip() if raw_merchant is not None else None
+    if merchant == "":
+        merchant = None
 
-    raw_date = parsed.get("date")
-    parsed_date = None
-    if raw_date is not None:
-        try:
-            parsed_date = date.fromisoformat(raw_date)
-        except (TypeError, ValueError) as exc:
-            raise ReceiptParseError(
-                f"'date' was not in YYYY-MM-DD format: {raw_date!r}"
-            ) from exc
-
-    amount = parsed.get("amount")
-    if amount is not None:
-        try:
-            amount = float(amount)
-        except (TypeError, ValueError) as exc:
-            raise ReceiptParseError(f"'amount' was not a number: {amount!r}") from exc
+    parsed_date = _safe_parse_date(parsed.get("date"))
+    amount = _safe_parse_float(parsed.get("amount"))
 
     return {"merchant": merchant, "date": parsed_date, "amount": amount}
 
 
-_VISION_PROMPT = """You are extracting structured data from a photo of a physical receipt. The image may be angled, have glare, or show a slightly crumpled receipt - that is expected and not a problem.
-
-Return ONLY a JSON object with exactly these four keys and nothing else (no markdown fences, no explanation, no extra keys):
-{
-  "merchant": string or null,
-  "date": string in YYYY-MM-DD format or null,
-  "amount": number or null,
-  "items": array of objects, or empty array if no line items are readable
-}
-
-Each object in "items" must have exactly these three keys:
-{
-  "name": string,
-  "amount": number,
-  "category": "asset" or "consumable"
-}
-
-Rules:
-- "merchant" is the store/business name, usually near the top of the receipt.
-- "date" is the transaction date, converted to YYYY-MM-DD.
-- "amount" is the receipt's grand TOTAL - not the subtotal, not an individual line item, not a tax line.
-- For each line item, classify "category" as:
-    "asset" - a physical, reusable, trackable item an organization would keep in inventory
-              (e.g. extension cord, tarpaulin, speaker, chairs, tools, equipment)
-    "consumable" - something used up / not meaningfully tracked as standing inventory
-              (e.g. food, drinks, printing paper, tape, single-use supplies, fuel)
-  If genuinely unclear, default to "consumable" - inventory should only gain items
-  Gemini is confident are actually reusable trackable assets.
-- If a field cannot be confidently determined, use null (or an empty array for items).
-  Do not guess."""
-
-
 def parse_receipt_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
     """
-    Sends a receipt photo directly to Gemini Vision (one multimodal
-    call does OCR + extraction + per-item asset/consumable
-    classification together) and returns:
+    Sends a receipt photo directly to Gemini Vision with structured output schema:
         {
             "merchant": str | None,
             "date": date | None,
             "amount": float | None,
             "items": [{"name": str, "amount": float, "category": "asset" | "consumable"}, ...]
         }
-
-    This does NOT save anything or create an Expense — it's a pure
-    parse function. The caller (POST /expenses/scan-receipt) decides
-    what to do with the result; the officer reviews/edits it in the app
-    before a separate POST /expenses call actually creates the record.
-
-    Raises the same exception types as parse_receipt_text, for the same
-    reasons — see that function's docstring.
     """
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
@@ -197,70 +212,50 @@ def parse_receipt_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> di
         config=types.GenerateContentConfig(
             temperature=0,
             response_mime_type="application/json",
+            response_schema=ReceiptImageExtraction,
         ),
     )
 
-    text = (response.text or "").strip()
-
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.lower().startswith("json"):
-            text = text[4:]
-        text = text.strip()
+    text = _clean_json_text(response.text)
 
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ReceiptParseError(f"Gemini did not return valid JSON: {exc}") from exc
 
-    expected_keys = {"merchant", "date", "amount", "items"}
-    if not isinstance(parsed, dict) or set(parsed.keys()) - expected_keys:
+    if not isinstance(parsed, dict):
         raise ReceiptParseError("Gemini's response did not match the expected shape")
 
-    merchant = parsed.get("merchant")
-    if merchant is not None and not isinstance(merchant, str):
-        raise ReceiptParseError("'merchant' must be a string or null")
+    raw_merchant = parsed.get("merchant")
+    merchant = str(raw_merchant).strip() if raw_merchant is not None else None
+    if merchant == "":
+        merchant = None
 
-    raw_date = parsed.get("date")
-    parsed_date = None
-    if raw_date is not None:
-        try:
-            parsed_date = date.fromisoformat(raw_date)
-        except (TypeError, ValueError) as exc:
-            raise ReceiptParseError(
-                f"'date' was not in YYYY-MM-DD format: {raw_date!r}"
-            ) from exc
+    parsed_date = _safe_parse_date(parsed.get("date"))
+    amount = _safe_parse_float(parsed.get("amount"))
 
-    amount = parsed.get("amount")
-    if amount is not None:
-        try:
-            amount = float(amount)
-        except (TypeError, ValueError) as exc:
-            raise ReceiptParseError(f"'amount' was not a number: {amount!r}") from exc
-
-    raw_items = parsed.get("items", [])
+    raw_items = parsed.get("items")
     if not isinstance(raw_items, list):
-        raise ReceiptParseError("'items' must be a list")
+        raw_items = []
 
     items = []
     for raw_item in raw_items:
         if not isinstance(raw_item, dict):
-            raise ReceiptParseError("each item must be an object")
-        item_name = raw_item.get("name")
-        item_amount = raw_item.get("amount")
-        item_category = raw_item.get("category")
+            continue
+        item_name = str(raw_item.get("name") or "").strip()
+        if not item_name:
+            continue
+        item_amount = _safe_parse_float(raw_item.get("amount"))
+        if item_amount is None:
+            item_amount = 0.0
 
-        if not isinstance(item_name, str) or not item_name.strip():
-            raise ReceiptParseError(f"item 'name' must be a non-empty string, got {item_name!r}")
-        try:
-            item_amount = float(item_amount)
-        except (TypeError, ValueError) as exc:
-            raise ReceiptParseError(f"item 'amount' was not a number: {item_amount!r}") from exc
-        if item_category not in ("asset", "consumable"):
-            raise ReceiptParseError(
-                f"item 'category' must be 'asset' or 'consumable', got {item_category!r}"
-            )
+        raw_category = str(raw_item.get("category") or "").strip().lower()
+        item_category = "asset" if raw_category == "asset" else "consumable"
 
-        items.append({"name": item_name, "amount": item_amount, "category": item_category})
+        items.append({
+            "name": item_name,
+            "amount": item_amount,
+            "category": item_category,
+        })
 
     return {"merchant": merchant, "date": parsed_date, "amount": amount, "items": items}

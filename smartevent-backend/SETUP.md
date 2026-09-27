@@ -1,5 +1,9 @@
 # SMARTEVENT Backend — Local Setup
 
+Before using the current backend, apply the database migration and account setup
+in [Roles and permissions](ROLES_AND_PERMISSIONS.md). Admin registration now
+requires a department and organization; all Officer accounts are read-only.
+
 Get the API running on `localhost` and take it for a test drive.
 
 ---
@@ -42,6 +46,13 @@ Then freeze it for the team:
 pip freeze > requirements.txt
 ```
 
+## Database migrations
+
+Apply each unapplied SQL migration in `scripts/` through the Supabase SQL
+Editor before using the corresponding backend features. In particular, run
+`scripts/002_otp_registration_purpose.sql` to allow registration OTP rows in
+an existing database.
+
 ---
 
 ## 3. Configure `.env`
@@ -53,9 +64,39 @@ DATABASE_URL=<ask a teammate for the Supabase pooled connection string>
 JWT_SECRET_KEY=<any long random string — must match across the team for shared testing>
 JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=1440
+RESEND_API_KEY=<your Resend API key>
+RESEND_FROM_EMAIL="SMARTEVENT <onboarding@resend.dev>"
+RESEND_TEST_EMAIL=<email address used for your Resend account>
 ```
 
 **Do not commit `.env`.** Confirm `.gitignore` has it listed.
+For local testing, use the Resend account email as both `RESEND_TEST_EMAIL`
+and the member email; Resend's development sender cannot deliver to other
+recipients. For other recipients, verify a domain and set
+`RESEND_FROM_EMAIL` to an address on it. Keep the API key private; account
+registration and password recovery return an error when delivery fails.
+
+Test Resend before exercising OTP registration:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.test_resend
+```
+
+After that succeeds, add the same `RESEND_TEST_EMAIL` to the member roster,
+then register that email in Swagger and verify the received code.
+
+## Financial reports
+
+In Swagger, `GET /reports/financial` returns consolidated JSON and
+`GET /reports/financial.pdf` downloads the same report as a printable PDF.
+Both endpoints accept the same filters:
+
+- Weekly: `period=weekly`, optionally `reference_date=YYYY-MM-DD`
+- Monthly: `period=monthly`, optionally `reference_date=YYYY-MM-DD`
+- School year: `period=school_year&school_year=2026-2027`
+- Semester: `period=semester&school_year=2026-2027&semester=1st`
+- Either academic period can include `event_scope=departmental` or
+  `event_scope=organizational`
 
 ---
 

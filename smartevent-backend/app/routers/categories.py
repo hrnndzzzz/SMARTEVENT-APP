@@ -3,8 +3,8 @@ CRUD for budget categories (e.g. "Supplies", "Venue", "Food") — the
 department-wide budget pool that expenses draw down against.
 
 Access rules:
-  - Anyone logged in can VIEW categories (officers need to see budgets
-    to know what they can spend, advisers need to see them to approve).
+    - Super Admin sees all categories; admins, advisers, treasurers, and
+        officers see only categories in their own department.
   - Only admins can CREATE, UPDATE, or DELETE categories, since these
     define the department's actual budget structure.
 
@@ -18,10 +18,19 @@ nothing here for a client to send that would bypass the trigger.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_role
+from app.dependencies import (
+    assert_department_scope,
+    assert_record_scope,
+    require_operational_read,
+    require_role,
+    resolve_department_id,
+    resolve_organization_id,
+    scope_query_by_department,
+)
 from app.models import Category, User
 from app.schemas import CategoryCreate, CategoryOut, CategoryUpdate
 
@@ -34,7 +43,16 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    existing = db.query(Category).filter(Category.name == payload.name).first()
+    department_id = resolve_department_id(
+        current_user,
+        payload.department_id,
+        require_for_admin=True,
+    )
+    organization_id = resolve_organization_id(db, current_user, payload.organization_id, department_id)
+    existing = db.query(Category).filter(
+        func.lower(Category.name) == payload.name.lower(),
+        Category.organization_id == organization_id,
+    ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -42,6 +60,8 @@ def create_category(
         )
 
     category = Category(
+        department_id=department_id,
+        organization_id=organization_id,
         name=payload.name,
         allocated_budget=payload.allocated_budget,
         # A brand-new category starts with its full allocation available —
@@ -59,20 +79,22 @@ def create_category(
 @router.get("", response_model=list[CategoryOut])
 def list_categories(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_operational_read),
 ):
-    return db.query(Category).order_by(Category.name).all()
+    query = scope_query_by_department(db.query(Category), Category.department_id, current_user)
+    return query.order_by(Category.name).all()
 
 
 @router.get("/{category_id}", response_model=CategoryOut)
 def get_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_operational_read),
 ):
     category = db.query(Category).filter(Category.id == category_id).first()
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+    assert_record_scope(current_user, category, allow_officer_read=True)
     return category
 
 
@@ -87,12 +109,27 @@ def update_category(
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
+    assert_record_scope(current_user, category)
+
     updates = payload.model_dump(exclude_unset=True)
+
+    if "department_id" in updates:
+        if updates["department_id"] != category.department_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can change a category's department scope",
+            )
+        updates["department_id"] = resolve_department_id(
+            current_user,
+            updates["department_id"],
+            require_for_admin=True,
+        )
 
     if "name" in updates and updates["name"] != category.name:
         name_taken = (
             db.query(Category)
-            .filter(Category.name == updates["name"], Category.id != category_id)
+            .filter(func.lower(Category.name) == updates["name"].lower(), Category.id != category_id,
+                    Category.organization_id == category.organization_id)
             .first()
         )
         if name_taken:
@@ -118,6 +155,8 @@ def delete_category(
     category = db.query(Category).filter(Category.id == category_id).first()
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    assert_record_scope(current_user, category)
 
     # Categories are referenced by events and expenses (category_id FK).
     # Deleting one that's already in use would either fail on the FK
