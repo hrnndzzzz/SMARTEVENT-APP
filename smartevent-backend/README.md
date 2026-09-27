@@ -1,295 +1,372 @@
-# SMARTEVENT — Backend API
+# SMARTEVENT Backend API
 
-For the current administrator hierarchy, officer read-only policy, organization
-ownership, account management endpoints, and database rollout, see
-[Roles and permissions](ROLES_AND_PERMISSIONS.md). That policy supersedes the
-legacy role and registration descriptions below.
+Backend for SMARTEVENT: a mobile-based inventory, financial management, event
+monitoring and analytics reporting system for student organizations
+(LCUP CITE Department capstone project).
 
-For the Flutter/frontend team's complete screen, button, form, API, permission,
-and acceptance-test checklist, see [Frontend implementation README](FRONTEND_README.md).
-This current handoff supersedes the legacy feature and workflow examples below.
+The API implements organization-scoped access, roster-based registration,
+independent reviews, receipts/OCR, financial reporting and event-linked inventory.
+Flutter UI implementation is separate: having an endpoint in Swagger does not
+mean its Create/Edit/Delete or other action is already available in the app.
 
-Backend for **SMARTEVENT**: a Mobile-Based Inventory, Financial Management,
-Event Monitoring, and Data Analytics Reporting System for Student
-Organizations (LCUP CITE Department capstone project).
+## Documentation
 
-This README is a handoff document — it covers what's built, how it's
-structured, the design decisions behind it, and what's left to do.
+| Document | Purpose |
+|---|---|
+| [Frontend README](FRONTEND_README.md) | Screens, buttons, forms, permissions and acceptance tests covering all 89 currently registered API operations. |
+| [Roles and permissions](ROLES_AND_PERMISSIONS.md) | Hierarchy, scope, officer read-only policy and account administration. |
+| [Core features](CORE_SYSTEM_FEATURES.md) | Registration, notifications, academic metadata and exports. |
+| [Financial management](FINANCIAL_MANAGEMENT.md) | Fund sources, receipt duplication/review, reports and historical import. |
+| [Inventory management](INVENTORY_MANAGEMENT.md) | Event links, typed movements, purchase completion and legacy repairs. |
+| [Setup notes](SETUP.md) | Additional environment examples. Current policies here and in the handoffs override older workflow examples. |
 
----
+Use the deployed /docs and /openapi.json for exact request/response contracts.
+Implementation does not certify live migration, external-service or frontend readiness.
 
-## 1. Stack
+## Stack and structure
 
-| Layer            | Choice                                      |
-|-------------------|----------------------------------------------|
-| Framework         | FastAPI                                      |
-| ORM               | SQLAlchemy                                   |
-| Database          | Supabase Postgres                            |
-| Auth              | JWT (`python-jose`), OAuth2 password flow    |
-| Password hashing  | Argon2 (`pwdlib`)                            |
-| Settings          | `pydantic-settings`, reads `.env`            |
-| Dev server        | `uvicorn`                                    |
+| Component | Implementation |
+|---|---|
+| API | FastAPI + Uvicorn |
+| Persistence | SQLAlchemy + Supabase PostgreSQL |
+| Authentication | Application JWT, OAuth2 password-form login, Argon2 |
+| Configuration | pydantic-settings and environment variables / .env |
+| Email | Resend for OTP, initial setup, recovery and confirmation |
+| Storage | Supabase Storage for receipt images and proposal letters |
+| OCR | Gemini image/text parsing and Pillow image processing |
+| Reports | JSON, ReportLab PDF, CSV and print-ready HTML |
+| Tests | pytest, FastAPI TestClient and isolated SQLite fixtures |
 
-No frontend code lives here — this is the API only. The Flutter app is a
-separate repo/codebase and consumes this over HTTP.
-
----
-
-## 2. Project structure
-
-```
+~~~text
 app/
-├── main.py           # FastAPI app instance, CORS, router registration
-├── config.py          # Settings — reads DATABASE_URL, JWT secret, etc. from .env
-├── database.py        # SQLAlchemy engine/session, get_db() dependency
-├── models.py           # ORM models (mirrors the Supabase schema — does NOT create tables)
-├── schemas.py          # Pydantic request/response schemas
-├── security.py         # Password hashing + JWT encode/decode
-├── dependencies.py     # get_current_user, require_role(...)
-└── routers/
-    ├── auth.py         # register / login / me
-    ├── categories.py   # budget category CRUD
-    ├── events.py        # event proposals + approval workflow
-    ├── expenses.py       # expense records + approval workflow + budget check
-    └── inventory.py       # item CRUD + stock transactions
-```
+  main.py             Router registration, CORS and app entrypoint
+  config.py           Environment settings
+  database.py         Engine and database sessions
+  models.py           ORM models
+  schemas.py          Request/response contracts
+  security.py         JWT and password hashing
+  dependencies.py     Account readiness, role, ownership and scope checks
+  rbac_policy.py      Public role descriptions
+  routers/            Auth, administration, operations and reports
+  services/           Email/OTP, notifications, audit, academic years,
+                      storage/OCR, receipts, purchases and report rendering
+  test_*.py           Authorization and workflow regression tests
+scripts/
+  001_...sql through 007_...sql   Database migrations
+  create_super_admin.py          Institutional account bootstrap
+  deliver_notifications.py       Confirmation-email retry worker
+  backfill_receipts.py           Historical receipt import
+~~~
 
-**`models.py` does not create tables.** The Supabase SQL schema (triggers,
-Row Level Security, indexes, seed data) is the source of truth. The ORM
-classes just let FastAPI query what's already there. If you need to change
-a column, change it in Supabase first, then update `models.py` to match —
-not the other way around.
+Starting the API does not create/migrate tables. Keep PostgreSQL schema,
+constraints and triggers aligned with models and migration scripts.
 
----
+## Local setup
 
-## 3. Running it locally
+Run from smartevent-backend, using Python 3.11+ and access to the intended database.
 
-```bash
-uvicorn app.main:app --reload
-```
+~~~powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# EmailStr validation and the test runner must also be installed.
+.\.venv\Scripts\python.exe -m pip install email-validator pytest
+~~~
 
-Then open `http://127.0.0.1:8000/docs` for interactive Swagger docs — the
-fastest way to test any endpoint by hand.
+On macOS/Linux use .venv/bin/python. Create a private .env next to app/:
 
-### Required `.env` variables (see `config.py`)
+~~~dotenv
+# Required at startup
+DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
+JWT_SECRET_KEY=<long-private-signing-secret>
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=1440
 
-```
-DATABASE_URL=postgresql://...          # Supabase pooled connection string
-JWT_SECRET_KEY=...                     # any long random string
-JWT_ALGORITHM=HS256                    # default, usually leave as-is
-JWT_EXPIRE_MINUTES=1440                # default 24h
+# Configure actual frontend origins; wildcard is the local default
+ALLOWED_ORIGINS=http://localhost:3000
 
-# Not wired up to any route yet — reserved for the receipt-upload phase
-SUPABASE_URL=
-SUPABASE_SERVICE_KEY=
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_KEY=<server-only-service-key>
 SUPABASE_RECEIPTS_BUCKET=receipts
-```
+SUPABASE_PROPOSAL_LETTERS_BUCKET=proposal-letters
 
----
+GEMINI_API_KEY=<server-only-api-key>
+# GEMINI_MODEL can override the default in app/config.py
 
-## 4. Auth model
+RESEND_API_KEY=<server-only-api-key>
+RESEND_FROM_EMAIL="SMARTEVENT <noreply@your-verified-domain.example>"
+OTP_EXPIRY_MINUTES=15
+# RESEND_TEST_EMAIL is for the restricted development-sender setup
+~~~
 
-- Three roles: `admin`, `adviser`, `officer` (see `Role` in `schemas.py`).
-- `POST /auth/register` is currently **open to anyone** — no auth required.
-  This is intentional for now (it's how you create your first admin
-  account), but it should be locked down before real deployment — e.g.
-  restrict it to admins only via `Depends(require_role("admin"))`, or add
-  a "pending approval" state for new accounts.
-- All protected routes take a `Bearer <token>` header. In Swagger, use the
-  **Authorize** button after logging in — see the two role-based
-  dependencies below.
-- `dependencies.py` has two building blocks used everywhere:
-  - `get_current_user` — validates the token, loads the `User` row.
-  - `require_role("admin")` / `require_role("adviser", "admin")` — wraps
-    `get_current_user` with a role check, used to gate admin-only or
-    reviewer-only routes.
+Never commit real secrets or include database/service-role/email/OCR/JWT signing
+keys in Flutter. Only DATABASE_URL and JWT_SECRET_KEY are mandatory at startup;
+unconfigured storage/OCR/email features return service errors. Legacy Gmail
+variables are accepted for compatibility but are not used by the email service.
 
----
+~~~powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+~~~
 
-## 5. Router-by-router summary
+- Health: http://127.0.0.1:8000/health
+- Swagger: http://127.0.0.1:8000/docs
+- API schema: http://127.0.0.1:8000/openapi.json
 
-### `auth.py`
-`POST /auth/register`, `POST /auth/login`, `GET /auth/me`. Standard OAuth2
-password flow. Login takes `username` (mapped to email) + `password` as
-form data, not JSON — that's the OAuth2 spec shape, not a bug.
+Devices/emulators need a reachable server address, not their own localhost.
+Use HTTPS and explicit allowed web origins in deployment. CORS exposes
+Content-Disposition for report filenames.
 
-### `categories.py`
-Budget category CRUD (`POST`, `GET` list/single, `PATCH`, `DELETE`).
-- View: anyone logged in.
-- Create/update/delete: admin only.
-- `remaining_budget` is **never** editable through this router — it only
-  changes via a Supabase trigger (`fn_deduct_category_balance`) that fires
-  when an expense's status flips to `approved`.
-- Delete is blocked (409) if any event or expense still references the
-  category, to avoid orphaned foreign keys.
+## Database rollout and bootstrap
 
-### `events.py`
-Event proposal CRUD + approval workflow.
+Back up the intended database first. Inspect scripts and apply only unapplied
+migrations in order. Do not blindly rerun production SQL. The existing base
+schema and budget-deduction triggers must be present.
 
-```
-draft --submit--> pending --approve--> approved
-                       \--reject--> rejected
-```
+| Migration | Coverage |
+|---|---|
+| 001_department_scope_and_auth.sql | Department-scoped records and authentication support. |
+| 002_otp_registration_purpose.sql | Registration OTP purpose. |
+| 003_financial_income_and_dates.sql | Event income and financial dates. |
+| 004_roles_and_organizations.sql | Organization ownership, suspension, role rules and audit. |
+| 005_core_system_features.sql | Notification inbox and academic-metadata checks. |
+| 006_financial_management.sql | Receipts, duplicate controls, financial/linkage constraints. |
+| 007_inventory_management.sql | Typed event-linked stock, purchase evidence and provenance guards. |
 
-- View: anyone logged in.
-- Create: any logged-in user (in practice, officers).
-- Edit/submit/delete: only the user who proposed it (or an admin), and
-  only while status is `draft`.
-- Approve/reject: `adviser` or `admin` only, only while status is
-  `pending`. Every decision writes a row to the shared `approvals` table
-  (`entity_type="event"`), so `GET /events/{id}/approvals` gives a full
-  review timeline, not just the final status.
-- `status` is deliberately **excluded** from the `PATCH` body — status
-  only moves through `/submit`, `/approve`, `/reject`.
-- `completed` exists as a valid status value but **has no route yet** —
-  nothing currently transitions an approved event to completed. Add a
-  `POST /events/{id}/complete` when that need comes up.
+Some constraints use NOT VALID to preserve historical rows while checking new
+inserts/updates. Review actual ownership, academic labels, event links, receipts
+and stock, then follow the handoffs' repairs/validation. Never invent historical
+years, payments, suppliers or quantities to satisfy a constraint.
 
-### `expenses.py`
-Expense record CRUD + approval workflow. Same shape as events, reusing the
-same `approvals` table (`entity_type="expense"`).
+The institution appoints the Super Admin. Bootstrap on an authorized maintenance
+machine with database and email configured:
 
-- No `draft` state — an expense is filed once money's actually been
-  spent, so it starts at `pending`.
-- **Budget guard on approval**: before approving, the router checks
-  `expense.amount` against `category.remaining_budget` and returns a 409
-  if approving would overdraw the category. This is an API-level check
-  *in addition to* the DB trigger — the trigger still does the actual
-  deduction once approval goes through.
-- `category_id` is validated against the `categories` table on create/edit
-  with a clean 400 if it doesn't exist, rather than letting a bad UUID
-  surface as an ugly 500 foreign-key error.
-- OCR fields (`ocr_merchant`, `ocr_date`, `ocr_amount`) and
-  `is_flagged`/`flag_reason` are read-only through this API for now —
-  they're meant to be populated by an OCR pipeline that doesn't exist yet
-  (see Phase 3 below).
+~~~powershell
+.\.venv\Scripts\python.exe -m scripts.create_super_admin
+~~~
 
-### `inventory.py`
-Item CRUD + stock transaction log.
+This creates an account and sends a temporary password: it is not a read-only
+test. There is no public Create Super Admin API.
 
-- View: anyone logged in. Create/update/delete: admin only.
-- `GET /inventory/low-stock` — items where `quantity <= low_stock_threshold`.
-  **Route ordering matters here**: it's declared before
-  `GET /inventory/{inventory_id}`, otherwise FastAPI tries to parse
-  `low-stock` as a UUID and throws a 422.
-- `quantity` is **not editable via PATCH** — it only changes through
-  `POST /inventory/{id}/transactions`, so every quantity change has a
-  matching `InventoryTransaction` row explaining why.
-- **No DB trigger for inventory** (unlike categories' budget trigger) —
-  this router updates `Inventory.quantity` directly in the same commit as
-  the transaction insert. If a trigger gets added later in Supabase,
-  remove the manual `item.quantity = new_quantity` line in
-  `create_transaction` to avoid double-counting.
-- Negative stock is blocked with a 409 (can't check out more than what's
-  on hand).
-- `quantity` / `low_stock_threshold` are typed `int` at the API layer
-  (whole-unit items — chairs, cords, tarps). The underlying Supabase
-  columns are `Numeric`, so this is a validation choice, not a DB change.
+1. Super Admin logs in and changes the temporary password.
+2. Super Admin creates departments/organizations and Admin/SDS accounts.
+3. Organization Admin adds approved Adviser/Treasurer/Officer roster entries.
+4. Members register with roster email and chosen password, then verify OTP.
+5. Eligible verified members activate automatically; role/name/scope come from
+   the roster, not a self-selected elevated role.
 
----
+## Roles and authentication
 
-## 6. Design patterns used throughout (worth knowing before extending)
+| Role | Access |
+|---|---|
+| super_admin | Global operations, department/organization/Admin/SDS provisioning, transfers, account access and audit. |
+| admin | Assigned organization/department administration, roster/member access, categories/catalog, finances and independent review. |
+| adviser | Scoped reading, own event proposals, independent event/expense/receipt review, movements and letters. |
+| treasurer | Scoped reading, own proposals, income/expenses, own pending-expense receipts, purchase completion, movements and letters. |
+| officer | Scoped operational read-only access, reports and exports; own password changes and notification read actions remain allowed. |
+| sds_staff | School-wide proposal-letter reading and personal account/inbox; no operational events, finances, inventory or reports. |
 
-- **Status transitions never go through `PATCH`.** Every status-changing
-  action (`submit`, `approve`, `reject`) is its own POST route. This keeps
-  side effects (trigger firing, approval logging) tied to one code path
-  each, instead of being reachable through a generic edit.
-- **Trigger-owned fields are excluded from update schemas.**
-  `remaining_budget` and `quantity` are never in a `*Update` schema — only
-  the dedicated action routes touch them.
-- **Ownership checks follow the same shape**: `_assert_owner_or_admin` in
-  `events.py` / `expenses.py` — the creator or an admin can edit/delete
-  while the record is still editable (`draft` / `pending`).
-- **Shared `approvals` table, disambiguated by `entity_type`.** Both
-  events and expenses log to the same table, filtered by
-  `entity_type="event"` / `"expense"` and `entity_id`. `step_order`
-  auto-increments per entity.
-- **Delete is blocked, not cascaded**, whenever a record is referenced
-  elsewhere (categories referenced by events/expenses, inventory items
-  referenced by transactions). Client gets a 409 with a suggested
-  alternative (e.g. zero out the budget instead of deleting the category).
+Sharing a department does not grant cross-organization access. Account transfers
+do not transfer historical records. Suspension blocks existing tokens on
+subsequent requests; restoration does not bypass verification/password setup.
 
----
+POST /auth/login takes application/x-www-form-urlencoded fields username
+(email) and password, not JSON. Protected calls use Authorization: Bearer
+<access_token>. Load GET /auth/me after login and route mandatory-password users
+to setup; GET /auth/permissions describes duties. There is no refresh-token
+or server-side logout endpoint.
 
-## 7. Known gaps / things to fix before production
+No reviewer, including Super Admin, may approve/reject their own event, expense
+or pending receipt review. Role, scope, ownership and state checks are enforced
+by the API, not just hidden frontend buttons.
 
-- `POST /auth/register` is wide open — lock it down (admin-only, or an
-  approval step for new accounts).
-- CORS in `main.py` is `allow_origins=["*"]` — fine for local dev with the
-  Flutter emulator, **must** be tightened to real deployed origins before
-  shipping.
-- No self-review lock: an adviser can currently approve/reject an event or
-  expense they proposed/filed themselves. Add a check comparing
-  `reviewer.id` to `proposed_by` / `recorded_by` if segregation of duties
-  matters for your org's policy.
-- `Event.status = "completed"` has no route that sets it.
-- Receipt upload isn't wired to Supabase Storage yet — `receipt_url` on
-  `ExpenseCreate` just accepts a plain string for now.
+## Current features and workflows
 
----
+### Registration and notifications
 
-## 8. Roadmap — what's next
+Roster-restricted registration, OTP verification/resend, initial setup, password
+change and recovery/reset are implemented. Successful verification creates a
+personal notification and attempts a separate confirmation email. Confirmation
+email failure does not undo account activation.
 
-**Phase 1 — Foundation** ✅ Done
-Supabase schema, FastAPI scaffold, DB connection.
+Inbox supports unread filtering, limit/offset, unread count and individual
+mark-read. Schedule retries in the intended environment:
 
-**Phase 2 — Core CRUD + Approval Routers** ✅ Done
-Auth, Categories, Events, Expenses, Inventory — all built and manually
-tested end-to-end (create → edit → status transitions → approvals →
-guards for invalid transitions).
+~~~powershell
+.\.venv\Scripts\python.exe -m scripts.deliver_notifications --limit 100
+~~~
 
-**Phase 3 — Receipts, OCR & Notifications** 🔜 Not started
-- Wire `receipt_url` to actual Supabase Storage uploads
-  (`supabase_url` / `supabase_receipts_bucket` are already stubbed in
-  `config.py`).
-- OCR pipeline to auto-populate `ocr_merchant`, `ocr_date`, `ocr_amount`
-  on an expense, and set `is_flagged` / `flag_reason` when OCR results
-  don't match what was typed in.
-- Push notifications via `User.fcm_token` (e.g. notify an officer when
-  their event/expense is approved or rejected).
+This sends real emails. Device push and event-review notifications are not implemented.
 
-**Phase 4 — Analytics & Reporting**
-Dashboards / reports pulling from `AuditLog`, category spend history,
-event outcomes — the "Data Analytics Reporting System" part of the
-project's full title. No router exists for this yet.
+### Categories
 
-**Phase 5 — Flutter Integration + Deployment**
-Wiring the mobile app to these endpoints, end-to-end testing, and
-deployment hardening (see gaps above — CORS, open registration, etc.).
+Scoped list/detail plus Admin/Super Admin Create/Edit/Delete. Categories record
+allocation and low-balance thresholds. Remaining budget is read-only and deducted
+by expense-approval database workflow. Allocation editing does not automatically
+top up/recalculate remaining budget. Referenced categories cannot be deleted.
 
----
+The frontend must expose category CRUD, not just a dropdown.
 
-## Core System Features handoff
+### Events: two-stage approval
 
-See [CORE_SYSTEM_FEATURES.md](CORE_SYSTEM_FEATURES.md) for current registration
-admission rules, notifications, academic-year validation, migration 005,
-authorized exports, frontend integration contracts, and acceptance tests.
-This handoff supersedes the older registration/reporting roadmap notes below.
+Treasurer/Adviser/Admin/Super Admin can propose events; Officers cannot.
+New events require consecutive school year (e.g. 2026-2027), semester
+(1st, 2nd, summer) and scope (departmental, organizational). Year filtering/
+lookup and administrator legacy-metadata repair exist. Metadata cannot be cleared.
 
-## Financial Management handoff
+~~~text
+Treasurer/Admin/Super Admin: draft -> pending_adviser -> pending_admin -> approved
+Adviser:                   draft -> pending_admin -> approved
+Pending stage -> rejected -> edit -> resubmit (history retained)
+~~~
 
-See [FINANCIAL_MANAGEMENT.md](FINANCIAL_MANAGEMENT.md) for actual fund sources,
-receipt duplication/review rules, financial report contracts, migration 006,
-legacy-data import, and acceptance tests.
+Legacy pending means awaiting adviser review. Adviser approves the first stage;
+Admin/Super Admin approves the final stage and may independently reject either
+pending stage. Resubmission uses the original proposer's role. No proposal is
+auto-approved: Admin proposals need an independent adviser and another
+Admin/Super Admin for final approval.
 
-## Inventory Management handoff
+Owner/scoped administrator can edit drafts/rejected events, submit/resubmit and
+delete drafts subject to references. Dedicated actions change status, not generic
+PATCH. Approval history exists. Completed is accepted in responses but has no
+transition endpoint.
 
-See [INVENTORY_MANAGEMENT.md](INVENTORY_MANAGEMENT.md) for required event links,
-typed movements, the new paid-and-received purchase completion endpoint,
-migration 007, legacy reconciliation, and frontend acceptance tests.
+### Expenses, receipts and OCR
 
-## 9. Quick sanity checklist for a new developer
+Treasurer/Admin/Super Admin create pending expenses with asset/consumable lines.
+Owners/administrators edit/delete eligible pending records. Independent
+Adviser/Admin/Super Admin approves/rejects in a SINGLE review step, unlike events.
+Approval checks category and linked event budgets; database triggers deduct them.
 
-1. `uvicorn app.main:app --reload`, confirm `/health` returns `{"status": "ok"}`.
-2. Open `/docs`, confirm all 5 route groups appear: `auth`, `categories`,
-   `events`, `expenses`, `inventory`.
-3. Register one account per role (`admin`, `adviser`, `officer`) via
-   `POST /auth/register`, log each in, and use the **Authorize** button in
-   Swagger to test as each role.
-4. Walk one full loop manually: create a category → create an event
-   against it → submit → approve → create an expense against the same
-   category → approve it → confirm `remaining_budget` drops correctly.
-5. Do the same for inventory: create an item → record a stock-out
-   transaction → confirm `quantity` drops and shows up in
-   `/inventory/{id}/transactions` → try over-withdrawing and confirm the
-   409.
+Image scanning before creation, uploading images to existing expenses and parsing
+on-device OCR text are implemented. Scan returns an uploaded preview, not a saved
+expense: review it and separately Create Expense. OCR discrepancy flags are visible.
+
+Every receipt requires purpose, event and exactly one expense/income link.
+Canonical URL, uploaded-file hash and normalized merchant/reference duplicates
+are blocked within the organization. Similar merchant/amount/nearby-date receipts
+require independent Clear/Reject review with a reason. Receipt-bearing expenses
+cannot change event/amount/date, detach evidence or be deleted. Asset approval
+requires a registered receipt.
+
+### Income, reports and dashboard
+
+Income records actual source, purpose, received date and positive amount.
+Types: registration_fees, sponsorship, donation, other. Create/list and event
+filtering exist; income Edit/Delete do not. Pending/rejected receipt review
+withholds income from totals.
+
+Category/event/consolidated reports include relevant budgets, eligible income,
+approved expenses, balance, actual fund-source breakdowns and withheld income.
+Event reports also show transactions and receipts.
+
+- Weekly/monthly: transaction dates and optional reference date.
+- School year: school_year required.
+- Semester: school_year and semester required.
+- Event scope: departmental/organizational filtering.
+- Academic reports: actual event labels, not guessed creation years.
+
+Live dashboard, approved-spending trends, flagged-expense queue and historical
+category-based budget suggestions exist. Trends group by expense creation month;
+calendar reports use transaction dates, so their buckets can differ.
+
+Authenticated dashboard/category/event/financial exports support PDF, CSV and
+HTML. GET /analytics/dashboard/exports exposes formats/templates. Fetch with
+Bearer authorization, then save/share/print locally; never put JWTs in URLs.
+Printing/download controls belong to the frontend team.
+
+### Inventory and completed purchases
+
+New catalog items require an initial/intended event; every movement also requires
+its actual event, type and reason. Admin/Super Admin manages catalog CRUD/drafts.
+Adviser/Treasurer/Admin/Super Admin records authorized acquisition, donation,
+issue, return, disposal and adjustment.
+
+Stock is whole-unit and cannot become negative; returns cannot exceed outstanding
+issue for that event. Quantity PATCH and manual purchase movements are blocked.
+Deletion requires zero stock and no ledger/purchase history.
+
+~~~text
+Event-linked asset expense + receipt -> independent expense approval
+-> record full payment and actual delivery through complete-purchase
+-> asset stock and purchase ledger added once
+-> Admin confirms newly created catalog drafts before manual use
+~~~
+
+POST /expenses/{expense_id}/complete-purchase requires approved expense,
+matching cleared receipt/full payment, payment/delivery dates, payment method/
+reference, vendor and quantity/unit confirmation for every asset line.
+Approval alone adds no stock. Repeat completion is blocked; draft confirmation
+does not add stock again. Consumables are financial lines, not automatic stock.
+
+Low-stock/draft/event/missing-link views, ledger history and administrator legacy
+event/movement repairs exist without replaying quantities. Backend transactions
+update stock; migration 007 guards validate provenance, not a second increment.
+
+### Proposal letters, administration and audit
+
+Authorized operational writers upload event-linked PDF/images. Their organization
+can read letters; SDS/Super Admin have school-wide visibility. Officers have no
+letter access; SDS cannot approve events.
+
+Super Admin provisions departments/organizations/Admin/SDS and transfers accounts.
+Organization Admin manages roster/member roles, positions and suspension.
+Claimed roster entries are managed through user access, not unclaimed-entry
+editing/deletion. Administrative audit history is read-only and scoped.
+
+## API areas
+
+| Prefix | Functionality |
+|---|---|
+| /auth, /notifications | Registration, login, self-service, role metadata and inbox. |
+| /departments, /organizations, /users, /cite-members, /audit-logs | Setup, member access and audit. |
+| /categories, /events, /proposal-letters | Categories, proposals/review and documents. |
+| /expenses, /incomes, /receipts | Finances, OCR/uploads, evidence review and purchases. |
+| /inventory | Catalog, stock ledger, drafts and legacy repair. |
+| /analytics, /recommendations, /reports | Dashboard, trends/flags, suggestions and reports/exports. |
+| /health | Connectivity only, not database/external-service readiness. |
+
+See [FRONTEND_README.md](FRONTEND_README.md) for complete operation-to-UI mappings,
+forms, filters and app acceptance tests.
+
+## Testing and release
+
+~~~powershell
+.\.venv\Scripts\python.exe -m pytest app -q -p no:cacheprovider
+~~~
+
+The last verified code baseline passed **200 backend tests**. Isolated SQLite
+tests do not prove PostgreSQL migrations/triggers, real email/storage/OCR delivery
+or frontend completion. Dependency deprecation warnings remain.
+
+Before release:
+
+1. Verify backup, base schema, unapplied migrations, budget triggers, historical
+   ownership/metadata/evidence/stock repairs and deferred constraint validation.
+2. Verify email sender, storage buckets/privacy, OCR credentials, web origins,
+   HTTPS and server-only secrets in the real environment.
+3. Test all six roles, organization isolation, suspension, password setup and
+   blocked self-review.
+4. Exercise live reviews, receipts, complete purchases, movements, income,
+   reports and authenticated downloads in a test deployment.
+5. Finish frontend acceptance tests, including visible Category Create/Edit/Delete.
+6. Configure/monitor notification retries and reviewed historical reconciliation.
+
+## Known boundaries and remaining enhancements
+
+Implemented backend features are not a claim of complete production readiness:
+
+- No income Edit/Delete, saved expense-line editing or rejected-expense resubmit.
+- No event-completion transition or arbitrary submitted-history editing.
+- No letter Edit/Delete, Delete User or department/organization Edit/Delete APIs.
+- No standalone file-only income-receipt creation; metadata creation needs an
+  existing HTTP(S) evidence URL before receipt-ID upload.
+- Receipt deduplication does not cover every transaction entered without receipts.
+- Returned file URLs do not imply private signed-URL protection; review storage
+  privacy and extend access controls if institution policy requires it.
+- Consumable stock integration, event-review push, generalized notification actions
+  and refresh-token/session revocation flows are absent.
+- Generic list pagination/search, reviewer names and additional bulk exports
+  need agreed backend extensions where not already supported.
+- Allocation editing is not a dedicated budget-adjustment/rebalancing operation.
+
+Do not simulate unsupported writes in local state or bypass API restrictions
+through direct database writes. Agree extensions and keep contracts synchronized.
