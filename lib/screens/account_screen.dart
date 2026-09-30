@@ -9,7 +9,7 @@ import 'settings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notification_prefs_screen.dart';
 import 'help_screen.dart';
-import 'register_user_screen.dart';
+import 'admin_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -117,10 +117,10 @@ class AccountScreen extends StatelessWidget {
                           ),
                           if (app.currentRole?.canManageMembers ?? false)
                             _MenuTile(
-                              icon: Icons.person_add_alt_1_outlined,
-                              label: 'Register User',
+                              icon: Icons.manage_accounts_outlined,
+                              label: 'Administration',
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const RegisterUserScreen()),
+                                MaterialPageRoute(builder: (_) => const AdminScreen()),
                               ),
                             ),
                           _MenuTile(

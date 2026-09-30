@@ -3,6 +3,8 @@ import '../api/api_client.dart';
 import '../api/auth_service.dart';
 import '../api/category_service.dart';
 import '../api/models/academic.dart';
+import '../api/models/admin.dart';
+import '../api/admin_service.dart';
 import '../api/models/category.dart';
 import '../api/models/income.dart';
 import '../api/models/inventory.dart';
@@ -29,6 +31,9 @@ import 'user_role.dart';
 // screens work in, so they are re-exported alongside UserRole rather than
 // making every screen import the API layer directly.
 export '../api/models/academic.dart';
+
+// Roster entries, managed accounts and audit rows for the admin screens.
+export '../api/models/admin.dart';
 
 // Category is the shape the pickers and list screens render directly.
 export '../api/models/category.dart';
@@ -433,6 +438,219 @@ class AppState extends ChangeNotifier {
         ..error = _messageForFailure(error)
         ..sessionExpired = error is ApiException && error.isUnauthorized;
     }
+    notifyListeners();
+  }
+
+  // ---- Administration ----------------------------------------------------
+
+  late final AdminService _adminService = AdminService(_apiClient);
+
+  List<RosterEntry> roster = [];
+  final LoadState rosterLoad = LoadState();
+
+  List<ManagedUser> managedUsers = [];
+  final LoadState usersLoad = LoadState();
+
+  List<AuditEntry> auditLog = [];
+  final LoadState auditLoad = LoadState();
+
+  Future<void> loadRoster() => _runLoad(rosterLoad, () async {
+        roster = await _adminService.roster();
+      });
+
+  Future<void> loadManagedUsers() => _runLoad(usersLoad, () async {
+        managedUsers = await _adminService.users();
+      });
+
+  Future<void> loadAuditLog() => _runLoad(auditLoad, () async {
+        auditLog = await _adminService.auditLog();
+      });
+
+  /// Roster entries nobody has registered against yet — the only ones that
+  /// can still be edited freely or removed.
+  List<RosterEntry> get unclaimedRoster =>
+      roster.where((r) => !r.isClaimed).toList();
+
+  Future<String?> addRosterEntry({
+    required String fullName,
+    required String email,
+    required UserRole role,
+    String? position,
+    String? departmentId,
+    String? organizationId,
+  }) async {
+    try {
+      final created = await _adminService.addToRoster(
+        fullName: fullName,
+        email: email,
+        role: role,
+        position: position,
+        departmentId: departmentId,
+        organizationId: organizationId,
+      );
+      roster = [created, ...roster];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> updateRosterEntry(
+    RosterEntry entry, {
+    UserRole? role,
+    String? position,
+    String? organizationId,
+  }) async {
+    try {
+      final updated = await _adminService.updateRosterEntry(
+        entry.id,
+        role: role,
+        position: position,
+        organizationId: organizationId,
+      );
+      roster = [
+        for (final r in roster) if (r.id == updated.id) updated else r,
+      ];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> removeRosterEntry(RosterEntry entry) async {
+    if (entry.isClaimed) {
+      return 'That entry has already been claimed. Manage the account it '
+          'created instead.';
+    }
+    try {
+      await _adminService.removeRosterEntry(entry.id);
+      roster = roster.where((r) => r.id != entry.id).toList();
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Suspends or restores an account. There is no delete — suspension
+  /// revokes access while preserving everything the account did.
+  Future<String?> setUserSuspended(ManagedUser user, bool suspended) async {
+    if (user.id == currentAccount?.id) {
+      return 'You cannot change your own access.';
+    }
+    try {
+      final updated =
+          await _adminService.updateAccess(user.id, isSuspended: suspended);
+      _replaceUser(updated);
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> updateUserAccess(
+    ManagedUser user, {
+    UserRole? role,
+    String? position,
+    String? organizationId,
+  }) async {
+    if (user.id == currentAccount?.id) {
+      return 'You cannot change your own access.';
+    }
+    try {
+      final updated = await _adminService.updateAccess(
+        user.id,
+        role: role,
+        position: position,
+        organizationId: organizationId,
+      );
+      _replaceUser(updated);
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> createDepartment({
+    required String code,
+    required String name,
+    String? description,
+  }) async {
+    try {
+      final created = await _adminService.createDepartment(
+        code: code,
+        name: name,
+        description: description,
+      );
+      departments = [...departments, created];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> createOrganization({
+    required String code,
+    required String name,
+    required String departmentId,
+  }) async {
+    try {
+      final created = await _adminService.createOrganization(
+        code: code,
+        name: name,
+        departmentId: departmentId,
+      );
+      organizations = [...organizations, created];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Creates an Admin or SDS account. Both email a temporary password, so
+  /// both fail when email is not configured — the error says so.
+  Future<String?> createPrivilegedAccount({
+    required bool isSds,
+    required String fullName,
+    required String email,
+    String? position,
+    String? organizationId,
+    String? departmentId,
+  }) async {
+    try {
+      if (isSds) {
+        await _adminService.createSdsStaff(
+          fullName: fullName,
+          email: email,
+          position: position,
+        );
+      } else {
+        if (organizationId == null || departmentId == null) {
+          return 'An Admin needs both a department and an organization.';
+        }
+        await _adminService.createAdmin(
+          fullName: fullName,
+          email: email,
+          organizationId: organizationId,
+          departmentId: departmentId,
+          position: position,
+        );
+      }
+      await loadManagedUsers();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  void _replaceUser(ManagedUser updated) {
+    managedUsers = [
+      for (final u in managedUsers) if (u.id == updated.id) updated else u,
+    ];
     notifyListeners();
   }
 
@@ -2100,30 +2318,6 @@ class AppState extends ChangeNotifier {
   /// this on every request regardless; this just lets the UI explain it.
   bool get isSuspended => currentAccount?.isSuspended ?? false;
 
-  /// Legacy: admin-created accounts against the pre-September backend,
-  /// where `POST /auth/register` took a name, role and password from an
-  /// Admin. The current backend derives those from the roster instead, and
-  /// an Admin adds people through `POST /cite-members`. Kept until the
-  /// roster module replaces it.
-  Future<String?> registerUser({
-    required String name,
-    required String email,
-    required String password,
-    required UserRole role,
-    Department department = Department.cite,
-  }) async {
-    try {
-      await _authService.registerUserLegacy(
-        fullName: name,
-        email: email,
-        password: password,
-        role: role.wireName,
-      );
-      return null;
-    } catch (error) {
-      return _messageForFailure(error);
-    }
-  }
 
   /// Whether a stored-session check has finished, whatever its outcome.
   /// The startup gate waits on this so the app doesn't flash the welcome

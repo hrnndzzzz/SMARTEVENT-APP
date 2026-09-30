@@ -113,30 +113,6 @@ class AuthService {
     });
   }
 
-  /// LEGACY — admin-created accounts against the pre-September backend,
-  /// where `POST /auth/register` accepted a name, role and password chosen
-  /// by a signed-in Admin.
-  ///
-  /// The current backend derives all three from the roster and ignores
-  /// them here, so this only works against the older API. It is kept so
-  /// the feature doesn't disappear mid-migration, and should be deleted
-  /// once roster management (`POST /cite-members`) replaces it.
-  Future<UserProfile> registerUserLegacy({
-    required String fullName,
-    required String email,
-    required String password,
-    required String role,
-    String? position,
-  }) async {
-    final response = await _client.post('/auth/register', body: {
-      'full_name': fullName,
-      'email': email,
-      'password': password,
-      'role': role,
-      if (position != null) 'position': position,
-    });
-    return UserProfile.fromJson(response as Map<String, dynamic>);
-  }
 
   /// Clears the token in memory and in secure storage. There is no backend
   /// logout endpoint — the JWT stays valid until it expires, so the only
