@@ -19,6 +19,8 @@ import '../api/models/scope.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
 import '../api/models/money.dart';
+import '../api/models/notification.dart';
+import '../api/notification_service.dart';
 import '../api/event_service.dart';
 import '../api/models/remote_event.dart';
 import '../api/expense_service.dart';
@@ -68,6 +70,9 @@ export '../api/models/remote_event.dart' show ApprovalRecord;
 // Expense line items, scan results, payment methods and the money helper
 // are all part of what the expense screens work with directly.
 export '../api/models/money.dart';
+
+// Backend notifications for the inbox and the bell badge.
+export '../api/models/notification.dart';
 export '../api/models/remote_expense.dart'
     show
         RemoteExpense,
@@ -183,30 +188,6 @@ class EventItem {
     this.semester,
     this.eventScope,
     this.proposedBy,
-  });
-}
-
-enum NotifDestination { none, inventory, events, dashboard }
-
-class AppNotification {
-  final IconData icon;
-  final Color tagColor;
-  final String title;
-  final String body;
-  final String time;
-  bool unread;
-  final NotifDestination destination;
-  final Set<UserRole> targetRoles;
-
-  AppNotification({
-    required this.icon,
-    required this.tagColor,
-    required this.title,
-    required this.body,
-    required this.time,
-    this.unread = true,
-    this.destination = NotifDestination.none,
-    this.targetRoles = const {},
   });
 }
 
@@ -401,6 +382,51 @@ class AppState extends ChangeNotifier {
         ..sessionExpired = error is ApiException && error.isUnauthorized;
     }
     notifyListeners();
+  }
+
+  // ---- Notifications -----------------------------------------------------
+
+  late final NotificationService _noticeService =
+      NotificationService(_apiClient);
+
+  /// The signed-in user's inbox, from the backend.
+  List<AppNotice> notices = [];
+  final LoadState noticesLoad = LoadState();
+
+  /// Drives the badge on the bell. Kept as its own number rather than
+  /// counting [notices], so the badge is right even before the inbox has
+  /// been opened — `/notifications/unread-count` is a cheap call.
+  int unreadNoticeCount = 0;
+
+  Future<void> loadNotices() => _runLoad(noticesLoad, () async {
+        notices = await _noticeService.list();
+        unreadNoticeCount = notices.where((n) => n.isUnread).length;
+      });
+
+  /// Refreshes just the badge. Safe to call often; failures are ignored
+  /// because a stale badge must never block a screen.
+  Future<void> refreshUnreadCount() async {
+    try {
+      unreadNoticeCount = await _noticeService.unreadCount();
+      notifyListeners();
+    } catch (_) {
+      // Leave the previous count rather than showing a wrong zero.
+    }
+  }
+
+  Future<String?> markNoticeRead(AppNotice notice) async {
+    if (!notice.isUnread) return null;
+    try {
+      final updated = await _noticeService.markRead(notice.id);
+      notices = [
+        for (final n in notices) if (n.id == updated.id) updated else n,
+      ];
+      unreadNoticeCount = notices.where((n) => n.isUnread).length;
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
   }
 
   // ---- Administration ----------------------------------------------------
@@ -1631,15 +1657,6 @@ class AppState extends ChangeNotifier {
         organizationId: organizationId,
       );
       expenses.insert(0, _mapRemoteExpense(created));
-      addNotification(AppNotification(
-        icon: Icons.receipt_long_outlined,
-        tagColor: const Color(0xFFE8A33D),
-        title: 'New expense to review',
-        body: '$description (₱$amount) is awaiting review.',
-        time: 'Just now',
-        destination: NotifDestination.dashboard,
-        targetRoles: {UserRole.adviser, UserRole.admin},
-      ));
       notifyListeners();
       return null;
     } catch (error) {
@@ -1660,15 +1677,6 @@ class AppState extends ChangeNotifier {
         amount: MoneyInput.fromDouble(amount),
       );
       expenses.insert(0, _mapRemoteExpense(created));
-      addNotification(AppNotification(
-        icon: Icons.receipt_long_outlined,
-        tagColor: const Color(0xFFE8A33D),
-        title: 'New expense to review',
-        body: '$vendor (₱${amount.toStringAsFixed(2)}) is awaiting review.',
-        time: 'Just now',
-        destination: NotifDestination.dashboard,
-        targetRoles: {UserRole.adviser, UserRole.admin},
-      ));
       notifyListeners();
       return null;
     } catch (error) {
@@ -1704,30 +1712,12 @@ class AppState extends ChangeNotifier {
       expense.status = _expenseStatusFromString(updated.status);
       expense.reviewedBy = reviewerRole;
       expense.reviewNote = note;
-      addNotification(AppNotification(
-        icon: Icons.check_circle_outline,
-        tagColor: const Color(0xFF3F8272),
-        title: 'Expense approved: ${expense.vendor}',
-        body: '₱${expense.amount.toStringAsFixed(2)} approved by $reviewerRole.',
-        time: 'Just now',
-        destination: NotifDestination.dashboard,
-        targetRoles: {UserRole.officer},
-      ));
       notifyListeners();
       return null;
     } on ApiException catch (error) {
       // A refusal here is usually the budget guard or a receipt-review
       // block, which an Admin needs to see rather than only the reviewer
       // who happened to click Approve.
-      addNotification(AppNotification(
-        icon: Icons.warning_amber_rounded,
-        tagColor: const Color(0xFFC1503D),
-        title: 'Blocked: ${expense.vendor}',
-        body: error.message,
-        time: 'Just now',
-        destination: NotifDestination.dashboard,
-        targetRoles: {UserRole.admin},
-      ));
       notifyListeners();
       return error.message;
     } catch (error) {
@@ -1745,15 +1735,6 @@ class AppState extends ChangeNotifier {
       expense.status = _expenseStatusFromString(updated.status);
       expense.reviewedBy = reviewerRole;
       expense.reviewNote = note;
-      addNotification(AppNotification(
-        icon: Icons.cancel_outlined,
-        tagColor: const Color(0xFFC1503D),
-        title: 'Expense rejected: ${expense.vendor}',
-        body: note?.isNotEmpty == true ? note! : 'No reason given.',
-        time: 'Just now',
-        destination: NotifDestination.dashboard,
-        targetRoles: {UserRole.officer},
-      ));
       notifyListeners();
       return null;
     } catch (error) {
@@ -1812,26 +1793,8 @@ class AppState extends ChangeNotifier {
 
       switch (mapped.status) {
         case EventApprovalStatus.pendingAdviser:
-          addNotification(AppNotification(
-            icon: Icons.event_outlined,
-            tagColor: const Color(0xFFE8A33D),
-            title: 'New proposal to review',
-            body: '${mapped.title} is awaiting your review.',
-            time: 'Just now',
-            destination: NotifDestination.events,
-            targetRoles: {UserRole.adviser},
-          ));
           break;
         case EventApprovalStatus.pendingAdmin:
-          addNotification(AppNotification(
-            icon: Icons.event_outlined,
-            tagColor: const Color(0xFFE8A33D),
-            title: 'New proposal to approve',
-            body: '${mapped.title} is awaiting your final approval.',
-            time: 'Just now',
-            destination: NotifDestination.events,
-            targetRoles: {UserRole.admin},
-          ));
           break;
         // No proposal is auto-approved, not even an administrator's own:
         // it still needs an independent adviser and a second
@@ -1890,15 +1853,6 @@ class AppState extends ChangeNotifier {
       event.adviserApprovalNote = null;
       event.adminApprovalNote = null;
 
-      addNotification(AppNotification(
-        icon: Icons.autorenew,
-        tagColor: const Color(0xFFE8A33D),
-        title: 'Event revised: ${event.title}',
-        body: 'The officer made changes and resubmitted this proposal for review.',
-        time: 'Just now',
-        destination: NotifDestination.events,
-        targetRoles: {UserRole.adviser},
-      ));
       notifyListeners();
       return null;
     } catch (error) {
@@ -1938,25 +1892,6 @@ class AppState extends ChangeNotifier {
       event.adviserApprovalNote = note;
       if (!approved) event.rejectedBy = 'Adviser';
 
-      addNotification(approved
-          ? AppNotification(
-        icon: Icons.fact_check_outlined,
-        tagColor: const Color(0xFFE8A33D),
-        title: 'Advanced to Admin: ${event.title}',
-        body: 'Approved by adviser, now awaiting final admin approval.',
-        time: 'Just now',
-        destination: NotifDestination.events,
-        targetRoles: {UserRole.admin, UserRole.officer},
-      )
-          : AppNotification(
-        icon: Icons.cancel_outlined,
-        tagColor: const Color(0xFFC1503D),
-        title: 'Rejected by Adviser: ${event.title}',
-        body: note?.isNotEmpty == true ? note! : 'No reason given.',
-        time: 'Just now',
-        destination: NotifDestination.events,
-        targetRoles: {UserRole.officer},
-      ));
       notifyListeners();
       return null;
     } catch (error) {
@@ -1976,25 +1911,6 @@ class AppState extends ChangeNotifier {
       event.adminApprovalNote = note;
       if (!approved) event.rejectedBy = 'Admin';
 
-      addNotification(approved
-          ? AppNotification(
-        icon: Icons.check_circle_outline,
-        tagColor: const Color(0xFF3F8272),
-        title: 'Approved: ${event.title}',
-        body: 'Final approval granted. Event is now active.',
-        time: 'Just now',
-        destination: NotifDestination.events,
-        targetRoles: {UserRole.officer, UserRole.adviser},
-      )
-          : AppNotification(
-        icon: Icons.cancel_outlined,
-        tagColor: const Color(0xFFC1503D),
-        title: 'Rejected by Admin: ${event.title}',
-        body: note?.isNotEmpty == true ? note! : 'No reason given.',
-        time: 'Just now',
-        destination: NotifDestination.events,
-        targetRoles: {UserRole.officer, UserRole.adviser},
-      ));
       notifyListeners();
       return null;
     } catch (error) {
@@ -2002,36 +1918,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-    /// In-app notices raised by this session's own actions. The backend
-  /// has a /notifications endpoint that is not wired up yet, so nothing
-  /// here survives a restart — but nothing here is invented either.
-  final List<AppNotification> notifications = [];
-
-  void addNotification(AppNotification n) {
-    notifications.insert(0, n);
-  }
-
-  List<AppNotification> notificationsFor(UserRole? role) {
-    return notifications
-        .where((n) => n.targetRoles.isEmpty || (role != null && n.targetRoles.contains(role)))
-        .toList();
-  }
-
-  int unreadCountFor(UserRole? role) => notificationsFor(role).where((n) => n.unread).length;
-
-  void markAllNotificationsReadFor(UserRole? role) {
-    for (final n in notificationsFor(role)) {
-      n.unread = false;
-    }
-    notifyListeners();
-  }
-
-  void markRead(AppNotification n) {
-    n.unread = false;
-    notifyListeners();
-  }
-
-    /// Only used by the dev quick-login shortcut.
+  /// Only used by the dev quick-login shortcut.
   final List<Account> _accounts = [];
 
   Account? currentAccount;
@@ -2233,6 +2120,7 @@ class AppState extends ChangeNotifier {
     await loadSchoolYears();
     await loadScopeOptions();
     await loadDashboard();
+    await loadNotices();
     // Officers have no letter access at all, so this is gated too.
     if (currentRole?.canAccessProposalLetters ?? false) await loadLetters();
   }

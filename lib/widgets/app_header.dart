@@ -79,12 +79,65 @@ class AppHeader extends StatelessWidget {
             ],
           ),
         ),
+        _BellWithBadge(color: themeColor, onTap: onBellTap),
+      ],
+    );
+  }
+}
+
+/// The bell, with an unread count when there is one.
+///
+/// The number comes from `/notifications/unread-count` via AppState rather
+/// than from counting a loaded list, so it is right even before the inbox
+/// has been opened. No badge at all when the count is zero — a "0" is
+/// noise.
+class _BellWithBadge extends StatelessWidget {
+  const _BellWithBadge({required this.color, required this.onTap});
+
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = context.watch<AppState>().unreadNoticeCount;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
         IconButton(
-          onPressed: onBellTap,
-          icon: Icon(Icons.notifications_none, color: themeColor, size: 22),
+          onPressed: onTap,
+          icon: Icon(Icons.notifications_none, color: color, size: 22),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
         ),
+        if (count > 0)
+          Positioned(
+            right: -4,
+            top: -4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              constraints: const BoxConstraints(minWidth: 16),
+              decoration: BoxDecoration(
+                color: AppColors.brick,
+                borderRadius: BorderRadius.circular(20),
+                // A ring so the badge stays legible over any header colour.
+                border: Border.all(color: AppColors.background, width: 1.5),
+              ),
+              child: Text(
+                // Past 99 the exact number stops being useful and starts
+                // breaking the layout.
+                count > 99 ? '99+' : '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: AppText.bodyFamily,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
