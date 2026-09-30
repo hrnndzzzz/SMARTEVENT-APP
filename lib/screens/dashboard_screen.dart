@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import 'expense_detail_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -182,7 +183,15 @@ class _RecentExpensesList extends StatelessWidget {
       child: Column(
         children: [
           for (int i = 0; i < entries.length; i++) ...[
-            Padding(
+            InkWell(
+              // The row is the way into the full record: line items, the
+              // OCR reading, any flag, and purchase completion.
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ExpenseDetailScreen(expense: entries[i]),
+                ),
+              ),
+              child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
@@ -200,6 +209,13 @@ class _RecentExpensesList extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // A flag must be visible in the list, not only on the
+                  // detail screen.
+                  if (entries[i].isFlagged) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.flag_outlined,
+                        size: 13, color: AppColors.marigoldText),
+                  ],
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -219,6 +235,7 @@ class _RecentExpensesList extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
             if (i != entries.length - 1) const Divider(height: 1, color: AppColors.border),
           ],

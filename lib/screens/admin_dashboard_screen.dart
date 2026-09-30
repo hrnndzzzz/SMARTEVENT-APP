@@ -22,9 +22,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _setCategoryBudget(BuildContext context) async {
     final app = context.read<AppState>();
-    final categories = context.read<AppState>().expenseCategories;
+    final categories = app.expenseCategories;
+
+    // The category list is empty before the first successful load, and
+    // stays empty when that load failed. Both cases used to reach
+    // `categories.first` and throw "Bad state: No element".
+    if (categories.isEmpty) {
+      final failure = app.categoriesLoad.error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failure ??
+                'No categories exist yet. Create one before setting a budget.',
+          ),
+        ),
+      );
+      return;
+    }
+
     String selected = categories.first;
-    final controller = TextEditingController(text: app.categoryBudgets[selected]!.toStringAsFixed(2));
+    final controller = TextEditingController(
+      text: (app.categoryBudgets[selected] ?? 0).toStringAsFixed(2),
+    );
 
     await showDialog(
       context: context,
@@ -46,7 +65,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 onChanged: (v) {
                   setDialogState(() {
                     selected = v!;
-                    controller.text = app.categoryBudgets[selected]!.toStringAsFixed(2);
+                    controller.text =
+                        (app.categoryBudgets[selected] ?? 0).toStringAsFixed(2);
                   });
                 },
               ),

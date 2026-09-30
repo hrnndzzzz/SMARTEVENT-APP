@@ -108,7 +108,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               _DepartmentGrid(
                 selected: _department,
                 onSelect: (d) => setState(() => _department = d),
-                includeSystemWide: context.watch<AppState>().currentRole == UserRole.admin,
+                includeSystemWide:
+                    context.watch<AppState>().currentRole?.isAdministrator ?? false,
               ),
               const SizedBox(height: 22),
               SizedBox(

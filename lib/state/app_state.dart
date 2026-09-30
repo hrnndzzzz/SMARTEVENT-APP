@@ -2,11 +2,64 @@ import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
 import '../api/category_service.dart';
+import '../api/models/academic.dart';
 import '../api/models/category.dart';
+import '../api/models/receipt.dart';
+import '../api/models/scope.dart';
+import '../api/receipt_service.dart';
+import '../api/scope_service.dart';
+import '../api/models/money.dart';
 import '../api/event_service.dart';
 import '../api/models/remote_event.dart';
+import '../api/expense_service.dart';
+import '../api/models/remote_expense.dart';
+import '../api/models/registration_result.dart';
+import '../api/models/user_profile.dart';
+import 'user_role.dart';
 
-enum UserRole { officer, adviser, admin }
+// Semester, EventScope and SchoolYear are part of the event vocabulary the
+// screens work in, so they are re-exported alongside UserRole rather than
+// making every screen import the API layer directly.
+export '../api/models/academic.dart';
+
+// Category is the shape the pickers and list screens render directly.
+export '../api/models/category.dart';
+
+// Department and Organization are rendered directly by the scope pickers.
+export '../api/models/scope.dart';
+
+// Receipt and its review vocabulary are rendered by the receipts screens.
+export '../api/models/receipt.dart';
+export '../api/receipt_service.dart' show ReceiptService;
+
+// ApprovalRecord is the shape of a review-timeline row, which the event
+// detail screen renders directly.
+export '../api/models/remote_event.dart' show ApprovalRecord;
+
+// Expense line items, scan results, payment methods and the money helper
+// are all part of what the expense screens work with directly.
+export '../api/models/money.dart';
+export '../api/models/remote_expense.dart'
+    show
+        RemoteExpense,
+        ExpenseLine,
+        ExpenseLineInput,
+        ItemCategory,
+        ItemCategoryNaming,
+        PaymentMethod,
+        PaymentMethodNaming,
+        PurchaseCompletionInput,
+        PurchaseLineConfirmation,
+        purchaseCompletionProblem,
+        ReceiptDetailsInput,
+        ScannedReceipt,
+        receiptContentTypeFor,
+        receiptImageTypes,
+        ScannedReceiptLine;
+
+// UserRole and its capability helpers live in user_role.dart; re-exported
+// so the many `import '../state/app_state.dart'` screens keep working.
+export 'user_role.dart';
 
 class InventoryItem {
   final IconData icon;
@@ -28,7 +81,36 @@ class InventoryItem {
   bool get hasBeenIssued => qty < initialQty;
 }
 
-enum EventApprovalStatus { pendingAdviser, pendingAdmin, approved, rejected }
+/// Every status the backend can return for an event.
+///
+/// `draft` and `completed` used to be folded into "pending adviser", which
+/// meant an unsubmitted draft looked like it was awaiting review and a
+/// finished event looked unreviewed. The two pending stages stay separate
+/// because lists and dashboard counts must show them separately.
+///
+/// There is no route that sets `completed` — the backend does it. Never
+/// offer a Complete button or PATCH the status to fake one.
+enum EventApprovalStatus { draft, pendingAdviser, pendingAdmin, approved, rejected, completed }
+
+extension EventApprovalStatusInfo on EventApprovalStatus {
+  /// Still being written — not yet in anyone's review queue.
+  bool get isDraft => this == EventApprovalStatus.draft;
+
+  /// Awaiting a decision at either stage.
+  bool get isPending =>
+      this == EventApprovalStatus.pendingAdviser ||
+      this == EventApprovalStatus.pendingAdmin;
+
+  /// Editable and resubmittable by its proposer.
+  bool get isEditable =>
+      this == EventApprovalStatus.draft || this == EventApprovalStatus.rejected;
+
+  /// Review has finished, one way or the other.
+  bool get isResolved =>
+      this == EventApprovalStatus.approved ||
+      this == EventApprovalStatus.rejected ||
+      this == EventApprovalStatus.completed;
+}
 
 class EventItem {
   String? remoteId; // real backend UUID, null for locally-created-not-yet-synced events
@@ -48,11 +130,40 @@ class EventItem {
   String? adviserComment;
   int? adviserRating;
 
+  /// Academic metadata. Required on new events; null only on legacy rows
+  /// that predate it, which an Admin repairs through the academic-metadata
+  /// route rather than an ordinary edit.
+  String? schoolYear;
+  Semester? semester;
+  EventScope? eventScope;
+
+  /// Who proposed it, for the self-review guard: nobody may approve or
+  /// reject their own proposal, so the controls are hidden when this
+  /// matches the signed-in user. The API enforces it too.
+  String? proposedBy;
+
+  /// True when any academic field is missing.
+  bool get hasIncompleteAcademicMetadata =>
+      schoolYear == null || semester == null || eventScope == null;
+
+  /// Compact "2026-2027 · 1st sem · Departmental" for list rows, with
+  /// whatever is actually known.
+  String get academicLabel {
+    final parts = [
+      if (schoolYear != null) schoolYear!,
+      if (semester != null) semester!.shortLabel,
+      if (eventScope != null) eventScope!.label,
+    ];
+    return parts.isEmpty ? 'No school year set' : parts.join(' · ');
+  }
+
   String get statusLabel => switch (status) {
+    EventApprovalStatus.draft => 'Draft',
     EventApprovalStatus.pendingAdviser => 'Pending Adviser Review',
     EventApprovalStatus.pendingAdmin => 'Pending Admin Approval',
     EventApprovalStatus.approved => 'Approved',
     EventApprovalStatus.rejected => 'Rejected by ${rejectedBy ?? 'Reviewer'}',
+    EventApprovalStatus.completed => 'Completed',
   };
 
   int get expectedAttendees {
@@ -77,6 +188,10 @@ class EventItem {
     this.checkedIn = 0,
     this.adviserComment,
     this.adviserRating,
+    this.schoolYear,
+    this.semester,
+    this.eventScope,
+    this.proposedBy,
   });
 }
 
@@ -139,19 +254,76 @@ extension DepartmentInfo on Department {
 }
 
 class Account {
+  /// Backend user id. Needed for the self-review guard: nobody may approve
+  /// or reject a proposal they made themselves.
+  final String? id;
+
   String name;
   String email;
-  final String password;
   UserRole role;
+
+  /// Display-only grouping used for theming and labels. The authoritative
+  /// scope is [departmentId] / [organizationId] from `/auth/me`; this enum
+  /// is a local list that predates real departments and goes away once the
+  /// departments module is wired.
   Department department;
 
+  /// Real scope from `/auth/me`. Null when signed in against a backend
+  /// that predates department/organization scoping.
+  final String? departmentId;
+  final String? organizationId;
+
+  /// Job title (President, Secretary, …). Never affects permissions.
+  final String? position;
+
+  /// Account is suspended, or still on a temporary password. Both come
+  /// from the backend and gate what the UI should offer.
+  final bool isSuspended;
+  final bool mustChangePassword;
+
   Account({
+    this.id,
     required this.name,
     required this.email,
-    required this.password,
     required this.role,
     this.department = Department.systemWide,
+    this.departmentId,
+    this.organizationId,
+    this.position,
+    this.isSuspended = false,
+    this.mustChangePassword = false,
   });
+}
+
+/// Where a module's data stands right now.
+///
+/// [idle] and [ready] with an empty list mean different things — "not asked
+/// for yet" versus "the backend really has none" — and [failed] is neither.
+/// Screens that collapse all three into a blank panel are why a dead
+/// backend used to look identical to an empty database.
+enum LoadStatus { idle, loading, ready, failed }
+
+/// Per-module load state, so a screen can render loading, empty, and a
+/// retryable error as three distinct states.
+class LoadState {
+  LoadStatus status = LoadStatus.idle;
+
+  /// User-facing reason the load failed, or null. Safe to display as text.
+  String? error;
+
+  /// The failure was an expired or revoked session, not a transient
+  /// problem: retrying the same call won't help, the user must sign in
+  /// again.
+  bool sessionExpired = false;
+
+  bool get isLoading => status == LoadStatus.loading;
+  bool get hasFailed => status == LoadStatus.failed;
+
+  void reset() {
+    status = LoadStatus.idle;
+    error = null;
+    sessionExpired = false;
+  }
 }
 
 /// Matches the real backend: an expense starts pending and must be
@@ -160,6 +332,7 @@ class Account {
 enum ExpenseStatus { pending, approved, rejected }
 
 class ExpenseEntry {
+  String? remoteId;
   final String vendor;
   final double amount;
   final String category;
@@ -167,17 +340,251 @@ class ExpenseEntry {
   String? reviewedBy; // 'Adviser' or 'Admin', set once resolved
   String? reviewNote;
 
+  /// The record this was mapped from, kept whole rather than copying a
+  /// dozen fields across. Detail screens read flags, OCR readings, receipt
+  /// and purchase state straight off it. Null for the local seed rows.
+  RemoteExpense? remote;
+
   ExpenseEntry({
+    this.remoteId,
     required this.vendor,
     required this.amount,
     required this.category,
     this.status = ExpenseStatus.pending,
     this.reviewedBy,
     this.reviewNote,
+    this.remote,
   });
+
+  /// OCR disagreed with the confirmed total, or the backend flagged it for
+  /// another reason. Either way it is shown, never hidden — and it is a
+  /// prompt to look, not proof of anything.
+  bool get isFlagged => remote?.isFlagged ?? false;
+
+  String? get flagReason => remote?.flagReason;
+
+  /// Approved and paid/received, so its asset lines are already stock.
+  bool get isPurchaseCompleted => remote?.isPurchaseCompleted ?? false;
+
+  /// Eligible for the Complete Purchase step: approved, not already
+  /// completed. Whether it actually has asset lines is decided once the
+  /// items are loaded.
+  bool get canStartPurchaseCompletion =>
+      status == ExpenseStatus.approved && !isPurchaseCompleted;
 }
 
 class AppState extends ChangeNotifier {
+  /// Turns anything thrown by the API layer into one user-facing message,
+  /// keeping the three cases distinct on purpose:
+  ///
+  ///  * [ApiException] — the backend answered and refused. Its own `detail`
+  ///    is the most accurate explanation available, so it wins.
+  ///  * [NetworkException] — the backend was never reached. A different
+  ///    problem with a different fix, and for a write it is genuinely
+  ///    unknown whether the server acted on it.
+  ///  * anything else — our own code mishandled the response. Saying so is
+  ///    more useful than blaming the user's connection, which is what the
+  ///    old blanket `catch (_)` did.
+  String _messageForFailure(Object error) {
+    if (error is ApiException) return error.message;
+    if (error is NetworkException) return error.message;
+    return 'Unexpected problem handling the server response: $error';
+  }
+
+  /// Runs a module load, recording loading/ready/failed instead of
+  /// discarding the outcome.
+  Future<void> _runLoad(LoadState state, Future<void> Function() load) async {
+    state
+      ..status = LoadStatus.loading
+      ..error = null
+      ..sessionExpired = false;
+    notifyListeners();
+
+    try {
+      await load();
+      state.status = LoadStatus.ready;
+    } catch (error) {
+      state
+        ..status = LoadStatus.failed
+        ..error = _messageForFailure(error)
+        ..sessionExpired = error is ApiException && error.isUnauthorized;
+    }
+    notifyListeners();
+  }
+
+  // ---- Receipts and duplicate review -------------------------------------
+
+  late final ReceiptService _receiptService = ReceiptService(_apiClient);
+
+  List<Receipt> receipts = [];
+  final LoadState receiptsLoad = LoadState();
+
+  /// Narrows to a single event, or to the pending duplicate queue. Both are
+  /// server-side filters, so changing them reloads.
+  String? receiptEventFilter;
+  ReceiptReviewStatus? receiptStatusFilter;
+  bool receiptFlaggedOnly = false;
+
+  Future<void> loadReceipts() => _runLoad(receiptsLoad, () async {
+        receipts = await _receiptService.list(
+          eventId: receiptEventFilter,
+          flaggedOnly: receiptFlaggedOnly,
+          reviewStatus: receiptStatusFilter,
+        );
+      });
+
+  Future<void> applyReceiptFilter({
+    String? eventId,
+    ReceiptReviewStatus? reviewStatus,
+    bool flaggedOnly = false,
+  }) async {
+    receiptEventFilter = eventId;
+    receiptStatusFilter = reviewStatus;
+    receiptFlaggedOnly = flaggedOnly;
+    notifyListeners();
+    await loadReceipts();
+  }
+
+  /// Receipts still awaiting a duplicate decision — the review queue.
+  List<Receipt> get pendingReceipts =>
+      receipts.where((r) => r.isAwaitingReview).toList();
+
+  /// The receipts a flagged one resembles, for side-by-side comparison.
+  /// Only the ones in scope are returned; the rest simply aren't visible to
+  /// this account and are left out rather than guessed at.
+  Future<({List<Receipt> found, String? error})> loadSimilarTo(
+    Receipt receipt,
+  ) async {
+    final found = <Receipt>[];
+    for (final id in receipt.similarReceiptIds) {
+      try {
+        found.add(await _receiptService.get(id));
+      } on ApiException catch (error) {
+        // A similar receipt outside this account's scope is expected, not
+        // an error worth surfacing.
+        if (error.isForbidden || error.isNotFound) continue;
+        return (found: found, error: error.message);
+      } catch (error) {
+        return (found: found, error: _messageForFailure(error));
+      }
+    }
+    return (found: found, error: null);
+  }
+
+  /// Records or updates the receipt on a transaction.
+  ///
+  /// A 409 here means the backend recognised an exact duplicate and saved
+  /// nothing; its message explains which.
+  Future<String?> recordReceipt({
+    String? expenseId,
+    String? incomeId,
+    required String receiptUrl,
+    required String purpose,
+    String? merchant,
+    String? receiptNumber,
+    DateTime? issuedOn,
+    String? amount,
+  }) async {
+    try {
+      final saved = await _receiptService.record(
+        expenseId: expenseId,
+        incomeId: incomeId,
+        receiptUrl: receiptUrl,
+        purpose: purpose,
+        merchant: merchant,
+        receiptNumber: receiptNumber,
+        issuedOn: issuedOn,
+        amount: amount,
+      );
+      receipts = [saved, ...receipts.where((r) => r.id != saved.id)];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Resolves a pending duplicate flag. Reviewer must be independent of
+  /// whoever recorded it — the backend enforces that.
+  Future<String?> reviewReceipt(
+    Receipt receipt, {
+    required ReceiptDecision decision,
+    required String reason,
+  }) async {
+    if (reason.trim().length < ReceiptService.minReasonLength) {
+      return 'Give a reason of at least '
+          '${ReceiptService.minReasonLength} characters.';
+    }
+    try {
+      final reviewed = await _receiptService.review(
+        receipt.id,
+        decision: decision,
+        reason: reason.trim(),
+      );
+      receipts = [
+        for (final r in receipts) if (r.id == reviewed.id) reviewed else r,
+      ];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  // ---- Scope (departments and organizations) -----------------------------
+
+  late final ScopeService _scopeService = ScopeService(_apiClient);
+
+  List<RemoteDepartment> departments = [];
+  List<RemoteOrganization> organizations = [];
+
+  /// True when this account has to choose a scope for records it creates.
+  ///
+  /// A scoped user's department and organization are applied server-side
+  /// from its own profile. A Super Admin belongs to neither, so the backend
+  /// refuses with "department_id is required when an admin creates this
+  /// record" unless one is supplied.
+  bool get mustChooseScope =>
+      currentRole == UserRole.superAdmin ||
+      (currentAccount != null && currentAccount!.departmentId == null);
+
+  /// Loads the lookups, but only for roles allowed to read them — calling
+  /// them as a Treasurer or Officer would just collect a 403.
+  Future<void> loadScopeOptions() async {
+    if (!(currentRole?.isAdministrator ?? false)) return;
+
+    try {
+      departments = await _scopeService.departments();
+      organizations = await _scopeService.organizations();
+      notifyListeners();
+    } catch (_) {
+      // A missing lookup must not block the screen that needed it; the
+      // form still reports the backend's own error on submit.
+    }
+  }
+
+  /// Organizations belonging to [departmentId], since an organization is
+  /// only valid within its own department.
+  List<RemoteOrganization> organizationsIn(String? departmentId) => departmentId == null
+      ? const []
+      : organizations.where((o) => o.departmentId == departmentId).toList();
+
+  final LoadState categoriesLoad = LoadState();
+  final LoadState eventsLoad = LoadState();
+  final LoadState expensesLoad = LoadState();
+
+  List<LoadState> get _moduleLoads => [categoriesLoad, eventsLoad, expensesLoad];
+
+  bool get isLoadingAnyModule => _moduleLoads.any((s) => s.isLoading);
+
+  /// Distinct failure messages across every module, for a single summary
+  /// banner or snackbar. Empty when everything loaded.
+  List<String> get loadFailures =>
+      _moduleLoads.where((s) => s.hasFailed).map((s) => s.error!).toSet().toList();
+
+  /// Any module failed because the session is no longer valid.
+  bool get sessionExpired => _moduleLoads.any((s) => s.sessionExpired);
+
   late final CategoryService _categoryService = CategoryService(_apiClient);
 
   /// Real categories fetched from the backend — replaces the old fixed
@@ -196,24 +603,87 @@ class AppState extends ChangeNotifier {
   double get remainingBalance => categoryRemainingBudgets.values.fold(0.0, (a, b) => a + b);
   double get totalExpended => totalAllocated - remainingBalance;
 
-  Future<void> loadCategories() async {
+  Future<void> loadCategories() => _runLoad(categoriesLoad, () async {
+        categories = await _categoryService.list();
+      });
+
+  /// Admin/Super Admin. Returns null on success, or a message to show.
+  Future<String?> createCategory({
+    required String name,
+    required double allocatedBudget,
+    double lowBalanceThreshold = 0,
+  }) async {
     try {
-      categories = await _categoryService.list();
+      final created = await _categoryService.create(
+        name: name,
+        allocatedBudget: allocatedBudget,
+        lowBalanceThreshold: lowBalanceThreshold,
+      );
+      categories = [...categories, created];
       notifyListeners();
-    } catch (_) {
-      // Silent failure is acceptable — screens just show ₱0 until the
-      // relevant screen is reopened once connectivity is restored.
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Sends only the fields that changed — a PATCH is not a place to echo
+  /// the whole object back, and nulls here would be read as clearing.
+  ///
+  /// Note that raising `allocatedBudget` does not top up the remaining
+  /// balance: remaining is server-owned and only moves through the
+  /// database's own deduction trigger.
+  Future<String?> updateCategory(
+    Category category, {
+    String? name,
+    double? allocatedBudget,
+    double? lowBalanceThreshold,
+  }) async {
+    try {
+      final updated = await _categoryService.update(
+        category.id,
+        name: name,
+        allocatedBudget: allocatedBudget,
+        lowBalanceThreshold: lowBalanceThreshold,
+      );
+      categories = [
+        for (final c in categories) if (c.id == updated.id) updated else c,
+      ];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Admin/Super Admin. The backend refuses with 409 when any event or
+  /// expense still references the category; that explanation comes back in
+  /// the returned message rather than being guessed at here.
+  Future<String?> deleteCategory(Category category) async {
+    try {
+      await _categoryService.delete(category.id);
+      categories = categories.where((c) => c.id != category.id).toList();
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
     }
   }
 
   late final EventService _eventService = EventService(_apiClient);
 
   EventApprovalStatus _eventStatusFromString(String status) => switch (status) {
-    'pending_adviser' => EventApprovalStatus.pendingAdviser,
+    'draft' => EventApprovalStatus.draft,
+    // Legacy 'pending' means awaiting adviser review.
+    'pending' || 'pending_adviser' => EventApprovalStatus.pendingAdviser,
     'pending_admin' => EventApprovalStatus.pendingAdmin,
     'approved' => EventApprovalStatus.approved,
     'rejected' => EventApprovalStatus.rejected,
-    _ => EventApprovalStatus.pendingAdviser, // "draft"/"completed" fall back here for now
+    'completed' => EventApprovalStatus.completed,
+    // An unrecognized status is safest treated as a draft: it offers no
+    // review actions, rather than inviting a decision on something this
+    // build does not understand.
+    _ => EventApprovalStatus.draft,
   };
 
   /// Maps a real backend event into our existing local EventItem shape.
@@ -232,20 +702,133 @@ class AppState extends ChangeNotifier {
       budget: '₱${remote.allocatedBudget.toStringAsFixed(2)}',
       attendees: 'Not tracked yet', // no backend equivalent yet
       status: _eventStatusFromString(remote.status),
+      schoolYear: remote.schoolYear,
+      semester: remote.semester,
+      eventScope: remote.eventScope,
+      proposedBy: remote.proposedBy,
     );
   }
 
-  Future<void> loadEvents() async {
+  /// School years the backend already has, for the list filter and the
+  /// create form's picker. Merged with local suggestions at the point of
+  /// use, since a new school year has to be startable before any event
+  /// exists in it.
+  List<String> knownSchoolYears = [];
+
+  /// The school year the events list is filtered to, or null for all.
+  /// This is a real server-side filter, unlike status and text search.
+  String? schoolYearFilter;
+
+  /// Show only events missing academic metadata — the repair queue.
+  bool showOnlyMissingSchoolYear = false;
+
+  Future<void> loadSchoolYears() async {
     try {
-      final remoteEvents = await _eventService.list();
-      events
-        ..clear()
-        ..addAll(remoteEvents.map(_mapRemoteEvent));
+      knownSchoolYears = await _eventService.schoolYears();
       notifyListeners();
     } catch (_) {
-      // Silent failure — screens just show whatever was already loaded.
+      // A missing or failing picker source must not block the list; the
+      // form still offers locally generated years and accepts a typed one.
     }
   }
+
+  /// Applies a server-side filter and reloads. Passing nothing clears both.
+  Future<void> applyEventFilter({
+    String? schoolYear,
+    bool missingOnly = false,
+  }) async {
+    schoolYearFilter = schoolYear;
+    showOnlyMissingSchoolYear = missingOnly;
+    notifyListeners();
+    await loadEvents();
+  }
+
+  Future<void> loadEvents() => _runLoad(eventsLoad, () async {
+        final remoteEvents = await _eventService.list(
+          schoolYear: schoolYearFilter,
+          missingSchoolYear: showOnlyMissingSchoolYear,
+        );
+        events
+          ..clear()
+          ..addAll(remoteEvents.map(_mapRemoteEvent));
+      });
+
+  /// Review timeline for one event: who decided what, when, and why.
+  ///
+  /// The backend returns reviewer IDs, not display names, and fetching
+  /// `/users` from a role that isn't allowed to would just 403 — so the IDs
+  /// are shown as-is until a name-display change is agreed with the backend.
+  Future<({List<ApprovalRecord>? records, String? error})> loadApprovals(
+    EventItem event,
+  ) async {
+    final remoteId = event.remoteId;
+    if (remoteId == null) {
+      return (records: null, error: 'This event has no backend record yet.');
+    }
+    try {
+      return (records: await _eventService.listApprovals(remoteId), error: null);
+    } catch (error) {
+      return (records: null, error: _messageForFailure(error));
+    }
+  }
+
+  /// Admin/Super Admin repair for legacy events with missing academic
+  /// fields. It fills gaps only — it never overwrites values already set.
+  Future<String?> repairEventAcademicMetadata(
+    EventItem event, {
+    String? schoolYear,
+    Semester? semester,
+    EventScope? eventScope,
+  }) async {
+    final remoteId = event.remoteId;
+    if (remoteId == null) return 'This event has no backend record yet.';
+
+    try {
+      final updated = await _eventService.repairAcademicMetadata(
+        remoteId,
+        schoolYear: schoolYear,
+        semester: semester,
+        eventScope: eventScope,
+      );
+      event
+        ..schoolYear = updated.schoolYear
+        ..semester = updated.semester
+        ..eventScope = updated.eventScope;
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  late final ExpenseService _expenseService = ExpenseService(_apiClient);
+
+  ExpenseStatus _expenseStatusFromString(String status) => switch (status) {
+    'approved' => ExpenseStatus.approved,
+    'rejected' => ExpenseStatus.rejected,
+    _ => ExpenseStatus.pending,
+  };
+
+  /// Category name isn't on RemoteExpense directly (only category_id) —
+  /// resolve it via the already-loaded categories list.
+  ExpenseEntry _mapRemoteExpense(RemoteExpense remote) {
+    final categoryName = categories.where((c) => c.id == remote.categoryId).firstOrNull?.name ?? 'Unknown';
+    return ExpenseEntry(
+      remoteId: remote.id,
+      vendor: remote.description,
+      amount: remote.amount,
+      category: categoryName,
+      status: _expenseStatusFromString(remote.status),
+      remote: remote,
+    );
+  }
+
+  Future<void> loadExpenses() => _runLoad(expensesLoad, () async {
+        final remoteExpenses = await _expenseService.list();
+        expenses
+          ..clear()
+          ..addAll(remoteExpenses.map(_mapRemoteExpense));
+      });
   /// Admin-only. Creates the category if it doesn't exist yet by name,
   /// otherwise updates its allocated budget. Returns null on success,
   /// or an error message.
@@ -262,10 +845,8 @@ class AppState extends ChangeNotifier {
       }
       notifyListeners();
       return null;
-    } on ApiException catch (e) {
-      return e.message;
-    } catch (_) {
-      return 'Could not reach the server. Check your connection and try again.';
+    } catch (error) {
+      return _messageForFailure(error);
     }
   }
 
@@ -279,18 +860,178 @@ class AppState extends ChangeNotifier {
   List<String> get expenseLog =>
       expenses.map((e) => '${e.vendor} · -₱${e.amount.toStringAsFixed(2)}').toList();
 
-  void logExpense(String vendor, double amount, {String category = 'Equipment'}) {
-    expenses.insert(0, ExpenseEntry(vendor: vendor, amount: amount, category: category));
-    addNotification(AppNotification(
-      icon: Icons.receipt_long_outlined,
-      tagColor: const Color(0xFFE8A33D),
-      title: 'New expense to review',
-      body: '$vendor (₱${amount.toStringAsFixed(2)}) is awaiting review.',
-      time: 'Just now',
-      destination: NotifDestination.dashboard,
-      targetRoles: {UserRole.adviser, UserRole.admin},
-    ));
-    notifyListeners();
+  /// Returns null on success, or an error message. [categoryName]
+  /// must match a real category's name — resolved to its real ID here.
+  // ---- Expense detail, receipts and purchase completion ------------------
+
+  /// The itemized breakdown. Purchase completion needs these real line IDs,
+  /// so they are loaded rather than reconstructed.
+  Future<({List<ExpenseLine>? lines, String? error})> loadExpenseLines(
+    ExpenseEntry expense,
+  ) async {
+    final remoteId = expense.remoteId;
+    if (remoteId == null) {
+      return (lines: null, error: 'This expense has no backend record yet.');
+    }
+    try {
+      return (lines: await _expenseService.items(remoteId), error: null);
+    } catch (error) {
+      return (lines: null, error: _messageForFailure(error));
+    }
+  }
+
+  /// The single review decision for this expense, with remarks.
+  Future<({List<ApprovalRecord>? records, String? error})> loadExpenseApprovals(
+    ExpenseEntry expense,
+  ) async {
+    final remoteId = expense.remoteId;
+    if (remoteId == null) {
+      return (records: null, error: 'This expense has no backend record yet.');
+    }
+    try {
+      return (
+        records: await _expenseService.listApprovals(remoteId),
+        error: null,
+      );
+    } catch (error) {
+      return (records: null, error: _messageForFailure(error));
+    }
+  }
+
+  /// Reads a receipt image. **Saves nothing** — the returned values are the
+  /// OCR's reading for the user to correct before an expense is created.
+  Future<({ScannedReceipt? scan, String? error})> scanReceipt({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    try {
+      final scan = await _expenseService.scanReceipt(
+        bytes: bytes,
+        filename: filename,
+      );
+      return (scan: scan, error: null);
+    } catch (error) {
+      return (scan: null, error: _messageForFailure(error));
+    }
+  }
+
+  /// Attaches a receipt image to an existing pending expense.
+  Future<String?> uploadExpenseReceipt(
+    ExpenseEntry expense, {
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final remoteId = expense.remoteId;
+    if (remoteId == null) return 'This expense has no backend record yet.';
+
+    try {
+      await _expenseService.uploadReceipt(
+        remoteId,
+        bytes: bytes,
+        filename: filename,
+      );
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Records payment and delivery on an approved asset expense.
+  ///
+  /// This — not approval — is what adds stock, and it runs once. After it
+  /// succeeds, expenses, items, inventory and the stock ledger are all
+  /// stale and need reloading.
+  Future<String?> completePurchase(
+    ExpenseEntry expense,
+    PurchaseCompletionInput completion,
+  ) async {
+    final remoteId = expense.remoteId;
+    if (remoteId == null) return 'This expense has no backend record yet.';
+
+    try {
+      await _expenseService.completePurchase(remoteId, completion);
+      await loadExpenses();
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Creates an expense with everything the contract allows: an optional
+  /// event, an expense date, receipt metadata and itemized lines.
+  ///
+  /// [amount] and each line amount are decimal strings. Line totals may not
+  /// exceed the expense total — the backend rejects that, and so should the
+  /// form before getting here.
+  Future<String?> createExpense({
+    required String categoryId,
+    String? eventId,
+    required String description,
+    required String amount,
+    DateTime? expenseDate,
+    ReceiptDetailsInput? receipt,
+    List<ExpenseLineInput> items = const [],
+    String? departmentId,
+    String? organizationId,
+  }) async {
+    try {
+      final created = await _expenseService.create(
+        categoryId: categoryId,
+        eventId: eventId,
+        description: description,
+        amount: amount,
+        expenseDate: expenseDate,
+        receipt: receipt,
+        items: items,
+        departmentId: departmentId,
+        organizationId: organizationId,
+      );
+      expenses.insert(0, _mapRemoteExpense(created));
+      addNotification(AppNotification(
+        icon: Icons.receipt_long_outlined,
+        tagColor: const Color(0xFFE8A33D),
+        title: 'New expense to review',
+        body: '$description (₱$amount) is awaiting review.',
+        time: 'Just now',
+        destination: NotifDestination.dashboard,
+        targetRoles: {UserRole.adviser, UserRole.admin},
+      ));
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> logExpense(String vendor, double amount, {required String categoryName}) async {
+    final category = categories.where((c) => c.name == categoryName).firstOrNull;
+    if (category == null) return 'Please select a valid category.';
+
+    try {
+      final created = await _expenseService.create(
+        categoryId: category.id,
+        description: vendor,
+        // Money crosses the wire as a decimal string so it survives the
+        // backend's Decimal exactly.
+        amount: MoneyInput.fromDouble(amount),
+      );
+      expenses.insert(0, _mapRemoteExpense(created));
+      addNotification(AppNotification(
+        icon: Icons.receipt_long_outlined,
+        tagColor: const Color(0xFFE8A33D),
+        title: 'New expense to review',
+        body: '$vendor (₱${amount.toStringAsFixed(2)}) is awaiting review.',
+        time: 'Just now',
+        destination: NotifDestination.dashboard,
+        targetRoles: {UserRole.adviser, UserRole.admin},
+      ));
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
   }
 
   List<ExpenseEntry> get pendingExpenses =>
@@ -306,57 +1047,76 @@ class AppState extends ChangeNotifier {
     return totals;
   }
 
-  /// Returns null on success, or an error message if approving would
-  /// overdraw the category's remaining budget — matching the real
-  /// backend's hard block on this.
-  String? approveExpense(ExpenseEntry expense, {required String reviewerRole, String? note}) {
-    final remaining = (categoryBudgets[expense.category] ?? 0) - (spendByCategory[expense.category] ?? 0);
-    if (expense.amount > remaining) {
+  /// Returns null on success, or an error message — including the
+  /// real budget-guard block, now enforced server-side (and checked
+  /// against BOTH the category and the linked event's budget, if any).
+  Future<String?> approveExpense(ExpenseEntry expense, {required String reviewerRole, String? note}) async {
+    if (expense.remoteId == null) return 'This expense has no real backend record yet.';
+    try {
+      // The reviewer's note is part of the decision record, so it goes to
+      // the backend rather than only being kept on the local object.
+      final updated = await _expenseService.approve(
+        expense.remoteId!,
+        remarks: (note?.isEmpty ?? true) ? null : note,
+      );
+      expense.status = _expenseStatusFromString(updated.status);
+      expense.reviewedBy = reviewerRole;
+      expense.reviewNote = note;
+      addNotification(AppNotification(
+        icon: Icons.check_circle_outline,
+        tagColor: const Color(0xFF3F8272),
+        title: 'Expense approved: ${expense.vendor}',
+        body: '₱${expense.amount.toStringAsFixed(2)} approved by $reviewerRole.',
+        time: 'Just now',
+        destination: NotifDestination.dashboard,
+        targetRoles: {UserRole.officer},
+      ));
+      notifyListeners();
+      return null;
+    } on ApiException catch (error) {
+      // A refusal here is usually the budget guard or a receipt-review
+      // block, which an Admin needs to see rather than only the reviewer
+      // who happened to click Approve.
       addNotification(AppNotification(
         icon: Icons.warning_amber_rounded,
         tagColor: const Color(0xFFC1503D),
         title: 'Blocked: ${expense.vendor}',
-        body: '${expense.category} only has ₱${remaining.toStringAsFixed(2)} left — '
-            'this expense (₱${expense.amount.toStringAsFixed(2)}) needs a higher budget before it can be approved.',
+        body: error.message,
         time: 'Just now',
         destination: NotifDestination.dashboard,
         targetRoles: {UserRole.admin},
       ));
       notifyListeners();
-      return 'Approving this (₱${expense.amount.toStringAsFixed(2)}) would exceed '
-          '${expense.category}\'s remaining budget (₱${remaining.toStringAsFixed(2)}). '
-          'Ask an Admin to increase the budget, or reject this expense instead.';
+      return error.message;
+    } catch (error) {
+      return _messageForFailure(error);
     }
-    expense.status = ExpenseStatus.approved;
-    expense.reviewedBy = reviewerRole;
-    expense.reviewNote = note;
-    addNotification(AppNotification(
-      icon: Icons.check_circle_outline,
-      tagColor: const Color(0xFF3F8272),
-      title: 'Expense approved: ${expense.vendor}',
-      body: '₱${expense.amount.toStringAsFixed(2)} approved by $reviewerRole.',
-      time: 'Just now',
-      destination: NotifDestination.dashboard,
-      targetRoles: {UserRole.officer},
-    ));
-    notifyListeners();
-    return null;
   }
 
-  void rejectExpense(ExpenseEntry expense, {required String reviewerRole, String? note}) {
-    expense.status = ExpenseStatus.rejected;
-    expense.reviewedBy = reviewerRole;
-    expense.reviewNote = note;
-    addNotification(AppNotification(
-      icon: Icons.cancel_outlined,
-      tagColor: const Color(0xFFC1503D),
-      title: 'Expense rejected: ${expense.vendor}',
-      body: note?.isNotEmpty == true ? note! : 'No reason given.',
-      time: 'Just now',
-      destination: NotifDestination.dashboard,
-      targetRoles: {UserRole.officer},
-    ));
-    notifyListeners();
+  Future<String?> rejectExpense(ExpenseEntry expense, {required String reviewerRole, String? note}) async {
+    if (expense.remoteId == null) return 'This expense has no real backend record yet.';
+    try {
+      final updated = await _expenseService.reject(
+        expense.remoteId!,
+        remarks: (note?.isEmpty ?? true) ? null : note,
+      );
+      expense.status = _expenseStatusFromString(updated.status);
+      expense.reviewedBy = reviewerRole;
+      expense.reviewNote = note;
+      addNotification(AppNotification(
+        icon: Icons.cancel_outlined,
+        tagColor: const Color(0xFFC1503D),
+        title: 'Expense rejected: ${expense.vendor}',
+        body: note?.isNotEmpty == true ? note! : 'No reason given.',
+        time: 'Just now',
+        destination: NotifDestination.dashboard,
+        targetRoles: {UserRole.officer},
+      ));
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
   }
 
   final List<InventoryItem> inventory = [
@@ -431,6 +1191,11 @@ class AppState extends ChangeNotifier {
   /// decides which stage it lands on based on who's signed in
   /// (matching the two-stage design), so we don't need to compute
   /// that locally anymore.
+  /// Creates a proposal and submits it in one step.
+  ///
+  /// Pass [submitNow] false to leave it as a draft the proposer can come
+  /// back to. School year, semester and scope are required by the backend
+  /// on new events.
   Future<String?> addEvent({
     required String title,
     String? categoryId,
@@ -439,6 +1204,12 @@ class AppState extends ChangeNotifier {
     String? description,
     required String venue,
     required String attendees,
+    required String schoolYear,
+    required Semester semester,
+    required EventScope eventScope,
+    bool submitNow = true,
+    String? departmentId,
+    String? organizationId,
   }) async {
     try {
       final created = await _eventService.create(
@@ -449,8 +1220,16 @@ class AppState extends ChangeNotifier {
         estimatedCost: estimatedCost,
         allocatedBudget: estimatedCost,
         status: 'draft',
+        schoolYear: schoolYear,
+        semester: semester,
+        eventScope: eventScope,
+        // Scoped accounts get these from their own profile; a Super Admin
+        // belongs to no department and has to say which one this is for.
+        departmentId: departmentId,
+        organizationId: organizationId,
       );
-      final submitted = await _eventService.submit(created.id);
+      final submitted =
+          submitNow ? await _eventService.submit(created.id) : created;
 
       final mapped = _mapRemoteEvent(submitted);
       mapped.venue = venue;
@@ -480,27 +1259,21 @@ class AppState extends ChangeNotifier {
             targetRoles: {UserRole.admin},
           ));
           break;
+        // No proposal is auto-approved, not even an administrator's own:
+        // it still needs an independent adviser and a second
+        // Admin/Super Admin. So none of the remaining statuses is a
+        // just-submitted outcome worth announcing here.
+        case EventApprovalStatus.draft:
         case EventApprovalStatus.approved:
-          addNotification(AppNotification(
-            icon: Icons.check_circle_outline,
-            tagColor: const Color(0xFF3F8272),
-            title: 'Event auto-approved',
-            body: '${mapped.title} was created by Admin and is now active.',
-            time: 'Just now',
-            destination: NotifDestination.events,
-            targetRoles: {UserRole.officer, UserRole.adviser},
-          ));
-          break;
         case EventApprovalStatus.rejected:
+        case EventApprovalStatus.completed:
           break;
       }
 
       notifyListeners();
       return null;
-    } on ApiException catch (e) {
-      return e.message;
-    } catch (_) {
-      return 'Could not reach the server. Check your connection and try again.';
+    } catch (error) {
+      return _messageForFailure(error);
     }
   }
 
@@ -508,21 +1281,55 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void resubmitEvent(EventItem event) {
-    event.status = EventApprovalStatus.pendingAdviser;
-    event.rejectedBy = null;
-    event.adviserApprovalNote = null;
-    event.adminApprovalNote = null;
-    addNotification(AppNotification(
-      icon: Icons.autorenew,
-      tagColor: const Color(0xFFE8A33D),
-      title: 'Event revised: ${event.title}',
-      body: 'The officer made changes and resubmitted this proposal for review.',
-      time: 'Just now',
-      destination: NotifDestination.events,
-      targetRoles: {UserRole.adviser},
-    ));
-    notifyListeners();
+  /// Returns null on success, or an error message. Matches the
+  /// backend's real Edit Proposal flow: PATCH the edited fields, then
+  /// submit() to actually transition the status server-side.
+  Future<String?> resubmitEvent(
+      EventItem event, {
+        required String title,
+        String? description,
+        DateTime? eventDate,
+        double? estimatedCost,
+        double? allocatedBudget,
+        String? schoolYear,
+        Semester? semester,
+        EventScope? eventScope,
+      }) async {
+    if (event.remoteId == null) return 'This event has no real backend record yet.';
+    try {
+      await _eventService.update(
+        event.remoteId!,
+        title: title,
+        description: description,
+        eventDate: eventDate,
+        estimatedCost: estimatedCost,
+        allocatedBudget: allocatedBudget,
+        schoolYear: schoolYear,
+        semester: semester,
+        eventScope: eventScope,
+      );
+      final submitted = await _eventService.submit(event.remoteId!);
+
+      event.title = submitted.title;
+      event.status = _eventStatusFromString(submitted.status);
+      event.rejectedBy = null;
+      event.adviserApprovalNote = null;
+      event.adminApprovalNote = null;
+
+      addNotification(AppNotification(
+        icon: Icons.autorenew,
+        tagColor: const Color(0xFFE8A33D),
+        title: 'Event revised: ${event.title}',
+        body: 'The officer made changes and resubmitted this proposal for review.',
+        time: 'Just now',
+        destination: NotifDestination.events,
+        targetRoles: {UserRole.adviser},
+      ));
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
   }
 
   List<EventItem> get pendingAdviserEvents =>
@@ -578,10 +1385,8 @@ class AppState extends ChangeNotifier {
       ));
       notifyListeners();
       return null;
-    } on ApiException catch (e) {
-      return e.message;
-    } catch (_) {
-      return 'Could not reach the server. Check your connection and try again.';
+    } catch (error) {
+      return _messageForFailure(error);
     }
   }
 
@@ -618,10 +1423,8 @@ class AppState extends ChangeNotifier {
       ));
       notifyListeners();
       return null;
-    } on ApiException catch (e) {
-      return e.message;
-    } catch (_) {
-      return 'Could not reach the server. Check your connection and try again.';
+    } catch (error) {
+      return _messageForFailure(error);
     }
   }
 
@@ -702,7 +1505,6 @@ class AppState extends ChangeNotifier {
     Account(
       name: 'System Administrator',
       email: 'admin@lcup.edu.ph',
-      password: 'admin123',
       role: UserRole.admin,
     ),
   ];
@@ -713,15 +1515,151 @@ class AppState extends ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
   late final AuthService _authService = AuthService(_apiClient);
 
-  UserRole _roleFromString(String role) => switch (role) {
-    'adviser' => UserRole.adviser,
-    'admin' => UserRole.admin,
-    _ => UserRole.officer,
-  };
+  /// Thrown when `/auth/me` reports a role this build doesn't know. Better
+  /// than guessing a permission set for an account the app can't model.
+  static const String _unknownRoleMessage =
+      'This account has a role this version of the app does not support. '
+      'Update the app, or contact your administrator.';
 
-  /// Admin-only, now a REAL backend call. Requires the caller to
-  /// already be signed in as Admin (enforced server-side too, not
-  /// just by hiding the UI).
+  // ---- Registration, verification and password flows ---------------------
+
+  /// Roster-based self-registration (`POST /auth/register`).
+  ///
+  /// The email must already exist on the approved roster; the backend takes
+  /// the name, role and scope from that entry, which is what prevents
+  /// someone assigning themselves a role. The account is inactive until the
+  /// OTP is verified, so the caller must go to Verify Email next — never to
+  /// an operational screen.
+  Future<String?> register({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      await _authService.register(email: email, password: password);
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Verifies the registration OTP and activates the account.
+  ///
+  /// Returns a [RegistrationResult] on success. Activation and confirmation
+  /// email are separate outcomes: check `confirmationEmailFailed` and
+  /// mention it, but never present it as a failed registration.
+  Future<({RegistrationResult? result, String? error})> verifyOtp({
+    required String email,
+    required String otpCode,
+  }) async {
+    try {
+      final result = await _authService.verifyOtp(email: email, otpCode: otpCode);
+      return (result: result, error: null);
+    } catch (error) {
+      return (result: null, error: _messageForFailure(error));
+    }
+  }
+
+  Future<String?> resendOtp({required String email}) async {
+    try {
+      await _authService.resendOtp(email: email);
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Requests a reset code. The backend answers the same way whether or not
+  /// the address exists, so the UI must not infer anything from success.
+  Future<String?> forgotPassword({required String email}) async {
+    try {
+      await _authService.forgotPassword(email: email);
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> resetPassword({
+    required String email,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    try {
+      await _authService.resetPassword(
+        email: email,
+        otpCode: otpCode,
+        newPassword: newPassword,
+      );
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Changes the password, and clears the mandatory-setup flag when the
+  /// backend reports it satisfied. Used both for a voluntary change and for
+  /// the forced first-login setup.
+  Future<String?> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      // This route is reachable on a temporary password, and it returns the
+      // profile — so it is also how a setup-blocked account first learns
+      // who it is.
+      final profile = await _authService.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+
+      _passwordSetupRequired = false;
+      final problem = _applyProfile(profile);
+      if (problem != null) return problem;
+
+      // Only now is the account allowed to read anything else.
+      if (!mustSetPassword) await _loadSignedInData();
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// True when the backend refused `/auth/me` because the account is still
+  /// on a temporary password.
+  ///
+  /// This is not a detail of the profile, because the profile cannot be
+  /// fetched at all in that state: `/auth/me` is behind
+  /// `require_active_account`, which rejects temporary-password accounts
+  /// with a 403. Only `/auth/change-password` is reachable. So the flag has
+  /// to be inferred from that refusal and held separately.
+  bool _passwordSetupRequired = false;
+
+  /// The signed-in account must set a real password before reaching any
+  /// operational screen — either because the profile says so, or because
+  /// the profile itself was refused for that reason.
+  bool get mustSetPassword =>
+      _passwordSetupRequired || (currentAccount?.mustChangePassword ?? false);
+
+  /// The 403 that means "set your password first" rather than "you are not
+  /// allowed". The backend distinguishes them only by message, so this
+  /// matches on it — and errs toward the suspension reading, which simply
+  /// shows the error rather than sending the user into a setup flow they
+  /// cannot complete.
+  bool _isPasswordSetupRefusal(Object error) =>
+      error is ApiException &&
+      error.isForbidden &&
+      error.message.toLowerCase().contains('password change required');
+
+  /// The account has been suspended by an administrator. The API enforces
+  /// this on every request regardless; this just lets the UI explain it.
+  bool get isSuspended => currentAccount?.isSuspended ?? false;
+
+  /// Legacy: admin-created accounts against the pre-September backend,
+  /// where `POST /auth/register` took a name, role and password from an
+  /// Admin. The current backend derives those from the roster instead, and
+  /// an Admin adds people through `POST /cite-members`. Kept until the
+  /// roster module replaces it.
   Future<String?> registerUser({
     required String name,
     required String email,
@@ -730,17 +1668,110 @@ class AppState extends ChangeNotifier {
     Department department = Department.cite,
   }) async {
     try {
-      await _authService.registerUser(
+      await _authService.registerUserLegacy(
         fullName: name,
         email: email,
         password: password,
-        role: role.name,
+        role: role.wireName,
       );
       return null;
-    } on ApiException catch (e) {
-      return e.message;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Whether a stored-session check has finished, whatever its outcome.
+  /// The startup gate waits on this so the app doesn't flash the welcome
+  /// screen at someone who is already signed in.
+  bool sessionChecked = false;
+
+  /// Bridges `/auth/me` into the local account model.
+  ///
+  /// Returns an error message when the role is unrecognized, so the caller
+  /// can refuse the sign-in instead of proceeding with a guessed one.
+  String? _applyProfile(UserProfile profile) {
+    final role = userRoleFromWire(profile.role);
+    if (role == null) return _unknownRoleMessage;
+
+    currentAccount = Account(
+      id: profile.id,
+      name: profile.fullName,
+      email: profile.email,
+      role: role,
+      departmentId: profile.departmentId,
+      organizationId: profile.organizationId,
+      position: profile.position,
+      isSuspended: profile.isSuspended,
+      mustChangePassword: profile.mustChangePassword,
+    );
+    currentRole = role;
+    return null;
+  }
+
+  /// Categories first: expense rows resolve their category name against
+  /// the loaded category list, so loading them in the other order would
+  /// label every expense "Unknown".
+  Future<void> _loadSignedInData() async {
+    // SDS Staff is restricted to proposal letters. Calling the operational
+    // endpoints would just collect 403s and surface them as failures on
+    // screens that role is never meant to see.
+    if (currentRole?.hasOperationalAccess != true) return;
+
+    // Temporary-password accounts are restricted server-side until they set
+    // a real one, so these calls would only collect 403s.
+    if (mustSetPassword) return;
+
+    await loadCategories();
+    await loadEvents();
+    await loadExpenses();
+    await loadSchoolYears();
+    await loadScopeOptions();
+  }
+
+  /// Picks up a token kept in secure storage by an earlier run.
+  ///
+  /// A stored token is not proof of a live session — it may have expired,
+  /// or the account may have been suspended since — so `GET /auth/me` is
+  /// what actually decides. Called once at startup.
+  Future<void> restoreSession() async {
+    try {
+      final token = await _apiClient.restoreToken();
+      if (token == null) return;
+
+      final UserProfile profile;
+      try {
+        profile = await _authService.getCurrentUser();
+      } catch (error) {
+        // Same as sign-in: a stored token for an account that still owes a
+        // password change is valid, it just cannot read its profile yet.
+        if (_isPasswordSetupRefusal(error)) {
+          _passwordSetupRequired = true;
+          return;
+        }
+        rethrow;
+      }
+
+      if (_applyProfile(profile) != null) {
+        // Role this build can't model — don't restore into a guessed
+        // permission set.
+        await _apiClient.setToken(null);
+        return;
+      }
+      await _loadSignedInData();
+    } on ApiException {
+      // Expired, revoked, or the account is suspended. The token is dead
+      // weight now, so drop it and let the user sign in again.
+      await _apiClient.setToken(null);
+    } on NetworkException {
+      // Offline at launch. The token may still be perfectly good once
+      // there's a network, so keep it stored and just show sign-in.
     } catch (_) {
-      return 'Could not reach the server. Check your connection and try again.';
+      // Malformed stored value or an unreadable profile response. Don't
+      // let a bad token wedge startup.
+      await _apiClient.setToken(null);
+    } finally {
+      sessionChecked = true;
+      notifyListeners();
     }
   }
 
@@ -749,34 +1780,43 @@ class AppState extends ChangeNotifier {
   /// result into the existing local Account/UserRole model so the rest
   /// of the app keeps working unchanged.
   ///
-  /// TEMP DEBUG: the catch below shows the raw exception in the
-  /// snackbar instead of a generic message, so we can see exactly
-  /// what's actually failing. Revert to the generic message once
-  /// diagnosed.
-  /// REAL backend call: logs in, then fetches the signed-in user's
-  /// profile (login alone doesn't return it). On success, bridges the
-  /// result into the existing local Account/UserRole model so the rest
-  /// of the app keeps working unchanged.
+  /// Returns null when authentication succeeded. The follow-up data loads
+  /// are deliberately not allowed to fail the sign-in: being signed in and
+  /// having the dashboard's data are separate things, and their outcome is
+  /// reported through [loadFailures] instead.
   Future<String?> signIn({required String email, required String password}) async {
     try {
       await _authService.login(email: email, password: password);
-      final profile = await _authService.getCurrentUser();
 
-      currentAccount = Account(
-        name: profile.fullName,
-        email: profile.email,
-        password: password,
-        role: _roleFromString(profile.role),
-      );
-      currentRole = _roleFromString(profile.role);
-      await loadCategories();
-      await loadEvents();
+      final UserProfile profile;
+      try {
+        profile = await _authService.getCurrentUser();
+      } catch (error) {
+        // A temporary-password account authenticates fine but cannot read
+        // its own profile until the password is set. That is a successful
+        // sign-in that routes to password setup, not a failure.
+        if (_isPasswordSetupRefusal(error)) {
+          _passwordSetupRequired = true;
+          notifyListeners();
+          return null;
+        }
+        rethrow;
+      }
+
+      _passwordSetupRequired = false;
+      final roleProblem = _applyProfile(profile);
+      if (roleProblem != null) {
+        await _apiClient.setToken(null);
+        return roleProblem;
+      }
+
+      // SDS Staff and Officers still sign in; what they may reach is
+      // decided by role capabilities, not by blocking authentication.
+      await _loadSignedInData();
       notifyListeners();
       return null;
-    } on ApiException catch (e) {
-      return e.message;
-    } catch (_) {
-      return 'Could not reach the server. Check your connection and try again.';
+    } catch (error) {
+      return _messageForFailure(error);
     }
   }
   /// pang shortcut sa login kasi tinatamad na ko mag type all the time
@@ -784,9 +1824,8 @@ class AppState extends ChangeNotifier {
     final testEmail = 'test.${role.name}@dev.local';
     var account = _accounts.where((a) => a.email == testEmail).firstOrNull;
     account ??= Account(
-      name: 'Test ${role.name[0].toUpperCase()}${role.name.substring(1)}',
+      name: 'Test ${role.label}',
       email: testEmail,
-      password: 'dev',
       role: role,
     );
     if (!_accounts.contains(account)) _accounts.add(account);
@@ -805,10 +1844,25 @@ class AppState extends ChangeNotifier {
 
   Color get themeColor => currentAccount?.department.color ?? Department.systemWide.color;
 
-  void signOut() {
-    _apiClient.setToken(null);
+  /// Clears the session and every record loaded for that user, so the next
+  /// account signing in on this device can never see the previous one's
+  /// data. There is no backend logout endpoint — the JWT simply stops
+  /// being held.
+  ///
+  /// `inventory` and `notifications` are still local mock lists rather than
+  /// user-scoped backend data, so they are left alone here; they get
+  /// cleared once those modules are actually wired.
+  Future<void> signOut() async {
     currentAccount = null;
     currentRole = null;
+    _passwordSetupRequired = false;
+    categories = [];
+    events.clear();
+    expenses.clear();
+    for (final state in _moduleLoads) {
+      state.reset();
+    }
     notifyListeners();
+    await _authService.logout();
   }
 }

@@ -1,19 +1,41 @@
-/// Matches the backend's EventOut schema exactly (see
-/// smartevent-backend/app/schemas.py). Status now includes
-/// pending_adviser/pending_admin after the two-stage approval patch
-/// we wrote and Jasper merged — real backend and local UI finally
-/// agree on the same workflow.
+import 'academic.dart';
+
+/// Matches the backend's EventOut schema (see
+/// `smartevent-backend/app/schemas.py`).
+///
+/// The academic fields — school year, semester and scope — arrived with the
+/// September 2026 revision and are what make events reportable by year,
+/// semester and department. They are parsed leniently so the app still runs
+/// against an older backend that doesn't send them: missing simply reads as
+/// "not set", which is also how genuinely incomplete legacy rows appear.
 class RemoteEvent {
   final String id;
   final String? categoryId;
   final String title;
   final String? description;
   final String proposedBy;
-  final String status; // "draft" | "pending_adviser" | "pending_admin" | "approved" | "rejected" | "completed"
+
+  /// "draft" | "pending" (legacy, means awaiting adviser) |
+  /// "pending_adviser" | "pending_admin" | "approved" | "rejected" |
+  /// "completed".
+  final String status;
+
   final DateTime? eventDate;
   final double estimatedCost;
   final double allocatedBudget;
   final double remainingBudget;
+
+  /// Two consecutive years, e.g. `2026-2027`. Null on legacy rows that
+  /// predate the requirement; an Admin repairs those through
+  /// `PATCH /events/{id}/academic-metadata`.
+  final String? schoolYear;
+
+  final Semester? semester;
+  final EventScope? eventScope;
+
+  final String? departmentId;
+  final String? organizationId;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -28,9 +50,19 @@ class RemoteEvent {
     required this.estimatedCost,
     required this.allocatedBudget,
     required this.remainingBudget,
+    required this.schoolYear,
+    required this.semester,
+    required this.eventScope,
+    required this.departmentId,
+    required this.organizationId,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// True when the row is missing any academic field, which is what the
+  /// `missing_school_year` filter and the repair flow are for.
+  bool get hasIncompleteAcademicMetadata =>
+      schoolYear == null || semester == null || eventScope == null;
 
   factory RemoteEvent.fromJson(Map<String, dynamic> json) {
     return RemoteEvent(
@@ -44,6 +76,11 @@ class RemoteEvent {
       estimatedCost: (json['estimated_cost'] as num).toDouble(),
       allocatedBudget: (json['allocated_budget'] as num).toDouble(),
       remainingBudget: (json['remaining_budget'] as num).toDouble(),
+      schoolYear: json['school_year'] as String?,
+      semester: semesterFromWire(json['semester'] as String?),
+      eventScope: eventScopeFromWire(json['event_scope'] as String?),
+      departmentId: json['department_id'] as String?,
+      organizationId: json['organization_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

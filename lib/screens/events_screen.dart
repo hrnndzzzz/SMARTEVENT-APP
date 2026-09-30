@@ -12,22 +12,30 @@ import 'event_detail_screen.dart';
 class EventsScreen extends StatelessWidget {
   const EventsScreen({super.key});
 
+  // Draft is deliberately the quietest: it is nobody's queue yet.
+  // Completed reads like approved, since it is the settled end state.
   Color _statusBg(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.approved => AppColors.sageTealTint,
+    EventApprovalStatus.draft => AppColors.trackBg,
+    EventApprovalStatus.approved ||
+    EventApprovalStatus.completed => AppColors.sageTealTint,
     EventApprovalStatus.rejected => const Color(0xFFFBEAE7),
     EventApprovalStatus.pendingAdmin => AppColors.marigoldTint,
     EventApprovalStatus.pendingAdviser => const Color(0xFFEDEBE6),
   };
 
   Color _statusColor(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.approved => AppColors.sageTealText,
+    EventApprovalStatus.draft => AppColors.inkFaint,
+    EventApprovalStatus.approved ||
+    EventApprovalStatus.completed => AppColors.sageTealText,
     EventApprovalStatus.rejected => AppColors.brick,
     EventApprovalStatus.pendingAdmin => AppColors.marigoldText,
     EventApprovalStatus.pendingAdviser => AppColors.inkMuted,
   };
 
   Color _tagColor(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.approved => AppColors.sageTeal,
+    EventApprovalStatus.draft => AppColors.inkFaint,
+    EventApprovalStatus.approved ||
+    EventApprovalStatus.completed => AppColors.sageTeal,
     EventApprovalStatus.rejected => AppColors.brick,
     EventApprovalStatus.pendingAdmin => AppColors.marigold,
     EventApprovalStatus.pendingAdviser => AppColors.inkFaint,
@@ -63,25 +71,67 @@ class EventsScreen extends StatelessWidget {
                       color: AppColors.ink,
                     ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const CreateEventScreen()),
+                  // Officers are read-only and SDS has no event access, so
+                  // only roles that may actually propose get this.
+                  if (context.watch<AppState>().currentRole?.canProposeEvents ??
+                      false)
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const CreateEventScreen()),
+                      ),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('New'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
                     ),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('New'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              const _SchoolYearFilterBar(),
+              const SizedBox(height: 10),
               Expanded(
                 child: Consumer<AppState>(
                   builder: (context, app, _) {
+                    if (app.eventsLoad.isLoading && app.events.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (app.eventsLoad.hasFailed && app.events.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                app.eventsLoad.error!,
+                                style: AppText.caption,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                onPressed: app.loadEvents,
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Try again'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
                     if (app.events.isEmpty) {
-                      return const Center(
-                        child: Text('No events yet. Tap "New" to submit one.', style: AppText.caption),
+                      return Center(
+                        child: Text(
+                          app.schoolYearFilter != null ||
+                                  app.showOnlyMissingSchoolYear
+                              // An active filter is a far likelier reason
+                              // for an empty list than there being none.
+                              ? 'No events match this filter.'
+                              : (app.currentRole?.canProposeEvents ?? false)
+                                  ? 'No events yet. Tap "New" to submit one.'
+                                  : 'No events yet.',
+                          style: AppText.caption,
+                        ),
                       );
                     }
                     return ListView(
@@ -173,6 +223,21 @@ class _EventCard extends StatelessWidget {
                 Text(event.title, style: AppText.cardTitle),
                 const SizedBox(height: 2),
                 Text('${event.org} · ${event.attendees}', style: AppText.caption),
+                const SizedBox(height: 2),
+                // School year / semester / scope. A legacy row missing them
+                // says so rather than showing a blank line, since an
+                // administrator has to repair it before it appears in
+                // academic reports.
+                Text(
+                  event.academicLabel,
+                  style: TextStyle(
+                    fontFamily: AppText.bodyFamily,
+                    fontSize: 10,
+                    color: event.hasIncompleteAcademicMetadata
+                        ? AppColors.marigoldText
+                        : AppColors.inkFaint,
+                  ),
+                ),
               ],
             ),
           ),
@@ -189,6 +254,92 @@ class _EventCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+/// School-year filter.
+///
+/// These are the only two real server-side filters on `GET /events`, so
+/// they reload rather than filtering the loaded list — and the bar is
+/// labelled so it is clear which narrowing is the server's.
+/// "Needs school year" is the repair queue for legacy rows and is only
+/// useful to an administrator, who is the one who can fix them.
+class _SchoolYearFilterBar extends StatelessWidget {
+  const _SchoolYearFilterBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final years = app.knownSchoolYears;
+    final canRepair = app.currentRole?.isAdministrator ?? false;
+
+    if (years.isEmpty && !canRepair) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _FilterChip(
+            label: 'All years',
+            selected: app.schoolYearFilter == null && !app.showOnlyMissingSchoolYear,
+            onTap: () => app.applyEventFilter(),
+          ),
+          for (final year in years)
+            _FilterChip(
+              label: year,
+              selected: app.schoolYearFilter == year,
+              onTap: () => app.applyEventFilter(schoolYear: year),
+            ),
+          if (canRepair)
+            _FilterChip(
+              label: 'Needs school year',
+              selected: app.showOnlyMissingSchoolYear,
+              onTap: () => app.applyEventFilter(missingOnly: true),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.indigo : AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? AppColors.indigo : AppColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppText.bodyFamily,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: selected ? Colors.white : AppColors.inkMuted,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -22,14 +22,21 @@ class AccountScreen extends StatelessWidget {
   }
 
   static String _roleLabel(UserRole? role) => switch (role) {
-    UserRole.officer => 'CITE Dept Officer',
+    UserRole.officer => 'Officer (view only)',
+    UserRole.treasurer => 'Treasurer',
     UserRole.adviser => 'Faculty Adviser',
-    UserRole.admin => 'System Administrator',
+    UserRole.sdsStaff => 'SDS Staff',
+    UserRole.admin => 'Organization Administrator',
+    UserRole.superAdmin => 'Super Administrator',
     null => 'Guest',
   };
 
-  void _logout(BuildContext context) {
-    context.read<AppState>().signOut();
+  Future<void> _logout(BuildContext context) async {
+    // Awaited so the stored token is gone before the welcome screen shows;
+    // otherwise a fast relaunch could still find it and restore the
+    // session we just signed out of.
+    await context.read<AppState>().signOut();
+    if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const WelcomeScreen()),
           (route) => false,
@@ -108,7 +115,7 @@ class AccountScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (app.currentRole == UserRole.admin)
+                          if (app.currentRole?.canManageMembers ?? false)
                             _MenuTile(
                               icon: Icons.person_add_alt_1_outlined,
                               label: 'Register User',

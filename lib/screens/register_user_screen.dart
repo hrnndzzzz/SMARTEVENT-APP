@@ -4,10 +4,15 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
-/// Admin-only. Matches the real backend's POST /auth/register contract:
-/// only an already-signed-in Admin can create a new account, and the
-/// role is assigned right here at creation time — not chosen by the
-/// new user, and not re-choosable later at Sign In.
+/// LEGACY admin-creates-an-account screen, for the pre-September backend
+/// where `POST /auth/register` was admin-locked and took the name, role and
+/// password from the Admin.
+///
+/// The current backend replaces this with two separate things: applicants
+/// register themselves against an approved roster entry ([RegisterScreen]),
+/// and an Admin adds people to that roster through `POST /cite-members`.
+/// This screen is kept so the capability doesn't vanish mid-migration, and
+/// should be deleted once roster management lands.
 class RegisterUserScreen extends StatefulWidget {
   const RegisterUserScreen({super.key});
 
@@ -59,7 +64,7 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
 
     if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Account created for ${_nameController.text.trim()} (${_role.name}).')),
+        SnackBar(content: Text('Account created for ${_nameController.text.trim()} (${_role.label}).')),
       );
       Navigator.of(context).pop();
     } else {
@@ -128,14 +133,30 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
               ),
               const SizedBox(height: 16),
               const _FieldLabel('Role'),
+              const SizedBox(height: 2),
+              const Text(
+                'Admin and SDS Staff accounts are created by a Super Admin '
+                'through their own setup flow, not here.',
+                style: TextStyle(
+                  fontFamily: AppText.bodyFamily,
+                  fontSize: 10,
+                  color: AppColors.inkFaint,
+                ),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(child: _RoleChip(role: UserRole.officer, label: 'Officer', selected: _role == UserRole.officer, onTap: () => setState(() => _role = UserRole.officer))),
-                  const SizedBox(width: 8),
-                  Expanded(child: _RoleChip(role: UserRole.adviser, label: 'Adviser', selected: _role == UserRole.adviser, onTap: () => setState(() => _role = UserRole.adviser))),
-                  const SizedBox(width: 8),
-                  Expanded(child: _RoleChip(role: UserRole.admin, label: 'Admin', selected: _role == UserRole.admin, onTap: () => setState(() => _role = UserRole.admin))),
+                  for (final role in memberRoles) ...[
+                    if (role != memberRoles.first) const SizedBox(width: 8),
+                    Expanded(
+                      child: _RoleChip(
+                        role: role,
+                        label: role.label,
+                        selected: _role == role,
+                        onTap: () => setState(() => _role = role),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),
@@ -149,7 +170,10 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
               _DepartmentGrid(
                 selected: _department,
                 onSelect: (d) => setState(() => _department = d),
-                includeSystemWide: _role == UserRole.admin,
+                // Member roles are always scoped to one department; only
+                // Admin/Super Admin accounts are ever system-wide, and
+                // neither can be created from this screen.
+                includeSystemWide: false,
               ),
               const SizedBox(height: 16),
               Row(

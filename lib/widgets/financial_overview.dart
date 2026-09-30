@@ -385,7 +385,13 @@ class LegendRow extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label, style: AppText.body.copyWith(fontSize: 12)),
+        Expanded(
+          child: Text(
+            label,
+            style: AppText.body.copyWith(fontSize: 12),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

@@ -4,6 +4,9 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
+import 'change_password_screen.dart';
+import 'forgot_password_screen.dart';
+import 'register_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -40,6 +43,30 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _submitting = false);
 
     if (error == null) {
+      // A temporary-password account can't reach anything until it sets a
+      // real password, so go there instead of to the shell.
+      if (app.mustSetPassword) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const ChangePasswordScreen(mandatory: true),
+          ),
+        );
+        return;
+      }
+
+      // Signing in and loading the dashboard's data are separate outcomes.
+      // Say so when the second one failed, instead of landing on empty
+      // screens that look like an empty database.
+      final failures = app.loadFailures;
+      if (failures.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Signed in, but some data could not load.\n'
+                '${failures.first}'),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => RootShell(role: app.currentRole!)),
       );
@@ -49,18 +76,15 @@ class _SignInScreenState extends State<SignInScreen> {
       );
     }
   }
-  void _showForgotPasswordDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset Password', style: AppText.cardTitle),
-        content: const Text(
-          'Password reset isn\'t available in this preview yet. In the full version, a reset link would be sent to your LCUP email.',
-          style: AppText.caption,
+  void _openForgotPassword() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ForgotPasswordScreen(
+          // Save them retyping it if they already started.
+          initialEmail: _emailController.text.trim().isEmpty
+              ? null
+              : _emailController.text.trim(),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
-        ],
       ),
     );
   }
@@ -88,10 +112,13 @@ class _SignInScreenState extends State<SignInScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(switch (role) {
                   UserRole.officer => Icons.person_outline,
+                  UserRole.treasurer => Icons.account_balance_wallet_outlined,
                   UserRole.adviser => Icons.fact_check_outlined,
+                  UserRole.sdsStaff => Icons.description_outlined,
                   UserRole.admin => Icons.admin_panel_settings_outlined,
+                  UserRole.superAdmin => Icons.shield_outlined,
                 }),
-                title: Text('Sign in as ${role.name[0].toUpperCase()}${role.name.substring(1)}'),
+                title: Text('Sign in as ${role.label}'),
                 onTap: () {
                   context.read<AppState>().devQuickLogin(role);
                   Navigator.of(context).pop();
@@ -182,7 +209,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     ],
                   ),
                   GestureDetector(
-                    onTap: _showForgotPasswordDialog,
+                    onTap: _openForgotPassword,
                     child: const Text(
                       'Forgot password?',
                       style: TextStyle(
@@ -208,6 +235,23 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
                       : const Text('Sign In'),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  ),
+                  child: const Text(
+                    'On the roster but no account yet? Create one',
+                    style: TextStyle(
+                      fontFamily: AppText.bodyFamily,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.indigo,
+                    ),
+                  ),
                 ),
               ),
             ],

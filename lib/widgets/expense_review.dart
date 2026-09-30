@@ -94,7 +94,7 @@ Future<void> showExpenseDecisionDialog(
   if (result == null || !context.mounted) return;
 
   if (result) {
-    final error = app.approveExpense(expense, reviewerRole: reviewerRole, note: controller.text.trim());
+    final error = await app.approveExpense(expense, reviewerRole: reviewerRole, note: controller.text.trim());
     if (!context.mounted) return;
 
     if (error != null && onInsufficientBudget != null) {
@@ -110,10 +110,10 @@ Future<void> showExpenseDecisionDialog(
       );
     }
   } else {
-    app.rejectExpense(expense, reviewerRole: reviewerRole, note: controller.text.trim());
+    final error = await app.rejectExpense(expense, reviewerRole: reviewerRole, note: controller.text.trim());
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${expense.vendor} rejected.')),
+        SnackBar(content: Text(error ?? '${expense.vendor} rejected.')),
       );
     }
   }
