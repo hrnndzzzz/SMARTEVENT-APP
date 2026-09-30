@@ -106,6 +106,7 @@ class _RootShellState extends State<RootShell> {
     6: const CategoriesScreen(),
     7: const ReceiptsScreen(),
     8: const IncomeScreen(),
+    9: const ProposalLettersScreen(),
   };
 
   /// Navigation offered to this role.
@@ -140,6 +141,9 @@ class _RootShellState extends State<RootShell> {
       // decision controls once inside one.
       CircleMenuItem(icon: Icons.receipt_outlined, label: 'Receipts', onTap: () => _goTo(7)),
       CircleMenuItem(icon: Icons.savings_outlined, label: 'Income', onTap: () => _goTo(8)),
+      // Officers have no letter access at all.
+      if (widget.role.canAccessProposalLetters)
+        CircleMenuItem(icon: Icons.description_outlined, label: 'Letters', onTap: () => _goTo(9)),
     ];
   }
 

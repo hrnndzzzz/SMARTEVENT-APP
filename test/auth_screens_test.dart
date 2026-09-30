@@ -109,12 +109,35 @@ void main() {
     expect(find.text('Reset code'), findsNothing);
   });
 
-  testWidgets('proposal letters screen states it is not wired yet',
+  testWidgets('proposal letters screen describes SDS scope as school-wide',
       (tester) async {
-    await tester.pumpWidget(_host(const ProposalLettersScreen()));
+    final state = AppState()..devQuickLogin(UserRole.sdsStaff);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: const MaterialApp(home: ProposalLettersScreen()),
+      ),
+    );
+    await tester.pump();
 
     expect(find.text('Proposal Letters'), findsOneWidget);
-    // Honest empty state beats invented rows.
-    expect(find.text('Not connected yet'), findsOneWidget);
+    expect(find.textContaining('across the school'), findsOneWidget);
+    // SDS reads letters but submits none, so no upload control.
+    expect(find.text('Upload Letter'), findsNothing);
+  });
+
+  testWidgets('an adviser sees an upload control and its own scope',
+      (tester) async {
+    final state = AppState()..devQuickLogin(UserRole.adviser);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: const MaterialApp(home: ProposalLettersScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('your organization'), findsOneWidget);
+    expect(find.text('Upload Letter'), findsOneWidget);
   });
 }

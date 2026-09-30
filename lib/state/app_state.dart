@@ -7,7 +7,9 @@ import '../api/models/category.dart';
 import '../api/models/income.dart';
 import '../api/models/inventory.dart';
 import '../api/inventory_service.dart';
+import '../api/models/proposal_letter.dart';
 import '../api/models/receipt.dart';
+import '../api/proposal_letter_service.dart';
 import '../api/income_service.dart';
 import '../api/models/scope.dart';
 import '../api/receipt_service.dart';
@@ -34,6 +36,10 @@ export '../api/models/scope.dart';
 
 // Receipt and its review vocabulary are rendered by the receipts screens.
 export '../api/models/receipt.dart';
+
+// Proposal letters are rendered by the letters screen.
+export '../api/models/proposal_letter.dart';
+export '../api/proposal_letter_service.dart' show ProposalLetterService;
 
 // Income and its fund sources are rendered by the income screens.
 export '../api/models/income.dart';
@@ -422,6 +428,54 @@ class AppState extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  // ---- Proposal letters --------------------------------------------------
+
+  late final ProposalLetterService _letterService =
+      ProposalLetterService(_apiClient);
+
+  List<ProposalLetter> letters = [];
+  final LoadState lettersLoad = LoadState();
+
+  Future<void> loadLetters() => _runLoad(lettersLoad, () async {
+        letters = await _letterService.list();
+      });
+
+  /// Uploads a letter. [bytes] rather than a path so this works on web too.
+  Future<String?> uploadLetter({
+    required String eventId,
+    required String title,
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    if (bytes.length > ProposalLetterService.maxBytes) {
+      final mb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
+      return 'That document is ${mb}MB. The limit is 10MB.';
+    }
+    try {
+      final uploaded = await _letterService.upload(
+        eventId: eventId,
+        title: title,
+        bytes: bytes,
+        filename: filename,
+      );
+      letters = [uploaded, ...letters];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// The event's title, when this account can see events at all.
+  ///
+  /// SDS Staff never loads events — calling `/events` would 403 — so it
+  /// gets null here and the UI shows the event id instead, which is what
+  /// the backend returns anyway.
+  String? eventTitleFor(String eventId) => events
+      .where((e) => e.remoteId == eventId)
+      .map((e) => e.title)
+      .firstOrNull;
 
   // ---- Inventory ---------------------------------------------------------
 
@@ -1985,17 +2039,25 @@ class AppState extends ChangeNotifier {
     // SDS Staff is restricted to proposal letters. Calling the operational
     // endpoints would just collect 403s and surface them as failures on
     // screens that role is never meant to see.
-    if (currentRole?.hasOperationalAccess != true) return;
-
     // Temporary-password accounts are restricted server-side until they set
     // a real one, so these calls would only collect 403s.
     if (mustSetPassword) return;
+
+    // SDS Staff reaches proposal letters and nothing else. Loading the
+    // operational modules would just collect 403s on screens that role
+    // never sees.
+    if (currentRole?.hasOperationalAccess != true) {
+      if (currentRole?.canAccessProposalLetters ?? false) await loadLetters();
+      return;
+    }
 
     await loadCategories();
     await loadEvents();
     await loadExpenses();
     await loadSchoolYears();
     await loadScopeOptions();
+    // Officers have no letter access at all, so this is gated too.
+    if (currentRole?.canAccessProposalLetters ?? false) await loadLetters();
   }
 
   /// Picks up a token kept in secure storage by an earlier run.
