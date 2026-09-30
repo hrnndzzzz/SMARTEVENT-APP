@@ -4,7 +4,9 @@ import '../api/auth_service.dart';
 import '../api/category_service.dart';
 import '../api/models/academic.dart';
 import '../api/models/category.dart';
+import '../api/models/income.dart';
 import '../api/models/receipt.dart';
+import '../api/income_service.dart';
 import '../api/models/scope.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
@@ -30,6 +32,9 @@ export '../api/models/scope.dart';
 
 // Receipt and its review vocabulary are rendered by the receipts screens.
 export '../api/models/receipt.dart';
+
+// Income and its fund sources are rendered by the income screens.
+export '../api/models/income.dart';
 export '../api/receipt_service.dart' show ReceiptService;
 
 // ApprovalRecord is the shape of a review-timeline row, which the event
@@ -410,6 +415,74 @@ class AppState extends ChangeNotifier {
         ..sessionExpired = error is ApiException && error.isUnauthorized;
     }
     notifyListeners();
+  }
+
+  // ---- Income ------------------------------------------------------------
+
+  late final IncomeService _incomeService = IncomeService(_apiClient);
+
+  List<Income> incomes = [];
+  final LoadState incomesLoad = LoadState();
+
+  /// Narrows the ledger to one event — the only server-side income filter.
+  String? incomeEventFilter;
+
+  Future<void> loadIncomes() => _runLoad(incomesLoad, () async {
+        incomes = await _incomeService.list(eventId: incomeEventFilter);
+      });
+
+  Future<void> applyIncomeFilter({String? eventId}) async {
+    incomeEventFilter = eventId;
+    notifyListeners();
+    await loadIncomes();
+  }
+
+  /// Income that counts toward totals — everything whose receipt is not
+  /// pending or rejected.
+  double get countedIncomeTotal => incomes
+      .where((i) => !i.isWithheld)
+      .fold(0.0, (sum, i) => sum + i.amount);
+
+  /// Recorded but excluded, pending a receipt decision. Shown separately
+  /// rather than folded into the total or hidden.
+  double get withheldIncomeTotal =>
+      incomes.where((i) => i.isWithheld).fold(0.0, (sum, i) => sum + i.amount);
+
+  /// Totals per fund source, counted income only.
+  Map<FundSource, double> get incomeBySource {
+    final totals = <FundSource, double>{};
+    for (final income in incomes.where((i) => !i.isWithheld)) {
+      totals[income.sourceType] = (totals[income.sourceType] ?? 0) + income.amount;
+    }
+    return totals;
+  }
+
+  /// Records income. There is no edit or delete counterpart, by design.
+  Future<String?> recordIncome({
+    required String eventId,
+    required String source,
+    required FundSource sourceType,
+    required String purpose,
+    required String amount,
+    DateTime? receivedOn,
+    ReceiptDetailsInput? receipt,
+  }) async {
+    try {
+      final created = await _incomeService.record(
+        eventId: eventId,
+        source: source,
+        sourceType: sourceType,
+        purpose: purpose,
+        amount: amount,
+        receivedOn: receivedOn,
+        receipt: receipt,
+      );
+      incomes = [created, ...incomes];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
   }
 
   // ---- Receipts and duplicate review -------------------------------------

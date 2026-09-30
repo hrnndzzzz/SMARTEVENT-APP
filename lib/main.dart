@@ -12,6 +12,7 @@ import 'screens/risk_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'screens/categories_screen.dart';
 import 'screens/change_password_screen.dart';
+import 'screens/income_screen.dart';
 import 'screens/receipts_screen.dart';
 import 'screens/events_screen.dart';
 import 'screens/proposal_letters_screen.dart';
@@ -104,6 +105,7 @@ class _RootShellState extends State<RootShell> {
     5: const EventsScreen(),
     6: const CategoriesScreen(),
     7: const ReceiptsScreen(),
+    8: const IncomeScreen(),
   };
 
   /// Navigation offered to this role.
@@ -137,6 +139,7 @@ class _RootShellState extends State<RootShell> {
       // Everyone operational can read receipts; only reviewers see the
       // decision controls once inside one.
       CircleMenuItem(icon: Icons.receipt_outlined, label: 'Receipts', onTap: () => _goTo(7)),
+      CircleMenuItem(icon: Icons.savings_outlined, label: 'Income', onTap: () => _goTo(8)),
     ];
   }
 
