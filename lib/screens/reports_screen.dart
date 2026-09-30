@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../api/export_saver.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -39,20 +40,63 @@ class _ReportsScreenState extends State<ReportsScreen> {
     setState(() => _exporting = false);
 
     final file = outcome.file;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          file == null
-              ? outcome.error!
-              // Saving or sharing the bytes needs a platform file handler,
-              // which is not wired up yet — so this reports what arrived
-              // rather than pretending a file landed somewhere.
-              : 'Received ${file.filename} (${_size(file.sizeBytes)}). '
-                  'Saving and sharing are not wired up yet.',
+    if (file == null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(outcome.error!),
+          duration: const Duration(seconds: 6),
         ),
-        duration: const Duration(seconds: 6),
-      ),
+      );
+      return;
+    }
+
+    // The bytes arrived and were validated; hand them to the share sheet so
+    // they can be saved, mailed or opened in a viewer.
+    final shareProblem = await ExportSaver.share(
+      file,
+      subject: 'SMARTEVENT financial report',
     );
+
+    if (shareProblem != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('$shareProblem The report itself downloaded fine '
+              '(${file.filename}, ${_size(file.sizeBytes)}).'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+  }
+
+  /// The dashboard snapshot, which takes no period filters.
+  Future<void> _exportDashboard(ExportFormat format) async {
+    setState(() => _exporting = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final outcome = await context.read<AppState>().exportDashboard(format);
+
+    if (!mounted) return;
+    setState(() => _exporting = false);
+
+    final file = outcome.file;
+    if (file == null) {
+      messenger.showSnackBar(SnackBar(content: Text(outcome.error!)));
+      return;
+    }
+
+    final shareProblem = await ExportSaver.share(
+      file,
+      subject: 'SMARTEVENT dashboard',
+    );
+    if (shareProblem != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('$shareProblem The file downloaded fine '
+              '(${file.filename}, ${_size(file.sizeBytes)}).'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
   }
 
   static String _size(int bytes) => bytes < 1024
@@ -137,6 +181,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       onExport: _export,
                     ),
                   ],
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  // Separate from the report above: this exports the
+                  // dashboard snapshot, which has no period filters.
+                  _DashboardExportRow(
+                    busy: _exporting,
+                    onExport: _exportDashboard,
+                  ),
                 ],
               ),
             ),
@@ -614,7 +667,8 @@ class _ExportRow extends StatelessWidget {
         const Text('Export', style: AppText.cardTitle),
         const SizedBox(height: 2),
         const Text(
-          'Uses the filters above, so the file matches what is shown.',
+          'Uses the filters above, so the file matches what is shown. The '
+          'HTML export is print-ready.',
           style: AppText.caption,
         ),
         const SizedBox(height: 10),
@@ -690,6 +744,47 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Text(message,
           style: AppText.caption.copyWith(color: AppColors.brick)),
+    );
+  }
+}
+
+/// Exporting the dashboard snapshot.
+///
+/// Kept apart from the report export above because it answers a different
+/// question and takes none of the period filters — presenting them together
+/// would imply the dashboard respects them.
+class _DashboardExportRow extends StatelessWidget {
+  const _DashboardExportRow({required this.busy, required this.onExport});
+
+  final bool busy;
+  final ValueChanged<ExportFormat> onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Dashboard snapshot', style: AppText.cardTitle),
+        const SizedBox(height: 2),
+        const Text(
+          'Current totals and counts. Not affected by the filters above.',
+          style: AppText.caption,
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (final format in ExportFormat.values) ...[
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: busy ? null : () => onExport(format),
+                  child: Text(format.label),
+                ),
+              ),
+              if (format != ExportFormat.values.last) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }
