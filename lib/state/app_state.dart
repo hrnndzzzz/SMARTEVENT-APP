@@ -5,6 +5,8 @@ import '../api/category_service.dart';
 import '../api/models/academic.dart';
 import '../api/models/category.dart';
 import '../api/models/income.dart';
+import '../api/models/inventory.dart';
+import '../api/inventory_service.dart';
 import '../api/models/receipt.dart';
 import '../api/income_service.dart';
 import '../api/models/scope.dart';
@@ -35,6 +37,10 @@ export '../api/models/receipt.dart';
 
 // Income and its fund sources are rendered by the income screens.
 export '../api/models/income.dart';
+
+// Inventory items, movements and the signed-change helper.
+export '../api/models/inventory.dart';
+export '../api/inventory_service.dart' show InventoryService;
 export '../api/receipt_service.dart' show ReceiptService;
 
 // ApprovalRecord is the shape of a review-timeline row, which the event
@@ -414,6 +420,197 @@ class AppState extends ChangeNotifier {
         ..error = _messageForFailure(error)
         ..sessionExpired = error is ApiException && error.isUnauthorized;
     }
+    notifyListeners();
+  }
+
+  // ---- Inventory ---------------------------------------------------------
+
+  late final InventoryService _inventoryService = InventoryService(_apiClient);
+
+  /// The catalog from the backend. Distinct from the legacy local
+  /// `inventory` list, which is mock data pending removal.
+  List<RemoteInventoryItem> catalog = [];
+  final LoadState catalogLoad = LoadState();
+
+  /// Server-side filters. Drafts and missing-event are the administrator's
+  /// two work queues.
+  bool? catalogDraftFilter;
+  String? catalogEventFilter;
+  bool catalogMissingEventOnly = false;
+
+  Future<void> loadCatalog() => _runLoad(catalogLoad, () async {
+        catalog = await _inventoryService.list(
+          isDraft: catalogDraftFilter,
+          eventId: catalogEventFilter,
+          missingEvent: catalogMissingEventOnly,
+        );
+      });
+
+  Future<void> applyCatalogFilter({
+    bool? isDraft,
+    String? eventId,
+    bool missingEventOnly = false,
+  }) async {
+    catalogDraftFilter = isDraft;
+    catalogEventFilter = eventId;
+    catalogMissingEventOnly = missingEventOnly;
+    notifyListeners();
+    await loadCatalog();
+  }
+
+  /// Items at or below their own threshold.
+  List<RemoteInventoryItem> get lowStockItems =>
+      catalog.where((i) => i.isLowStock).toList();
+
+  /// Catalog records created by purchase completion, awaiting an
+  /// administrator's confirmation before they can take manual movements.
+  List<RemoteInventoryItem> get draftItems =>
+      catalog.where((i) => i.isDraft).toList();
+
+  Future<({List<InventoryMovement>? movements, String? error})> loadMovements(
+    RemoteInventoryItem item, {
+    String? eventId,
+  }) async {
+    try {
+      return (
+        movements: await _inventoryService.movements(item.id, eventId: eventId),
+        error: null,
+      );
+    } catch (error) {
+      return (movements: null, error: _messageForFailure(error));
+    }
+  }
+
+  Future<String?> createInventoryItem({
+    required String eventId,
+    required String itemName,
+    String? description,
+    int quantity = 0,
+    String unit = 'pcs',
+    int lowStockThreshold = 5,
+    String? location,
+    InitialStockType initialTransactionType = InitialStockType.openingBalance,
+    String reason = 'Opening stock',
+    String? departmentId,
+    String? organizationId,
+  }) async {
+    try {
+      final created = await _inventoryService.create(
+        eventId: eventId,
+        itemName: itemName,
+        description: description,
+        quantity: quantity,
+        unit: unit,
+        lowStockThreshold: lowStockThreshold,
+        location: location,
+        initialTransactionType: initialTransactionType,
+        reason: reason,
+        departmentId: departmentId,
+        organizationId: organizationId,
+      );
+      catalog = [created, ...catalog];
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Metadata only — quantity is not settable here by design.
+  Future<String?> updateInventoryItem(
+    RemoteInventoryItem item, {
+    String? itemName,
+    String? description,
+    String? unit,
+    int? lowStockThreshold,
+    String? location,
+    String? eventId,
+  }) async {
+    try {
+      final updated = await _inventoryService.update(
+        item.id,
+        itemName: itemName,
+        description: description,
+        unit: unit,
+        lowStockThreshold: lowStockThreshold,
+        location: location,
+        eventId: eventId,
+      );
+      _replaceCatalogItem(updated);
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  Future<String?> deleteInventoryItem(RemoteInventoryItem item) async {
+    try {
+      await _inventoryService.delete(item.id);
+      catalog = catalog.where((i) => i.id != item.id).toList();
+      notifyListeners();
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Accepts a purchase-created draft. Adds no stock — that already
+  /// happened when the purchase was completed.
+  Future<String?> confirmInventoryDraft(RemoteInventoryItem item) async {
+    try {
+      _replaceCatalogItem(await _inventoryService.confirmDraft(item.id));
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  /// Records a stock movement.
+  ///
+  /// [count] is the positive number the user typed; the sign is applied
+  /// from the movement type so nobody has to reason about negatives.
+  Future<String?> recordInventoryMovement(
+    RemoteInventoryItem item, {
+    required InventoryMovementType type,
+    required String eventId,
+    required String count,
+    required String reason,
+  }) async {
+    final change = signedChangeFor(type, count);
+    if (change == null) {
+      return 'Enter a whole number of ${item.unit} greater than zero.';
+    }
+    if (reason.trim().isEmpty) return 'Give a reason for this movement.';
+    if (reason.trim().length > InventoryService.maxReasonLength) {
+      return 'Keep the reason under '
+          '${InventoryService.maxReasonLength} characters.';
+    }
+    // Caught here so the user sees why rather than a constraint violation.
+    if (change < 0 && item.quantity + change < 0) {
+      return 'That would leave ${item.itemName} below zero — only '
+          '${item.quantity} ${item.unit} are in stock.';
+    }
+
+    try {
+      await _inventoryService.recordMovement(
+        item.id,
+        type: type,
+        eventId: eventId,
+        changeQty: change,
+        reason: reason.trim(),
+      );
+      // Stock changed, so the catalog row is stale.
+      _replaceCatalogItem(await _inventoryService.get(item.id));
+      return null;
+    } catch (error) {
+      return _messageForFailure(error);
+    }
+  }
+
+  void _replaceCatalogItem(RemoteInventoryItem updated) {
+    catalog = [
+      for (final i in catalog) if (i.id == updated.id) updated else i,
+    ];
     notifyListeners();
   }
 

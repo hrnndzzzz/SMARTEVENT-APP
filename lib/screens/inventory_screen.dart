@@ -5,8 +5,13 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
+import 'inventory_detail_screen.dart';
 import 'notifications_screen.dart';
 
+/// The equipment catalog and its stock.
+///
+/// Quantity is never editable here. Stock moves only by recording a
+/// movement, so every change carries a reason and shows up in the ledger.
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
 
@@ -15,11 +20,33 @@ class InventoryScreen extends StatefulWidget {
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
-  String _category = 'All Items';
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().loadCatalog();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final load = app.catalogLoad;
+    final canManage = app.currentRole?.canManageCatalog ?? false;
+
     return Scaffold(
+      floatingActionButton: canManage
+          ? FloatingActionButton.extended(
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const _NewItemSheet(),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('New Item'),
+            )
+          : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -45,66 +72,47 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
               ),
               const SizedBox(height: 2),
-              const Text('Track and manage campus resources.', style: AppText.caption),
-              const SizedBox(height: 14),
-              Consumer<AppState>(
-                builder: (context, app, _) {
-                  return app.lowStockCount > 0
-                      ? Column(
-                    children: [
-                      _LowStockBanner(count: app.lowStockCount),
-                      const SizedBox(height: 12),
-                    ],
-                  )
-                      : const SizedBox.shrink();
-                },
+              const Text(
+                'Stock changes only through recorded movements.',
+                style: AppText.caption,
               ),
-              const _SearchField(),
               const SizedBox(height: 12),
-              _CategoryChips(
-                selected: _category,
-                onSelect: (c) => setState(() => _category = c),
-              ),
-              const SizedBox(height: 14),
+              const _FilterBar(),
+              const SizedBox(height: 12),
               Expanded(
-                child: Consumer<AppState>(
-                  builder: (context, app, _) {
-                    final filtered = app.inventory.where((item) {
-                      switch (_category) {
-                        case 'In-Stock':
-                          return item.qty > 0;
-                        case 'Issued':
-                          return item.hasBeenIssued;
-                        default:
-                          return true;
-                      }
-                    }).toList();
-
-                    return ListView(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      children: [
-                        if (filtered.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: Center(child: Text('No items in this category.', style: AppText.caption)),
-                          )
-                        else
-                          for (final item in filtered) ...[
-                            _InventoryItemCard(
-                              item: item,
-                              onIssue: () => app.issueItem(item),
-                              onRestock: () => app.restockItem(item),
+                child: switch (load) {
+                  _ when load.isLoading && app.catalog.isEmpty =>
+                    const Center(child: CircularProgressIndicator()),
+                  _ when load.hasFailed && app.catalog.isEmpty => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(load.error!,
+                                style: AppText.caption,
+                                textAlign: TextAlign.center),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: app.loadCatalog,
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Try again'),
                             ),
-                            const SizedBox(height: 10),
                           ],
-                        const SizedBox(height: 6),
-                        const Text('Recent transactions', style: AppText.caption),
-                        const SizedBox(height: 8),
-                        _RecentTransactionsList(entries: app.inventoryLog),
-                      ],
-                    );
-                  },
-                ),
+                        ),
+                      ),
+                    ),
+                  _ when app.catalog.isEmpty => _Empty(canManage: canManage),
+                  _ => RefreshIndicator(
+                      onRefresh: app.loadCatalog,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 96),
+                        itemCount: app.catalog.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) => _ItemCard(item: app.catalog[i]),
+                      ),
+                    ),
+                },
               ),
             ],
           ),
@@ -114,292 +122,496 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 }
 
-class _LowStockBanner extends StatelessWidget {
-  final int count;
-  const _LowStockBanner({required this.count});
+class _FilterBar extends StatelessWidget {
+  const _FilterBar();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.marigoldTint,
-        border: Border.all(color: const Color(0xFFE3D6B4), width: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final app = context.watch<AppState>();
+    final drafts = app.catalogDraftFilter == true;
+    final missing = app.catalogMissingEventOnly;
+    final all = !drafts && !missing;
+    // Both of these are administrator work queues, not general filters.
+    final isAdmin = app.currentRole?.isAdministrator ?? false;
+
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.warning_amber_rounded, size: 18, color: AppColors.marigoldText),
+          _Chip(
+            label: 'All',
+            selected: all,
+            onTap: () => app.applyCatalogFilter(),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (isAdmin)
+            _Chip(
+              label: 'Unconfirmed drafts',
+              selected: drafts,
+              onTap: () => app.applyCatalogFilter(isDraft: true),
+            ),
+          if (isAdmin)
+            _Chip(
+              label: 'Needs event link',
+              selected: missing,
+              onTap: () => app.applyCatalogFilter(missingEventOnly: true),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.indigo : AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? AppColors.indigo : AppColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppText.bodyFamily,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: selected ? Colors.white : AppColors.inkMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ItemCard extends StatelessWidget {
+  const _ItemCard({required this.item});
+
+  final RemoteInventoryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => InventoryDetailScreen(item: item)),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
+                Expanded(child: Text(item.itemName, style: AppText.cardTitle)),
                 Text(
-                  '$count item${count == 1 ? '' : 's'} below minimum threshold',
-                  style: const TextStyle(
-                    fontFamily: AppText.headerFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13,
-                    color: AppColors.marigoldText,
+                  '${item.quantity} ${item.unit}',
+                  style: AppText.moneySmall.copyWith(
+                    color: item.isLowStock
+                        ? AppColors.marigoldText
+                        : AppColors.ink,
                   ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Immediate action needed to ensure event continuity.',
-                  style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.inkMuted),
                 ),
               ],
             ),
-          ),
-        ],
+            if (item.description?.isNotEmpty == true) ...[
+              const SizedBox(height: 4),
+              Text(item.description!, style: AppText.caption),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (item.isDraft)
+                  const _Tag(
+                    label: 'Unconfirmed draft',
+                    fg: AppColors.marigoldText,
+                    bg: AppColors.marigoldTint,
+                  ),
+                if (item.isLowStock)
+                  _Tag(
+                    label: 'Low stock (≤ ${item.lowStockThreshold})',
+                    fg: AppColors.marigoldText,
+                    bg: AppColors.marigoldTint,
+                  ),
+                if (item.needsEventLink)
+                  const _Tag(
+                    label: 'No event link',
+                    fg: AppColors.brick,
+                    bg: Color(0xFFFBEAE7),
+                  ),
+                if (item.location?.isNotEmpty == true)
+                  _Tag(
+                    label: item.location!,
+                    fg: AppColors.inkMuted,
+                    bg: AppColors.trackBg,
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SearchField extends StatelessWidget {
-  const _SearchField();
+class _Tag extends StatelessWidget {
+  const _Tag({required this.label, required this.fg, required this.bg});
+
+  final String label;
+  final Color fg;
+  final Color bg;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: AppText.bodyFamily,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: fg,
+        ),
       ),
-      child: const Row(
+    );
+  }
+}
+
+class _Empty extends StatelessWidget {
+  const _Empty({required this.canManage});
+
+  final bool canManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = context.watch<AppState>().catalogDraftFilter != null ||
+        context.watch<AppState>().catalogMissingEventOnly;
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search, size: 18, color: AppColors.inkMuted),
-          SizedBox(width: 8),
-          Text('Search inventory...', style: TextStyle(color: AppColors.inkFaint, fontSize: 13)),
+          const Icon(Icons.inventory_2_outlined,
+              size: 44, color: AppColors.inkFaint),
+          const SizedBox(height: 14),
+          Text(
+            filtered ? 'Nothing matches this filter' : 'No items yet',
+            style: AppText.cardTitle,
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: 280,
+            child: Text(
+              filtered
+                  ? 'Nothing needs attention here.'
+                  : canManage
+                      ? 'Add equipment to track, or complete a purchase to '
+                          'have items created for you.'
+                      : 'Equipment appears here once an administrator adds it.',
+              style: AppText.caption,
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _CategoryChips extends StatelessWidget {
-  final String selected;
-  final ValueChanged<String> onSelect;
+/// Creating a catalog item, with optional documented opening stock.
+class _NewItemSheet extends StatefulWidget {
+  const _NewItemSheet();
 
-  const _CategoryChips({required this.selected, required this.onSelect});
+  @override
+  State<_NewItemSheet> createState() => _NewItemSheetState();
+}
+
+class _NewItemSheetState extends State<_NewItemSheet> {
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _quantityController = TextEditingController(text: '0');
+  final _unitController = TextEditingController(text: 'pcs');
+  final _thresholdController = TextEditingController(text: '5');
+  final _locationController = TextEditingController();
+  final _reasonController = TextEditingController(text: 'Opening stock');
+
+  String? _eventId;
+  InitialStockType _initialType = InitialStockType.openingBalance;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _quantityController.dispose();
+    _unitController.dispose();
+    _thresholdController.dispose();
+    _locationController.dispose();
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  String? _validate() {
+    if (_eventId == null) return 'Choose the event this belongs to.';
+    if (_nameController.text.trim().isEmpty) return 'Give the item a name.';
+
+    final quantity = int.tryParse(_quantityController.text.trim());
+    if (quantity == null || quantity < 0) {
+      return 'Starting stock must be a whole number, zero or more.';
+    }
+    final threshold = int.tryParse(_thresholdController.text.trim());
+    if (threshold == null || threshold < 0) {
+      return 'The low-stock threshold must be zero or more.';
+    }
+    if (_unitController.text.trim().isEmpty) return 'Enter a unit.';
+    if (_reasonController.text.trim().isEmpty) {
+      return 'Give a reason for the starting stock.';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    final problem = _validate();
+    if (problem != null) {
+      setState(() => _error = problem);
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final app = context.read<AppState>();
+    final error = await app.createInventoryItem(
+      eventId: _eventId!,
+      itemName: _nameController.text.trim(),
+      description: _descriptionController.text.trim().isEmpty
+          ? null
+          : _descriptionController.text.trim(),
+      quantity: int.parse(_quantityController.text.trim()),
+      unit: _unitController.text.trim(),
+      lowStockThreshold: int.parse(_thresholdController.text.trim()),
+      location: _locationController.text.trim().isEmpty
+          ? null
+          : _locationController.text.trim(),
+      initialTransactionType: _initialType,
+      reason: _reasonController.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _submitting = false;
+      _error = error;
+    });
+
+    if (error == null) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Item added.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _chip('All Items'),
-          const SizedBox(width: 8),
-          _chip('In-Stock'),
-          const SizedBox(width: 8),
-          _chip('Issued'),
-        ],
-      ),
-    );
-  }
+    final events =
+        context.watch<AppState>().events.where((e) => e.remoteId != null).toList();
 
-  Widget _chip(String label) {
-    final isSelected = selected == label;
-    return GestureDetector(
-      onTap: () => onSelect(label),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.indigo : AppColors.surface,
-          border: isSelected ? null : Border.all(color: AppColors.border, width: 0.5),
-          borderRadius: BorderRadius.circular(20),
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: AppText.bodyFamily,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-            color: isSelected ? Colors.white : AppColors.ink,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InventoryItemCard extends StatelessWidget {
-  final InventoryItem item;
-  final VoidCallback onIssue;
-  final VoidCallback onRestock;
-
-  const _InventoryItemCard({
-    required this.item,
-    required this.onIssue,
-    required this.onRestock,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final low = item.isLowStock;
-    final statusLabel = low ? 'Low Stock' : 'Operational';
-    final statusColor = low ? AppColors.brick : AppColors.sageTealText;
-    final statusBg = low ? const Color(0xFFFBEAE7) : AppColors.sageTealTint;
-    final statusIcon = low ? Icons.warning_amber_rounded : Icons.check_circle_outline;
-    final tagColor = low ? AppColors.brick : AppColors.sageTeal;
-
-    return Stack(
-      children: [
-        Container(
-          margin: const EdgeInsets.only(left: 4),
-          padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border.all(color: AppColors.border, width: 0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
+        child: SingleChildScrollView(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text('New inventory item', style: AppText.cardTitle),
+              const SizedBox(height: 16),
+
+              const Text('Event', style: AppText.caption),
+              const SizedBox(height: 6),
+              _Picker<String>(
+                value: _eventId,
+                hint: events.isEmpty ? 'No events available' : 'Select an event',
+                items: [
+                  for (final e in events)
+                    DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
+                ],
+                onChanged: (v) => setState(() => _eventId = v),
+              ),
+              const SizedBox(height: 14),
+
+              _field('Item name', _nameController),
+              _field('Description', _descriptionController),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F2EC),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Icon(item.icon, size: 18, color: AppColors.ink),
+                  Expanded(
+                    child: _field('Starting stock', _quantityController,
+                        number: true),
                   ),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(statusIcon, size: 11, color: statusColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          statusLabel,
-                          style: TextStyle(
-                            fontFamily: AppText.bodyFamily,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: _field('Unit', _unitController)),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(item.name, style: AppText.cardTitle),
+              Row(
+                children: [
+                  Expanded(
+                    child: _field('Low-stock threshold', _thresholdController,
+                        number: true),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: _field('Location', _locationController)),
+                ],
+              ),
+
+              const Text('How this stock was obtained', style: AppText.caption),
               const SizedBox(height: 2),
-              Text(item.description, style: AppText.caption),
-              const SizedBox(height: 10),
-              RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '${item.qty}',
-                      style: const TextStyle(
-                        fontFamily: AppText.monoFamily,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 20,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const TextSpan(
-                      text: ' Qty available',
-                      style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: AppColors.inkMuted),
-                    ),
-                  ],
+              const Text(
+                'Newly bought goods are not opening stock — complete the '
+                'purchase on the expense instead, so the payment is recorded.',
+                style: TextStyle(
+                  fontFamily: AppText.bodyFamily,
+                  fontSize: 10,
+                  color: AppColors.inkFaint,
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: onIssue,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 9)),
-                      child: const Text('Issue Item', style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: onRestock,
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 9)),
-                      child: const Text('Restock +5', style: TextStyle(fontSize: 12)),
-                    ),
-                  ),
+              const SizedBox(height: 6),
+              _Picker<InitialStockType>(
+                value: _initialType,
+                hint: 'Select',
+                items: [
+                  for (final t in InitialStockType.values)
+                    DropdownMenuItem(value: t, child: Text(t.label)),
                 ],
+                onChanged: (v) => setState(() => _initialType = v ?? _initialType),
+              ),
+              const SizedBox(height: 14),
+              _field('Reason', _reasonController),
+
+              if (_error != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.brick.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(_error!,
+                      style: AppText.caption.copyWith(color: AppColors.brick)),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: _submitting ? null : _submit,
+                style:
+                    FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Add item'),
               ),
             ],
           ),
         ),
-        Positioned(
-          left: 0,
-          top: 12,
-          bottom: 12,
-          child: Container(
-            width: 4,
-            decoration: BoxDecoration(
-              color: tagColor,
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(2)),
-            ),
+      ),
+    );
+  }
+
+  Widget _field(String label, TextEditingController controller,
+      {bool number = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppText.caption),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType: number ? TextInputType.number : TextInputType.text,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _RecentTransactionsList extends StatelessWidget {
-  final List<String> entries;
-  const _RecentTransactionsList({required this.entries});
+class _Picker<T> extends StatelessWidget {
+  const _Picker({
+    required this.value,
+    required this.hint,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final T? value;
+  final String hint;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Column(
-        children: [
-          for (int i = 0; i < entries.length; i++) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(color: Color(0xFFF4F2EC), shape: BoxShape.circle),
-                    child: const Icon(Icons.swap_horiz, size: 14, color: AppColors.ink),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(entries[i], style: AppText.body.copyWith(fontSize: 12)),
-                  ),
-                ],
-              ),
-            ),
-            if (i != entries.length - 1) const Divider(height: 1, color: AppColors.border),
-          ],
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          isExpanded: true,
+          value: value,
+          hint: Text(hint,
+              style: const TextStyle(
+                fontFamily: AppText.bodyFamily,
+                fontSize: 13,
+                color: AppColors.inkFaint,
+              )),
+          items: items,
+          onChanged: onChanged,
+        ),
       ),
     );
   }
