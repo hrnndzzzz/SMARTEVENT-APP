@@ -192,9 +192,29 @@ class EventItem {
 }
 
 /// Demo/pitch feature: shows how SmartEvent could scale campus-wide.
-/// Real implementation would need separate data per department — this
-/// is a visual-only suggestion for the defense panel.
+/// A colour palette keyed by college, used only for theming.
+///
+/// **This is not the department registry.** Real departments come from the
+/// backend as [RemoteDepartment], and which one an account belongs to comes
+/// from `/auth/me`. This enum exists so a department has a recognisable
+/// colour, and it deliberately lists colleges the system has no data for —
+/// it illustrates how the theme would extend campus-wide.
+///
+/// Use [themeDepartmentForCode] to map a real department's code onto it, so
+/// the colour follows the account's actual department rather than a guess.
 enum Department { systemWide, cite, cithm, cbea, camp, case_ }
+
+/// Maps a real department code (as the backend stores it) onto the theme
+/// palette. Unknown codes fall back to the neutral system colour rather
+/// than borrowing another college's.
+Department themeDepartmentForCode(String? code) => switch (code?.toUpperCase()) {
+      'CITE' => Department.cite,
+      'CITHM' => Department.cithm,
+      'CBEA' => Department.cbea,
+      'CAMP' => Department.camp,
+      'CASE' => Department.case_,
+      _ => Department.systemWide,
+    };
 
 extension DepartmentInfo on Department {
   String get label => switch (this) {
@@ -2239,7 +2259,18 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Color get themeColor => currentAccount?.department.color ?? Department.systemWide.color;
+  /// Themed by the account's real department when that is known.
+  ///
+  /// Falls back to the neutral system colour rather than to whatever the
+  /// local [Department] default happens to be — a Super Admin belongs to no
+  /// department, and an Officer cannot read the department list at all.
+  Color get themeColor {
+    final code = departments
+        .where((d) => d.id == currentAccount?.departmentId)
+        .map((d) => d.code)
+        .firstOrNull;
+    return themeDepartmentForCode(code).color;
+  }
 
   /// Clears the session and every record loaded for that user, so the next
   /// account signing in on this device can never see the previous one's
