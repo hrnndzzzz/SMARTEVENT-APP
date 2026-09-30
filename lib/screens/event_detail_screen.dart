@@ -10,67 +10,6 @@ class EventDetailScreen extends StatelessWidget {
 
   const EventDetailScreen({super.key, required this.event});
 
-  Future<void> _openFeedbackDialog(BuildContext context) async {
-    int rating = event.adviserRating ?? 3;
-    final controller = TextEditingController(text: event.adviserComment ?? '');
-
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Post-Event Evaluation', style: AppText.cardTitle),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Rating', style: AppText.caption),
-              const SizedBox(height: 6),
-              Row(
-                children: List.generate(5, (i) {
-                  final starIndex = i + 1;
-                  return IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => setDialogState(() => rating = starIndex),
-                    icon: Icon(
-                      starIndex <= rating ? Icons.star : Icons.star_border,
-                      color: AppColors.marigold,
-                      size: 26,
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 14),
-              const Text('Comments', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
-                controller: controller,
-                maxLines: 3,
-                decoration: const InputDecoration(hintText: 'Official remarks about this event...'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () {
-                context.read<AppState>().submitFeedback(
-                  event,
-                  rating: rating,
-                  comment: controller.text.trim(),
-                );
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Feedback saved.')),
-                );
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Future<void> _decide(
       BuildContext context, {
@@ -228,11 +167,7 @@ class EventDetailScreen extends StatelessWidget {
                         children: [
                           const Text('Event details', style: AppText.cardTitle),
                           const SizedBox(height: 10),
-                          _detailRow('Venue', event.venue),
-                          const SizedBox(height: 6),
                           _detailRow('Requested budget', event.budget, mono: true),
-                          const SizedBox(height: 6),
-                          _detailRow('Attendees', event.attendees),
                           const SizedBox(height: 6),
                           _detailRow('School year', event.academicLabel),
                         ],
@@ -241,15 +176,6 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   _ApprovalTimelineCard(event: event),
-                  const SizedBox(height: 14),
-                  _AttendanceCard(event: event),
-                  if (!(role?.isAdministrator ?? false)) ...[
-                    const SizedBox(height: 14),
-                    _FeedbackCard(
-                      event: event,
-                      onEdit: role == UserRole.adviser ? () => _openFeedbackDialog(context) : null,
-                    ),
-                  ],
                   // Editing a proposal belongs to whoever may propose one,
                   // and only while it is still draft or rejected. Officers
                   // are read-only and no longer get this button.
@@ -398,136 +324,7 @@ class _ApprovalStatusCard extends StatelessWidget {
   }
 }
 
-class _AttendanceCard extends StatelessWidget {
-  final EventItem event;
-  const _AttendanceCard({required this.event});
 
-  @override
-  Widget build(BuildContext context) {
-    final expected = event.expectedAttendees;
-    final progress = expected == 0 ? 0.0 : (event.checkedIn / expected).clamp(0.0, 1.0);
-    final app = context.read<AppState>();
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Attendance', style: AppText.cardTitle),
-                if (event.checkedIn > 0)
-                  GestureDetector(
-                    onTap: () => app.resetAttendance(event),
-                    child: const Text('Reset', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.inkMuted)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '${event.checkedIn}',
-                        style: const TextStyle(
-                          fontFamily: AppText.monoFamily,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 22,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      TextSpan(
-                        text: expected > 0 ? ' / $expected checked in' : ' checked in',
-                        style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: AppColors.inkMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () => app.checkInAttendee(event),
-                  icon: const Icon(Icons.person_add_alt_1, size: 15),
-                  label: const Text('Check In', style: TextStyle(fontSize: 12)),
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
-                ),
-              ],
-            ),
-            if (expected > 0) ...[
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 5,
-                  backgroundColor: AppColors.trackBg,
-                  color: AppColors.sageTeal,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FeedbackCard extends StatelessWidget {
-  final EventItem event;
-  final VoidCallback? onEdit;
-
-  const _FeedbackCard({required this.event, required this.onEdit});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Post-Event Evaluation', style: AppText.cardTitle),
-                if (onEdit != null)
-                  TextButton.icon(
-                    onPressed: onEdit,
-                    icon: Icon(event.hasFeedback ? Icons.edit_outlined : Icons.add, size: 15),
-                    label: Text(event.hasFeedback ? 'Edit' : 'Add', style: const TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (!event.hasFeedback)
-              const Text('No evaluation submitted yet.', style: AppText.caption)
-            else ...[
-              Row(
-                children: List.generate(5, (i) {
-                  return Icon(
-                    i < (event.adviserRating ?? 0) ? Icons.star : Icons.star_border,
-                    color: AppColors.marigold,
-                    size: 16,
-                  );
-                }),
-              ),
-              if (event.adviserComment != null && event.adviserComment!.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(event.adviserComment!, style: AppText.caption.copyWith(height: 1.4)),
-              ],
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 /// The real review history from `GET /events/{id}/approvals`: who decided
 /// what, when, and any remarks.
 ///

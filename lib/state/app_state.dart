@@ -90,26 +90,6 @@ export '../api/models/remote_expense.dart'
 // so the many `import '../state/app_state.dart'` screens keep working.
 export 'user_role.dart';
 
-class InventoryItem {
-  final IconData icon;
-  final String name;
-  final String description;
-  int qty;
-  final int initialQty;
-  final int lowStockThreshold;
-
-  InventoryItem({
-    required this.icon,
-    required this.name,
-    required this.description,
-    required this.qty,
-    this.lowStockThreshold = 2,
-  }) : initialQty = qty;
-
-  bool get isLowStock => qty < lowStockThreshold;
-  bool get hasBeenIssued => qty < initialQty;
-}
-
 /// Every status the backend can return for an event.
 ///
 /// `draft` and `completed` used to be folded into "pending adviser", which
@@ -146,18 +126,12 @@ class EventItem {
   String title;
   String org;
   String date;
-  String venue;
   String budget;
-  String attendees;
 
   EventApprovalStatus status;
   String? rejectedBy;
   String? adviserApprovalNote;
   String? adminApprovalNote;
-
-  int checkedIn;
-  String? adviserComment;
-  int? adviserRating;
 
   /// Academic metadata. Required on new events; null only on legacy rows
   /// that predate it, which an Admin repairs through the academic-metadata
@@ -195,28 +169,16 @@ class EventItem {
     EventApprovalStatus.completed => 'Completed',
   };
 
-  int get expectedAttendees {
-    final match = RegExp(r'\d+').firstMatch(attendees);
-    return match != null ? int.parse(match.group(0)!) : 0;
-  }
-
-  bool get hasFeedback => adviserComment != null || adviserRating != null;
-
   EventItem({
     this.remoteId,
     required this.title,
     required this.org,
     required this.date,
-    required this.venue,
     required this.budget,
-    required this.attendees,
     this.status = EventApprovalStatus.pendingAdviser,
     this.rejectedBy,
     this.adviserApprovalNote,
     this.adminApprovalNote,
-    this.checkedIn = 0,
-    this.adviserComment,
-    this.adviserRating,
     this.schoolYear,
     this.semester,
     this.eventScope,
@@ -666,9 +628,18 @@ class AppState extends ChangeNotifier {
 
   List<SpendingTrendPoint> spendingTrends = [];
 
+  /// Expenses the backend flagged as worth a look. Never presented as
+  /// proven wrongdoing — the route's name is not the label.
+  List<RemoteExpense> flaggedExpenses = [];
+  final LoadState flaggedLoad = LoadState();
+
   Future<void> loadDashboard() => _runLoad(dashboardLoad, () async {
         dashboard = await _reportsService.dashboard();
         spendingTrends = await _reportsService.spendingTrends();
+      });
+
+  Future<void> loadFlaggedExpenses() => _runLoad(flaggedLoad, () async {
+        flaggedExpenses = await _reportsService.flagged();
       });
 
   /// The consolidated report currently on screen, and the filters that
@@ -1349,21 +1320,32 @@ class AppState extends ChangeNotifier {
     _ => EventApprovalStatus.draft,
   };
 
-  /// Maps a real backend event into our existing local EventItem shape.
-  /// venue/attendees/org have no backend equivalent yet (a real gap,
-  /// not an oversight) — left as placeholders until either the
-  /// backend adds these fields or we decide to drop them from the UI.
+  /// The organization's name, when this account can read the list.
+  ///
+  /// Only Admin and Super Admin may call `/organizations`, so for everyone
+  /// else this is empty rather than a guess — an event card simply omits
+  /// the line instead of claiming an organization it cannot verify.
+  String _organizationNameFor(String? organizationId) {
+    if (organizationId == null) return '';
+    return organizations
+            .where((o) => o.id == organizationId)
+            .map((o) => o.name)
+            .firstOrNull ??
+        '';
+  }
+
   EventItem _mapRemoteEvent(RemoteEvent remote) {
     return EventItem(
       remoteId: remote.id,
       title: remote.title,
-      org: 'CITE', // no backend equivalent yet — single-org placeholder
+      // The real organization, resolved from the id the backend sends.
+      // Only Admin and above can read the organization list, so everyone
+      // else sees nothing here rather than a guessed name.
+      org: _organizationNameFor(remote.organizationId),
       date: remote.eventDate == null
           ? 'No date set'
           : '${remote.eventDate!.month}/${remote.eventDate!.day}/${remote.eventDate!.year}',
-      venue: 'Not tracked yet', // no backend equivalent yet
       budget: '₱${remote.allocatedBudget.toStringAsFixed(2)}',
-      attendees: 'Not tracked yet', // no backend equivalent yet
       status: _eventStatusFromString(remote.status),
       schoolYear: remote.schoolYear,
       semester: remote.semester,
@@ -1513,12 +1495,9 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  final List<ExpenseEntry> expenses = [
-    ExpenseEntry(vendor: 'Fresh Campus Catering', amount: 950.00, category: 'Catering'),
-    ExpenseEntry(vendor: 'CITE Auditorium Rental', amount: 650.00, category: 'Venue'),
-    ExpenseEntry(vendor: 'National Bookstore', amount: 350.00, category: 'Equipment'),
-    ExpenseEntry(vendor: 'Print Shop Flyers', amount: 200.00, category: 'Marketing'),
-  ];
+    /// Filled from the backend by loadExpenses. Empty until then, so a
+  /// screen never shows invented rows that look like real spending.
+  final List<ExpenseEntry> expenses = [];
 
   List<String> get expenseLog =>
       expenses.map((e) => '${e.vendor} · -₱${e.amount.toStringAsFixed(2)}').toList();
@@ -1782,72 +1761,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  final List<InventoryItem> inventory = [
-    InventoryItem(
-      icon: Icons.cable,
-      name: 'HDMI Cables (4K 10m)',
-      description: 'High-speed AV connectivity.',
-      qty: 1,
-    ),
-    InventoryItem(
-      icon: Icons.campaign_outlined,
-      name: 'PA Sound System Set',
-      description: 'Includes 2 speakers, mixer, and wireless mics.',
-      qty: 4,
-    ),
-  ];
-
-  final List<String> inventoryLog = [
-    'PA System — checked out by J. Doe · 2h ago',
-    'Projector Screen — returned by S. Smith · 5h ago',
-  ];
-
-  int get lowStockCount => inventory.where((i) => i.isLowStock).length;
-
-  void issueItem(InventoryItem item) {
-    if (item.qty <= 0) return;
-    item.qty -= 1;
-    inventoryLog.insert(0, '${item.name} — issued · just now');
-    if (item.isLowStock) {
-      addNotification(AppNotification(
-        icon: Icons.warning_amber_rounded,
-        tagColor: const Color(0xFFC1503D),
-        title: 'Low stock: ${item.name}',
-        body: 'Only ${item.qty} unit${item.qty == 1 ? '' : 's'} remaining, below minimum threshold.',
-        time: 'Just now',
-        destination: NotifDestination.inventory,
-        targetRoles: {UserRole.officer},
-      ));
-    }
-    notifyListeners();
-  }
-
-  void restockItem(InventoryItem item, {int amount = 5}) {
-    item.qty += amount;
-    inventoryLog.insert(0, '${item.name} — restocked +$amount · just now');
-    notifyListeners();
-  }
-
-  final List<EventItem> events = [
-    EventItem(
-      title: 'Annual Fall Hackathon',
-      org: 'Engineering Soc.',
-      date: 'Oct 12-14, 2026',
-      venue: 'CITE Auditorium',
-      budget: '₱8,200.00',
-      attendees: '62',
-      status: EventApprovalStatus.approved,
-    ),
-    EventItem(
-      title: 'Leadership Summit 2026',
-      org: 'CITE Student Council',
-      date: 'Nov 20, 2026',
-      venue: 'CITE Auditorium',
-      budget: '₱8,200.00',
-      attendees: '120 (expected)',
-      status: EventApprovalStatus.pendingAdviser,
-    ),
-  ];
+    /// Filled from the backend by loadEvents.
+  final List<EventItem> events = [];
 
   /// Returns null on success, or an error message. Creates a real
   /// backend event (draft), then submits it — the server itself
@@ -1865,8 +1780,6 @@ class AppState extends ChangeNotifier {
     required double estimatedCost,
     DateTime? eventDate,
     String? description,
-    required String venue,
-    required String attendees,
     required String schoolYear,
     required Semester semester,
     required EventScope eventScope,
@@ -1895,8 +1808,6 @@ class AppState extends ChangeNotifier {
           submitNow ? await _eventService.submit(created.id) : created;
 
       final mapped = _mapRemoteEvent(submitted);
-      mapped.venue = venue;
-      mapped.attendees = attendees;
       events.insert(0, mapped);
 
       switch (mapped.status) {
@@ -2091,50 +2002,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void checkInAttendee(EventItem event) {
-    event.checkedIn += 1;
-    notifyListeners();
-  }
-
-  void resetAttendance(EventItem event) {
-    event.checkedIn = 0;
-    notifyListeners();
-  }
-
-  void submitFeedback(EventItem event, {required int rating, required String comment}) {
-    event.adviserRating = rating;
-    event.adviserComment = comment;
-    addNotification(AppNotification(
-      icon: Icons.rate_review_outlined,
-      tagColor: const Color(0xFF3F8272),
-      title: 'Feedback submitted: ${event.title}',
-      body: 'Rated $rating/5 by adviser.',
-      time: 'Just now',
-      destination: NotifDestination.events,
-      targetRoles: {UserRole.officer},
-    ));
-    notifyListeners();
-  }
-
-  final List<AppNotification> notifications = [
-    AppNotification(
-      icon: Icons.warning_amber_rounded,
-      tagColor: const Color(0xFFC1503D),
-      title: 'Low stock: HDMI Cables (4K 10m)',
-      body: 'Only 1 unit remaining, below minimum threshold.',
-      time: '10 min ago',
-      destination: NotifDestination.inventory,
-      targetRoles: {UserRole.officer},
-    ),
-    AppNotification(
-      icon: Icons.fact_check_outlined,
-      tagColor: const Color(0xFFE8A33D),
-      title: 'Pending approval: Leadership Summit 2026',
-      body: 'Awaiting your review.',
-      time: '2 hrs ago',
-      targetRoles: {UserRole.adviser},
-    ),
-  ];
+    /// In-app notices raised by this session's own actions. The backend
+  /// has a /notifications endpoint that is not wired up yet, so nothing
+  /// here survives a restart — but nothing here is invented either.
+  final List<AppNotification> notifications = [];
 
   void addNotification(AppNotification n) {
     notifications.insert(0, n);
@@ -2160,17 +2031,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  final List<Account> _accounts = [
-    // Mirrors the real backend's bootstrap step (a manually-inserted
-    // first admin, since registration itself is admin-only with no
-    // self-service path at all) — one seeded Admin account so there's
-    // always a way in on a fresh install.
-    Account(
-      name: 'System Administrator',
-      email: 'admin@lcup.edu.ph',
-      role: UserRole.admin,
-    ),
-  ];
+    /// Only used by the dev quick-login shortcut.
+  final List<Account> _accounts = [];
 
   Account? currentAccount;
   UserRole? currentRole;
@@ -2317,7 +2179,6 @@ class AppState extends ChangeNotifier {
   /// The account has been suspended by an administrator. The API enforces
   /// this on every request regardless; this just lets the UI explain it.
   bool get isSuspended => currentAccount?.isSuspended ?? false;
-
 
   /// Whether a stored-session check has finished, whatever its outcome.
   /// The startup gate waits on this so the app doesn't flash the welcome

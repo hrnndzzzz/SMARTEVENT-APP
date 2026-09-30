@@ -1,15 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
-class RiskScreen extends StatelessWidget {
+/// Expenses the backend has flagged for a closer look.
+///
+/// The endpoint behind this is called "threats", which is not what the
+/// screen says. A flag means a receipt looked like another one, or an OCR
+/// reading disagreed with the amount entered — reasons to check, not
+/// findings. Every number here is the backend's; nothing is inferred and no
+/// risk score is invented.
+class RiskScreen extends StatefulWidget {
   const RiskScreen({super.key});
 
   @override
+  State<RiskScreen> createState() => _RiskScreenState();
+}
+
+class _RiskScreenState extends State<RiskScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().loadFlaggedExpenses();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final load = app.flaggedLoad;
+    final flagged = app.flaggedExpenses;
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -27,7 +53,7 @@ class RiskScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Event Spending Risk',
+                'Flagged for review',
                 style: TextStyle(
                   fontFamily: AppText.headerFamily,
                   fontWeight: FontWeight.w500,
@@ -38,43 +64,47 @@ class RiskScreen extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Flags events where spending has moved outside the usual range.',
+                'Expenses the system noticed something about. A flag is a '
+                'prompt to look, not a finding.',
                 style: AppText.caption,
               ),
               const SizedBox(height: 16),
-              const _AlertBanner(),
-              const SizedBox(height: 18),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: const [
-                    Text('Active event flags', style: AppText.cardTitle),
-                    SizedBox(height: 10),
-                    _RiskEventCard(
-                      title: 'Leadership Summit 2026',
-                      level: 'Medium',
-                      levelColor: AppColors.marigold,
-                      levelBg: Color(0xFFF0EAD9),
-                      levelTextColor: AppColors.marigoldText,
-                      detailLabel: 'Catering spend vs. category average',
-                      detailValue: '+18%',
+                child: switch (load) {
+                  _ when load.isLoading && flagged.isEmpty =>
+                    const Center(child: CircularProgressIndicator()),
+                  _ when load.hasFailed && flagged.isEmpty => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(load.error!,
+                                style: AppText.caption,
+                                textAlign: TextAlign.center),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: app.loadFlaggedExpenses,
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text('Try again'),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    SizedBox(height: 10),
-                    _RiskEventCard(
-                      title: 'CITE Sports Fest',
-                      level: 'Low',
-                      levelColor: AppColors.sageTeal,
-                      levelBg: AppColors.sageTealTint,
-                      levelTextColor: AppColors.sageTealText,
-                      detailLabel: 'Catering spend vs. category average',
-                      detailValue: '+4%',
+                  _ when flagged.isEmpty => const _NothingFlagged(),
+                  _ => RefreshIndicator(
+                      onRefresh: app.loadFlaggedExpenses,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        itemCount: flagged.length + 1,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) => i == flagged.length
+                            ? const _CriteriaCard()
+                            : _FlaggedCard(expense: flagged[i]),
+                      ),
                     ),
-                    SizedBox(height: 18),
-                    Text('Flag criteria', style: AppText.cardTitle),
-                    SizedBox(height: 10),
-                    _CriteriaCard(),
-                  ],
-                ),
+                },
               ),
             ],
           ),
@@ -84,54 +114,97 @@ class RiskScreen extends StatelessWidget {
   }
 }
 
-class _AlertBanner extends StatelessWidget {
-  const _AlertBanner();
+class _FlaggedCard extends StatelessWidget {
+  const _FlaggedCard({required this.expense});
+
+  final RemoteExpense expense;
 
   @override
   Widget build(BuildContext context) {
+    final categoryName = context
+            .watch<AppState>()
+            .categories
+            .where((c) => c.id == expense.categoryId)
+            .map((c) => c.name)
+            .firstOrNull ??
+        'Uncategorised';
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.brick,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.marigold.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.warning_amber_rounded, color: Colors.white, size: 22),
-              SizedBox(width: 8),
+            children: [
+              const Icon(Icons.flag_outlined,
+                  size: 16, color: AppColors.marigoldText),
+              const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  'Flag detected',
-                  style: TextStyle(
-                    fontFamily: AppText.headerFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
-                ),
+                child: Text(expense.description, style: AppText.cardTitle),
               ),
+              Text('₱${expense.amount.toStringAsFixed(2)}',
+                  style: AppText.moneySmall),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '"Annual IT Night" catering spend is 32% above the category '
-                'average for similar events. Flagged for officer review.',
-            style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, color: Colors.white, height: 1.4),
+          const SizedBox(height: 6),
+          Text(categoryName, style: AppText.caption),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.marigoldTint,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              // The backend's own reason, shown verbatim. Nothing is
+              // inferred, and no severity is invented.
+              expense.flagReason?.isNotEmpty == true
+                  ? expense.flagReason!
+                  : 'Flagged, but the backend gave no reason.',
+              style: AppText.caption.copyWith(color: AppColors.marigoldText),
+            ),
           ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.white, width: 0.8),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: const Text('Review Details', style: TextStyle(fontSize: 12)),
+          if (expense.ocrAmountDiffers) ...[
+            const SizedBox(height: 8),
+            Text(
+              'The receipt was read as '
+              '₱${expense.ocrAmount!.toStringAsFixed(2)}, which differs from '
+              'the ₱${expense.amount.toStringAsFixed(2)} recorded.',
+              style: AppText.caption,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NothingFlagged extends StatelessWidget {
+  const _NothingFlagged();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified_outlined, size: 44, color: AppColors.inkFaint),
+          SizedBox(height: 14),
+          Text('Nothing flagged', style: AppText.cardTitle),
+          SizedBox(height: 6),
+          SizedBox(
+            width: 280,
+            child: Text(
+              'No expense has tripped a check. This is the normal state — it '
+              'does not mean nothing has been reviewed.',
+              style: AppText.caption,
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -140,157 +213,54 @@ class _AlertBanner extends StatelessWidget {
   }
 }
 
-class _RiskEventCard extends StatelessWidget {
-  final String title;
-  final String level;
-  final Color levelColor;
-  final Color levelBg;
-  final Color levelTextColor;
-  final String detailLabel;
-  final String detailValue;
-
-  const _RiskEventCard({
-    required this.title,
-    required this.level,
-    required this.levelColor,
-    required this.levelBg,
-    required this.levelTextColor,
-    required this.detailLabel,
-    required this.detailValue,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(child: Text(title, style: AppText.cardTitle)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: levelBg, borderRadius: BorderRadius.circular(20)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(color: levelColor, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '$level Risk',
-                        style: TextStyle(
-                          fontFamily: AppText.bodyFamily,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: levelTextColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1, color: AppColors.border),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.show_chart, size: 15, color: AppColors.inkMuted),
-                const SizedBox(width: 6),
-                Expanded(child: Text(detailLabel, style: AppText.caption)),
-                Text(
-                  detailValue,
-                  style: const TextStyle(
-                    fontFamily: AppText.monoFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13,
-                    color: AppColors.ink,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+/// What actually causes a flag, so the list is interpretable.
 class _CriteriaCard extends StatelessWidget {
   const _CriteriaCard();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _row(
-              icon: Icons.apartment_outlined,
-              title: 'Venue rate changes',
-              body: 'A booked venue\'s rate increased since the last event that used it.',
-              bottomBorder: true,
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('What causes a flag', style: AppText.cardTitle),
+          const SizedBox(height: 10),
+          _line('A receipt resembles another one — same merchant and amount, '
+              'a nearby date.'),
+          _line('The amount read from a receipt differs from the amount '
+              'recorded against it.'),
+          _line('An exact duplicate receipt is refused outright and never '
+              'reaches this list.'),
+          const SizedBox(height: 8),
+          const Text(
+            'A flag is not an accusation. Resolving one is a reviewer '
+            'decision, recorded with a reason.',
+            style: TextStyle(
+              fontFamily: AppText.bodyFamily,
+              fontSize: 10,
+              color: AppColors.inkFaint,
             ),
-            _row(
-              icon: Icons.receipt_long_outlined,
-              title: 'Unliquidated advances',
-              body: 'A cash advance has passed the 14-day liquidation policy without a report filed.',
-              bottomBorder: true,
-            ),
-            _row(
-              icon: Icons.shopping_cart_outlined,
-              title: 'Category spend deviation',
-              body: 'Spending in a category (catering, supplies, etc.) exceeds this org\'s own historical average by a set threshold.',
-              bottomBorder: false,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _row({
-    required IconData icon,
-    required String title,
-    required String body,
-    required bool bottomBorder,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: bottomBorder
-          ? const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)))
-          : null,
+  Widget _line(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(color: const Color(0xFFF4F2EC), borderRadius: BorderRadius.circular(9)),
-            child: Icon(icon, size: 15, color: AppColors.ink),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppText.cardTitle.copyWith(fontSize: 13)),
-                const SizedBox(height: 2),
-                Text(body, style: AppText.caption.copyWith(height: 1.4)),
-              ],
-            ),
-          ),
+          const Text('• ', style: AppText.caption),
+          Expanded(child: Text(text, style: AppText.caption)),
         ],
       ),
     );

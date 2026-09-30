@@ -222,7 +222,8 @@ class _EventCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(event.title, style: AppText.cardTitle),
                 const SizedBox(height: 2),
-                Text('${event.org} · ${event.attendees}', style: AppText.caption),
+                Text(event.org.isEmpty ? 'No organization' : event.org,
+                    style: AppText.caption),
                 const SizedBox(height: 2),
                 // School year / semester / scope. A legacy row missing them
                 // says so rather than showing a blank line, since an

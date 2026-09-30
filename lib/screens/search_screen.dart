@@ -51,7 +51,12 @@ class _SearchScreenState extends State<SearchScreen> {
         _SearchResult(
           type: _ResultType.event,
           title: e.title,
-          subtitle: '${e.org} · ${e.venue}',
+          // Organization plus academic period — both real fields, unlike
+          // the venue this used to show, which never round-tripped.
+          subtitle: [
+            if (e.org.isNotEmpty) e.org,
+            e.academicLabel,
+          ].join(' · '),
           timestamp: e.date,
           tags: [e.statusLabel],
           event: e,

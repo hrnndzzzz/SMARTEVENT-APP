@@ -1,5 +1,6 @@
 import 'api_client.dart';
 import 'models/academic.dart';
+import 'models/remote_expense.dart';
 import 'models/reports.dart';
 
 /// Dashboard analytics, financial reports and their exports.
@@ -30,13 +31,16 @@ class ReportsService {
         .toList();
   }
 
-  /// Flagged expenses. A flag is a reason to look, not a finding — the
-  /// endpoint's name is not the label to put on screen.
-  Future<List<Map<String, dynamic>>> flagged() async {
+  /// Expenses the backend has flagged.
+  ///
+  /// The route is called "threats", which is not the label to put on
+  /// screen: a flag means something looked unusual enough to check, not
+  /// that anyone did anything wrong.
+  Future<List<RemoteExpense>> flagged() async {
     final response = await _client.get('/analytics/threats');
-    return [
-      for (final row in response as List) (row as Map).cast<String, dynamic>(),
-    ];
+    return (response as List)
+        .map((json) => RemoteExpense.fromJson(json as Map<String, dynamic>))
+        .toList();
   }
 
   Future<CategoryReport> categoryReport(String categoryId) async {

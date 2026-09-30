@@ -17,8 +17,6 @@ class CreateEventScreen extends StatefulWidget {
 class _CreateEventScreenState extends State<CreateEventScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _dateController;
-  late final TextEditingController _venueController;
-  late final TextEditingController _attendeesController;
   late final TextEditingController _budgetController;
   final _descriptionController = TextEditingController();
 
@@ -58,10 +56,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     });
     _nameController = TextEditingController(text: e?.title ?? '');
     _dateController = TextEditingController(text: e?.date ?? '');
-    _venueController = TextEditingController(text: e?.venue ?? '');
-    _attendeesController = TextEditingController(
-      text: e?.attendees.replaceAll(' (expected)', '') ?? '',
-    );
     _budgetController = TextEditingController(
       text: e?.budget.replaceAll('₱', '') ?? '',
     );
@@ -71,8 +65,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   void dispose() {
     _nameController.dispose();
     _dateController.dispose();
-    _venueController.dispose();
-    _attendeesController.dispose();
     _budgetController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -125,12 +117,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
     final title = _nameController.text.trim();
     final date = _dateController.text.trim().isEmpty ? 'TBD' : _dateController.text.trim();
-    final venue = _venueController.text.trim().isEmpty ? 'TBD' : _venueController.text.trim();
     final budgetValue = double.tryParse(_budgetController.text.trim()) ?? 0.0;
     final budget = '₱${budgetValue.toStringAsFixed(2)}';
-    final attendees = _attendeesController.text.trim().isEmpty
-        ? 'TBD'
-        : '${_attendeesController.text.trim()} (expected)';
 
     if (_isEditing) {
       setState(() => _submitting = true);
@@ -153,9 +141,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
       if (error == null) {
         e.date = date;
-        e.venue = venue;
         e.budget = budget;
-        e.attendees = attendees;
         e.schoolYear = _schoolYear;
         e.semester = _semester;
         e.eventScope = _eventScope;
@@ -177,8 +163,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         estimatedCost: budgetValue,
         eventDate: _pickedDate,
         description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-        venue: venue,
-        attendees: attendees,
         schoolYear: _schoolYear!,
         semester: _semester!,
         eventScope: _eventScope!,
@@ -333,14 +317,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-              const _FieldLabel('Venue'),
-              const SizedBox(height: 6),
-              _buildTextField(controller: _venueController, hint: 'e.g. CITE Auditorium'),
-              const SizedBox(height: 14),
-              const _FieldLabel('Expected Attendees'),
-              const SizedBox(height: 6),
-              _buildTextField(controller: _attendeesController, hint: 'e.g. 120', keyboardType: TextInputType.number),
               const SizedBox(height: 14),
               const _FieldLabel('Requested Budget'),
               const SizedBox(height: 6),
