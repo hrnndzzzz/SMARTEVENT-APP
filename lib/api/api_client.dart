@@ -138,6 +138,70 @@ class ApiClient {
     });
   }
 
+  /// Fetches a binary response — an export — rather than JSON.
+  ///
+  /// Exports are protected, so they are fetched here with the Authorization
+  /// header. Opening the URL in an external browser instead would send no
+  /// token and fail, or worse, appear to work against a cached session.
+  ///
+  /// The response is checked before it is handed back: a non-2xx, or a body
+  /// whose content type isn't what was asked for, is raised rather than
+  /// returned. That is what stops a JSON error body being saved with a
+  /// `.pdf` extension and only failing when someone opens it.
+  Future<DownloadedFile> download(
+    String path, {
+    Map<String, String>? query,
+    required String expectedContentType,
+    String fallbackFilename = 'export',
+  }) async {
+    final http.Response response;
+    try {
+      response = await _httpClient
+          .get(_uri(path, query), headers: _authHeaders)
+          .timeout(timeout);
+    } on TimeoutException {
+      throw NetworkException('The backend at $baseUrl did not respond in time.');
+    } on http.ClientException catch (error) {
+      throw NetworkException('Could not reach the backend at $baseUrl.',
+          cause: error.message);
+    } catch (error) {
+      throw NetworkException('Could not reach the backend at $baseUrl.',
+          cause: error.toString());
+    }
+
+    // An error body is JSON even when a PDF was requested, so the normal
+    // handler is the right thing for a non-2xx here.
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _handleResponse(response);
+    }
+
+    final actual = response.headers['content-type'] ?? '';
+    if (!actual.toLowerCase().contains(expectedContentType.toLowerCase())) {
+      throw ApiException(
+        response.statusCode,
+        'Expected $expectedContentType but the server sent '
+        '${actual.isEmpty ? 'no content type' : actual}. Nothing was saved.',
+      );
+    }
+
+    return DownloadedFile(
+      bytes: response.bodyBytes,
+      contentType: actual,
+      filename: _filenameFrom(response.headers['content-disposition']) ??
+          fallbackFilename,
+    );
+  }
+
+  /// Pulls the filename out of a `Content-Disposition` header, so a saved
+  /// export is named by the server rather than guessed at.
+  static String? _filenameFrom(String? disposition) {
+    if (disposition == null) return null;
+    final match = RegExp(r'filename\*?=(?:UTF-8'')?"?([^";]+)"?')
+        .firstMatch(disposition);
+    final name = match?.group(1)?.trim();
+    return (name == null || name.isEmpty) ? null : Uri.decodeFull(name);
+  }
+
   /// Runs a request and turns every failure mode into either an
   /// [ApiException] (the server answered) or a [NetworkException] (it
   /// didn't). Nothing else escapes.
@@ -300,4 +364,26 @@ class NetworkException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// A downloaded export: the bytes, what they are, and what to call them.
+///
+/// Deliberately a value rather than a path — the caller decides whether to
+/// save, share or print, and on web there is no file system to write to.
+class DownloadedFile {
+  DownloadedFile({
+    required this.bytes,
+    required this.contentType,
+    required this.filename,
+  });
+
+  final List<int> bytes;
+
+  /// As the server reported it, already checked against what was requested.
+  final String contentType;
+
+  /// From `Content-Disposition` when the server supplied one.
+  final String filename;
+
+  int get sizeBytes => bytes.length;
 }

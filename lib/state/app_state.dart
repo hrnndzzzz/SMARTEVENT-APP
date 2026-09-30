@@ -8,6 +8,8 @@ import '../api/models/income.dart';
 import '../api/models/inventory.dart';
 import '../api/inventory_service.dart';
 import '../api/models/proposal_letter.dart';
+import '../api/models/reports.dart';
+import '../api/reports_service.dart';
 import '../api/models/receipt.dart';
 import '../api/proposal_letter_service.dart';
 import '../api/income_service.dart';
@@ -39,6 +41,11 @@ export '../api/models/receipt.dart';
 
 // Proposal letters are rendered by the letters screen.
 export '../api/models/proposal_letter.dart';
+
+// Dashboard, report and export shapes are rendered by the report screens.
+export '../api/models/reports.dart';
+export '../api/reports_service.dart' show ReportsService;
+export '../api/api_client.dart' show DownloadedFile;
 export '../api/proposal_letter_service.dart' show ProposalLetterService;
 
 // Income and its fund sources are rendered by the income screens.
@@ -427,6 +434,120 @@ class AppState extends ChangeNotifier {
         ..sessionExpired = error is ApiException && error.isUnauthorized;
     }
     notifyListeners();
+  }
+
+  // ---- Dashboard and reports ---------------------------------------------
+
+  late final ReportsService _reportsService = ReportsService(_apiClient);
+
+  /// The server's own dashboard figures. Null until loaded — screens must
+  /// show that state rather than falling back to locally computed numbers,
+  /// which would quietly disagree with the printed reports.
+  DashboardSummary? dashboard;
+  final LoadState dashboardLoad = LoadState();
+
+  List<SpendingTrendPoint> spendingTrends = [];
+
+  Future<void> loadDashboard() => _runLoad(dashboardLoad, () async {
+        dashboard = await _reportsService.dashboard();
+        spendingTrends = await _reportsService.spendingTrends();
+      });
+
+  /// The consolidated report currently on screen, and the filters that
+  /// produced it — kept together so an export cannot be built from
+  /// different ones than were displayed.
+  ConsolidatedFinancialReport? financialReport;
+  final LoadState financialReportLoad = LoadState();
+
+  ReportPeriod reportPeriod = ReportPeriod.monthly;
+  DateTime? reportReferenceDate;
+  String? reportSchoolYear;
+  Semester? reportSemester;
+  EventScope? reportEventScope;
+
+  /// Returns a message when the current filters are incomplete, or null.
+  String? get reportFilterProblem => ReportsService.validateFinancialRequest(
+        period: reportPeriod,
+        schoolYear: reportSchoolYear,
+        semester: reportSemester,
+      );
+
+  void setReportFilters({
+    ReportPeriod? period,
+    DateTime? referenceDate,
+    String? schoolYear,
+    Semester? semester,
+    EventScope? eventScope,
+    bool clearScope = false,
+  }) {
+    if (period != null) reportPeriod = period;
+    if (referenceDate != null) reportReferenceDate = referenceDate;
+    if (schoolYear != null) reportSchoolYear = schoolYear;
+    if (semester != null) reportSemester = semester;
+    if (clearScope) {
+      reportEventScope = null;
+    } else if (eventScope != null) {
+      reportEventScope = eventScope;
+    }
+    notifyListeners();
+  }
+
+  Future<void> loadFinancialReport() {
+    return _runLoad(financialReportLoad, () async {
+      final problem = reportFilterProblem;
+      if (problem != null) throw ApiException(422, problem);
+
+      financialReport = await _reportsService.financialReport(
+        period: reportPeriod,
+        referenceDate: reportReferenceDate,
+        schoolYear: reportSchoolYear,
+        semester: reportSemester,
+        eventScope: reportEventScope,
+      );
+    });
+  }
+
+  /// Downloads the consolidated report using **the filters currently on
+  /// screen**, so the file always matches what was displayed.
+  Future<({DownloadedFile? file, String? error})> exportFinancialReport(
+    ExportFormat format,
+  ) async {
+    final problem = reportFilterProblem;
+    if (problem != null) return (file: null, error: problem);
+
+    try {
+      final file = await _reportsService.exportFinancial(
+        period: reportPeriod,
+        format: format,
+        referenceDate: reportReferenceDate,
+        schoolYear: reportSchoolYear,
+        semester: reportSemester,
+        eventScope: reportEventScope,
+      );
+      return (file: file, error: null);
+    } catch (error) {
+      return (file: null, error: _messageForFailure(error));
+    }
+  }
+
+  Future<({DownloadedFile? file, String? error})> exportDashboard(
+    ExportFormat format,
+  ) async {
+    try {
+      return (file: await _reportsService.exportDashboard(format), error: null);
+    } catch (error) {
+      return (file: null, error: _messageForFailure(error));
+    }
+  }
+
+  Future<({EventReport? report, String? error})> loadEventReport(
+    String eventId,
+  ) async {
+    try {
+      return (report: await _reportsService.eventReport(eventId), error: null);
+    } catch (error) {
+      return (report: null, error: _messageForFailure(error));
+    }
   }
 
   // ---- Proposal letters --------------------------------------------------
@@ -2056,6 +2177,7 @@ class AppState extends ChangeNotifier {
     await loadExpenses();
     await loadSchoolYears();
     await loadScopeOptions();
+    await loadDashboard();
     // Officers have no letter access at all, so this is gated too.
     if (currentRole?.canAccessProposalLetters ?? false) await loadLetters();
   }

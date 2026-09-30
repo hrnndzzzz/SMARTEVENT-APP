@@ -14,6 +14,7 @@ import 'screens/categories_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/income_screen.dart';
 import 'screens/receipts_screen.dart';
+import 'screens/reports_screen.dart';
 import 'screens/events_screen.dart';
 import 'screens/proposal_letters_screen.dart';
 import 'widgets/circle_menu.dart';
@@ -107,6 +108,7 @@ class _RootShellState extends State<RootShell> {
     7: const ReceiptsScreen(),
     8: const IncomeScreen(),
     9: const ProposalLettersScreen(),
+    10: const ReportsScreen(),
   };
 
   /// Navigation offered to this role.
@@ -141,6 +143,7 @@ class _RootShellState extends State<RootShell> {
       // decision controls once inside one.
       CircleMenuItem(icon: Icons.receipt_outlined, label: 'Receipts', onTap: () => _goTo(7)),
       CircleMenuItem(icon: Icons.savings_outlined, label: 'Income', onTap: () => _goTo(8)),
+      CircleMenuItem(icon: Icons.insert_chart_outlined, label: 'Reports', onTap: () => _goTo(10)),
       // Officers have no letter access at all.
       if (widget.role.canAccessProposalLetters)
         CircleMenuItem(icon: Icons.description_outlined, label: 'Letters', onTap: () => _goTo(9)),
