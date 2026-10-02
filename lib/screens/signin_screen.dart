@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../main.dart';
 import 'change_password_screen.dart';
 import 'forgot_password_screen.dart';
@@ -143,49 +144,45 @@ class _SignInScreenState extends State<SignInScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
+              BrutIconButton(
+                icon: Icons.arrow_back,
+                label: 'Back',
                 onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               GestureDetector(
                 onLongPress: () => _showQuickLoginSheet(context),
-                child: const Text(
-                  'Welcome back',
-                  style: TextStyle(
-                    fontFamily: AppText.headerFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 24,
-                    color: AppColors.ink,
-                  ),
-                ),
+                child: const Text('Welcome back', style: AppText.display),
               ),
-              const SizedBox(height: 4),
-              const Text('Sign in to your SmartEvent account.', style: AppText.caption),
-              const SizedBox(height: 22),
-              const _FieldLabel('LCUP Email'),
               const SizedBox(height: 6),
-              _buildTextField(
+              const Text('Sign in to your SmartEvent account.',
+                  style: AppText.caption),
+              const SizedBox(height: 24),
+              BrutTextField(
+                label: 'LCUP email',
                 controller: _emailController,
                 hint: 'yourname@lcup.edu.ph',
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 14),
-              const _FieldLabel('Password'),
-              const SizedBox(height: 6),
-              _buildTextField(
+              BrutTextField(
+                label: 'Password',
                 controller: _passwordController,
                 hint: '••••••••••',
-                obscure: _obscurePassword,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submitting ? null : _signIn(),
                 suffix: IconButton(
                   icon: Icon(
-                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     size: 18,
-                    color: AppColors.inkMuted,
+                    color: AppColors.subtle,
                   ),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
               const SizedBox(height: 12),
@@ -200,8 +197,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         child: Checkbox(
                           value: _rememberMe,
                           onChanged: (v) => setState(() => _rememberMe = v ?? true),
-                          activeColor: AppColors.indigo,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -210,32 +205,25 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                   GestureDetector(
                     onTap: _openForgotPassword,
-                    child: const Text(
+                    child: Text(
                       'Forgot password?',
-                      style: TextStyle(
-                        fontFamily: AppText.bodyFamily,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.indigo,
+                      style: AppText.caption.copyWith(
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                        decorationThickness: 2,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _signIn,
-                  style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                  child: _submitting
-                      ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                      : const Text('Sign In'),
-                ),
+              BrutButton(
+                label: 'Sign in',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Signing in…',
+                onPressed: _signIn,
               ),
               const SizedBox(height: 14),
               Center(
@@ -243,13 +231,13 @@ class _SignInScreenState extends State<SignInScreen> {
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const RegisterScreen()),
                   ),
-                  child: const Text(
+                  child: Text(
                     'On the roster but no account yet? Create one',
-                    style: TextStyle(
-                      fontFamily: AppText.bodyFamily,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.indigo,
+                    style: AppText.caption.copyWith(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                      decorationThickness: 2,
                     ),
                   ),
                 ),
@@ -261,42 +249,4 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    bool obscure = false,
-    Widget? suffix,
-    TextInputType? keyboardType,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.ink),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.inkFaint),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          suffixIcon: suffix,
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  final String text;
-  const _FieldLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text, style: AppText.caption);
-  }
 }

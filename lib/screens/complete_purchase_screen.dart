@@ -218,7 +218,7 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: AppColors.ink),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -289,13 +289,13 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.brick.withValues(alpha: 0.08),
+                    color: AppColors.coral.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                    border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     _error!,
-                    style: AppText.caption.copyWith(color: AppColors.brick),
+                    style: AppText.caption.copyWith(color: AppColors.coral),
                   ),
                 ),
               ],
@@ -356,7 +356,7 @@ class _DateField extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.ink),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -367,11 +367,11 @@ class _DateField extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 13,
-                  color: value == null ? AppColors.inkFaint : AppColors.ink,
+                  color: value == null ? AppColors.muted : AppColors.ink,
                 ),
               ),
             ),
-            const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.inkFaint),
+            const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.muted),
           ],
         ),
       ),
@@ -397,7 +397,7 @@ class _LineConfirmation extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

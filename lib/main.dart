@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
+import 'theme/brut.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
@@ -32,11 +33,19 @@ class SmartEventApp extends StatelessWidget {
       // Kick off the stored-session check as soon as the state exists, so
       // the gate below has something to wait for.
       create: (_) => AppState()..restoreSession(),
-      child: MaterialApp(
-        title: 'SmartEvent',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        home: const _StartupGate(),
+      child: Consumer<AppState>(
+        builder: (context, app, _) => MaterialApp(
+          title: 'SmartEvent',
+          debugShowCheckedModeBanner: false,
+          // The whole app re-tints to the signed-in account's department,
+          // so buttons, chips and fills follow it without each screen
+          // having to ask.
+          theme: AppTheme.light(primary: app.themeColor),
+          // One-hand layout, so it stays a phone-width column on a tablet
+          // or a desktop window instead of stretching across it.
+          builder: (context, child) => AppColumn(child: child!),
+          home: const _StartupGate(),
+        ),
       ),
     );
   }

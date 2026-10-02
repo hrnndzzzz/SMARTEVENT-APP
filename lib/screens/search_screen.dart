@@ -198,12 +198,12 @@ class _SearchBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 18, color: AppColors.inkMuted),
+          const Icon(Icons.search, size: 18, color: AppColors.subtle),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
@@ -220,7 +220,7 @@ class _SearchBar extends StatelessWidget {
           if (controller.text.isNotEmpty)
             GestureDetector(
               onTap: onClear,
-              child: const Icon(Icons.close, size: 16, color: AppColors.inkMuted),
+              child: const Icon(Icons.close, size: 16, color: AppColors.subtle),
             ),
         ],
       ),
@@ -257,8 +257,8 @@ class _FilterChips extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.indigo : AppColors.surface,
-          border: isSelected ? null : Border.all(color: AppColors.border, width: 0.5),
+          color: isSelected ? AppColors.brand : AppColors.surface,
+          border: isSelected ? null : Border.all(color: AppColors.ink, width: 2),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
@@ -294,8 +294,8 @@ class _DropdownChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isDefault ? AppColors.surface : AppColors.indigoLightTint,
-          border: Border.all(color: AppColors.border, width: 0.5),
+          color: isDefault ? AppColors.surface : AppColors.brandTint,
+          border: Border.all(color: AppColors.ink, width: 2),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -314,7 +314,7 @@ class _DropdownChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 15, color: AppColors.inkMuted),
+            const Icon(Icons.keyboard_arrow_down, size: 15, color: AppColors.subtle),
           ],
         ),
       ),
@@ -331,7 +331,7 @@ class _EmptyResults extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: const [
-          Icon(Icons.search_off, size: 34, color: AppColors.inkFaint),
+          Icon(Icons.search_off, size: 34, color: AppColors.muted),
           SizedBox(height: 10),
           Text('No results found.', style: AppText.caption),
         ],
@@ -348,8 +348,8 @@ class _ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isEvent = result.type == _ResultType.event;
-    final tagColor = isEvent ? AppColors.sageTeal : AppColors.marigold;
-    final labelColor = isEvent ? AppColors.sageTeal : AppColors.marigoldText;
+    final tagColor = isEvent ? AppColors.mint : AppColors.sun;
+    final labelColor = isEvent ? AppColors.mint : AppColors.ink;
     final icon = isEvent ? Icons.event_outlined : Icons.receipt_long_outlined;
     final label = isEvent ? 'EVENT' : 'TRANSACTION';
 
@@ -362,7 +362,7 @@ class _ResultCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              border: Border.all(color: AppColors.border, width: 0.5),
+              border: Border.all(color: AppColors.ink, width: 2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -392,7 +392,7 @@ class _ResultCard extends StatelessWidget {
                       style: const TextStyle(
                         fontFamily: AppText.monoFamily,
                         fontSize: 11,
-                        color: AppColors.inkMuted,
+                        color: AppColors.subtle,
                       ),
                     ),
                   ],
@@ -439,7 +439,7 @@ class _ResultCard extends StatelessWidget {
                           fontFamily: AppText.monoFamily,
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
-                          color: AppColors.brick,
+                          color: AppColors.coral,
                         ),
                       ),
                     ],
@@ -468,7 +468,7 @@ class _ResultCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.sageTealTint,
+        color: AppColors.mintTint,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -477,7 +477,7 @@ class _ResultCard extends StatelessWidget {
           fontFamily: AppText.bodyFamily,
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: AppColors.sageTealText,
+          color: AppColors.ink,
         ),
       ),
     );

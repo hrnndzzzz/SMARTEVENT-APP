@@ -69,7 +69,7 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.indigo),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.brand),
         ],
       ),
     );

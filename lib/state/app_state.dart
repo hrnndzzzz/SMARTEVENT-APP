@@ -18,6 +18,7 @@ import '../api/income_service.dart';
 import '../api/models/scope.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
+import '../theme/app_colors.dart';
 import '../api/models/money.dart';
 import '../api/models/notification.dart';
 import '../api/notification_service.dart';
@@ -236,12 +237,12 @@ extension DepartmentInfo on Department {
   };
 
   Color get color => switch (this) {
-    Department.systemWide => const Color(0xFF2B3A67), // existing indigo
-    Department.cite => const Color(0xFFC17A3D), // muted orange
-    Department.cithm => const Color(0xFF8A9A5B), // muted lime green
-    Department.cbea => const Color(0xFFC9A227), // muted yellow/mustard
-    Department.camp => const Color(0xFF4C7A52), // muted forest green
-    Department.case_ => const Color(0xFF4A8FA0), // muted cyan blue
+    Department.systemWide => AppColors.brand,
+    Department.cite => AppColors.sun,
+    Department.cithm => AppColors.mint,
+    Department.cbea => AppColors.coral,
+    Department.camp => AppColors.teal,
+    Department.case_ => AppColors.violet,
   };
 }
 
@@ -2264,13 +2265,17 @@ class AppState extends ChangeNotifier {
   /// Falls back to the neutral system colour rather than to whatever the
   /// local [Department] default happens to be — a Super Admin belongs to no
   /// department, and an Officer cannot read the department list at all.
-  Color get themeColor {
+  Department get themeDepartment {
     final code = departments
         .where((d) => d.id == currentAccount?.departmentId)
         .map((d) => d.code)
         .firstOrNull;
-    return themeDepartmentForCode(code).color;
+    return themeDepartmentForCode(code);
   }
+
+  /// The accent itself. Always a *fill* colour with ink on top — the
+  /// palette is deliberately too light to read as text on the canvas.
+  Color get themeColor => themeDepartment.color;
 
   /// Clears the session and every record loaded for that user, so the next
   /// account signing in on this device can never see the previous one's

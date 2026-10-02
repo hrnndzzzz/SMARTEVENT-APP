@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/expense_review.dart';
 import '../widgets/financial_overview.dart';
@@ -23,9 +24,6 @@ class AdviserDashboardScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppHeader(
-                subtitle: 'Faculty Adviser',
-                subtitleBg: AppColors.sageTealTint,
-                subtitleColor: AppColors.sageTealText,
                 onAvatarTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
@@ -49,7 +47,7 @@ class AdviserDashboardScreen extends StatelessWidget {
                           label: 'Total budget allocated',
                           value: '₱${app.totalAllocated.toStringAsFixed(2)}',
                           icon: Icons.account_balance_wallet_outlined,
-                          iconColor: AppColors.indigo,
+                          tone: BrutTone.brand,
                         ),
                         const SizedBox(height: 10),
                         ExpendedCard(
@@ -151,7 +149,7 @@ class _EventSummaryCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.marigoldTint,
+                      color: AppColors.sunTint,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text(
@@ -160,7 +158,7 @@ class _EventSummaryCard extends StatelessWidget {
                         fontFamily: AppText.bodyFamily,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.marigoldText,
+                        color: AppColors.ink,
                       ),
                     ),
                   ),
@@ -186,8 +184,8 @@ class _EventSummaryCard extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.indigo)),
-                      Icon(Icons.chevron_right, size: 16, color: AppColors.indigo),
+                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.brand)),
+                      Icon(Icons.chevron_right, size: 16, color: AppColors.brand),
                     ],
                   ),
                 ],
@@ -213,8 +211,8 @@ class _HandledEventRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F5F1),
-          border: Border.all(color: AppColors.border, width: 0.5),
+          color: AppColors.canvas,
+          border: Border.all(color: AppColors.ink, width: 2),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -222,7 +220,7 @@ class _HandledEventRow extends StatelessWidget {
             Icon(
               isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
               size: 15,
-              color: isRejected ? AppColors.brick : AppColors.inkFaint,
+              color: isRejected ? AppColors.coral : AppColors.muted,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -232,7 +230,7 @@ class _HandledEventRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.chevron_right, size: 14, color: AppColors.inkFaint),
+            const Icon(Icons.chevron_right, size: 14, color: AppColors.muted),
           ],
         ),
       ),
@@ -250,8 +248,8 @@ class _HandledExpenseRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F5F1),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        color: AppColors.canvas,
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -259,7 +257,7 @@ class _HandledExpenseRow extends StatelessWidget {
           Icon(
             isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
             size: 15,
-            color: isRejected ? AppColors.brick : AppColors.inkFaint,
+            color: isRejected ? AppColors.coral : AppColors.muted,
           ),
           const SizedBox(width: 8),
           Expanded(

@@ -183,11 +183,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ],
               if (_notice != null) ...[
                 const SizedBox(height: 14),
-                _Banner(message: _notice!, color: AppColors.sageTeal),
+                _Banner(message: _notice!, color: AppColors.mint),
               ],
               if (_error != null) ...[
                 const SizedBox(height: 14),
-                _Banner(message: _error!, color: AppColors.brick),
+                _Banner(message: _error!, color: AppColors.coral),
               ],
               const SizedBox(height: 22),
               FilledButton(

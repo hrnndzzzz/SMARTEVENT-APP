@@ -36,7 +36,7 @@ class EventDetailScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F2EC),
+                  color: AppColors.line,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -61,7 +61,7 @@ class EventDetailScreen extends StatelessWidget {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: approved ? AppColors.indigo : AppColors.brick,
+              backgroundColor: approved ? AppColors.brand : AppColors.coral,
             ),
             onPressed: () => Navigator.pop(context, true),
             child: Text(approved ? 'Approve' : 'Reject'),
@@ -141,8 +141,8 @@ class EventDetailScreen extends StatelessWidget {
                           child: OutlinedButton(
                             onPressed: () => _decide(context, approved: false, isAdviserStage: canAdviserDecide),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.brick, width: 0.8),
-                              foregroundColor: AppColors.brick,
+                              side: const BorderSide(color: AppColors.coral, width: 0.8),
+                              foregroundColor: AppColors.coral,
                             ),
                             child: const Text('Reject'),
                           ),
@@ -243,19 +243,19 @@ class _ApprovalStatusCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFBEAE7),
+                  color: AppColors.coralTint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.cancel_outlined, size: 18, color: AppColors.brick),
+                    const Icon(Icons.cancel_outlined, size: 18, color: AppColors.coral),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Rejected by ${event.rejectedBy}', style: const TextStyle(fontFamily: AppText.headerFamily, fontWeight: FontWeight.w500, fontSize: 13, color: AppColors.brick)),
+                          Text('Rejected by ${event.rejectedBy}', style: const TextStyle(fontFamily: AppText.headerFamily, fontWeight: FontWeight.w500, fontSize: 13, color: AppColors.coral)),
                           if ((event.rejectedBy == 'Adviser' ? event.adviserApprovalNote : event.adminApprovalNote)?.isNotEmpty == true) ...[
                             const SizedBox(height: 4),
                             Text(
@@ -304,8 +304,8 @@ class _ApprovalStatusCard extends StatelessWidget {
   }
 
   Widget _stageChip({required String label, required bool done, required bool current}) {
-    final color = done ? AppColors.sageTeal : (current ? AppColors.marigold : AppColors.inkFaint);
-    final bg = done ? AppColors.sageTealTint : (current ? AppColors.marigoldTint : const Color(0xFFF4F2EC));
+    final color = done ? AppColors.mint : (current ? AppColors.sun : AppColors.muted);
+    final bg = done ? AppColors.mintTint : (current ? AppColors.sunTint : AppColors.line);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
@@ -377,7 +377,7 @@ class _ApprovalTimelineCardState extends State<_ApprovalTimelineCard> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +413,7 @@ class _ApprovalTimelineCardState extends State<_ApprovalTimelineCard> {
     if (_error != null) {
       return Text(
         _error!,
-        style: AppText.caption.copyWith(color: AppColors.brick),
+        style: AppText.caption.copyWith(color: AppColors.coral),
       );
     }
 
@@ -452,9 +452,9 @@ class _ApprovalRow extends StatelessWidget {
   final ApprovalRecord record;
 
   Color get _decisionColor => switch (record.decision) {
-        'approved' => AppColors.sageTeal,
-        'rejected' => AppColors.brick,
-        _ => AppColors.marigold,
+        'approved' => AppColors.mint,
+        'rejected' => AppColors.coral,
+        _ => AppColors.sun,
       };
 
   String get _decisionLabel => switch (record.decision) {
@@ -513,7 +513,7 @@ class _ApprovalRow extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: AppText.bodyFamily,
                     fontSize: 10,
-                    color: AppColors.inkFaint,
+                    color: AppColors.muted,
                   ),
                 ),
               ],

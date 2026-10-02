@@ -154,7 +154,7 @@ class _LetterCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +167,7 @@ class _LetterCard extends StatelessWidget {
                     ? Icons.picture_as_pdf_outlined
                     : Icons.image_outlined,
                 size: 18,
-                color: AppColors.inkMuted,
+                color: AppColors.subtle,
               ),
               const SizedBox(width: 8),
               Expanded(child: Text(letter.title, style: AppText.cardTitle)),
@@ -192,7 +192,7 @@ class _LetterCard extends StatelessWidget {
             style: const TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 10,
-              color: AppColors.indigo,
+              color: AppColors.brand,
             ),
           ),
           const SizedBox(height: 4),
@@ -201,7 +201,7 @@ class _LetterCard extends StatelessWidget {
             style: TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 10,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
         ],
@@ -234,7 +234,7 @@ class _Empty extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.description_outlined,
-              size: 44, color: AppColors.inkFaint),
+              size: 44, color: AppColors.muted),
           const SizedBox(height: 14),
           const Text('No letters yet', style: AppText.cardTitle),
           const SizedBox(height: 6),
@@ -395,7 +395,7 @@ class _UploadSheetState extends State<_UploadSheet> {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 6),
@@ -414,13 +414,13 @@ class _UploadSheetState extends State<_UploadSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.brick.withValues(alpha: 0.08),
+                    color: AppColors.coral.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border:
-                        Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                   ),
                   child: Text(_error!,
-                      style: AppText.caption.copyWith(color: AppColors.brick)),
+                      style: AppText.caption.copyWith(color: AppColors.coral)),
                 ),
               ],
 

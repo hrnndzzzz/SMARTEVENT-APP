@@ -175,7 +175,7 @@ class _Note extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = tone == _NoteTone.error ? AppColors.brick : AppColors.sageTeal;
+    final color = tone == _NoteTone.error ? AppColors.coral : AppColors.mint;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),

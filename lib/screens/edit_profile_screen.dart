@@ -92,17 +92,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F2EC),
+                  color: AppColors.line,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(widget.role, style: const TextStyle(fontSize: 13, color: AppColors.inkMuted)),
+                child: Text(widget.role, style: const TextStyle(fontSize: 13, color: AppColors.subtle)),
               ),
               const SizedBox(height: 14),
               const _FieldLabel('Department'),
               const SizedBox(height: 2),
               const Text(
                 'Visual demo only — shows how SmartEvent could theme itself per college.',
-                style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 10, color: AppColors.inkFaint),
+                style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 10, color: AppColors.muted),
               ),
               const SizedBox(height: 8),
               _DepartmentGrid(
@@ -131,7 +131,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 1),
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(10),
       ),
       child: TextField(
@@ -190,7 +190,7 @@ class _DepartmentGrid extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? d.color : AppColors.surface,
-          border: isSelected ? null : Border.all(color: AppColors.border, width: 0.8),
+          border: isSelected ? null : Border.all(color: AppColors.ink, width: 0.8),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(

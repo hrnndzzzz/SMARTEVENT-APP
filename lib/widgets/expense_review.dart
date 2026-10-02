@@ -36,7 +36,7 @@ Future<void> showExpenseDecisionDialog(
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: wouldExceed ? const Color(0xFFFBEAE7) : AppColors.sageTealTint,
+              color: wouldExceed ? AppColors.coralTint : AppColors.mintTint,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -45,7 +45,7 @@ Future<void> showExpenseDecisionDialog(
                 Icon(
                   wouldExceed ? Icons.warning_amber_rounded : Icons.check_circle_outline,
                   size: 15,
-                  color: wouldExceed ? AppColors.brick : AppColors.sageTealText,
+                  color: wouldExceed ? AppColors.coral : AppColors.ink,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -56,7 +56,7 @@ Future<void> showExpenseDecisionDialog(
                     style: TextStyle(
                       fontFamily: AppText.bodyFamily,
                       fontSize: 11,
-                      color: wouldExceed ? AppColors.brick : AppColors.sageTealText,
+                      color: wouldExceed ? AppColors.coral : AppColors.ink,
                     ),
                   ),
                 ),
@@ -77,8 +77,8 @@ Future<void> showExpenseDecisionDialog(
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         OutlinedButton(
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.brick, width: 0.8),
-            foregroundColor: AppColors.brick,
+            side: const BorderSide(color: AppColors.coral, width: 0.8),
+            foregroundColor: AppColors.coral,
           ),
           onPressed: () => Navigator.pop(context, false),
           child: const Text('Reject'),
@@ -154,7 +154,7 @@ class ExpensePendingCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.marigoldTint,
+                      color: AppColors.sunTint,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -163,7 +163,7 @@ class ExpensePendingCard extends StatelessWidget {
                         fontFamily: AppText.bodyFamily,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.marigoldText,
+                        color: AppColors.ink,
                       ),
                     ),
                   ),
@@ -187,8 +187,8 @@ class ExpensePendingCard extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.indigo)),
-                      Icon(Icons.chevron_right, size: 16, color: AppColors.indigo),
+                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.brand)),
+                      Icon(Icons.chevron_right, size: 16, color: AppColors.brand),
                     ],
                   ),
                 ],

@@ -158,8 +158,8 @@ class AccountScreen extends StatelessWidget {
                   _MenuTile(
                     icon: Icons.logout,
                     label: 'Log Out',
-                    iconColor: AppColors.brick,
-                    labelColor: AppColors.brick,
+                    iconColor: AppColors.coral,
+                    labelColor: AppColors.coral,
                     onTap: () => _logout(context),
                   ),
                 ],
@@ -207,7 +207,7 @@ class _MenuTile extends StatelessWidget {
             ),
             const Spacer(),
             if (labelColor == AppColors.ink)
-              const Icon(Icons.chevron_right, size: 18, color: AppColors.inkFaint),
+              const Icon(Icons.chevron_right, size: 18, color: AppColors.muted),
           ],
         ),
       ),

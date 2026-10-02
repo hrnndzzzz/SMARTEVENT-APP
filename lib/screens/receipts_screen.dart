@@ -154,10 +154,10 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: selected ? AppColors.indigo : AppColors.surface,
+            color: selected ? AppColors.brand : AppColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? AppColors.indigo : AppColors.border,
+              color: selected ? AppColors.brand : AppColors.ink,
             ),
           ),
           child: Text(
@@ -166,7 +166,7 @@ class _Chip extends StatelessWidget {
               fontFamily: AppText.bodyFamily,
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: selected ? Colors.white : AppColors.inkMuted,
+              color: selected ? Colors.white : AppColors.subtle,
             ),
           ),
         ),
@@ -181,18 +181,18 @@ class _ReceiptCard extends StatelessWidget {
   final Receipt receipt;
 
   (Color, Color) get _statusColors => switch (receipt.reviewStatus) {
-        ReceiptReviewStatus.clear => (AppColors.inkMuted, AppColors.trackBg),
+        ReceiptReviewStatus.clear => (AppColors.subtle, AppColors.line),
         ReceiptReviewStatus.pending => (
-            AppColors.marigoldText,
-            AppColors.marigoldTint
+            AppColors.ink,
+            AppColors.sunTint
           ),
         ReceiptReviewStatus.cleared => (
-            AppColors.sageTealText,
-            AppColors.sageTealTint
+            AppColors.ink,
+            AppColors.mintTint
           ),
         ReceiptReviewStatus.rejected => (
-            AppColors.brick,
-            const Color(0xFFFBEAE7)
+            AppColors.coral,
+            AppColors.coralTint
           ),
       };
 
@@ -209,7 +209,7 @@ class _ReceiptCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.ink),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,7 +259,7 @@ class _ReceiptCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.trackBg,
+                      color: AppColors.line,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -268,7 +268,7 @@ class _ReceiptCard extends StatelessWidget {
                         fontFamily: AppText.bodyFamily,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.inkMuted,
+                        color: AppColors.subtle,
                       ),
                     ),
                   ),
@@ -279,7 +279,7 @@ class _ReceiptCard extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: AppText.bodyFamily,
                     fontSize: 10,
-                    color: AppColors.inkFaint,
+                    color: AppColors.muted,
                   ),
                 ),
               ],
@@ -303,7 +303,7 @@ class _Empty extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.receipt_outlined, size: 44, color: AppColors.inkFaint),
+          const Icon(Icons.receipt_outlined, size: 44, color: AppColors.muted),
           const SizedBox(height: 14),
           Text(
             filtered ? 'Nothing matches this filter' : 'No receipts yet',
@@ -348,7 +348,7 @@ class _Retry extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.cloud_off_outlined,
-                size: 44, color: AppColors.inkFaint),
+                size: 44, color: AppColors.muted),
             const SizedBox(height: 14),
             const Text('Could not load receipts', style: AppText.cardTitle),
             const SizedBox(height: 6),

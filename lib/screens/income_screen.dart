@@ -141,7 +141,7 @@ class _Totals extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,7 +170,7 @@ class _Totals extends StatelessWidget {
                       Text(
                         '₱${withheld.toStringAsFixed(2)}',
                         style: AppText.moneySmall
-                            .copyWith(color: AppColors.marigoldText),
+                            .copyWith(color: AppColors.ink),
                       ),
                     ],
                   ),
@@ -211,7 +211,7 @@ class _IncomeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,8 +225,8 @@ class _IncomeCard extends StatelessWidget {
                 '₱${income.amount.toStringAsFixed(2)}',
                 style: AppText.moneySmall.copyWith(
                   color: income.isWithheld
-                      ? AppColors.inkFaint
-                      : AppColors.sageTealText,
+                      ? AppColors.muted
+                      : AppColors.ink,
                 ),
               ),
             ],
@@ -241,7 +241,7 @@ class _IncomeCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.indigoLightTint,
+                  color: AppColors.brandTint,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -250,7 +250,7 @@ class _IncomeCard extends StatelessWidget {
                     fontFamily: AppText.bodyFamily,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.indigo,
+                    color: AppColors.brand,
                   ),
                 ),
               ),
@@ -261,7 +261,7 @@ class _IncomeCard extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
             ],
@@ -272,12 +272,12 @@ class _IncomeCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.marigoldTint,
+                color: AppColors.sunTint,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 income.withheldReason,
-                style: AppText.caption.copyWith(color: AppColors.marigoldText),
+                style: AppText.caption.copyWith(color: AppColors.ink),
               ),
             ),
           ],
@@ -298,7 +298,7 @@ class _Empty extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.savings_outlined, size: 44, color: AppColors.inkFaint),
+          const Icon(Icons.savings_outlined, size: 44, color: AppColors.muted),
           const SizedBox(height: 14),
           const Text('No income recorded yet', style: AppText.cardTitle),
           const SizedBox(height: 6),
@@ -460,7 +460,7 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
                 style: const TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 14),
@@ -503,7 +503,7 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: AppColors.ink),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -525,14 +525,14 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.brick.withValues(alpha: 0.08),
+                    color: AppColors.coral.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border:
-                        Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     _error!,
-                    style: AppText.caption.copyWith(color: AppColors.brick),
+                    style: AppText.caption.copyWith(color: AppColors.coral),
                   ),
                 ),
               ],

@@ -91,13 +91,13 @@ class _AdminScreenState extends State<AdminScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
                                 color: _tab == i
-                                    ? AppColors.indigo
+                                    ? AppColors.brand
                                     : AppColors.surface,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: _tab == i
-                                      ? AppColors.indigo
-                                      : AppColors.border,
+                                      ? AppColors.brand
+                                      : AppColors.ink,
                                 ),
                               ),
                               child: Text(
@@ -109,7 +109,7 @@ class _AdminScreenState extends State<AdminScreen> {
                                   fontWeight: FontWeight.w500,
                                   color: _tab == i
                                       ? Colors.white
-                                      : AppColors.inkMuted,
+                                      : AppColors.subtle,
                                 ),
                               ),
                             ),
@@ -161,7 +161,7 @@ class _RosterTab extends StatelessWidget {
               ))
             else if (load.hasFailed && app.roster.isEmpty)
               Text(load.error!,
-                  style: AppText.caption.copyWith(color: AppColors.brick))
+                  style: AppText.caption.copyWith(color: AppColors.coral))
             else if (app.roster.isEmpty)
               const Text('Nobody on the roster yet.', style: AppText.caption)
             else
@@ -212,7 +212,7 @@ class _RosterCard extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.brick),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.coral),
             child: const Text('Remove'),
           ),
         ],
@@ -234,7 +234,7 @@ class _RosterCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,8 +247,8 @@ class _RosterCard extends StatelessWidget {
               if (entry.isClaimed)
                 const _Tag(
                   label: 'Claimed',
-                  fg: AppColors.sageTealText,
-                  bg: AppColors.sageTealTint,
+                  fg: AppColors.ink,
+                  bg: AppColors.mintTint,
                 )
               else
                 IconButton(
@@ -267,14 +267,14 @@ class _RosterCard extends StatelessWidget {
             children: [
               _Tag(
                 label: entry.role.label,
-                fg: AppColors.indigo,
-                bg: AppColors.indigoLightTint,
+                fg: AppColors.brand,
+                bg: AppColors.brandTint,
               ),
               if (entry.position?.isNotEmpty == true)
                 _Tag(
                   label: entry.position!,
-                  fg: AppColors.inkMuted,
-                  bg: AppColors.trackBg,
+                  fg: AppColors.subtle,
+                  bg: AppColors.line,
                 ),
             ],
           ),
@@ -286,7 +286,7 @@ class _RosterCard extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppText.bodyFamily,
                 fontSize: 10,
-                color: AppColors.inkFaint,
+                color: AppColors.muted,
               ),
             ),
           ],
@@ -320,7 +320,7 @@ class _AccountsTab extends StatelessWidget {
           ))
         else if (load.hasFailed && app.managedUsers.isEmpty)
           Text(load.error!,
-              style: AppText.caption.copyWith(color: AppColors.brick))
+              style: AppText.caption.copyWith(color: AppColors.coral))
         else if (app.managedUsers.isEmpty)
           const Text('No accounts in your scope.', style: AppText.caption)
         else
@@ -363,7 +363,7 @@ class _UserCard extends StatelessWidget {
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: suspend
-                ? FilledButton.styleFrom(backgroundColor: AppColors.brick)
+                ? FilledButton.styleFrom(backgroundColor: AppColors.coral)
                 : null,
             child: Text(suspend ? 'Suspend' : 'Restore'),
           ),
@@ -392,7 +392,7 @@ class _UserCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,15 +403,15 @@ class _UserCard extends StatelessWidget {
               _Tag(
                 label: user.statusLabel,
                 fg: user.isSuspended
-                    ? AppColors.brick
+                    ? AppColors.coral
                     : user.isUsable
-                        ? AppColors.sageTealText
-                        : AppColors.marigoldText,
+                        ? AppColors.ink
+                        : AppColors.ink,
                 bg: user.isSuspended
-                    ? const Color(0xFFFBEAE7)
+                    ? AppColors.coralTint
                     : user.isUsable
-                        ? AppColors.sageTealTint
-                        : AppColors.marigoldTint,
+                        ? AppColors.mintTint
+                        : AppColors.sunTint,
               ),
             ],
           ),
@@ -423,14 +423,14 @@ class _UserCard extends StatelessWidget {
             children: [
               _Tag(
                 label: user.role?.label ?? 'Unknown role',
-                fg: AppColors.indigo,
-                bg: AppColors.indigoLightTint,
+                fg: AppColors.brand,
+                bg: AppColors.brandTint,
               ),
               if (user.position?.isNotEmpty == true)
                 _Tag(
                   label: user.position!,
-                  fg: AppColors.inkMuted,
-                  bg: AppColors.trackBg,
+                  fg: AppColors.subtle,
+                  bg: AppColors.line,
                 ),
             ],
           ),
@@ -441,7 +441,7 @@ class _UserCard extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppText.bodyFamily,
                 fontSize: 10,
-                color: AppColors.inkFaint,
+                color: AppColors.muted,
               ),
             )
           else
@@ -450,7 +450,7 @@ class _UserCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(40),
                 foregroundColor:
-                    user.isSuspended ? AppColors.sageTealText : AppColors.brick,
+                    user.isSuspended ? AppColors.ink : AppColors.coral,
               ),
               child: Text(user.isSuspended ? 'Restore access' : 'Suspend access'),
             ),
@@ -484,7 +484,7 @@ class _AuditTab extends StatelessWidget {
           ))
         else if (load.hasFailed && app.auditLog.isEmpty)
           Text(load.error!,
-              style: AppText.caption.copyWith(color: AppColors.brick))
+              style: AppText.caption.copyWith(color: AppColors.coral))
         else if (app.auditLog.isEmpty)
           const Text('Nothing recorded yet.', style: AppText.caption)
         else
@@ -527,7 +527,7 @@ class _AuditRow extends StatelessWidget {
             style: const TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 10,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
         ],
@@ -696,7 +696,7 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 6),
@@ -714,7 +714,7 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 6),
@@ -736,7 +736,7 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 6),
@@ -748,13 +748,13 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.brick.withValues(alpha: 0.08),
+                    color: AppColors.coral.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border:
-                        Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                   ),
                   child: Text(_error!,
-                      style: AppText.caption.copyWith(color: AppColors.brick)),
+                      style: AppText.caption.copyWith(color: AppColors.coral)),
                 ),
               ],
 

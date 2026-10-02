@@ -214,7 +214,7 @@ class _Filters extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +240,7 @@ class _Filters extends StatelessWidget {
             style: const TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 10,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
 
@@ -312,7 +312,7 @@ class _Filters extends StatelessWidget {
           if (problem != null) ...[
             const SizedBox(height: 12),
             Text(problem,
-                style: AppText.caption.copyWith(color: AppColors.marigoldText)),
+                style: AppText.caption.copyWith(color: AppColors.ink)),
           ],
 
           const SizedBox(height: 16),
@@ -345,10 +345,10 @@ class _ScopeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? AppColors.indigo : AppColors.surface,
+          color: selected ? AppColors.brand : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border:
-              Border.all(color: selected ? AppColors.indigo : AppColors.border),
+              Border.all(color: selected ? AppColors.brand : AppColors.ink),
         ),
         child: Text(
           label,
@@ -356,7 +356,7 @@ class _ScopeChip extends StatelessWidget {
             fontFamily: AppText.bodyFamily,
             fontSize: 11,
             fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : AppColors.inkMuted,
+            color: selected ? Colors.white : AppColors.subtle,
           ),
         ),
       ),
@@ -387,7 +387,7 @@ class _DateField extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.ink),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
@@ -398,7 +398,7 @@ class _DateField extends StatelessWidget {
           style: TextStyle(
             fontFamily: AppText.bodyFamily,
             fontSize: 13,
-            color: value == null ? AppColors.inkFaint : AppColors.ink,
+            color: value == null ? AppColors.muted : AppColors.ink,
           ),
         ),
       ),
@@ -432,7 +432,7 @@ class _WindowCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.trackBg,
+        color: AppColors.line,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
@@ -455,17 +455,17 @@ class _TotalsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _figure('Income', report.totalIncome, AppColors.sageTealText),
+          _figure('Income', report.totalIncome, AppColors.ink),
           const SizedBox(height: 10),
           _figure('Approved spending', report.totalExpenses, AppColors.ink),
           const Divider(height: 22),
           _figure('Net balance', report.netBalance,
-              report.netBalance < 0 ? AppColors.brick : AppColors.ink),
+              report.netBalance < 0 ? AppColors.coral : AppColors.ink),
 
           if (report.hasWithheldIncome) ...[
             const SizedBox(height: 12),
@@ -504,11 +504,11 @@ class _TotalsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.marigoldTint,
+        color: AppColors.sunTint,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(text,
-          style: AppText.caption.copyWith(color: AppColors.marigoldText)),
+          style: AppText.caption.copyWith(color: AppColors.ink)),
     );
   }
 }
@@ -525,7 +525,7 @@ class _SourcesCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,7 +575,7 @@ class _EventsCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.ink),
         ),
         child: const Text(
           'No events fall in this period.',
@@ -589,7 +589,7 @@ class _EventsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,7 +602,7 @@ class _EventsCard extends StatelessWidget {
             style: TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 10,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
           const SizedBox(height: 10),
@@ -628,7 +628,7 @@ class _EventsCard extends StatelessWidget {
                           '₱${event.withheldIncomeTotal.toStringAsFixed(2)} '
                           'withheld',
                           style: AppText.caption
-                              .copyWith(color: AppColors.marigoldText),
+                              .copyWith(color: AppColors.ink),
                         ),
                     ],
                   ),
@@ -638,7 +638,7 @@ class _EventsCard extends StatelessWidget {
                   children: [
                     Text('+₱${event.totalIncome.toStringAsFixed(2)}',
                         style: AppText.moneySmall
-                            .copyWith(color: AppColors.sageTealText)),
+                            .copyWith(color: AppColors.ink)),
                     Text('−₱${event.totalExpenses.toStringAsFixed(2)}',
                         style: AppText.caption),
                   ],
@@ -709,7 +709,7 @@ class _NotYetGenerated extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 32),
       child: Column(
         children: [
-          Icon(Icons.insert_chart_outlined, size: 44, color: AppColors.inkFaint),
+          Icon(Icons.insert_chart_outlined, size: 44, color: AppColors.muted),
           SizedBox(height: 14),
           Text('No report yet', style: AppText.cardTitle),
           SizedBox(height: 6),
@@ -738,12 +738,12 @@ class _ErrorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.brick.withValues(alpha: 0.08),
+        color: AppColors.coral.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
       ),
       child: Text(message,
-          style: AppText.caption.copyWith(color: AppColors.brick)),
+          style: AppText.caption.copyWith(color: AppColors.coral)),
     );
   }
 }

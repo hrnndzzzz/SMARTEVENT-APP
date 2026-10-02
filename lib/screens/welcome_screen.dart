@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import 'signin_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -81,26 +82,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: AppColors.indigo,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(Icons.groups_outlined, color: Colors.white, size: 32),
+                      BrutSurface(
+                        fill: AppColors.brand,
+                        radius: AppRadius.cardAll,
+                        width: 72,
+                        height: 72,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.groups_outlined,
+                            color: AppColors.ink, size: 34),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 22),
+                      const MonoLabel('LCUP · Student organisations'),
+                      const SizedBox(height: 8),
                       const Text(
                         'Welcome to\nSmartEvent',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: AppText.headerFamily,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 30,
-                          height: 1.25,
-                          color: AppColors.ink,
-                        ),
+                        style: AppText.display,
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
@@ -111,11 +108,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           child: Text(
                             _taglines[_taglineIndex],
                             key: ValueKey(_taglineIndex),
-                            style: const TextStyle(
-                              fontFamily: AppText.bodyFamily,
-                              fontSize: 14,
-                              color: AppColors.inkMuted,
-                            ),
+                            style: AppText.body.copyWith(color: AppColors.subtle),
                           ),
                         ),
                       ),
@@ -124,10 +117,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              ElevatedButton(
+              BrutButton(
+                label: 'Sign in',
+                trailingIcon: Icons.arrow_forward,
+                size: BrutSize.large,
                 onPressed: _goToSignIn,
-                style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                child: const Text('Sign In'),
               ),
             ],
           ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/expense_review.dart';
 import '../widgets/financial_overview.dart';
@@ -188,9 +189,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppHeader(
-                subtitle: 'System Administrator',
-                subtitleBg: const Color(0xFFE8ECF3),
-                subtitleColor: AppColors.indigo,
                 onAvatarTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
@@ -214,7 +212,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           label: 'Total budget allocated',
                           value: '₱${app.totalAllocated.toStringAsFixed(2)}',
                           icon: Icons.account_balance_wallet_outlined,
-                          iconColor: AppColors.indigo,
+                          tone: BrutTone.brand,
                         ),
                         const SizedBox(height: 10),
                         ExpendedCard(
@@ -326,7 +324,7 @@ class _QuickActionsRow extends StatelessWidget {
           child: _ActionTile(
             icon: Icons.account_balance_wallet_outlined,
             label: 'Set Budget',
-            accent: AppColors.indigo,
+            accent: AppColors.brand,
             onTap: onSetBudget,
           ),
         ),
@@ -335,7 +333,7 @@ class _QuickActionsRow extends StatelessWidget {
           child: _ActionTile(
             icon: Icons.description_outlined,
             label: isGenerating ? 'Generating...' : 'Reports',
-            accent: AppColors.sageTeal,
+            accent: AppColors.mint,
             onTap: onGenerateReports,
             loading: isGenerating,
           ),
@@ -345,7 +343,7 @@ class _QuickActionsRow extends StatelessWidget {
           child: _ActionTile(
             icon: Icons.bar_chart_outlined,
             label: 'Analytics',
-            accent: AppColors.brick,
+            accent: AppColors.coral,
             onTap: onViewAnalytics,
           ),
         ),
@@ -378,7 +376,7 @@ class _ActionTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          border: Border.all(color: AppColors.border, width: 0.5),
+          border: Border.all(color: AppColors.ink, width: 2),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -426,18 +424,18 @@ class _EventSummaryCard extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.sageTealTint,
+                    color: AppColors.mintTint,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check_circle_outline, size: 13, color: AppColors.sageTealText),
+                      const Icon(Icons.check_circle_outline, size: 13, color: AppColors.ink),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Adviser-approved · "${event.adviserApprovalNote}"',
-                          style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.sageTealText),
+                          style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.ink),
                         ),
                       ),
                     ],
@@ -462,8 +460,8 @@ class _EventSummaryCard extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.indigo)),
-                      Icon(Icons.chevron_right, size: 16, color: AppColors.indigo),
+                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.brand)),
+                      Icon(Icons.chevron_right, size: 16, color: AppColors.brand),
                     ],
                   ),
                 ],
@@ -489,8 +487,8 @@ class _HandledEventRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F5F1),
-          border: Border.all(color: AppColors.border, width: 0.5),
+          color: AppColors.canvas,
+          border: Border.all(color: AppColors.ink, width: 2),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -498,7 +496,7 @@ class _HandledEventRow extends StatelessWidget {
             Icon(
               isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
               size: 15,
-              color: isRejected ? AppColors.brick : AppColors.inkFaint,
+              color: isRejected ? AppColors.coral : AppColors.muted,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -508,7 +506,7 @@ class _HandledEventRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.chevron_right, size: 14, color: AppColors.inkFaint),
+            const Icon(Icons.chevron_right, size: 14, color: AppColors.muted),
           ],
         ),
       ),
@@ -526,8 +524,8 @@ class _HandledExpenseRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F5F1),
-        border: Border.all(color: AppColors.border, width: 0.5),
+        color: AppColors.canvas,
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -535,7 +533,7 @@ class _HandledExpenseRow extends StatelessWidget {
           Icon(
             isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
             size: 15,
-            color: isRejected ? AppColors.brick : AppColors.inkFaint,
+            color: isRejected ? AppColors.coral : AppColors.muted,
           ),
           const SizedBox(width: 8),
           Expanded(

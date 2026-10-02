@@ -23,7 +23,7 @@ class LabeledDropdown<T> extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -36,7 +36,7 @@ class LabeledDropdown<T> extends StatelessWidget {
             style: const TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 13,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
           items: items,
@@ -89,7 +89,7 @@ class ScopePicker extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

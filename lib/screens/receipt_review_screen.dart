@@ -169,7 +169,7 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
                 if (_similarError != null)
                   Text(
                     _similarError!,
-                    style: AppText.caption.copyWith(color: AppColors.brick),
+                    style: AppText.caption.copyWith(color: AppColors.coral),
                   )
                 else if (_similar != null && _similar!.isEmpty)
                   const Text(
@@ -207,14 +207,14 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.brick.withValues(alpha: 0.08),
+                      color: AppColors.coral.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                       border:
-                          Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                          Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       _error!,
-                      style: AppText.caption.copyWith(color: AppColors.brick),
+                      style: AppText.caption.copyWith(color: AppColors.coral),
                     ),
                   ),
                 ],
@@ -228,7 +228,7 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
                             : () => _decide(ReceiptDecision.rejected),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(46),
-                          foregroundColor: AppColors.brick,
+                          foregroundColor: AppColors.coral,
                         ),
                         child: const Text('Reject'),
                       ),
@@ -277,10 +277,10 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (fg, bg) = switch (receipt.reviewStatus) {
-      ReceiptReviewStatus.clear => (AppColors.inkMuted, AppColors.trackBg),
-      ReceiptReviewStatus.pending => (AppColors.marigoldText, AppColors.marigoldTint),
-      ReceiptReviewStatus.cleared => (AppColors.sageTealText, AppColors.sageTealTint),
-      ReceiptReviewStatus.rejected => (AppColors.brick, const Color(0xFFFBEAE7)),
+      ReceiptReviewStatus.clear => (AppColors.subtle, AppColors.line),
+      ReceiptReviewStatus.pending => (AppColors.ink, AppColors.sunTint),
+      ReceiptReviewStatus.cleared => (AppColors.ink, AppColors.mintTint),
+      ReceiptReviewStatus.rejected => (AppColors.coral, AppColors.coralTint),
     };
 
     return Container(
@@ -325,7 +325,7 @@ class _DetailsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

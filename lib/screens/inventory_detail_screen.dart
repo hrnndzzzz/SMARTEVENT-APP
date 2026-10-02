@@ -198,10 +198,10 @@ class _StockCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: item.isLowStock ? AppColors.marigoldTint : AppColors.surface,
+        color: item.isLowStock ? AppColors.sunTint : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: item.isLowStock ? AppColors.marigold : AppColors.border,
+          color: item.isLowStock ? AppColors.sun : AppColors.ink,
         ),
       ),
       child: Column(
@@ -236,20 +236,20 @@ class _DraftNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.marigoldTint,
+        color: AppColors.sunTint,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.marigold.withValues(alpha: 0.4)),
+        border: Border.all(color: AppColors.sun.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Unconfirmed draft',
-              style: AppText.cardTitle.copyWith(color: AppColors.marigoldText)),
+              style: AppText.cardTitle.copyWith(color: AppColors.ink)),
           const SizedBox(height: 6),
           Text(
             'This record was created by completing a purchase. Confirming it '
             'makes it usable for movements — it does not add stock again.',
-            style: AppText.caption.copyWith(color: AppColors.marigoldText),
+            style: AppText.caption.copyWith(color: AppColors.ink),
           ),
           if (onConfirm != null) ...[
             const SizedBox(height: 10),
@@ -273,7 +273,7 @@ class _Ledger extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (error != null) {
-      return Text(error!, style: AppText.caption.copyWith(color: AppColors.brick));
+      return Text(error!, style: AppText.caption.copyWith(color: AppColors.coral));
     }
     if (movements == null) {
       return const Text('Loading…', style: AppText.caption);
@@ -304,7 +304,7 @@ class _MovementRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final incoming = movement.isIncoming;
-    final color = incoming ? AppColors.sageTealText : AppColors.brick;
+    final color = incoming ? AppColors.ink : AppColors.coral;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,7 +325,7 @@ class _MovementRow extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: AppText.bodyFamily,
                         fontSize: 10,
-                        color: AppColors.inkFaint,
+                        color: AppColors.muted,
                       ),
                     ),
                   ],
@@ -343,7 +343,7 @@ class _MovementRow extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
             ],
@@ -475,7 +475,7 @@ class _MovementSheetState extends State<_MovementSheet> {
                 style: const TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 14),
@@ -516,7 +516,7 @@ class _MovementSheetState extends State<_MovementSheet> {
                           'zero.'
                       : 'Stock would become $projected ${widget.item.unit}.',
                   style: AppText.caption.copyWith(
-                    color: projected < 0 ? AppColors.brick : AppColors.inkMuted,
+                    color: projected < 0 ? AppColors.coral : AppColors.subtle,
                   ),
                 ),
               ],
@@ -538,13 +538,13 @@ class _MovementSheetState extends State<_MovementSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.brick.withValues(alpha: 0.08),
+                    color: AppColors.coral.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border:
-                        Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                   ),
                   child: Text(_error!,
-                      style: AppText.caption.copyWith(color: AppColors.brick)),
+                      style: AppText.caption.copyWith(color: AppColors.coral)),
                 ),
               ],
 

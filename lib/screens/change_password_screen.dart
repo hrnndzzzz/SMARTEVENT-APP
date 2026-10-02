@@ -240,13 +240,13 @@ class _ErrorNote extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.brick.withValues(alpha: 0.08),
+        color: AppColors.coral.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
       ),
       child: Text(
         message,
-        style: AppText.caption.copyWith(color: AppColors.brick),
+        style: AppText.caption.copyWith(color: AppColors.coral),
       ),
     );
   }

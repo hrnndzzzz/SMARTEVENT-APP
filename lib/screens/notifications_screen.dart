@@ -131,10 +131,10 @@ class _NoticeCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           // Unread stands out; read fades back rather than disappearing.
-          color: notice.isUnread ? AppColors.surface : AppColors.background,
+          color: notice.isUnread ? AppColors.surface : AppColors.canvas,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: notice.isUnread ? AppColors.indigoLightTint : AppColors.border,
+            color: notice.isUnread ? AppColors.brandTint : AppColors.ink,
           ),
         ),
         child: Column(
@@ -149,7 +149,7 @@ class _NoticeCard extends StatelessWidget {
                     height: 8,
                     margin: const EdgeInsets.only(top: 5, right: 8),
                     decoration: const BoxDecoration(
-                      color: AppColors.indigo,
+                      color: AppColors.brand,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -159,7 +159,7 @@ class _NoticeCard extends StatelessWidget {
                     notice.title,
                     style: notice.isUnread
                         ? AppText.cardTitle
-                        : AppText.cardTitle.copyWith(color: AppColors.inkMuted),
+                        : AppText.cardTitle.copyWith(color: AppColors.subtle),
                   ),
                 ),
               ],
@@ -174,7 +174,7 @@ class _NoticeCard extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: AppText.bodyFamily,
                     fontSize: 10,
-                    color: AppColors.inkFaint,
+                    color: AppColors.muted,
                   ),
                 ),
                 if (notice.emailFailed) ...[
@@ -184,7 +184,7 @@ class _NoticeCard extends StatelessWidget {
                   Text(
                     'the matching email could not be sent',
                     style: AppText.caption.copyWith(
-                      color: AppColors.marigoldText,
+                      color: AppColors.ink,
                       fontSize: 10,
                     ),
                   ),
@@ -213,7 +213,7 @@ class _Empty extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.notifications_none, size: 44, color: AppColors.inkFaint),
+          Icon(Icons.notifications_none, size: 44, color: AppColors.muted),
           SizedBox(height: 14),
           Text('Nothing here', style: AppText.cardTitle),
           SizedBox(height: 6),

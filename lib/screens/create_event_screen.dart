@@ -229,7 +229,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 Container(
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    border: Border.all(color: AppColors.border, width: 1),
+                    border: Border.all(color: AppColors.ink, width: 2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -237,7 +237,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     child: DropdownButton<String>(
                       isExpanded: true,
                       value: _selectedCategoryId,
-                      hint: const Text('Select a category', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.inkFaint)),
+                      hint: const Text('Select a category', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.muted)),
                       items: [
                         for (final c in categories)
                           DropdownMenuItem(value: c.id, child: Text(c.name, style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13))),
@@ -313,7 +313,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   child: _buildTextField(
                     controller: _dateController,
                     hint: 'Tap to select a date',
-                    suffix: const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.inkMuted),
+                    suffix: const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.subtle),
                   ),
                 ),
               ),
@@ -357,7 +357,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 1),
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(10),
       ),
       child: TextField(
@@ -367,7 +367,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.ink),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.inkFaint),
+          hintStyle: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 13, color: AppColors.muted),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           suffixIcon: suffix,
@@ -399,7 +399,7 @@ class _PickerField<T> extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 1),
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -412,7 +412,7 @@ class _PickerField<T> extends StatelessWidget {
             style: const TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 13,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
           items: options,

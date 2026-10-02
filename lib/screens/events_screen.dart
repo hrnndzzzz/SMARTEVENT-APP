@@ -15,30 +15,30 @@ class EventsScreen extends StatelessWidget {
   // Draft is deliberately the quietest: it is nobody's queue yet.
   // Completed reads like approved, since it is the settled end state.
   Color _statusBg(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.draft => AppColors.trackBg,
+    EventApprovalStatus.draft => AppColors.line,
     EventApprovalStatus.approved ||
-    EventApprovalStatus.completed => AppColors.sageTealTint,
-    EventApprovalStatus.rejected => const Color(0xFFFBEAE7),
-    EventApprovalStatus.pendingAdmin => AppColors.marigoldTint,
-    EventApprovalStatus.pendingAdviser => const Color(0xFFEDEBE6),
+    EventApprovalStatus.completed => AppColors.mintTint,
+    EventApprovalStatus.rejected => AppColors.coralTint,
+    EventApprovalStatus.pendingAdmin => AppColors.sunTint,
+    EventApprovalStatus.pendingAdviser => AppColors.sunTint,
   };
 
   Color _statusColor(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.draft => AppColors.inkFaint,
+    EventApprovalStatus.draft => AppColors.muted,
     EventApprovalStatus.approved ||
-    EventApprovalStatus.completed => AppColors.sageTealText,
-    EventApprovalStatus.rejected => AppColors.brick,
-    EventApprovalStatus.pendingAdmin => AppColors.marigoldText,
-    EventApprovalStatus.pendingAdviser => AppColors.inkMuted,
+    EventApprovalStatus.completed => AppColors.ink,
+    EventApprovalStatus.rejected => AppColors.alertInk,
+    EventApprovalStatus.pendingAdmin => AppColors.ink,
+    EventApprovalStatus.pendingAdviser => AppColors.ink,
   };
 
   Color _tagColor(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.draft => AppColors.inkFaint,
+    EventApprovalStatus.draft => AppColors.muted,
     EventApprovalStatus.approved ||
-    EventApprovalStatus.completed => AppColors.sageTeal,
-    EventApprovalStatus.rejected => AppColors.brick,
-    EventApprovalStatus.pendingAdmin => AppColors.marigold,
-    EventApprovalStatus.pendingAdviser => AppColors.inkFaint,
+    EventApprovalStatus.completed => AppColors.mint,
+    EventApprovalStatus.rejected => AppColors.coral,
+    EventApprovalStatus.pendingAdmin => AppColors.sun,
+    EventApprovalStatus.pendingAdviser => AppColors.sun,
   };
 
   @override
@@ -187,7 +187,7 @@ class _EventCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              border: Border.all(color: AppColors.border, width: 0.5),
+              border: Border.all(color: AppColors.ink, width: 2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -214,7 +214,7 @@ class _EventCard extends StatelessWidget {
                       style: const TextStyle(
                         fontFamily: AppText.monoFamily,
                         fontSize: 11,
-                        color: AppColors.inkMuted,
+                        color: AppColors.subtle,
                       ),
                     ),
                   ],
@@ -235,8 +235,8 @@ class _EventCard extends StatelessWidget {
                     fontFamily: AppText.bodyFamily,
                     fontSize: 10,
                     color: event.hasIncompleteAcademicMetadata
-                        ? AppColors.marigoldText
-                        : AppColors.inkFaint,
+                        ? AppColors.ink
+                        : AppColors.muted,
                   ),
                 ),
               ],
@@ -325,10 +325,10 @@ class _FilterChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: selected ? AppColors.indigo : AppColors.surface,
+            color: selected ? AppColors.brand : AppColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? AppColors.indigo : AppColors.border,
+              color: selected ? AppColors.brand : AppColors.ink,
             ),
           ),
           child: Text(
@@ -337,7 +337,7 @@ class _FilterChip extends StatelessWidget {
               fontFamily: AppText.bodyFamily,
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: selected ? Colors.white : AppColors.inkMuted,
+              color: selected ? Colors.white : AppColors.subtle,
             ),
           ),
         ),

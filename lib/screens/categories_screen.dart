@@ -148,7 +148,7 @@ class _CategoryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,7 +162,7 @@ class _CategoryCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.marigoldTint,
+                    color: AppColors.sunTint,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -171,7 +171,7 @@ class _CategoryCard extends StatelessWidget {
                       fontFamily: AppText.bodyFamily,
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.marigoldText,
+                      color: AppColors.ink,
                     ),
                   ),
                 ),
@@ -199,9 +199,9 @@ class _CategoryCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: _usedFraction,
               minHeight: 6,
-              backgroundColor: AppColors.trackBg,
+              backgroundColor: AppColors.line,
               valueColor: AlwaysStoppedAnimation(
-                _isLow ? AppColors.marigold : AppColors.indigo,
+                _isLow ? AppColors.sun : AppColors.brand,
               ),
             ),
           ),
@@ -237,7 +237,7 @@ class _CategoryCard extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.brick),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.coral),
             child: const Text('Delete'),
           ),
         ],
@@ -288,7 +288,7 @@ class _Empty extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.folder_open_outlined, size: 44, color: AppColors.inkFaint),
+          const Icon(Icons.folder_open_outlined, size: 44, color: AppColors.muted),
           const SizedBox(height: 14),
           const Text('No categories yet', style: AppText.cardTitle),
           const SizedBox(height: 6),
@@ -328,7 +328,7 @@ class _Retry extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined, size: 44, color: AppColors.inkFaint),
+            const Icon(Icons.cloud_off_outlined, size: 44, color: AppColors.muted),
             const SizedBox(height: 14),
             const Text('Could not load categories', style: AppText.cardTitle),
             const SizedBox(height: 6),
@@ -483,7 +483,7 @@ class _CategoryFormState extends State<_CategoryForm> {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
             ],
@@ -501,13 +501,13 @@ class _CategoryFormState extends State<_CategoryForm> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.brick.withValues(alpha: 0.08),
+                  color: AppColors.coral.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   _error!,
-                  style: AppText.caption.copyWith(color: AppColors.brick),
+                  style: AppText.caption.copyWith(color: AppColors.coral),
                 ),
               ),
             ],

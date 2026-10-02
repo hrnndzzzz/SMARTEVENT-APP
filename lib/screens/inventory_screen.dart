@@ -182,10 +182,10 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: selected ? AppColors.indigo : AppColors.surface,
+            color: selected ? AppColors.brand : AppColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected ? AppColors.indigo : AppColors.border,
+              color: selected ? AppColors.brand : AppColors.ink,
             ),
           ),
           child: Text(
@@ -194,7 +194,7 @@ class _Chip extends StatelessWidget {
               fontFamily: AppText.bodyFamily,
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: selected ? Colors.white : AppColors.inkMuted,
+              color: selected ? Colors.white : AppColors.subtle,
             ),
           ),
         ),
@@ -219,7 +219,7 @@ class _ItemCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.ink),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,7 +231,7 @@ class _ItemCard extends StatelessWidget {
                   '${item.quantity} ${item.unit}',
                   style: AppText.moneySmall.copyWith(
                     color: item.isLowStock
-                        ? AppColors.marigoldText
+                        ? AppColors.ink
                         : AppColors.ink,
                   ),
                 ),
@@ -249,26 +249,26 @@ class _ItemCard extends StatelessWidget {
                 if (item.isDraft)
                   const _Tag(
                     label: 'Unconfirmed draft',
-                    fg: AppColors.marigoldText,
-                    bg: AppColors.marigoldTint,
+                    fg: AppColors.ink,
+                    bg: AppColors.sunTint,
                   ),
                 if (item.isLowStock)
                   _Tag(
                     label: 'Low stock (≤ ${item.lowStockThreshold})',
-                    fg: AppColors.marigoldText,
-                    bg: AppColors.marigoldTint,
+                    fg: AppColors.ink,
+                    bg: AppColors.sunTint,
                   ),
                 if (item.needsEventLink)
                   const _Tag(
                     label: 'No event link',
-                    fg: AppColors.brick,
-                    bg: Color(0xFFFBEAE7),
+                    fg: AppColors.coral,
+                    bg: AppColors.coralTint,
                   ),
                 if (item.location?.isNotEmpty == true)
                   _Tag(
                     label: item.location!,
-                    fg: AppColors.inkMuted,
-                    bg: AppColors.trackBg,
+                    fg: AppColors.subtle,
+                    bg: AppColors.line,
                   ),
               ],
             ),
@@ -320,7 +320,7 @@ class _Empty extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.inventory_2_outlined,
-              size: 44, color: AppColors.inkFaint),
+              size: 44, color: AppColors.muted),
           const SizedBox(height: 14),
           Text(
             filtered ? 'Nothing matches this filter' : 'No items yet',
@@ -507,7 +507,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 10,
-                  color: AppColors.inkFaint,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 6),
@@ -529,13 +529,13 @@ class _NewItemSheetState extends State<_NewItemSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.brick.withValues(alpha: 0.08),
+                    color: AppColors.coral.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                     border:
-                        Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
                   ),
                   child: Text(_error!,
-                      style: AppText.caption.copyWith(color: AppColors.brick)),
+                      style: AppText.caption.copyWith(color: AppColors.coral)),
                 ),
               ],
 
@@ -595,7 +595,7 @@ class _Picker<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -607,7 +607,7 @@ class _Picker<T> extends StatelessWidget {
               style: const TextStyle(
                 fontFamily: AppText.bodyFamily,
                 fontSize: 13,
-                color: AppColors.inkFaint,
+                color: AppColors.muted,
               )),
           items: items,
           onChanged: onChanged,

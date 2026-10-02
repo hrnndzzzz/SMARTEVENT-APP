@@ -173,9 +173,9 @@ class _StatusRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, bg) = switch (expense.status) {
-      ExpenseStatus.approved => ('Approved', AppColors.sageTealText, AppColors.sageTealTint),
-      ExpenseStatus.rejected => ('Rejected', AppColors.brick, const Color(0xFFFBEAE7)),
-      ExpenseStatus.pending => ('Awaiting review', AppColors.marigoldText, AppColors.marigoldTint),
+      ExpenseStatus.approved => ('Approved', AppColors.ink, AppColors.mintTint),
+      ExpenseStatus.rejected => ('Rejected', AppColors.coral, AppColors.coralTint),
+      ExpenseStatus.pending => ('Awaiting review', AppColors.ink, AppColors.sunTint),
     };
 
     return Wrap(
@@ -186,14 +186,14 @@ class _StatusRow extends StatelessWidget {
         if (expense.isPurchaseCompleted)
           const _Pill(
             label: 'Purchase completed',
-            color: AppColors.sageTealText,
-            background: AppColors.sageTealTint,
+            color: AppColors.ink,
+            background: AppColors.mintTint,
           ),
         if (expense.reviewedBy != null)
           _Pill(
             label: 'Reviewed by ${expense.reviewedBy}',
-            color: AppColors.inkMuted,
-            background: AppColors.trackBg,
+            color: AppColors.subtle,
+            background: AppColors.line,
           ),
       ],
     );
@@ -245,20 +245,20 @@ class _FlagCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.marigoldTint,
+        color: AppColors.sunTint,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.marigold.withValues(alpha: 0.4)),
+        border: Border.all(color: AppColors.sun.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.flag_outlined, size: 16, color: AppColors.marigoldText),
+              const Icon(Icons.flag_outlined, size: 16, color: AppColors.ink),
               const SizedBox(width: 6),
               Text(
                 'Flagged for review',
-                style: AppText.cardTitle.copyWith(color: AppColors.marigoldText),
+                style: AppText.cardTitle.copyWith(color: AppColors.ink),
               ),
             ],
           ),
@@ -267,7 +267,7 @@ class _FlagCard extends StatelessWidget {
             reason?.isNotEmpty == true
                 ? reason!
                 : 'The backend flagged this expense but gave no reason.',
-            style: AppText.caption.copyWith(color: AppColors.marigoldText),
+            style: AppText.caption.copyWith(color: AppColors.ink),
           ),
         ],
       ),
@@ -297,7 +297,7 @@ class _OcrCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,7 +319,7 @@ class _OcrCard extends StatelessWidget {
             Text(
               'This differs from the recorded total of '
               '₱${expense.amount.toStringAsFixed(2)}.',
-              style: AppText.caption.copyWith(color: AppColors.marigoldText),
+              style: AppText.caption.copyWith(color: AppColors.ink),
             ),
           ],
           if (expense.hasReceipt) ...[
@@ -327,7 +327,7 @@ class _OcrCard extends StatelessWidget {
             Text(
               'Receipt attached. Event, amount and date are locked while it '
               'is recorded.',
-              style: AppText.caption.copyWith(color: AppColors.inkFaint),
+              style: AppText.caption.copyWith(color: AppColors.muted),
             ),
           ],
         ],
@@ -367,7 +367,7 @@ class _LinesCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,7 +399,7 @@ class _LinesCard extends StatelessWidget {
 
   Widget _body() {
     if (error != null) {
-      return Text(error!, style: AppText.caption.copyWith(color: AppColors.brick));
+      return Text(error!, style: AppText.caption.copyWith(color: AppColors.coral));
     }
     if (lines == null) {
       return const Text('Loading…', style: AppText.caption);
@@ -450,7 +450,7 @@ class _LineRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'In inventory',
-                  style: AppText.caption.copyWith(color: AppColors.sageTealText),
+                  style: AppText.caption.copyWith(color: AppColors.ink),
                 ),
               ],
             ],
@@ -474,16 +474,16 @@ class _PurchaseCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.sageTealTint,
+        color: AppColors.mintTint,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.sageTealBorder),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Purchase completed',
-            style: AppText.cardTitle.copyWith(color: AppColors.sageTealText),
+            style: AppText.cardTitle.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: 10),
           _row('Vendor', expense.purchaseVendor ?? '—'),
@@ -517,13 +517,13 @@ class _PurchaseCard extends StatelessWidget {
           width: 90,
           child: Text(
             label,
-            style: AppText.caption.copyWith(color: AppColors.sageTealText),
+            style: AppText.caption.copyWith(color: AppColors.ink),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: AppText.body.copyWith(color: AppColors.sageTealText),
+            style: AppText.body.copyWith(color: AppColors.ink),
           ),
         ),
       ],

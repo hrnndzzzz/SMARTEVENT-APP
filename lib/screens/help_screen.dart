@@ -147,7 +147,7 @@ class _FaqTileState extends State<_FaqTile> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(color: AppColors.ink, width: 2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
@@ -166,7 +166,7 @@ class _FaqTileState extends State<_FaqTile> {
                   Icon(
                     _expanded ? Icons.expand_less : Icons.expand_more,
                     size: 18,
-                    color: AppColors.inkMuted,
+                    color: AppColors.subtle,
                   ),
                 ],
               ),

@@ -134,7 +134,7 @@ class _FlaggedCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.marigold.withValues(alpha: 0.5)),
+        border: Border.all(color: AppColors.sun.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +142,7 @@ class _FlaggedCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.flag_outlined,
-                  size: 16, color: AppColors.marigoldText),
+                  size: 16, color: AppColors.ink),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(expense.description, style: AppText.cardTitle),
@@ -158,7 +158,7 @@ class _FlaggedCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.marigoldTint,
+              color: AppColors.sunTint,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -167,7 +167,7 @@ class _FlaggedCard extends StatelessWidget {
               expense.flagReason?.isNotEmpty == true
                   ? expense.flagReason!
                   : 'Flagged, but the backend gave no reason.',
-              style: AppText.caption.copyWith(color: AppColors.marigoldText),
+              style: AppText.caption.copyWith(color: AppColors.ink),
             ),
           ),
           if (expense.ocrAmountDiffers) ...[
@@ -194,7 +194,7 @@ class _NothingFlagged extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_outlined, size: 44, color: AppColors.inkFaint),
+          Icon(Icons.verified_outlined, size: 44, color: AppColors.muted),
           SizedBox(height: 14),
           Text('Nothing flagged', style: AppText.cardTitle),
           SizedBox(height: 6),
@@ -225,7 +225,7 @@ class _CriteriaCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,7 +245,7 @@ class _CriteriaCard extends StatelessWidget {
             style: TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 10,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
         ],

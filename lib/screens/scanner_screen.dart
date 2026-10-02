@@ -452,7 +452,7 @@ class _CapturePreview extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: AppColors.ink),
           ),
           clipBehavior: Clip.antiAlias,
           child: image == null
@@ -461,7 +461,7 @@ class _CapturePreview extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.receipt_long_outlined,
-                          size: 40, color: AppColors.inkFaint),
+                          size: 40, color: AppColors.muted),
                       SizedBox(height: 8),
                       Text('No receipt captured yet', style: AppText.caption),
                     ],
@@ -533,14 +533,14 @@ class _ErrorCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.brick.withValues(alpha: 0.08),
+        color: AppColors.coral.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.brick.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(message, style: AppText.caption.copyWith(color: AppColors.brick)),
+          Text(message, style: AppText.caption.copyWith(color: AppColors.coral)),
           if (onRetry != null || onManual != null) ...[
             const SizedBox(height: 8),
             Row(
@@ -601,7 +601,7 @@ class _ReviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,7 +645,7 @@ class _ReviewCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AppColors.ink),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -657,7 +657,7 @@ class _ReviewCard extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: AppText.bodyFamily,
                   fontSize: 13,
-                  color: expenseDate == null ? AppColors.inkFaint : AppColors.ink,
+                  color: expenseDate == null ? AppColors.muted : AppColors.ink,
                 ),
               ),
             ),
@@ -684,7 +684,7 @@ class _ReviewCard extends StatelessWidget {
             style: TextStyle(
               fontFamily: AppText.bodyFamily,
               fontSize: 10,
-              color: AppColors.inkFaint,
+              color: AppColors.muted,
             ),
           ),
           const SizedBox(height: 6),
@@ -707,7 +707,7 @@ class _ReviewCard extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppText.bodyFamily,
                 fontSize: 10,
-                color: AppColors.inkFaint,
+                color: AppColors.muted,
               ),
             ),
             const SizedBox(height: 6),
@@ -742,7 +742,7 @@ class _LinesEditor extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
