@@ -41,7 +41,8 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
     final load = app.lettersLoad;
 
     // SDS reads school-wide but uploads nothing; Officers reach none of it.
-    final canUpload = role != null &&
+    final canUpload =
+        role != null &&
         role.canAccessProposalLetters &&
         !role.isLetterOnly &&
         role.hasOperationalAccess;
@@ -56,7 +57,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
                 builder: (_) => const _UploadSheet(),
               ),
               icon: const Icon(Icons.upload_file),
-              label: const Text('Upload Letter'),
+              label: Text('Upload letter', style: AppText.buttonLabel),
             )
           : null,
       body: SafeArea(
@@ -70,64 +71,43 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Proposal Letters',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 18,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                switch (role) {
-                  null => 'Not signed in.',
-                  final r when r.isLetterOnly =>
-                    'Letters submitted across the school, for your review.',
-                  _ => 'Letters submitted for your organization’s events.',
-                },
-                style: AppText.caption,
-              ),
+              const SizedBox(height: 18),
+              const Text('Proposal letters', style: AppText.screenTitle),
+              const SizedBox(height: 4),
+              Text(switch (role) {
+                null => 'Not signed in.',
+                final r when r.isLetterOnly =>
+                  'Letters submitted across the school, for your review.',
+                _ => 'Letters submitted for your organization’s events.',
+              }, style: AppText.caption),
               const SizedBox(height: 14),
               Expanded(
                 child: switch (load) {
-                  _ when load.isLoading && app.letters.isEmpty =>
-                    const Center(child: CircularProgressIndicator()),
-                  _ when load.hasFailed && app.letters.isEmpty => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(load.error!,
-                                style: AppText.caption,
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: app.loadLetters,
-                              icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text('Try again'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  _ when load.isLoading && app.letters.isEmpty => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                  _ when load.hasFailed && app.letters.isEmpty => BrutRetry(
+                    title: 'Could not load letters',
+                    message: load.error,
+                    sessionExpired: load.sessionExpired,
+                    onRetry: app.loadLetters,
+                  ),
                   _ when app.letters.isEmpty => _Empty(canUpload: canUpload),
                   _ => RefreshIndicator(
-                      onRefresh: app.loadLetters,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 96),
-                        itemCount: app.letters.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) =>
-                            _LetterCard(letter: app.letters[i]),
-                      ),
+                    onRefresh: app.loadLetters,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 96),
+                      itemCount: app.letters.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) =>
+                          _LetterCard(letter: app.letters[i]),
                     ),
+                  ),
                 },
               ),
             ],
@@ -149,75 +129,44 @@ class _LetterCard extends StatelessWidget {
     // which is what the backend returns anyway.
     final eventTitle = context.watch<AppState>().eventTitleFor(letter.eventId);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                letter.looksLikePdf
+              BrutIconTile(
+                icon: letter.looksLikePdf
                     ? Icons.picture_as_pdf_outlined
                     : Icons.image_outlined,
-                size: 18,
-                color: AppColors.subtle,
+                size: 32,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(child: Text(letter.title, style: AppText.cardTitle)),
             ],
           ),
+          const SizedBox(height: 14),
+          BrutDetailRow('Event', eventTitle ?? letter.eventId),
           const SizedBox(height: 8),
-          _row('Event', eventTitle ?? letter.eventId),
-          const SizedBox(height: 4),
           // An id rather than a name: the backend returns ids, and looking
           // one up would be refused for the role that most needs this list.
-          _row('Submitted by', letter.submittedBy),
-          const SizedBox(height: 4),
-          _row(
+          BrutDetailRow('Submitted by', letter.submittedBy),
+          const SizedBox(height: 8),
+          BrutDetailRow(
             'Submitted',
-            '${letter.createdAt.toLocal().year}-'
-                '${letter.createdAt.toLocal().month.toString().padLeft(2, '0')}-'
-                '${letter.createdAt.toLocal().day.toString().padLeft(2, '0')}',
+            BrutDateField.format(letter.createdAt.toLocal()),
+            mono: true,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           SelectableText(
             letter.documentUrl,
-            style: const TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 10,
-              color: AppColors.brand,
-            ),
+            style: AppText.caption.copyWith(fontSize: 10),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'Copy the link to open the document.',
-            style: TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 10,
-              color: AppColors.muted,
-            ),
-          ),
+          const SizedBox(height: 6),
+          const MonoLabel('Copy the link to open the document'),
         ],
       ),
-    );
-  }
-
-  Widget _row(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(width: 92, child: Text(label, style: AppText.caption)),
-        Expanded(
-          child: Text(value, style: AppText.caption.copyWith(color: AppColors.ink)),
-        ),
-      ],
     );
   }
 }
@@ -230,25 +179,12 @@ class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.description_outlined,
-              size: 44, color: AppColors.muted),
-          const SizedBox(height: 14),
-          const Text('No letters yet', style: AppText.cardTitle),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 280,
-            child: Text(
-              canUpload
-                  ? 'Upload a proposal letter against one of your events.'
-                  : 'Letters appear here once they are submitted.',
-              style: AppText.caption,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
+      child: BrutEmptyState(
+        icon: Icons.description_outlined,
+        title: 'No letters yet',
+        hint: canUpload
+            ? 'Upload a proposal letter against one of your events.'
+            : 'Letters appear here once they are submitted.',
       ),
     );
   }
@@ -284,8 +220,10 @@ class _UploadSheetState extends State<_UploadSheet> {
     if (file == null) return;
 
     if (proposalLetterContentTypeFor(file.name) == null) {
-      setState(() => _error =
-          'Letters must be PDF, JPEG or PNG. That file is not one of those.');
+      setState(
+        () => _error =
+            'Letters must be PDF, JPEG or PNG. That file is not one of those.',
+      );
       return;
     }
 
@@ -318,11 +256,11 @@ class _UploadSheetState extends State<_UploadSheet> {
     });
 
     final error = await context.read<AppState>().uploadLetter(
-          eventId: _eventId!,
-          title: _titleController.text.trim(),
-          bytes: _bytes!,
-          filename: _filename!,
-        );
+      eventId: _eventId!,
+      title: _titleController.text.trim(),
+      bytes: _bytes!,
+      filename: _filename!,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -332,44 +270,52 @@ class _UploadSheetState extends State<_UploadSheet> {
 
     if (error == null) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Letter uploaded.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Letter uploaded.')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final events =
-        context.watch<AppState>().events.where((e) => e.remoteId != null).toList();
+    final events = context
+        .watch<AppState>()
+        .events
+        .where((e) => e.remoteId != null)
+        .toList();
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
         decoration: const BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.card),
+          ),
+          border: AppBorders.all,
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Upload a proposal letter', style: AppText.cardTitle),
-              const SizedBox(height: 2),
+              const BrutSectionTitle('Upload a proposal letter'),
+              const SizedBox(height: 4),
               const Text(
                 'Separate from submitting the event — this does not advance '
                 'its review.',
                 style: AppText.caption,
               ),
-              const SizedBox(height: 16),
-
-              const Text('Event', style: AppText.caption),
-              const SizedBox(height: 6),
+              const SizedBox(height: 18),
               BrutDropdown<String>(
+                label: 'Event',
                 value: _eventId,
-                hint: events.isEmpty ? 'No events available' : 'Select an event',
+                hint: events.isEmpty
+                    ? 'No events available'
+                    : 'Select an event',
                 items: [
                   for (final e in events)
                     DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
@@ -377,65 +323,38 @@ class _UploadSheetState extends State<_UploadSheet> {
                 onChanged: (v) => setState(() => _eventId = v),
               ),
               const SizedBox(height: 14),
-
-              const Text('Title', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              BrutTextField(
+                label: 'Title',
                 controller: _titleController,
                 maxLength: 200,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Leadership Summit proposal letter',
-                ),
+                hint: 'e.g. Leadership Summit proposal letter',
+                textCapitalization: TextCapitalization.sentences,
               ),
-
-              const Text('Document', style: AppText.caption),
-              const SizedBox(height: 2),
-              const Text(
-                'PDF, JPEG or PNG, up to 10MB.',
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
+              const SizedBox(height: 14),
+              const MonoLabel('Document'),
+              const SizedBox(height: 6),
+              BrutButton(
+                label: _filename ?? 'Choose a file',
+                icon: Icons.attach_file,
+                tone: BrutTone.neutral,
+                onPressed: _submitting ? null : _pick,
               ),
               const SizedBox(height: 6),
-              OutlinedButton.icon(
-                onPressed: _submitting ? null : _pick,
-                icon: const Icon(Icons.attach_file, size: 16),
-                label: Text(_filename ?? 'Choose a file'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(46),
-                ),
+              const Text(
+                'PDF, JPEG or PNG, up to 10MB.',
+                style: AppText.caption,
               ),
-
               if (_error != null) ...[
                 const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.coral.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(_error!,
-                      style: AppText.caption.copyWith(color: AppColors.coral)),
-                ),
+                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
               ],
-
               const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                style:
-                    FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Upload letter'),
+              BrutButton(
+                label: 'Upload letter',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Uploading…',
+                onPressed: _submit,
               ),
             ],
           ),

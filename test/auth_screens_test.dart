@@ -120,10 +120,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Proposal Letters'), findsOneWidget);
+    expect(find.text('Proposal letters'), findsOneWidget);
     expect(find.textContaining('across the school'), findsOneWidget);
     // SDS reads letters but submits none, so no upload control.
-    expect(find.text('Upload Letter'), findsNothing);
+    expect(find.text('Upload letter'), findsNothing);
   });
 
   testWidgets('an adviser sees an upload control and its own scope',
@@ -138,6 +138,6 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('your organization'), findsOneWidget);
-    expect(find.text('Upload Letter'), findsOneWidget);
+    expect(find.text('Upload letter'), findsOneWidget);
   });
 }

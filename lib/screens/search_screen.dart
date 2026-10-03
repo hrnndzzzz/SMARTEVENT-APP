@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
@@ -44,7 +45,10 @@ class _SearchScreenState extends State<SearchScreen> {
   String _filter = 'All';
   String _category = 'All Categories';
 
-  List<String> get _categoryOptions => ['All Categories', ...context.read<AppState>().expenseCategories];
+  List<String> get _categoryOptions => [
+    'All Categories',
+    ...context.read<AppState>().expenseCategories,
+  ];
   List<_SearchResult> _buildResults(AppState app) {
     final results = <_SearchResult>[
       for (final e in app.events)
@@ -53,10 +57,7 @@ class _SearchScreenState extends State<SearchScreen> {
           title: e.title,
           // Organization plus academic period — both real fields, unlike
           // the venue this used to show, which never round-tripped.
-          subtitle: [
-            if (e.org.isNotEmpty) e.org,
-            e.academicLabel,
-          ].join(' · '),
+          subtitle: [if (e.org.isNotEmpty) e.org, e.academicLabel].join(' · '),
           timestamp: e.date,
           tags: [e.statusLabel],
           event: e,
@@ -86,12 +87,14 @@ class _SearchScreenState extends State<SearchScreen> {
       };
       // Category filter only narrows transactions — events don't carry
       // a category dimension in this app's data model.
-      final matchesCategory = _category == 'All Categories' ||
+      final matchesCategory =
+          _category == 'All Categories' ||
           r.type == _ResultType.event ||
           r.category == _category;
       if (!matchesType || !matchesCategory) return false;
       if (query.isEmpty) return true;
-      return r.title.toLowerCase().contains(query) || r.subtitle.toLowerCase().contains(query);
+      return r.title.toLowerCase().contains(query) ||
+          r.subtitle.toLowerCase().contains(query);
     }).toList();
   }
 
@@ -115,7 +118,9 @@ class _SearchScreenState extends State<SearchScreen> {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -143,34 +148,37 @@ class _SearchScreenState extends State<SearchScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
+                        BrutSectionTitle(
                           _controller.text.trim().isEmpty
-                              ? 'All results (${results.length})'
-                              : 'Results for "${_controller.text.trim()}" (${results.length})',
-                          style: AppText.cardTitle,
+                              ? 'All results'
+                              : 'Results for "${_controller.text.trim()}"',
+                          aside: MonoLabel('${results.length} found'),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Expanded(
                           child: results.isEmpty
                               ? const _EmptyResults()
                               : ListView(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            children: [
-                              for (final r in results) ...[
-                                _ResultCard(
-                                  result: r,
-                                  onTap: r.event == null
-                                      ? null
-                                      : () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => EventDetailScreen(event: r.event!),
-                                    ),
-                                  ),
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  children: [
+                                    for (final r in results) ...[
+                                      _ResultCard(
+                                        result: r,
+                                        onTap: r.event == null
+                                            ? null
+                                            : () => Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      EventDetailScreen(
+                                                        event: r.event!,
+                                                      ),
+                                                ),
+                                              ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                    ],
+                                  ],
                                 ),
-                                const SizedBox(height: 10),
-                              ],
-                            ],
-                          ),
                         ),
                       ],
                     );
@@ -190,40 +198,25 @@ class _SearchBar extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
 
-  const _SearchBar({required this.controller, required this.onChanged, required this.onClear});
+  const _SearchBar({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.ink, width: 2),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search, size: 18, color: AppColors.subtle),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              style: AppText.body,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                hintText: 'Search events or transactions...',
-              ),
+    return BrutTextField(
+      controller: controller,
+      onChanged: onChanged,
+      hint: 'Search events or transactions…',
+      prefixIcon: Icons.search,
+      suffix: controller.text.isEmpty
+          ? null
+          : IconButton(
+              onPressed: onClear,
+              icon: const Icon(Icons.close, size: 18),
             ),
-          ),
-          if (controller.text.isNotEmpty)
-            GestureDetector(
-              onTap: onClear,
-              child: const Icon(Icons.close, size: 16, color: AppColors.subtle),
-            ),
-        ],
-      ),
     );
   }
 }
@@ -236,41 +229,15 @@ class _FilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _chip('All'),
-          const SizedBox(width: 8),
-          _chip('Events'),
-          const SizedBox(width: 8),
-          _chip('Transactions'),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip(String label) {
-    final isSelected = selected == label;
-    return GestureDetector(
-      onTap: () => onSelect(label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.brand : AppColors.surface,
-          border: isSelected ? null : Border.all(color: AppColors.ink, width: 2),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: AppText.bodyFamily,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-            color: isSelected ? Colors.white : AppColors.ink,
+    return BrutChipBar(
+      children: [
+        for (final label in const ['All', 'Events', 'Transactions'])
+          BrutChip(
+            label: label,
+            selected: selected == label,
+            onTap: () => onSelect(label),
           ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -280,42 +247,47 @@ class _DropdownChip extends StatelessWidget {
   final List<String> options;
   final ValueChanged<String> onSelected;
 
-  const _DropdownChip({required this.value, required this.options, required this.onSelected});
+  const _DropdownChip({
+    required this.value,
+    required this.options,
+    required this.onSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDefault = value == options.first;
-    return PopupMenuButton<String>(
-      onSelected: onSelected,
-      itemBuilder: (context) => [
-        for (final o in options)
-          PopupMenuItem(value: o, child: Text(o, style: AppText.body.copyWith(fontSize: 13))),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: isDefault ? AppColors.surface : AppColors.brandTint,
-          border: Border.all(color: AppColors.ink, width: 2),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                value,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 12,
-                  fontWeight: isDefault ? FontWeight.w400 : FontWeight.w500,
-                  color: AppColors.ink,
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: PopupMenuButton<String>(
+        onSelected: onSelected,
+        itemBuilder: (context) => [
+          for (final o in options) PopupMenuItem(value: o, child: Text(o)),
+        ],
+        child: BrutSurface(
+          fill: isDefault
+              ? AppColors.surface
+              : Theme.of(context).colorScheme.primary,
+          radius: AppRadius.controlAll,
+          shadow: isDefault ? AppShadows.none : AppShadows.sm,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.buttonLabel.copyWith(
+                    fontSize: 12,
+                    color: isDefault ? AppColors.subtle : AppColors.ink,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 15, color: AppColors.subtle),
-          ],
+              const SizedBox(width: 6),
+              const Icon(Icons.expand_more, size: 18),
+            ],
+          ),
         ),
       ),
     );
@@ -327,14 +299,11 @@ class _EmptyResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.search_off, size: 34, color: AppColors.muted),
-          SizedBox(height: 10),
-          Text('No results found.', style: AppText.caption),
-        ],
+    return const Center(
+      child: BrutEmptyState(
+        icon: Icons.search_off,
+        title: 'No results',
+        hint: 'Try a shorter search, or clear the filters.',
       ),
     );
   }
@@ -348,137 +317,83 @@ class _ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isEvent = result.type == _ResultType.event;
-    final tagColor = isEvent ? AppColors.mint : AppColors.sun;
-    final labelColor = isEvent ? AppColors.mint : AppColors.ink;
-    final icon = isEvent ? Icons.event_outlined : Icons.receipt_long_outlined;
-    final label = isEvent ? 'EVENT' : 'TRANSACTION';
+    final tone = isEvent ? BrutTone.mint : BrutTone.sun;
 
-    return GestureDetector(
+    return BrutCard(
       onTap: onTap,
-      child: Stack(
+      radius: AppRadius.rowAll,
+      padding: EdgeInsets.zero,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The kind of record as a stripe, so a mixed list can be read by
+          // colour before it is read by word.
           Container(
-            margin: const EdgeInsets.only(left: 4),
-            padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
+            width: 8,
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border.all(color: AppColors.ink, width: 2),
-              borderRadius: BorderRadius.circular(12),
+              color: tone.fill(context),
+              border: const Border(right: AppBorders.side),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(AppRadius.row - AppBorders.width),
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(icon, size: 13, color: labelColor),
-                        const SizedBox(width: 6),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontFamily: AppText.bodyFamily,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: labelColor,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      result.timestamp,
-                      style: const TextStyle(
-                        fontFamily: AppText.monoFamily,
-                        fontSize: 11,
-                        color: AppColors.subtle,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                if (isEvent)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(result.title, style: AppText.cardTitle),
-                      const SizedBox(height: 4),
-                      Text(result.subtitle, style: AppText.caption),
-                      if (result.tags.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            for (int i = 0; i < result.tags.length; i++) ...[
-                              _pill(result.tags[i]),
-                              if (i != result.tags.length - 1) const SizedBox(width: 6),
-                            ],
-                          ],
-                        ),
-                      ],
+                      BrutBadge(
+                        label: isEvent ? 'Event' : 'Transaction',
+                        tone: tone,
+                        mono: true,
+                      ),
+                      const Spacer(),
+                      Text(result.timestamp, style: AppText.moneySmall),
                     ],
-                  )
-                else
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(result.title, style: AppText.cardTitle),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             Text(result.subtitle, style: AppText.caption),
                           ],
                         ),
                       ),
-                      Text(
-                        result.amount ?? '',
-                        style: const TextStyle(
-                          fontFamily: AppText.monoFamily,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                          color: AppColors.coral,
+                      if (!isEvent && result.amount != null) ...[
+                        const SizedBox(width: 10),
+                        Text(
+                          result.amount!,
+                          style: AppText.moneyLarge.copyWith(fontSize: 15),
                         ),
-                      ),
+                      ],
                     ],
                   ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 0,
-            top: 12,
-            bottom: 12,
-            child: Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: tagColor,
-                borderRadius: const BorderRadius.horizontal(right: Radius.circular(2)),
+                  if (isEvent && result.tags.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tag in result.tags)
+                          BrutBadge(label: tag, tone: BrutTone.mint),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _pill(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.mintTint,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: AppColors.ink,
-        ),
       ),
     );
   }
