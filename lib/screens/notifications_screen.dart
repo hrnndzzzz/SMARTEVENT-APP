@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 
 /// The signed-in user's notification inbox.
 ///
@@ -35,74 +36,44 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Notifications',
-                    style: TextStyle(
-                      fontFamily: AppText.headerFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 18,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (app.unreadNoticeCount > 0)
-                    Text('${app.unreadNoticeCount} unread',
-                        style: AppText.caption),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Expanded(
+        bottom: false,
+        child: Column(
+          children: [
+            BrutHeader(
+              title: 'Notifications',
+              eyebrow: app.unreadNoticeCount > 0
+                  ? '${app.unreadNoticeCount} unread'
+                  : null,
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: switch (load) {
-                  _ when load.isLoading && app.notices.isEmpty =>
-                    const Center(child: CircularProgressIndicator()),
-                  _ when load.hasFailed && app.notices.isEmpty => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(load.error!,
-                                style: AppText.caption,
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: app.loadNotices,
-                              icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text('Try again'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  _ when load.isLoading && app.notices.isEmpty => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                  _ when load.hasFailed && app.notices.isEmpty => BrutRetry(
+                    title: 'Could not load notifications',
+                    message: load.error,
+                    sessionExpired: load.sessionExpired,
+                    onRetry: app.loadNotices,
+                  ),
                   _ when app.notices.isEmpty => const _Empty(),
                   _ => RefreshIndicator(
-                      onRefresh: app.loadNotices,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        itemCount: app.notices.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) =>
-                            _NoticeCard(notice: app.notices[i]),
-                      ),
+                    onRefresh: app.loadNotices,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      itemCount: app.notices.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) =>
+                          _NoticeCard(notice: app.notices[i]),
                     ),
+                  ),
                 },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -116,83 +87,63 @@ class _NoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return BrutCard(
+      // Unread sits on its shadow; read lies flat. The difference is the
+      // whole signal, so no dot is needed on top of it.
+      shadow: notice.isUnread ? AppShadows.base : AppShadows.none,
+      padding: const EdgeInsets.all(14),
       onTap: notice.isUnread
           ? () async {
               final messenger = ScaffoldMessenger.of(context);
-              final error =
-                  await context.read<AppState>().markNoticeRead(notice);
+              final error = await context.read<AppState>().markNoticeRead(
+                notice,
+              );
               if (error != null) {
                 messenger.showSnackBar(SnackBar(content: Text(error)));
               }
             }
           : null,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          // Unread stands out; read fades back rather than disappearing.
-          color: notice.isUnread ? AppColors.surface : AppColors.canvas,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: notice.isUnread ? AppColors.brandTint : AppColors.ink,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  notice.title,
+                  style: notice.isUnread
+                      ? AppText.cardTitle
+                      : AppText.cardTitle.copyWith(color: AppColors.subtle),
+                ),
+              ),
+              if (notice.isUnread) ...[
+                const SizedBox(width: 8),
+                const BrutBadge(label: 'New', tone: BrutTone.brand, mono: true),
+              ],
+            ],
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (notice.isUnread) ...[
-                  Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(top: 5, right: 8),
-                    decoration: const BoxDecoration(
-                      color: AppColors.brand,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-                Expanded(
-                  child: Text(
-                    notice.title,
-                    style: notice.isUnread
-                        ? AppText.cardTitle
-                        : AppText.cardTitle.copyWith(color: AppColors.subtle),
+          const SizedBox(height: 6),
+          Text(notice.body, style: AppText.caption),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              MonoLabel(_when(notice.createdAt.toLocal())),
+              if (notice.emailFailed) ...[
+                const SizedBox(width: 8),
+                // The notice itself arrived; only the email did not. Said
+                // plainly so nobody waits for a message that isn't coming.
+                const Expanded(
+                  child: BrutBadge(
+                    label: 'Email not sent',
+                    tone: BrutTone.sun,
+                    mono: true,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(notice.body, style: AppText.caption),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  _when(notice.createdAt.toLocal()),
-                  style: const TextStyle(
-                    fontFamily: AppText.bodyFamily,
-                    fontSize: 10,
-                    color: AppColors.muted,
-                  ),
-                ),
-                if (notice.emailFailed) ...[
-                  const SizedBox(width: 8),
-                  // The notice itself arrived; only the email did not. Said
-                  // plainly so nobody waits for a message that isn't coming.
-                  Text(
-                    'the matching email could not be sent',
-                    style: AppText.caption.copyWith(
-                      color: AppColors.ink,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -210,23 +161,12 @@ class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.notifications_none, size: 44, color: AppColors.muted),
-          SizedBox(height: 14),
-          Text('Nothing here', style: AppText.cardTitle),
-          SizedBox(height: 6),
-          SizedBox(
-            width: 280,
-            child: Text(
-              'Notifications appear when the system has something to tell '
-              'you, such as a registration being confirmed.',
-              style: AppText.caption,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
+      child: BrutEmptyState(
+        icon: Icons.notifications_none,
+        title: 'Nothing here',
+        hint:
+            'Notifications appear when the system has something to tell '
+            'you, such as a registration being confirmed.',
       ),
     );
   }

@@ -10,6 +10,8 @@ import '../widgets/financial_overview.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'event_detail_screen.dart';
+import 'events_screen.dart' show eventStatusTone;
+import 'expense_detail_screen.dart' show expenseStatusTone;
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -50,55 +52,68 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Set Category Budget', style: AppText.cardTitle),
+          title: const Text('Set category budget', style: AppText.cardTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Category', style: AppText.caption),
-              const SizedBox(height: 6),
-              DropdownButton<String>(
+              BrutDropdown<String>(
+                label: 'Category',
                 value: selected,
-                isExpanded: true,
+                hint: 'Select a category',
                 items: [
-                  for (final c in categories) DropdownMenuItem(value: c, child: Text(c)),
+                  for (final c in categories)
+                    DropdownMenuItem(value: c, child: Text(c)),
                 ],
                 onChanged: (v) {
                   setDialogState(() {
                     selected = v!;
-                    controller.text =
-                        (app.categoryBudgets[selected] ?? 0).toStringAsFixed(2);
+                    controller.text = (app.categoryBudgets[selected] ?? 0)
+                        .toStringAsFixed(2);
                   });
                 },
               ),
               const SizedBox(height: 14),
-              const Text('Amount (₱)', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              BrutTextField(
+                label: 'Amount',
                 controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(hintText: '0.00'),
+                prefixIcon: Icons.payments_outlined,
+                hint: '0.00',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            BrutButton(
+              label: 'Save',
+              expand: false,
+              size: BrutSize.small,
               onPressed: () {
                 final amount = double.tryParse(controller.text.trim());
                 Navigator.pop(context);
                 if (amount == null || amount < 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter a valid amount.')),
+                    const SnackBar(
+                      content: Text('Please enter a valid amount.'),
+                    ),
                   );
                   return;
                 }
                 app.setCategoryBudget(selected, amount);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$selected budget set to ₱${amount.toStringAsFixed(2)}')),
+                  SnackBar(
+                    content: Text(
+                      '$selected budget set to ₱${amount.toStringAsFixed(2)}',
+                    ),
+                  ),
                 );
               },
-              child: const Text('Save'),
             ),
           ],
         ),
@@ -112,7 +127,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (!mounted) return;
     setState(() => _generatingReport = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Org-wide financial summary generated — org_summary_q2_2026.pdf')),
+      const SnackBar(
+        content: Text(
+          'Org-wide financial summary generated — org_summary_q2_2026.pdf',
+        ),
+      ),
     );
   }
 
@@ -133,9 +152,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _analyticsRow('Total budget allocated', '₱${allocated.toStringAsFixed(2)}'),
-              _analyticsRow('Total expended (approved)', '₱${expended.toStringAsFixed(2)}'),
-              _analyticsRow('Overall utilization', '${utilization.toStringAsFixed(0)}%'),
+              _analyticsRow(
+                'Total budget allocated',
+                '₱${allocated.toStringAsFixed(2)}',
+              ),
+              _analyticsRow(
+                'Total expended (approved)',
+                '₱${expended.toStringAsFixed(2)}',
+              ),
+              _analyticsRow(
+                'Overall utilization',
+                '${utilization.toStringAsFixed(0)}%',
+              ),
               const SizedBox(height: 12),
               const Text('By category', style: AppText.caption),
               const SizedBox(height: 8),
@@ -152,7 +180,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -165,15 +196,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: AppText.body.copyWith(fontSize: 13)),
-          Text(
-            value,
-            style: const TextStyle(
-              fontFamily: AppText.monoFamily,
-              fontWeight: FontWeight.w500,
-              fontSize: 13,
-              color: AppColors.ink,
-            ),
-          ),
+          Text(value, style: AppText.number),
         ],
       ),
     );
@@ -193,7 +216,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -203,7 +228,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     final pendingEvents = app.pendingAdminEvents;
                     final handledEvents = app.adminHandledEvents;
                     final pendingExpenses = app.pendingExpenses;
-                    final handledExpenses = app.expenses.where((e) => e.status != ExpenseStatus.pending).toList();
+                    final handledExpenses = app.expenses
+                        .where((e) => e.status != ExpenseStatus.pending)
+                        .toList();
 
                     return ListView(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -227,55 +254,84 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           spend: app.spendByCategory,
                         ),
                         const SizedBox(height: 10),
-                        ExpenseDistributionCard(spendByCategory: app.spendByCategory),
+                        ExpenseDistributionCard(
+                          spendByCategory: app.spendByCategory,
+                        ),
                         const SizedBox(height: 16),
                         _QuickActionsRow(
                           onSetBudget: () => _setCategoryBudget(context),
-                          onGenerateReports: _generatingReport ? null : _generateReports,
+                          onGenerateReports: _generatingReport
+                              ? null
+                              : _generateReports,
                           onViewAnalytics: () => _viewAnalytics(context),
                           isGenerating: _generatingReport,
                         ),
                         const SizedBox(height: 18),
-                        Text('Pending final approval (${pendingEvents.length})', style: AppText.cardTitle),
+                        BrutSectionTitle(
+                          'Pending final approval',
+                          aside: MonoLabel('${pendingEvents.length} waiting'),
+                        ),
                         const SizedBox(height: 4),
-                        const Text('Tap a request to review and decide.', style: AppText.caption),
+                        const Text(
+                          'Tap a request to review and decide.',
+                          style: AppText.caption,
+                        ),
                         const SizedBox(height: 10),
                         if (pendingEvents.isEmpty)
-                          const _EmptyState(text: 'No pending approvals. All caught up.')
+                          const BrutEmptyState(
+                            title: 'All caught up',
+                            hint: 'Nothing is waiting on final approval.',
+                            icon: Icons.task_alt,
+                          )
                         else
                           for (final event in pendingEvents) ...[
                             _EventSummaryCard(
                               event: event,
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EventDetailScreen(event: event),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
                           ],
                         if (pendingExpenses.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          Text('Pending expenses (${pendingExpenses.length})', style: AppText.cardTitle),
+                          BrutSectionTitle(
+                            'Pending expenses',
+                            aside: MonoLabel(
+                              '${pendingExpenses.length} waiting',
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          const Text('Tap to approve or reject.', style: AppText.caption),
+                          const Text(
+                            'Tap to approve or reject.',
+                            style: AppText.caption,
+                          ),
                           const SizedBox(height: 10),
                           for (final expense in pendingExpenses) ...[
                             ExpensePendingCard(
                               expense: expense,
                               reviewerRole: 'Admin',
-                              onInsufficientBudget: () => _setCategoryBudget(context),
+                              onInsufficientBudget: () =>
+                                  _setCategoryBudget(context),
                             ),
                             const SizedBox(height: 10),
                           ],
                         ],
                         if (handledEvents.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          const Text('Recently handled events', style: AppText.caption),
-                          const SizedBox(height: 8),
+                          const BrutSectionTitle('Recently handled events'),
+                          const SizedBox(height: 10),
                           for (final event in handledEvents) ...[
                             _HandledEventRow(
                               event: event,
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EventDetailScreen(event: event),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -283,8 +339,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ],
                         if (handledExpenses.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          const Text('Recently handled expenses', style: AppText.caption),
-                          const SizedBox(height: 8),
+                          const BrutSectionTitle('Recently handled expenses'),
+                          const SizedBox(height: 10),
                           for (final expense in handledExpenses) ...[
                             _HandledExpenseRow(expense: expense),
                             const SizedBox(height: 6),
@@ -324,7 +380,7 @@ class _QuickActionsRow extends StatelessWidget {
           child: _ActionTile(
             icon: Icons.account_balance_wallet_outlined,
             label: 'Set Budget',
-            accent: AppColors.brand,
+            accent: BrutTone.brand,
             onTap: onSetBudget,
           ),
         ),
@@ -333,7 +389,7 @@ class _QuickActionsRow extends StatelessWidget {
           child: _ActionTile(
             icon: Icons.description_outlined,
             label: isGenerating ? 'Generating...' : 'Reports',
-            accent: AppColors.mint,
+            accent: BrutTone.mint,
             onTap: onGenerateReports,
             loading: isGenerating,
           ),
@@ -343,7 +399,7 @@ class _QuickActionsRow extends StatelessWidget {
           child: _ActionTile(
             icon: Icons.bar_chart_outlined,
             label: 'Analytics',
-            accent: AppColors.coral,
+            accent: BrutTone.coral,
             onTap: onViewAnalytics,
           ),
         ),
@@ -355,7 +411,7 @@ class _QuickActionsRow extends StatelessWidget {
 class _ActionTile extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color accent;
+  final BrutTone accent;
   final VoidCallback? onTap;
   final bool loading;
 
@@ -369,34 +425,35 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return BrutSurface(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.ink, width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            loading
-                ? SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: accent),
-            )
-                : Icon(icon, color: accent, size: 20),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: AppText.body.copyWith(fontSize: 11, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
+      enabled: onTap != null,
+      fill: accent.fill(context),
+      radius: AppRadius.rowAll,
+      shadow: AppShadows.base,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.ink,
+                  ),
+                )
+              : Icon(icon, color: AppColors.ink, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.buttonLabel.copyWith(fontSize: 11.5),
+          ),
+        ],
       ),
     );
   }
@@ -410,65 +467,40 @@ class _EventSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return BrutCard(
       onTap: onTap,
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The adviser already looked at this; say what they said rather
+          // than making the admin go and find it.
+          if (event.adviserApprovalNote?.isNotEmpty == true) ...[
+            BrutInlineMessage(
+              tone: BrutTone.mint,
+              icon: Icons.check_circle_outline,
+              text: 'Adviser-approved · "${event.adviserApprovalNote}"',
+            ),
+            const SizedBox(height: 12),
+          ],
+          Text(event.title, style: AppText.cardTitle),
+          const SizedBox(height: 3),
+          Text('${event.org} · ${event.date}', style: AppText.caption),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              if (event.adviserApprovalNote?.isNotEmpty == true)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.mintTint,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.check_circle_outline, size: 13, color: AppColors.ink),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Adviser-approved · "${event.adviserApprovalNote}"',
-                          style: const TextStyle(fontFamily: AppText.bodyFamily, fontSize: 11, color: AppColors.ink),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              Text(event.title, style: AppText.cardTitle),
-              const SizedBox(height: 2),
-              Text('${event.org} · ${event.date}', style: AppText.caption),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    event.budget,
-                    style: const TextStyle(
-                      fontFamily: AppText.monoFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.brand)),
-                      Icon(Icons.chevron_right, size: 16, color: AppColors.brand),
-                    ],
-                  ),
-                ],
+              Text(
+                event.budget,
+                style: AppText.moneyLarge.copyWith(fontSize: 17),
               ),
+              const Spacer(),
+              Text(
+                'Review',
+                style: AppText.buttonLabel.copyWith(fontSize: 12.5),
+              ),
+              const Icon(Icons.chevron_right, size: 18, color: AppColors.ink),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -481,34 +513,16 @@ class _HandledEventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRejected = event.status == EventApprovalStatus.rejected;
-    return GestureDetector(
+    return BrutListRow(
+      title: event.title,
+      meta: event.statusLabel,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.canvas,
-          border: Border.all(color: AppColors.ink, width: 2),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
-              size: 15,
-              color: isRejected ? AppColors.coral : AppColors.muted,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${event.title} · ${event.statusLabel}',
-                style: AppText.caption,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 14, color: AppColors.muted),
-          ],
-        ),
+      marker: BrutIconTile(
+        icon: event.status == EventApprovalStatus.rejected
+            ? Icons.cancel_outlined
+            : Icons.check_circle_outline,
+        tone: eventStatusTone(event.status),
+        size: 30,
       ),
     );
   }
@@ -521,44 +535,16 @@ class _HandledExpenseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRejected = expense.status == ExpenseStatus.rejected;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        border: Border.all(color: AppColors.ink, width: 2),
-        borderRadius: BorderRadius.circular(10),
+    return BrutListRow(
+      title: expense.vendor,
+      meta:
+          '₱${expense.amount.toStringAsFixed(2)} · '
+          '${isRejected ? 'Rejected' : 'Approved'}',
+      marker: BrutIconTile(
+        icon: isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
+        tone: expenseStatusTone(expense.status),
+        size: 30,
       ),
-      child: Row(
-        children: [
-          Icon(
-            isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
-            size: 15,
-            color: isRejected ? AppColors.coral : AppColors.muted,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${expense.vendor} · ₱${expense.amount.toStringAsFixed(2)} · ${isRejected ? 'Rejected' : 'Approved'}',
-              style: AppText.caption,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final String text;
-  const _EmptyState({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      alignment: Alignment.center,
-      child: Text(text, style: AppText.caption),
     );
   }
 }

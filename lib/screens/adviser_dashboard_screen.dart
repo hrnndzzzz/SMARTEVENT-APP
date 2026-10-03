@@ -10,6 +10,8 @@ import '../widgets/financial_overview.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'event_detail_screen.dart';
+import 'events_screen.dart' show eventStatusTone;
+import 'expense_detail_screen.dart' show expenseStatusTone;
 
 class AdviserDashboardScreen extends StatelessWidget {
   const AdviserDashboardScreen({super.key});
@@ -28,7 +30,9 @@ class AdviserDashboardScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -38,7 +42,9 @@ class AdviserDashboardScreen extends StatelessWidget {
                     final pendingEvents = app.pendingAdviserEvents;
                     final handledEvents = app.adviserHandledEvents;
                     final pendingExpenses = app.pendingExpenses;
-                    final handledExpenses = app.expenses.where((e) => e.status != ExpenseStatus.pending).toList();
+                    final handledExpenses = app.expenses
+                        .where((e) => e.status != ExpenseStatus.pending)
+                        .toList();
 
                     return ListView(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -62,44 +68,73 @@ class AdviserDashboardScreen extends StatelessWidget {
                           spend: app.spendByCategory,
                         ),
                         const SizedBox(height: 10),
-                        ExpenseDistributionCard(spendByCategory: app.spendByCategory),
+                        ExpenseDistributionCard(
+                          spendByCategory: app.spendByCategory,
+                        ),
                         const SizedBox(height: 18),
-                        Text('Pending events (${pendingEvents.length})', style: AppText.cardTitle),
+                        BrutSectionTitle(
+                          'Pending events',
+                          aside: MonoLabel('${pendingEvents.length} waiting'),
+                        ),
                         const SizedBox(height: 4),
-                        const Text('Tap a request to review and decide.', style: AppText.caption),
+                        const Text(
+                          'Tap a request to review and decide.',
+                          style: AppText.caption,
+                        ),
                         const SizedBox(height: 10),
                         if (pendingEvents.isEmpty)
-                          const _EmptyState(text: 'No pending events. All caught up.')
+                          const BrutEmptyState(
+                            title: 'All caught up',
+                            hint: 'No events are waiting on you.',
+                            icon: Icons.task_alt,
+                          )
                         else
                           for (final event in pendingEvents) ...[
                             _EventSummaryCard(
                               event: event,
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EventDetailScreen(event: event),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
                           ],
                         if (pendingExpenses.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          Text('Pending expenses (${pendingExpenses.length})', style: AppText.cardTitle),
+                          BrutSectionTitle(
+                            'Pending expenses',
+                            aside: MonoLabel(
+                              '${pendingExpenses.length} waiting',
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          const Text('Tap to approve or reject.', style: AppText.caption),
+                          const Text(
+                            'Tap to approve or reject.',
+                            style: AppText.caption,
+                          ),
                           const SizedBox(height: 10),
                           for (final expense in pendingExpenses) ...[
-                            ExpensePendingCard(expense: expense, reviewerRole: 'Adviser'),
+                            ExpensePendingCard(
+                              expense: expense,
+                              reviewerRole: 'Adviser',
+                            ),
                             const SizedBox(height: 10),
                           ],
                         ],
                         if (handledEvents.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          const Text('Recently handled events', style: AppText.caption),
-                          const SizedBox(height: 8),
+                          const BrutSectionTitle('Recently handled events'),
+                          const SizedBox(height: 10),
                           for (final event in handledEvents) ...[
                             _HandledEventRow(
                               event: event,
                               onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EventDetailScreen(event: event),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -107,8 +142,8 @@ class AdviserDashboardScreen extends StatelessWidget {
                         ],
                         if (handledExpenses.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          const Text('Recently handled expenses', style: AppText.caption),
-                          const SizedBox(height: 8),
+                          const BrutSectionTitle('Recently handled expenses'),
+                          const SizedBox(height: 10),
                           for (final expense in handledExpenses) ...[
                             _HandledExpenseRow(expense: expense),
                             const SizedBox(height: 6),
@@ -135,64 +170,38 @@ class _EventSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return BrutCard(
       onTap: onTap,
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.sunTint,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Event Proposal',
-                      style: TextStyle(
-                        fontFamily: AppText.bodyFamily,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(event.title, style: AppText.cardTitle),
-              const SizedBox(height: 2),
-              Text('${event.org} · ${event.date}', style: AppText.caption),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    event.budget,
-                    style: const TextStyle(
-                      fontFamily: AppText.monoFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.brand)),
-                      Icon(Icons.chevron_right, size: 16, color: AppColors.brand),
-                    ],
-                  ),
-                ],
-              ),
+              const BrutBadge(label: 'Event proposal', tone: BrutTone.sun),
+              const Spacer(),
+              Text(event.date, style: AppText.moneySmall),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+          Text(event.title, style: AppText.cardTitle),
+          const SizedBox(height: 3),
+          Text(event.org, style: AppText.caption),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                event.budget,
+                style: AppText.moneyLarge.copyWith(fontSize: 17),
+              ),
+              const Spacer(),
+              Text(
+                'Review',
+                style: AppText.buttonLabel.copyWith(fontSize: 12.5),
+              ),
+              const Icon(Icons.chevron_right, size: 18, color: AppColors.ink),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -205,34 +214,16 @@ class _HandledEventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRejected = event.status == EventApprovalStatus.rejected;
-    return GestureDetector(
+    return BrutListRow(
+      title: event.title,
+      meta: event.statusLabel,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.canvas,
-          border: Border.all(color: AppColors.ink, width: 2),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
-              size: 15,
-              color: isRejected ? AppColors.coral : AppColors.muted,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${event.title} · ${event.statusLabel}',
-                style: AppText.caption,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 14, color: AppColors.muted),
-          ],
-        ),
+      marker: BrutIconTile(
+        icon: event.status == EventApprovalStatus.rejected
+            ? Icons.cancel_outlined
+            : Icons.check_circle_outline,
+        tone: eventStatusTone(event.status),
+        size: 30,
       ),
     );
   }
@@ -245,44 +236,16 @@ class _HandledExpenseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRejected = expense.status == ExpenseStatus.rejected;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.canvas,
-        border: Border.all(color: AppColors.ink, width: 2),
-        borderRadius: BorderRadius.circular(10),
+    return BrutListRow(
+      title: expense.vendor,
+      meta:
+          '₱${expense.amount.toStringAsFixed(2)} · '
+          '${isRejected ? 'Rejected' : 'Approved'}',
+      marker: BrutIconTile(
+        icon: isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
+        tone: expenseStatusTone(expense.status),
+        size: 30,
       ),
-      child: Row(
-        children: [
-          Icon(
-            isRejected ? Icons.cancel_outlined : Icons.check_circle_outline,
-            size: 15,
-            color: isRejected ? AppColors.coral : AppColors.muted,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${expense.vendor} · ₱${expense.amount.toStringAsFixed(2)} · ${isRejected ? 'Rejected' : 'Approved'}',
-              style: AppText.caption,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final String text;
-  const _EmptyState({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      alignment: Alignment.center,
-      child: Text(text, style: AppText.caption),
     );
   }
 }
