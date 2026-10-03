@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
@@ -18,15 +17,13 @@ import 'event_detail_screen.dart';
 /// stages are yellow — they mean the same thing to the person looking at
 /// the list, and the label says which desk it is on.
 BrutTone eventStatusTone(EventApprovalStatus s) => switch (s) {
-      EventApprovalStatus.draft => BrutTone.neutral,
-      EventApprovalStatus.approved ||
-      EventApprovalStatus.completed =>
-        BrutTone.mint,
-      EventApprovalStatus.rejected => BrutTone.coral,
-      EventApprovalStatus.pendingAdmin ||
-      EventApprovalStatus.pendingAdviser =>
-        BrutTone.sun,
-    };
+  EventApprovalStatus.draft => BrutTone.neutral,
+  EventApprovalStatus.approved ||
+  EventApprovalStatus.completed => BrutTone.mint,
+  EventApprovalStatus.rejected => BrutTone.coral,
+  EventApprovalStatus.pendingAdmin ||
+  EventApprovalStatus.pendingAdviser => BrutTone.sun,
+};
 
 class EventsScreen extends StatelessWidget {
   const EventsScreen({super.key});
@@ -45,7 +42,9 @@ class EventsScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -98,7 +97,8 @@ class EventsScreen extends StatelessWidget {
                       );
                     }
                     if (app.events.isEmpty) {
-                      final filtered = app.schoolYearFilter != null ||
+                      final filtered =
+                          app.schoolYearFilter != null ||
                           app.showOnlyMissingSchoolYear;
                       return Center(
                         child: BrutEmptyState(
@@ -111,8 +111,8 @@ class EventsScreen extends StatelessWidget {
                           hint: filtered
                               ? 'Clear the filter to see every event.'
                               : (app.currentRole?.canProposeEvents ?? false)
-                                  ? 'Tap New to submit one.'
-                                  : null,
+                              ? 'Tap New to submit one.'
+                              : null,
                         ),
                       );
                     }
@@ -182,8 +182,10 @@ class _EventCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(event.title, style: AppText.cardTitle),
                   const SizedBox(height: 3),
-                  Text(event.org.isEmpty ? 'No organization' : event.org,
-                      style: AppText.caption),
+                  Text(
+                    event.org.isEmpty ? 'No organization' : event.org,
+                    style: AppText.caption,
+                  ),
                   const SizedBox(height: 6),
                   // School year / semester / scope. A legacy row missing
                   // them says so rather than showing a blank line, since
@@ -225,67 +227,27 @@ class _SchoolYearFilterBar extends StatelessWidget {
 
     if (years.isEmpty && !canRepair) return const SizedBox.shrink();
 
-    return SizedBox(
-      height: 34,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _FilterChip(
-            label: 'All years',
-            selected:
-                app.schoolYearFilter == null && !app.showOnlyMissingSchoolYear,
-            onTap: () => app.applyEventFilter(),
-          ),
-          for (final year in years)
-            _FilterChip(
-              label: year,
-              selected: app.schoolYearFilter == year,
-              onTap: () => app.applyEventFilter(schoolYear: year),
-            ),
-          if (canRepair)
-            _FilterChip(
-              label: 'Needs school year',
-              selected: app.showOnlyMissingSchoolYear,
-              onTap: () => app.applyEventFilter(missingOnly: true),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: BrutSurface(
-        onTap: onTap,
-        fill: selected
-            ? Theme.of(context).colorScheme.primary
-            : AppColors.surface,
-        radius: AppRadius.controlAll,
-        shadow: selected ? AppShadows.sm : AppShadows.none,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: AppText.buttonLabel.copyWith(
-            fontSize: 12,
-            color: selected ? AppColors.ink : AppColors.subtle,
-          ),
+    return BrutChipBar(
+      children: [
+        BrutChip(
+          label: 'All years',
+          selected:
+              app.schoolYearFilter == null && !app.showOnlyMissingSchoolYear,
+          onTap: () => app.applyEventFilter(),
         ),
-      ),
+        for (final year in years)
+          BrutChip(
+            label: year,
+            selected: app.schoolYearFilter == year,
+            onTap: () => app.applyEventFilter(schoolYear: year),
+          ),
+        if (canRepair)
+          BrutChip(
+            label: 'Needs school year',
+            selected: app.showOnlyMissingSchoolYear,
+            onTap: () => app.applyEventFilter(missingOnly: true),
+          ),
+      ],
     );
   }
 }

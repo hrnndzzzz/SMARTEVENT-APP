@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 
 /// Record Payment and Delivery — the step that turns approved asset lines
 /// into stock.
@@ -153,191 +154,138 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Complete purchase',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 19,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Adds the asset lines of “${widget.expense.vendor}” to stock. '
-                'This happens once and cannot be repeated.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 20),
-
-              const _Label('Paid on'),
-              const SizedBox(height: 6),
-              _DateField(
-                value: _paidOn,
-                hint: 'Select the payment date',
-                onTap: () => _pickDate(paid: true),
-              ),
-              const SizedBox(height: 14),
-
-              const _Label('Received on'),
-              const SizedBox(height: 6),
-              _DateField(
-                value: _receivedOn,
-                hint: 'Select the delivery date',
-                onTap: () => _pickDate(paid: false),
-              ),
-              const SizedBox(height: 14),
-
-              const _Label('Amount paid'),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  prefixText: '₱ ',
-                  helperText: 'Must equal the expense total of '
+        bottom: false,
+        child: Column(
+          children: [
+            BrutHeader(
+              eyebrow: 'Step 2 of 2 · Payment and delivery',
+              title: 'Complete purchase',
+              tone: BrutTone.mint,
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Adds the asset lines of “${widget.expense.vendor}” to '
+                      'stock. This happens once and cannot be repeated.',
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 20),
+                    _DateField(
+                      label: 'Paid on',
+                      value: _paidOn,
+                      hint: 'Select the payment date',
+                      onTap: () => _pickDate(paid: true),
+                    ),
+                    const SizedBox(height: 14),
+                    _DateField(
+                      label: 'Received on',
+                      value: _receivedOn,
+                      hint: 'Select the delivery date',
+                      onTap: () => _pickDate(paid: false),
+                    ),
+                    const SizedBox(height: 14),
+                    BrutTextField(
+                      label: 'Amount paid',
+                      controller: _amountController,
+                      prefixIcon: Icons.payments_outlined,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Must equal the expense total of '
                       '₱${widget.expense.amount.toStringAsFixed(2)}.',
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              const _Label('Payment method'),
-              const SizedBox(height: 6),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border.all(color: AppColors.ink),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<PaymentMethod>(
-                    isExpanded: true,
-                    value: _method,
-                    items: [
-                      for (final method in PaymentMethod.values)
-                        DropdownMenuItem(
-                          value: method,
-                          child: Text(
-                            method.label,
-                            style: const TextStyle(
-                              fontFamily: AppText.bodyFamily,
-                              fontSize: 13,
-                            ),
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 14),
+                    BrutDropdown<PaymentMethod>(
+                      label: 'Payment method',
+                      value: _method,
+                      hint: 'How it was paid',
+                      items: [
+                        for (final method in PaymentMethod.values)
+                          DropdownMenuItem(
+                            value: method,
+                            child: Text(method.label),
                           ),
-                        ),
+                      ],
+                      onChanged: (v) => setState(() => _method = v ?? _method),
+                    ),
+                    const SizedBox(height: 14),
+                    BrutTextField(
+                      label: 'Payment reference',
+                      controller: _referenceController,
+                      hint: 'e.g. PAY-2026-001',
+                    ),
+                    const SizedBox(height: 14),
+                    BrutTextField(
+                      label: 'Supplier',
+                      controller: _vendorController,
+                      hint: 'Actual supplier',
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 24),
+                    const BrutSectionTitle('Items received'),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Confirm what actually arrived. Consumables are not '
+                      'stocked by this step and are not listed.',
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 12),
+                    for (final line in widget.assetLines) ...[
+                      _LineConfirmation(
+                        line: line,
+                        quantity: _quantities[line.id]!,
+                        unit: _units[line.id]!,
+                      ),
+                      const SizedBox(height: 10),
                     ],
-                    onChanged: (v) => setState(() => _method = v ?? _method),
-                  ),
+                    if (widget.assetLines.isEmpty)
+                      const BrutEmptyState(
+                        title: 'No asset lines on this expense',
+                        hint: 'Nothing would enter stock.',
+                        icon: Icons.inventory_2_outlined,
+                      ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 14),
+                      BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 14),
-
-              const _Label('Payment reference'),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _referenceController,
-                decoration: const InputDecoration(hintText: 'e.g. PAY-2026-001'),
+            ),
+            BrutFooter(
+              child: BrutButton(
+                label: 'Record payment and delivery',
+                tone: BrutTone.mint,
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Recording…',
+                onPressed: _submit,
               ),
-              const SizedBox(height: 14),
-
-              const _Label('Supplier'),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _vendorController,
-                decoration: const InputDecoration(hintText: 'Actual supplier'),
-              ),
-              const SizedBox(height: 22),
-
-              const Text('Items received', style: AppText.cardTitle),
-              const SizedBox(height: 2),
-              const Text(
-                'Confirm what actually arrived. Consumables are not stocked '
-                'by this step and are not listed.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 10),
-              for (final line in widget.assetLines) ...[
-                _LineConfirmation(
-                  line: line,
-                  quantity: _quantities[line.id]!,
-                  unit: _units[line.id]!,
-                ),
-                const SizedBox(height: 10),
-              ],
-              if (widget.assetLines.isEmpty)
-                const Text(
-                  'No asset lines on this expense — nothing would enter stock.',
-                  style: AppText.caption,
-                ),
-
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.coral.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: AppText.caption.copyWith(color: AppColors.coral),
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Record payment and delivery'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Text(text, style: AppText.caption);
-}
-
 class _DateField extends StatelessWidget {
   const _DateField({
+    required this.label,
     required this.value,
     required this.hint,
     required this.onTap,
   });
 
+  final String label;
   final DateTime? value;
   final String hint;
   final VoidCallback onTap;
@@ -349,32 +297,33 @@ class _DateField extends StatelessWidget {
         : '${value!.year}-${value!.month.toString().padLeft(2, '0')}'
             '-${value!.day.toString().padLeft(2, '0')}';
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.ink),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 13,
-                  color: value == null ? AppColors.muted : AppColors.ink,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MonoLabel(label),
+        const SizedBox(height: 6),
+        BrutSurface(
+          onTap: onTap,
+          radius: AppRadius.controlAll,
+          shadow: AppShadows.sm,
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  text,
+                  style: AppText.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: value == null ? AppColors.muted : AppColors.ink,
+                  ),
                 ),
               ),
-            ),
-            const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.muted),
-          ],
+              const Icon(Icons.calendar_today_outlined, size: 16),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -392,35 +341,39 @@ class _LineConfirmation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return BrutCard(
+      radius: AppRadius.rowAll,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.ink),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(line.name, style: AppText.body),
-          const SizedBox(height: 2),
-          Text('₱${line.amount.toStringAsFixed(2)}', style: AppText.caption),
-          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: Text(
+                  line.name,
+                  style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('₱${line.amount.toStringAsFixed(2)}',
+                  style: AppText.number),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: BrutTextField(
+                  label: 'Quantity',
                   controller: quantity,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Quantity'),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: TextField(
-                  controller: unit,
-                  decoration: const InputDecoration(labelText: 'Unit'),
-                ),
+                child: BrutTextField(label: 'Unit', controller: unit),
               ),
             ],
           ),

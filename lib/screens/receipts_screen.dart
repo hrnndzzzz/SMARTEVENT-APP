@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
@@ -48,24 +48,16 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Receipts',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 18,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 18),
+              const Text('Receipts', style: AppText.screenTitle),
+              const SizedBox(height: 4),
               const Text(
                 'Proof of spending, and anything that looks like a duplicate.',
                 style: AppText.caption,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               const _FilterBar(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Expanded(
                 child: switch (load) {
                   _ when load.isLoading && app.receipts.isEmpty =>
@@ -106,71 +98,26 @@ class _FilterBar extends StatelessWidget {
     final flagged = app.receiptFlaggedOnly;
     final all = !pending && !flagged;
 
-    return SizedBox(
-      height: 32,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _Chip(
-            label: 'All',
-            selected: all,
-            onTap: () => app.applyReceiptFilter(),
-          ),
-          _Chip(
-            label: 'Needs review',
-            selected: pending,
-            onTap: () => app.applyReceiptFilter(
-              reviewStatus: ReceiptReviewStatus.pending,
-            ),
-          ),
-          _Chip(
-            label: 'Flagged',
-            selected: flagged,
-            onTap: () => app.applyReceiptFilter(flaggedOnly: true),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.brand : AppColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? AppColors.brand : AppColors.ink,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: selected ? Colors.white : AppColors.subtle,
-            ),
+    return BrutChipBar(
+      children: [
+        BrutChip(
+          label: 'All',
+          selected: all,
+          onTap: () => app.applyReceiptFilter(),
+        ),
+        BrutChip(
+          label: 'Needs review',
+          selected: pending,
+          onTap: () => app.applyReceiptFilter(
+            reviewStatus: ReceiptReviewStatus.pending,
           ),
         ),
-      ),
+        BrutChip(
+          label: 'Flagged',
+          selected: flagged,
+          onTap: () => app.applyReceiptFilter(flaggedOnly: true),
+        ),
+      ],
     );
   }
 }
@@ -180,112 +127,64 @@ class _ReceiptCard extends StatelessWidget {
 
   final Receipt receipt;
 
-  (Color, Color) get _statusColors => switch (receipt.reviewStatus) {
-        ReceiptReviewStatus.clear => (AppColors.subtle, AppColors.line),
-        ReceiptReviewStatus.pending => (
-            AppColors.ink,
-            AppColors.sunTint
-          ),
-        ReceiptReviewStatus.cleared => (
-            AppColors.ink,
-            AppColors.mintTint
-          ),
-        ReceiptReviewStatus.rejected => (
-            AppColors.coral,
-            AppColors.coralTint
-          ),
+  /// "Clear" means nothing looked alike, so it is deliberately the
+  /// quietest state — it is not an approval anyone made.
+  BrutTone get _tone => switch (receipt.reviewStatus) {
+        ReceiptReviewStatus.clear => BrutTone.neutral,
+        ReceiptReviewStatus.pending => BrutTone.sun,
+        ReceiptReviewStatus.cleared => BrutTone.mint,
+        ReceiptReviewStatus.rejected => BrutTone.coral,
       };
 
   @override
   Widget build(BuildContext context) {
-    final (fg, bg) = _statusColors;
-
-    return InkWell(
+    return BrutCard(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => ReceiptReviewScreen(receipt: receipt)),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.ink),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    receipt.merchant?.isNotEmpty == true
-                        ? receipt.merchant!
-                        : 'No merchant recorded',
-                    style: AppText.cardTitle,
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  receipt.merchant?.isNotEmpty == true
+                      ? receipt.merchant!
+                      : 'No merchant recorded',
+                  style: AppText.cardTitle,
                 ),
-                Text(
-                  '₱${receipt.amount.toStringAsFixed(2)}',
-                  style: AppText.moneySmall,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '₱${receipt.amount.toStringAsFixed(2)}',
+                style: AppText.moneyLarge.copyWith(fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(receipt.purpose, style: AppText.caption),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              BrutBadge(label: receipt.reviewStatus.label, tone: _tone),
+              if (receipt.hasSimilar)
+                BrutBadge(
+                  label: '${receipt.similarReceiptIds.length} similar',
+                  mono: true,
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(receipt.purpose, style: AppText.caption),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: bg,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    receipt.reviewStatus.label,
-                    style: TextStyle(
-                      fontFamily: AppText.bodyFamily,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: fg,
-                    ),
-                  ),
-                ),
-                if (receipt.hasSimilar)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.line,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${receipt.similarReceiptIds.length} similar',
-                      style: const TextStyle(
-                        fontFamily: AppText.bodyFamily,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.subtle,
-                      ),
-                    ),
-                  ),
-                Text(
-                  '${receipt.issuedOn.year}-'
-                  '${receipt.issuedOn.month.toString().padLeft(2, '0')}-'
-                  '${receipt.issuedOn.day.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
-                    fontFamily: AppText.bodyFamily,
-                    fontSize: 10,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              MonoLabel(
+                '${receipt.issuedOn.year}-'
+                '${receipt.issuedOn.month.toString().padLeft(2, '0')}-'
+                '${receipt.issuedOn.day.toString().padLeft(2, '0')}',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -296,33 +195,19 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = context.watch<AppState>().receiptStatusFilter != null ||
-        context.watch<AppState>().receiptFlaggedOnly;
+    final app = context.watch<AppState>();
+    final filtered =
+        app.receiptStatusFilter != null || app.receiptFlaggedOnly;
 
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.receipt_outlined, size: 44, color: AppColors.muted),
-          const SizedBox(height: 14),
-          Text(
-            filtered ? 'Nothing matches this filter' : 'No receipts yet',
-            style: AppText.cardTitle,
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 280,
-            child: Text(
-              filtered
-                  // An empty review queue is good news, so say so.
-                  ? 'Nothing is waiting on a duplicate decision.'
-                  : 'Receipts appear here once they are attached to an '
-                      'expense or an income.',
-              style: AppText.caption,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
+      child: BrutEmptyState(
+        icon: Icons.receipt_outlined,
+        title: filtered ? 'Nothing matches this filter' : 'No receipts yet',
+        hint: filtered
+            // An empty review queue is good news, so say so.
+            ? 'Nothing is waiting on a duplicate decision.'
+            : 'Receipts appear here once they are attached to an expense '
+                'or an income.',
       ),
     );
   }
@@ -343,30 +228,26 @@ class _Retry extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_outlined,
-                size: 44, color: AppColors.muted),
-            const SizedBox(height: 14),
-            const Text('Could not load receipts', style: AppText.cardTitle),
-            const SizedBox(height: 6),
-            Text(message, style: AppText.caption, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            if (sessionExpired)
-              const Text(
-                'Sign out and sign in again to continue.',
-                style: AppText.caption,
-                textAlign: TextAlign.center,
-              )
-            else
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Try again'),
-              ),
-          ],
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: BrutEmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: 'Could not load receipts',
+          hint: message,
+          action: sessionExpired
+              // Retrying a dead token just fails again, so don't offer it.
+              ? const Text(
+                  'Sign out and sign in again to continue.',
+                  style: AppText.caption,
+                  textAlign: TextAlign.center,
+                )
+              : BrutButton(
+                  label: 'Try again',
+                  icon: Icons.refresh,
+                  size: BrutSize.small,
+                  expand: false,
+                  tone: BrutTone.neutral,
+                  onPressed: onRetry,
+                ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import 'complete_purchase_screen.dart';
 
 /// One expense in full: amounts, the OCR reading, any flag, the itemized
@@ -39,7 +40,8 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
       _linesError = null;
     });
 
-    final outcome = await context.read<AppState>().loadExpenseLines(widget.expense);
+    final outcome =
+        await context.read<AppState>().loadExpenseLines(widget.expense);
 
     if (!mounted) return;
     setState(() {
@@ -79,91 +81,85 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                expense.vendor,
-                style: const TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 19,
-                  color: AppColors.ink,
+        bottom: false,
+        child: Column(
+          children: [
+            BrutHeader(
+              eyebrow:
+                  '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
+              title: expense.vendor,
+              tone: expenseStatusTone(expense.status),
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _StatusRow(expense: expense),
+                    if (expense.isFlagged) ...[
+                      const SizedBox(height: 14),
+                      _FlagCard(reason: expense.flagReason),
+                    ],
+                    if (remote != null) ...[
+                      const SizedBox(height: 14),
+                      _OcrCard(expense: remote),
+                    ],
+                    const SizedBox(height: 14),
+                    _LinesCard(
+                      lines: _lines,
+                      error: _linesError,
+                      loading: _loadingLines,
+                      onRetry: _loadLines,
+                    ),
+                    if (remote != null && remote.isPurchaseCompleted) ...[
+                      const SizedBox(height: 14),
+                      _PurchaseCard(expense: remote),
+                    ],
+                    if (canComplete) ...[
+                      const SizedBox(height: 20),
+                      BrutButton(
+                        label: 'Complete purchase',
+                        icon: Icons.local_shipping_outlined,
+                        tone: BrutTone.mint,
+                        size: BrutSize.large,
+                        onPressed: _openCompletePurchase,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Approval alone does not add stock. Recording payment '
+                        'and delivery does, once.',
+                        style: AppText.caption,
+                        textAlign: TextAlign.center,
+                      ),
+                    ] else if (expense.isPurchaseCompleted) ...[
+                      const SizedBox(height: 20),
+                      const BrutInlineMessage(
+                        tone: BrutTone.mint,
+                        icon: Icons.inventory_2_outlined,
+                        text: 'This purchase has already been completed. '
+                            'Stock was added once and cannot be added again.',
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 14),
-              _StatusRow(expense: expense),
-
-              if (expense.isFlagged) ...[
-                const SizedBox(height: 14),
-                _FlagCard(reason: expense.flagReason),
-              ],
-
-              if (remote != null) ...[
-                const SizedBox(height: 14),
-                _OcrCard(expense: remote),
-              ],
-
-              const SizedBox(height: 14),
-              _LinesCard(
-                lines: _lines,
-                error: _linesError,
-                loading: _loadingLines,
-                onRetry: _loadLines,
-              ),
-
-              if (remote != null && remote.isPurchaseCompleted) ...[
-                const SizedBox(height: 14),
-                _PurchaseCard(expense: remote),
-              ],
-
-              if (canComplete) ...[
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: _openCompletePurchase,
-                  icon: const Icon(Icons.local_shipping_outlined, size: 18),
-                  label: const Text('Complete Purchase'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Approval alone does not add stock. Recording payment and '
-                  'delivery does, once.',
-                  style: AppText.caption,
-                  textAlign: TextAlign.center,
-                ),
-              ] else if (expense.isPurchaseCompleted) ...[
-                const SizedBox(height: 18),
-                const Text(
-                  'This purchase has already been completed. Stock was added '
-                  'once and cannot be added again.',
-                  style: AppText.caption,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+/// One mapping from expense status to meaning, shared with the dashboard
+/// so a status can never be green in one list and yellow in another.
+BrutTone expenseStatusTone(ExpenseStatus status) => switch (status) {
+      ExpenseStatus.approved => BrutTone.mint,
+      ExpenseStatus.rejected => BrutTone.coral,
+      ExpenseStatus.pending => BrutTone.sun,
+    };
 
 class _StatusRow extends StatelessWidget {
   const _StatusRow({required this.expense});
@@ -172,62 +168,22 @@ class _StatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color, bg) = switch (expense.status) {
-      ExpenseStatus.approved => ('Approved', AppColors.ink, AppColors.mintTint),
-      ExpenseStatus.rejected => ('Rejected', AppColors.coral, AppColors.coralTint),
-      ExpenseStatus.pending => ('Awaiting review', AppColors.ink, AppColors.sunTint),
+    final label = switch (expense.status) {
+      ExpenseStatus.approved => 'Approved',
+      ExpenseStatus.rejected => 'Rejected',
+      ExpenseStatus.pending => 'Awaiting review',
     };
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        _Pill(label: label, color: color, background: bg),
+        BrutBadge(label: label, tone: expenseStatusTone(expense.status)),
         if (expense.isPurchaseCompleted)
-          const _Pill(
-            label: 'Purchase completed',
-            color: AppColors.ink,
-            background: AppColors.mintTint,
-          ),
+          const BrutBadge(label: 'Purchase completed', tone: BrutTone.mint),
         if (expense.reviewedBy != null)
-          _Pill(
-            label: 'Reviewed by ${expense.reviewedBy}',
-            color: AppColors.subtle,
-            background: AppColors.line,
-          ),
+          BrutBadge(label: 'Reviewed by ${expense.reviewedBy}', mono: true),
       ],
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({
-    required this.label,
-    required this.color,
-    required this.background,
-  });
-
-  final String label;
-  final Color color;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: color,
-        ),
-      ),
     );
   }
 }
@@ -241,33 +197,25 @@ class _FlagCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.sunTint,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.sun.withValues(alpha: 0.4)),
-      ),
+    return BrutCard(
+      tone: BrutTone.sun,
+      tinted: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.flag_outlined, size: 16, color: AppColors.ink),
-              const SizedBox(width: 6),
-              Text(
-                'Flagged for review',
-                style: AppText.cardTitle.copyWith(color: AppColors.ink),
-              ),
+              const Icon(Icons.flag_outlined, size: 18, color: AppColors.ink),
+              const SizedBox(width: 8),
+              Text('Flagged for review', style: AppText.cardTitle),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             reason?.isNotEmpty == true
                 ? reason!
                 : 'The backend flagged this expense but gave no reason.',
-            style: AppText.caption.copyWith(color: AppColors.ink),
+            style: AppText.body.copyWith(fontSize: 12.5),
           ),
         ],
       ),
@@ -291,39 +239,34 @@ class _OcrCard extends StatelessWidget {
 
     if (!hasAnything) return const SizedBox.shrink();
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Receipt reading', style: AppText.cardTitle),
-          const SizedBox(height: 10),
-          _row('Merchant', expense.ocrMerchant ?? 'Not read'),
-          const SizedBox(height: 6),
-          _row('Date', expense.ocrDate ?? 'Not read'),
-          const SizedBox(height: 6),
-          _row(
+          const BrutSectionTitle('Receipt reading'),
+          const SizedBox(height: 12),
+          detailRow('Merchant', expense.ocrMerchant ?? 'Not read'),
+          const SizedBox(height: 8),
+          detailRow('Date', expense.ocrDate ?? 'Not read'),
+          const SizedBox(height: 8),
+          detailRow(
             'Amount',
             expense.ocrAmount == null
                 ? 'Not read'
                 : '₱${expense.ocrAmount!.toStringAsFixed(2)}',
+            mono: expense.ocrAmount != null,
           ),
           if (expense.ocrAmountDiffers) ...[
-            const SizedBox(height: 8),
-            Text(
-              'This differs from the recorded total of '
-              '₱${expense.amount.toStringAsFixed(2)}.',
-              style: AppText.caption.copyWith(color: AppColors.ink),
+            const SizedBox(height: 12),
+            BrutInlineMessage(
+              tone: BrutTone.sun,
+              icon: Icons.priority_high,
+              text: 'This differs from the recorded total of '
+                  '₱${expense.amount.toStringAsFixed(2)}.',
             ),
           ],
           if (expense.hasReceipt) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               'Receipt attached. Event, amount and date are locked while it '
               'is recorded.',
@@ -334,16 +277,27 @@ class _OcrCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _row(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(width: 90, child: Text(label, style: AppText.caption)),
-        Expanded(child: Text(value, style: AppText.body)),
-      ],
-    );
-  }
+/// A label on the left, its value right-aligned on the right. Shared by
+/// the detail cards on this screen so their columns line up.
+Widget detailRow(String label, String value, {bool mono = false}) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(child: MonoLabel(label)),
+      const SizedBox(width: 12),
+      Flexible(
+        child: Text(
+          value,
+          textAlign: TextAlign.right,
+          style: mono
+              ? AppText.number
+              : AppText.body.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ),
+    ],
+  );
 }
 
 class _LinesCard extends StatelessWidget {
@@ -361,36 +315,26 @@ class _LinesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(child: Text('Line items', style: AppText.cardTitle)),
-              if (loading)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                IconButton(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-            ],
+          BrutSectionTitle(
+            'Line items',
+            aside: loading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : BrutIconButton(
+                    icon: Icons.refresh,
+                    label: 'Reload line items',
+                    size: 30,
+                    onPressed: onRetry,
+                  ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _body(),
         ],
       ),
@@ -399,7 +343,7 @@ class _LinesCard extends StatelessWidget {
 
   Widget _body() {
     if (error != null) {
-      return Text(error!, style: AppText.caption.copyWith(color: AppColors.coral));
+      return BrutInlineMessage(text: error!, tone: BrutTone.coral);
     }
     if (lines == null) {
       return const Text('Loading…', style: AppText.caption);
@@ -418,7 +362,7 @@ class _LinesCard extends StatelessWidget {
       children: [
         for (final line in lines!) ...[
           _LineRow(line: line),
-          if (line != lines!.last) const Divider(height: 18),
+          if (line != lines!.last) const Divider(height: 20),
         ],
       ],
     );
@@ -439,25 +383,25 @@ class _LineRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(line.name, style: AppText.body),
-              const SizedBox(height: 2),
               Text(
+                line.name,
+                style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 3),
+              MonoLabel(
                 '${line.quantity} ${line.unit} · '
                 '${line.category?.label ?? 'Unclassified'}',
-                style: AppText.caption,
               ),
               if (line.isStocked) ...[
-                const SizedBox(height: 2),
-                Text(
-                  'In inventory',
-                  style: AppText.caption.copyWith(color: AppColors.ink),
-                ),
+                const SizedBox(height: 6),
+                const BrutBadge(label: 'In inventory', tone: BrutTone.mint),
               ],
             ],
           ),
         ),
+        const SizedBox(width: 10),
         // The line total, already multiplied out — not a unit price.
-        Text('₱${line.amount.toStringAsFixed(2)}', style: AppText.moneySmall),
+        Text('₱${line.amount.toStringAsFixed(2)}', style: AppText.number),
       ],
     );
   }
@@ -470,35 +414,31 @@ class _PurchaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.mintTint,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
+      tone: BrutTone.mint,
+      tinted: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Purchase completed',
-            style: AppText.cardTitle.copyWith(color: AppColors.ink),
+          const BrutSectionTitle('Purchase completed'),
+          const SizedBox(height: 12),
+          detailRow('Vendor', expense.purchaseVendor ?? '—'),
+          const SizedBox(height: 8),
+          detailRow(
+            'Paid',
+            expense.paidAmount == null
+                ? '—'
+                : '₱${expense.paidAmount!.toStringAsFixed(2)}',
+            mono: expense.paidAmount != null,
           ),
-          const SizedBox(height: 10),
-          _row('Vendor', expense.purchaseVendor ?? '—'),
-          const SizedBox(height: 6),
-          _row('Paid', expense.paidAmount == null
-              ? '—'
-              : '₱${expense.paidAmount!.toStringAsFixed(2)}'),
-          const SizedBox(height: 6),
-          _row('Method', expense.paymentMethod ?? '—'),
-          const SizedBox(height: 6),
-          _row('Reference', expense.paymentReference ?? '—'),
-          const SizedBox(height: 6),
-          _row('Paid on', _date(expense.paidOn)),
-          const SizedBox(height: 6),
-          _row('Received on', _date(expense.receivedOn)),
+          const SizedBox(height: 8),
+          detailRow('Method', expense.paymentMethod ?? '—'),
+          const SizedBox(height: 8),
+          detailRow('Reference', expense.paymentReference ?? '—'),
+          const SizedBox(height: 8),
+          detailRow('Paid on', _date(expense.paidOn), mono: true),
+          const SizedBox(height: 8),
+          detailRow('Received on', _date(expense.receivedOn), mono: true),
         ],
       ),
     );
@@ -508,25 +448,4 @@ class _PurchaseCard extends StatelessWidget {
       ? '—'
       : '${value.year}-${value.month.toString().padLeft(2, '0')}'
           '-${value.day.toString().padLeft(2, '0')}';
-
-  Widget _row(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: AppText.caption.copyWith(color: AppColors.ink),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: AppText.body.copyWith(color: AppColors.ink),
-          ),
-        ),
-      ],
-    );
-  }
 }

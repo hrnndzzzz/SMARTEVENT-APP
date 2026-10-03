@@ -107,12 +107,6 @@ class _RecentExpensesList extends StatelessWidget {
   final List<ExpenseEntry> entries;
   const _RecentExpensesList({required this.entries});
 
-  static BrutTone _tone(ExpenseStatus s) => switch (s) {
-        ExpenseStatus.approved => BrutTone.mint,
-        ExpenseStatus.rejected => BrutTone.coral,
-        ExpenseStatus.pending => BrutTone.sun,
-      };
-
   static String _label(ExpenseStatus s) => switch (s) {
         ExpenseStatus.approved => 'Approved',
         ExpenseStatus.rejected => 'Rejected',
@@ -146,7 +140,7 @@ class _RecentExpensesList extends StatelessWidget {
             ),
             trailing: BrutBadge(
               label: _label(entries[i].status),
-              tone: _tone(entries[i].status),
+              tone: expenseStatusTone(entries[i].status),
             ),
             // The row is the way into the full record: line items, the
             // OCR reading, any flag, and purchase completion.

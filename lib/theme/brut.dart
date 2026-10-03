@@ -1092,3 +1092,67 @@ class BrutDropdown<T> extends StatelessWidget {
     );
   }
 }
+
+/// A filter chip. Selected takes the area accent with ink on it;
+/// unselected is a plain outline with no shadow, so a row of chips reads
+/// as one chosen and the rest available.
+class BrutChip extends StatelessWidget {
+  const BrutChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.tone,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  /// Defaults to the area accent.
+  final BrutTone? tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = selected
+        ? (tone ?? BrutTone.brand).fill(context)
+        : AppColors.surface;
+
+    return BrutSurface(
+      onTap: onTap,
+      fill: fill,
+      radius: AppRadius.controlAll,
+      shadow: selected ? AppShadows.sm : AppShadows.none,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: AppText.buttonLabel.copyWith(
+          fontSize: 12,
+          color: selected ? AppColors.ink : AppColors.subtle,
+        ),
+      ),
+    );
+  }
+}
+
+/// A horizontally scrolling row of [BrutChip]s, bleeding to the screen
+/// edge so it is obvious there is more to the right.
+class BrutChipBar extends StatelessWidget {
+  const BrutChipBar({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: children.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => children[i],
+      ),
+    );
+  }
+}
