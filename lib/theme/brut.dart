@@ -1156,3 +1156,108 @@ class BrutChipBar extends StatelessWidget {
     );
   }
 }
+
+/// A date, picked rather than typed. Looks like a field, behaves like a
+/// button — the hint shows until a date is chosen.
+class BrutDateField extends StatelessWidget {
+  const BrutDateField({
+    super.key,
+    required this.value,
+    required this.hint,
+    required this.onTap,
+    this.label,
+  });
+
+  final String? label;
+  final DateTime? value;
+  final String hint;
+  final VoidCallback onTap;
+
+  static String format(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}'
+      '-${value.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value == null ? hint : format(value!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != null) ...[
+          MonoLabel(label!),
+          const SizedBox(height: 6),
+        ],
+        BrutSurface(
+          onTap: onTap,
+          radius: AppRadius.controlAll,
+          shadow: AppShadows.sm,
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  text,
+                  style: value == null
+                      ? AppText.body.copyWith(color: AppColors.muted)
+                      : AppText.number,
+                ),
+              ),
+              const Icon(Icons.calendar_today_outlined, size: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A load that failed, with the one action that might help.
+///
+/// An expired session is the exception: retrying a dead token just fails
+/// again, so it says what to do instead of offering a button that cannot
+/// work.
+class BrutRetry extends StatelessWidget {
+  const BrutRetry({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.onRetry,
+    this.sessionExpired = false,
+  });
+
+  final String title;
+  final String? message;
+  final VoidCallback onRetry;
+  final bool sessionExpired;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: BrutEmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: title,
+          hint: message,
+          action: sessionExpired
+              ? const Text(
+                  'Sign out and sign in again to continue.',
+                  style: AppText.caption,
+                  textAlign: TextAlign.center,
+                )
+              : BrutButton(
+                  label: 'Try again',
+                  icon: Icons.refresh,
+                  size: BrutSize.small,
+                  expand: false,
+                  tone: BrutTone.neutral,
+                  onPressed: onRetry,
+                ),
+        ),
+      ),
+    );
+  }
+}

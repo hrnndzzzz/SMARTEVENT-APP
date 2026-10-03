@@ -49,7 +49,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
                 builder: (_) => const _RecordIncomeSheet(),
               ),
               icon: const Icon(Icons.add),
-              label: const Text('Record Income'),
+              label: Text('Record income', style: AppText.buttonLabel),
             )
           : null,
       body: SafeArea(
@@ -66,17 +66,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Income',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 18,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 18),
+              const Text('Income', style: AppText.screenTitle),
+              const SizedBox(height: 4),
               const Text(
                 'Money received, by where it came from.',
                 style: AppText.caption,
@@ -88,24 +80,11 @@ class _IncomeScreenState extends State<IncomeScreen> {
                 child: switch (load) {
                   _ when load.isLoading && app.incomes.isEmpty =>
                     const Center(child: CircularProgressIndicator()),
-                  _ when load.hasFailed && app.incomes.isEmpty => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(load.error!,
-                                style: AppText.caption,
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: app.loadIncomes,
-                              icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text('Try again'),
-                            ),
-                          ],
-                        ),
-                      ),
+                  _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
+                      title: 'Could not load income',
+                      message: load.error,
+                      sessionExpired: load.sessionExpired,
+                      onRetry: app.loadIncomes,
                     ),
                   _ when app.incomes.isEmpty => _Empty(canRecord: canRecord),
                   _ => RefreshIndicator(
@@ -136,13 +115,7 @@ class _Totals extends StatelessWidget {
     final app = context.watch<AppState>();
     final withheld = app.withheldIncomeTotal;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -153,24 +126,26 @@ class _Totals extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Counted', style: AppText.caption),
-                    const SizedBox(height: 2),
+                    const MonoLabel('Counted'),
+                    const SizedBox(height: 4),
                     Text('₱${app.countedIncomeTotal.toStringAsFixed(2)}',
                         style: AppText.moneyLarge),
                   ],
                 ),
               ),
+              // Never summed with the counted figure: withheld money has
+              // not been accepted into the ledger.
               if (withheld > 0)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Withheld', style: AppText.caption),
-                      const SizedBox(height: 2),
+                      const MonoLabel('Withheld'),
+                      const SizedBox(height: 4),
                       Text(
                         '₱${withheld.toStringAsFixed(2)}',
-                        style: AppText.moneySmall
-                            .copyWith(color: AppColors.ink),
+                        style: AppText.moneyLarge
+                            .copyWith(fontSize: 16, color: AppColors.subtle),
                       ),
                     ],
                   ),
@@ -178,17 +153,15 @@ class _Totals extends StatelessWidget {
             ],
           ),
           if (app.incomeBySource.isNotEmpty) ...[
-            const Divider(height: 20),
+            const Divider(height: 22),
             for (final entry in app.incomeBySource.entries)
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: Text(entry.key.label, style: AppText.caption),
-                    ),
+                    Expanded(child: MonoLabel(entry.key.label)),
                     Text('₱${entry.value.toStringAsFixed(2)}',
-                        style: AppText.moneySmall),
+                        style: AppText.number),
                   ],
                 ),
               ),
@@ -206,79 +179,48 @@ class _IncomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Both the actual payer and the category — the breakdown
               // needs the type, a human needs the name.
               Expanded(child: Text(income.source, style: AppText.cardTitle)),
+              const SizedBox(width: 10),
               Text(
                 '₱${income.amount.toStringAsFixed(2)}',
-                style: AppText.moneySmall.copyWith(
-                  color: income.isWithheld
-                      ? AppColors.muted
-                      : AppColors.ink,
+                style: AppText.moneyLarge.copyWith(
+                  fontSize: 16,
+                  color: income.isWithheld ? AppColors.muted : AppColors.ink,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(income.purpose, style: AppText.caption),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
-            runSpacing: 6,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.brandTint,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  income.sourceType.label,
-                  style: const TextStyle(
-                    fontFamily: AppText.bodyFamily,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.brand,
-                  ),
-                ),
-              ),
-              Text(
+              BrutBadge(label: income.sourceType.label, tone: BrutTone.brand),
+              MonoLabel(
                 '${income.receivedOn.year}-'
                 '${income.receivedOn.month.toString().padLeft(2, '0')}-'
                 '${income.receivedOn.day.toString().padLeft(2, '0')}',
-                style: const TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
               ),
             ],
           ),
           if (income.isWithheld) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.sunTint,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                income.withheldReason,
-                style: AppText.caption.copyWith(color: AppColors.ink),
-              ),
+            const SizedBox(height: 12),
+            BrutInlineMessage(
+              text: income.withheldReason,
+              tone: BrutTone.sun,
+              icon: Icons.pause_circle_outline,
             ),
           ],
         ],
@@ -295,25 +237,13 @@ class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.savings_outlined, size: 44, color: AppColors.muted),
-          const SizedBox(height: 14),
-          const Text('No income recorded yet', style: AppText.cardTitle),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 280,
-            child: Text(
-              canRecord
-                  ? 'Record money as it comes in — fees, sponsorships and '
-                      'donations each count separately in reports.'
-                  : 'Income appears here once a Treasurer records it.',
-              style: AppText.caption,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
+      child: BrutEmptyState(
+        icon: Icons.savings_outlined,
+        title: 'No income recorded yet',
+        hint: canRecord
+            ? 'Record money as it comes in — fees, sponsorships and '
+                'donations each count separately in reports.'
+            : 'Income appears here once a Treasurer records it.',
       ),
     );
   }
@@ -415,26 +345,29 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
         .toList();
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
         decoration: const BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.card),
+          ),
+          border: AppBorders.all,
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Record income', style: AppText.cardTitle),
-              const SizedBox(height: 16),
-
-              const Text('Event', style: AppText.caption),
-              const SizedBox(height: 6),
+              const BrutSectionTitle('Record income'),
+              const SizedBox(height: 18),
               BrutDropdown<String>(
+                label: 'Event',
                 value: _eventId,
-                hint: events.isEmpty ? 'No events available' : 'Select an event',
+                hint:
+                    events.isEmpty ? 'No events available' : 'Select an event',
                 items: [
                   for (final e in events)
                     DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
@@ -442,113 +375,60 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
                 onChanged: (v) => setState(() => _eventId = v),
               ),
               const SizedBox(height: 14),
-
-              const Text('Source type', style: AppText.caption),
-              const SizedBox(height: 6),
               BrutDropdown<FundSource>(
+                label: 'Source type',
                 value: _sourceType,
                 hint: 'Select a source type',
                 items: [
                   for (final s in FundSource.values)
                     DropdownMenuItem(value: s, child: Text(s.label)),
                 ],
-                onChanged: (v) => setState(() => _sourceType = v ?? _sourceType),
+                onChanged: (v) =>
+                    setState(() => _sourceType = v ?? _sourceType),
               ),
-              const SizedBox(height: 4),
-              Text(
-                _sourceType.hint,
-                style: const TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              const Text('Received from', style: AppText.caption),
               const SizedBox(height: 6),
-              TextField(
+              Text(_sourceType.hint, style: AppText.caption),
+              const SizedBox(height: 14),
+              BrutTextField(
+                label: 'Received from',
                 controller: _sourceController,
-                decoration: const InputDecoration(
-                  hintText: 'The actual payer, e.g. ABC Corporation',
-                ),
+                hint: 'The actual payer, e.g. ABC Corporation',
+                textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 14),
-
-              const Text('Purpose', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              BrutTextField(
+                label: 'Purpose',
                 controller: _purposeController,
-                decoration: const InputDecoration(
-                  hintText: 'What the money is for',
-                ),
+                hint: 'What the money is for',
+                textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 14),
-
-              const Text('Amount', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              BrutTextField(
+                label: 'Amount',
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(prefixText: '₱ '),
+                prefixIcon: Icons.payments_outlined,
+                hint: '0.00',
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 14),
-
-              const Text('Received on', style: AppText.caption),
-              const SizedBox(height: 6),
-              GestureDetector(
+              BrutDateField(
+                label: 'Received on',
+                value: _receivedOn,
+                hint: 'Select a date',
                 onTap: _pickDate,
-                child: Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.ink),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${_receivedOn.year}-'
-                    '${_receivedOn.month.toString().padLeft(2, '0')}-'
-                    '${_receivedOn.day.toString().padLeft(2, '0')}',
-                    style: const TextStyle(
-                      fontFamily: AppText.bodyFamily,
-                      fontSize: 13,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
               ),
-
               if (_error != null) ...[
                 const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.coral.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: AppText.caption.copyWith(color: AppColors.coral),
-                  ),
-                ),
+                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
               ],
-
               const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                style:
-                    FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Record income'),
+              BrutButton(
+                label: 'Record income',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Recording…',
+                onPressed: _submit,
               ),
             ],
           ),

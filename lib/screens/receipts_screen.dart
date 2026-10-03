@@ -62,8 +62,9 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
                 child: switch (load) {
                   _ when load.isLoading && app.receipts.isEmpty =>
                     const Center(child: CircularProgressIndicator()),
-                  _ when load.hasFailed && app.receipts.isEmpty => _Retry(
-                      message: load.error!,
+                  _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
+                      title: 'Could not load receipts',
+                      message: load.error,
                       sessionExpired: load.sessionExpired,
                       onRetry: app.loadReceipts,
                     ),
@@ -208,47 +209,6 @@ class _Empty extends StatelessWidget {
             ? 'Nothing is waiting on a duplicate decision.'
             : 'Receipts appear here once they are attached to an expense '
                 'or an income.',
-      ),
-    );
-  }
-}
-
-class _Retry extends StatelessWidget {
-  const _Retry({
-    required this.message,
-    required this.sessionExpired,
-    required this.onRetry,
-  });
-
-  final String message;
-  final bool sessionExpired;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: BrutEmptyState(
-          icon: Icons.cloud_off_outlined,
-          title: 'Could not load receipts',
-          hint: message,
-          action: sessionExpired
-              // Retrying a dead token just fails again, so don't offer it.
-              ? const Text(
-                  'Sign out and sign in again to continue.',
-                  style: AppText.caption,
-                  textAlign: TextAlign.center,
-                )
-              : BrutButton(
-                  label: 'Try again',
-                  icon: Icons.refresh,
-                  size: BrutSize.small,
-                  expand: false,
-                  tone: BrutTone.neutral,
-                  onPressed: onRetry,
-                ),
-        ),
       ),
     );
   }

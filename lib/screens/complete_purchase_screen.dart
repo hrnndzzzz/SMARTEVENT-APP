@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 
@@ -175,14 +174,14 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
                       style: AppText.caption,
                     ),
                     const SizedBox(height: 20),
-                    _DateField(
+                    BrutDateField(
                       label: 'Paid on',
                       value: _paidOn,
                       hint: 'Select the payment date',
                       onTap: () => _pickDate(paid: true),
                     ),
                     const SizedBox(height: 14),
-                    _DateField(
+                    BrutDateField(
                       label: 'Received on',
                       value: _receivedOn,
                       hint: 'Select the delivery date',
@@ -273,57 +272,6 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.value,
-    required this.hint,
-    required this.onTap,
-  });
-
-  final String label;
-  final DateTime? value;
-  final String hint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = value == null
-        ? hint
-        : '${value!.year}-${value!.month.toString().padLeft(2, '0')}'
-            '-${value!.day.toString().padLeft(2, '0')}';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        MonoLabel(label),
-        const SizedBox(height: 6),
-        BrutSurface(
-          onTap: onTap,
-          radius: AppRadius.controlAll,
-          shadow: AppShadows.sm,
-          height: 46,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  text,
-                  style: AppText.body.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: value == null ? AppColors.muted : AppColors.ink,
-                  ),
-                ),
-              ),
-              const Icon(Icons.calendar_today_outlined, size: 16),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
