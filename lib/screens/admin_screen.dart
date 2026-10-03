@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/scope_picker.dart';
 
 /// Roster, accounts and audit.
@@ -718,7 +719,7 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
                 ),
               ),
               const SizedBox(height: 6),
-              LabeledDropdown<UserRole>(
+              BrutDropdown<UserRole>(
                 value: _role,
                 hint: 'Select a role',
                 items: [

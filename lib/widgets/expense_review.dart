@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 
 /// Opens the Approve/Reject dialog for a pending expense. [reviewerRole]
 /// should be 'Adviser' or 'Admin' — either can resolve an expense
@@ -33,59 +34,42 @@ Future<void> showExpenseDecisionDialog(
           const SizedBox(height: 2),
           Text('${expense.category} · ₱${expense.amount.toStringAsFixed(2)}', style: AppText.caption),
           const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: wouldExceed ? AppColors.coralTint : AppColors.mintTint,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  wouldExceed ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                  size: 15,
-                  color: wouldExceed ? AppColors.coral : AppColors.ink,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    wouldExceed
-                        ? '${expense.category} only has ₱${remaining.toStringAsFixed(2)} left — approving this would exceed it.'
-                        : '${expense.category} has ₱${remaining.toStringAsFixed(2)} remaining. This fits.',
-                    style: TextStyle(
-                      fontFamily: AppText.bodyFamily,
-                      fontSize: 11,
-                      color: wouldExceed ? AppColors.coral : AppColors.ink,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          BrutInlineMessage(
+            tone: wouldExceed ? BrutTone.coral : BrutTone.mint,
+            icon: wouldExceed
+                ? Icons.warning_amber_rounded
+                : Icons.check_circle_outline,
+            text: wouldExceed
+                ? '${expense.category} only has ₱${remaining.toStringAsFixed(2)} left — approving this would exceed it.'
+                : '${expense.category} has ₱${remaining.toStringAsFixed(2)} remaining. This fits.',
           ),
-          const SizedBox(height: 12),
-          const Text('Feedback (optional)', style: AppText.caption),
-          const SizedBox(height: 6),
-          TextField(
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Feedback (optional)',
             controller: controller,
             maxLines: 3,
-            decoration: const InputDecoration(hintText: 'Any notes...'),
+            hint: 'Any notes…',
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.coral, width: 0.8),
-            foregroundColor: AppColors.coral,
-          ),
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Reject'),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
         ),
-        ElevatedButton(
+        BrutButton(
+          label: 'Reject',
+          tone: BrutTone.coral,
+          size: BrutSize.small,
+          expand: false,
+          onPressed: () => Navigator.pop(context, false),
+        ),
+        BrutButton(
+          label: 'Approve',
+          tone: BrutTone.mint,
+          size: BrutSize.small,
+          expand: false,
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Approve'),
         ),
       ],
     ),
@@ -135,67 +119,41 @@ class ExpensePendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return BrutCard(
       onTap: () => showExpenseDecisionDialog(
         context,
         expense,
         reviewerRole: reviewerRole,
         onInsufficientBudget: onInsufficientBudget,
       ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.sunTint,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      expense.category,
-                      style: const TextStyle(
-                        fontFamily: AppText.bodyFamily,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(expense.vendor, style: AppText.cardTitle),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '₱${expense.amount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontFamily: AppText.monoFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Text('Review', style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.brand)),
-                      Icon(Icons.chevron_right, size: 16, color: AppColors.brand),
-                    ],
-                  ),
-                ],
-              ),
+              BrutBadge(label: expense.category, tone: BrutTone.sun),
+              const Spacer(),
+              const BrutBadge(label: 'Pending', tone: BrutTone.sun, dot: true),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+          Text(expense.vendor, style: AppText.cardTitle),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                '₱${expense.amount.toStringAsFixed(2)}',
+                style: AppText.moneyLarge.copyWith(fontSize: 17),
+              ),
+              const Spacer(),
+              Text(
+                'Review',
+                style: AppText.buttonLabel.copyWith(fontSize: 12.5),
+              ),
+              const Icon(Icons.chevron_right, size: 18, color: AppColors.ink),
+            ],
+          ),
+        ],
       ),
     );
   }

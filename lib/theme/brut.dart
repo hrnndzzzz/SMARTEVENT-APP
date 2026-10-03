@@ -1015,3 +1015,80 @@ class _BrutTextFieldState extends State<BrutTextField> {
     );
   }
 }
+
+/// A dropdown styled like the rest of the system.
+///
+/// The design would rather this opened a bottom sheet of choice rows, and
+/// for a long colour-coded list that is better. It stays a native
+/// dropdown here because every picker in the app — school year, semester,
+/// scope, category, department, movement type — would have to change
+/// behaviour at once, and several are covered by widget tests that tap
+/// them. Converting them is a separate, testable change.
+class BrutDropdown<T> extends StatelessWidget {
+  const BrutDropdown({
+    super.key,
+    required this.value,
+    required this.hint,
+    required this.items,
+    required this.onChanged,
+    this.label,
+    this.enabled = true,
+  });
+
+  /// A mono eyebrow above the control.
+  final String? label;
+  final T? value;
+  final String hint;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?>? onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final live = enabled && onChanged != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != null) ...[
+          MonoLabel(label!),
+          const SizedBox(height: 6),
+        ],
+        Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: live ? AppColors.surface : AppColors.line,
+            borderRadius: AppRadius.controlAll,
+            border: Border.fromBorderSide(
+              live ? AppBorders.side : AppBorders.disabled,
+            ),
+            boxShadow: live ? AppShadows.sm : AppShadows.none,
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<T>(
+              isExpanded: true,
+              value: value,
+              items: items,
+              onChanged: live ? onChanged : null,
+              icon: Icon(
+                Icons.expand_more,
+                size: 20,
+                color: live ? AppColors.ink : AppColors.muted,
+              ),
+              borderRadius: AppRadius.rowAll,
+              dropdownColor: AppColors.surface,
+              style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+              hint: Text(
+                hint,
+                style: AppText.body.copyWith(color: AppColors.muted),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

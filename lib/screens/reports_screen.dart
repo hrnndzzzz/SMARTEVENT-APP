@@ -4,8 +4,8 @@ import '../api/export_saver.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import '../widgets/scope_picker.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
@@ -221,7 +221,7 @@ class _Filters extends StatelessWidget {
         children: [
           const Text('Period', style: AppText.caption),
           const SizedBox(height: 6),
-          LabeledDropdown<ReportPeriod>(
+          BrutDropdown<ReportPeriod>(
             value: period,
             hint: 'Select a period',
             items: [
@@ -258,7 +258,7 @@ class _Filters extends StatelessWidget {
             const SizedBox(height: 14),
             const Text('School year', style: AppText.caption),
             const SizedBox(height: 6),
-            LabeledDropdown<String>(
+            BrutDropdown<String>(
               value: app.reportSchoolYear,
               hint: 'Select a school year',
               items: [
@@ -276,7 +276,7 @@ class _Filters extends StatelessWidget {
             const SizedBox(height: 14),
             const Text('Semester', style: AppText.caption),
             const SizedBox(height: 6),
-            LabeledDropdown<Semester>(
+            BrutDropdown<Semester>(
               value: app.reportSemester,
               hint: 'Select a semester',
               items: [

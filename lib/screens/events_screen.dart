@@ -3,43 +3,33 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'create_event_screen.dart';
 import 'event_detail_screen.dart';
 
+/// One mapping from approval status to meaning, used for the badge and
+/// the stripe alike so the two can never disagree.
+///
+/// Draft is deliberately the quietest: it is nobody's queue yet. Completed
+/// reads like approved, since it is the settled end state. Both pending
+/// stages are yellow — they mean the same thing to the person looking at
+/// the list, and the label says which desk it is on.
+BrutTone eventStatusTone(EventApprovalStatus s) => switch (s) {
+      EventApprovalStatus.draft => BrutTone.neutral,
+      EventApprovalStatus.approved ||
+      EventApprovalStatus.completed =>
+        BrutTone.mint,
+      EventApprovalStatus.rejected => BrutTone.coral,
+      EventApprovalStatus.pendingAdmin ||
+      EventApprovalStatus.pendingAdviser =>
+        BrutTone.sun,
+    };
+
 class EventsScreen extends StatelessWidget {
   const EventsScreen({super.key});
-
-  // Draft is deliberately the quietest: it is nobody's queue yet.
-  // Completed reads like approved, since it is the settled end state.
-  Color _statusBg(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.draft => AppColors.line,
-    EventApprovalStatus.approved ||
-    EventApprovalStatus.completed => AppColors.mintTint,
-    EventApprovalStatus.rejected => AppColors.coralTint,
-    EventApprovalStatus.pendingAdmin => AppColors.sunTint,
-    EventApprovalStatus.pendingAdviser => AppColors.sunTint,
-  };
-
-  Color _statusColor(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.draft => AppColors.muted,
-    EventApprovalStatus.approved ||
-    EventApprovalStatus.completed => AppColors.ink,
-    EventApprovalStatus.rejected => AppColors.alertInk,
-    EventApprovalStatus.pendingAdmin => AppColors.ink,
-    EventApprovalStatus.pendingAdviser => AppColors.ink,
-  };
-
-  Color _tagColor(EventApprovalStatus s) => switch (s) {
-    EventApprovalStatus.draft => AppColors.muted,
-    EventApprovalStatus.approved ||
-    EventApprovalStatus.completed => AppColors.mint,
-    EventApprovalStatus.rejected => AppColors.coral,
-    EventApprovalStatus.pendingAdmin => AppColors.sun,
-    EventApprovalStatus.pendingAdviser => AppColors.sun,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -58,38 +48,32 @@ class EventsScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const NotificationsScreen()),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Events',
-                    style: TextStyle(
-                      fontFamily: AppText.headerFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 18,
-                      color: AppColors.ink,
-                    ),
+                  const Expanded(
+                    child: Text('Events', style: AppText.screenTitle),
                   ),
                   // Officers are read-only and SDS has no event access, so
                   // only roles that may actually propose get this.
                   if (context.watch<AppState>().currentRole?.canProposeEvents ??
                       false)
-                    ElevatedButton.icon(
+                    BrutButton(
+                      label: 'New',
+                      icon: Icons.add,
+                      size: BrutSize.small,
+                      expand: false,
                       onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const CreateEventScreen()),
-                      ),
-                      icon: const Icon(Icons.add, size: 16),
-                      label: const Text('New'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        MaterialPageRoute(
+                          builder: (_) => const CreateEventScreen(),
+                        ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               const _SchoolYearFilterBar(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Expanded(
                 child: Consumer<AppState>(
                   builder: (context, app, _) {
@@ -98,39 +82,37 @@ class EventsScreen extends StatelessWidget {
                     }
                     if (app.eventsLoad.hasFailed && app.events.isEmpty) {
                       return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                app.eventsLoad.error!,
-                                style: AppText.caption,
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                onPressed: app.loadEvents,
-                                icon: const Icon(Icons.refresh, size: 16),
-                                label: const Text('Try again'),
-                              ),
-                            ],
+                        child: BrutEmptyState(
+                          title: 'Could not load events',
+                          hint: app.eventsLoad.error,
+                          icon: Icons.cloud_off_outlined,
+                          action: BrutButton(
+                            label: 'Try again',
+                            icon: Icons.refresh,
+                            size: BrutSize.small,
+                            expand: false,
+                            tone: BrutTone.neutral,
+                            onPressed: app.loadEvents,
                           ),
                         ),
                       );
                     }
                     if (app.events.isEmpty) {
+                      final filtered = app.schoolYearFilter != null ||
+                          app.showOnlyMissingSchoolYear;
                       return Center(
-                        child: Text(
-                          app.schoolYearFilter != null ||
-                                  app.showOnlyMissingSchoolYear
-                              // An active filter is a far likelier reason
-                              // for an empty list than there being none.
-                              ? 'No events match this filter.'
+                        child: BrutEmptyState(
+                          icon: Icons.event_outlined,
+                          // An active filter is a far likelier reason for
+                          // an empty list than there being none.
+                          title: filtered
+                              ? 'No events match this filter'
+                              : 'No events yet',
+                          hint: filtered
+                              ? 'Clear the filter to see every event.'
                               : (app.currentRole?.canProposeEvents ?? false)
-                                  ? 'No events yet. Tap "New" to submit one.'
-                                  : 'No events yet.',
-                          style: AppText.caption,
+                                  ? 'Tap New to submit one.'
+                                  : null,
                         ),
                       );
                     }
@@ -138,12 +120,7 @@ class EventsScreen extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       children: [
                         for (final event in app.events) ...[
-                          _EventCard(
-                            event: event,
-                            statusBg: _statusBg(event.status),
-                            statusColor: _statusColor(event.status),
-                            tagColor: _tagColor(event.status),
-                          ),
+                          _EventCard(event: event),
                           const SizedBox(height: 10),
                         ],
                       ],
@@ -161,96 +138,66 @@ class EventsScreen extends StatelessWidget {
 
 class _EventCard extends StatelessWidget {
   final EventItem event;
-  final Color statusBg;
-  final Color statusColor;
-  final Color tagColor;
 
-  const _EventCard({
-    required this.event,
-    required this.statusBg,
-    required this.statusColor,
-    required this.tagColor,
-  });
+  const _EventCard({required this.event});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final tone = eventStatusTone(event.status);
+
+    return BrutCard(
+      radius: AppRadius.rowAll,
+      padding: EdgeInsets.zero,
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => EventDetailScreen(event: event),
-        ),
+        MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
       ),
-      child: Stack(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The status as a stripe down the edge, so a long list can be
+          // read by colour before any of it is read by word.
           Container(
-            margin: const EdgeInsets.only(left: 4),
-            padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
+            width: 8,
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              border: Border.all(color: AppColors.ink, width: 2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                      decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(20)),
-                      child: Text(
-                        event.statusLabel,
-                        style: TextStyle(
-                          fontFamily: AppText.bodyFamily,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      event.date,
-                      style: const TextStyle(
-                        fontFamily: AppText.monoFamily,
-                        fontSize: 11,
-                        color: AppColors.subtle,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(event.title, style: AppText.cardTitle),
-                const SizedBox(height: 2),
-                Text(event.org.isEmpty ? 'No organization' : event.org,
-                    style: AppText.caption),
-                const SizedBox(height: 2),
-                // School year / semester / scope. A legacy row missing them
-                // says so rather than showing a blank line, since an
-                // administrator has to repair it before it appears in
-                // academic reports.
-                Text(
-                  event.academicLabel,
-                  style: TextStyle(
-                    fontFamily: AppText.bodyFamily,
-                    fontSize: 10,
-                    color: event.hasIncompleteAcademicMetadata
-                        ? AppColors.ink
-                        : AppColors.muted,
-                  ),
-                ),
-              ],
+              color: tone.fill(context),
+              border: const Border(right: AppBorders.side),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(AppRadius.row - AppBorders.width),
+              ),
             ),
           ),
-          Positioned(
-            left: 0,
-            top: 12,
-            bottom: 12,
-            child: Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: tagColor,
-                borderRadius: const BorderRadius.horizontal(right: Radius.circular(2)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      BrutBadge(label: event.statusLabel, tone: tone),
+                      const Spacer(),
+                      Text(event.date, style: AppText.moneySmall),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(event.title, style: AppText.cardTitle),
+                  const SizedBox(height: 3),
+                  Text(event.org.isEmpty ? 'No organization' : event.org,
+                      style: AppText.caption),
+                  const SizedBox(height: 6),
+                  // School year / semester / scope. A legacy row missing
+                  // them says so rather than showing a blank line, since
+                  // an administrator has to repair it before it appears in
+                  // academic reports.
+                  if (event.hasIncompleteAcademicMetadata)
+                    BrutBadge(
+                      label: event.academicLabel,
+                      tone: BrutTone.sun,
+                      mono: true,
+                    )
+                  else
+                    MonoLabel(event.academicLabel),
+                ],
               ),
             ),
           ),
@@ -259,6 +206,7 @@ class _EventCard extends StatelessWidget {
     );
   }
 }
+
 /// School-year filter.
 ///
 /// These are the only two real server-side filters on `GET /events`, so
@@ -278,13 +226,14 @@ class _SchoolYearFilterBar extends StatelessWidget {
     if (years.isEmpty && !canRepair) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 32,
+      height: 34,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
           _FilterChip(
             label: 'All years',
-            selected: app.schoolYearFilter == null && !app.showOnlyMissingSchoolYear,
+            selected:
+                app.schoolYearFilter == null && !app.showOnlyMissingSchoolYear,
             onTap: () => app.applyEventFilter(),
           ),
           for (final year in years)
@@ -320,25 +269,20 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
+      child: BrutSurface(
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.brand : AppColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? AppColors.brand : AppColors.ink,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: selected ? Colors.white : AppColors.subtle,
-            ),
+        fill: selected
+            ? Theme.of(context).colorScheme.primary
+            : AppColors.surface,
+        radius: AppRadius.controlAll,
+        shadow: selected ? AppShadows.sm : AppShadows.none,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: AppText.buttonLabel.copyWith(
+            fontSize: 12,
+            color: selected ? AppColors.ink : AppColors.subtle,
           ),
         ),
       ),

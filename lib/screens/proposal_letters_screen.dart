@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import '../widgets/scope_picker.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
@@ -367,7 +367,7 @@ class _UploadSheetState extends State<_UploadSheet> {
 
               const Text('Event', style: AppText.caption),
               const SizedBox(height: 6),
-              LabeledDropdown<String>(
+              BrutDropdown<String>(
                 value: _eventId,
                 hint: events.isEmpty ? 'No events available' : 'Select an event',
                 items: [

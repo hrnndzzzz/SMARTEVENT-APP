@@ -3,68 +3,67 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import 'create_event_screen.dart';
+import 'events_screen.dart' show eventStatusTone;
 
 class EventDetailScreen extends StatelessWidget {
   final EventItem event;
 
   const EventDetailScreen({super.key, required this.event});
 
-
   Future<void> _decide(
-      BuildContext context, {
-        required bool approved,
-        required bool isAdviserStage,
-      }) async {
+    BuildContext context, {
+    required bool approved,
+    required bool isAdviserStage,
+  }) async {
     final controller = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           approved
-              ? (isAdviserStage ? 'Approve & Forward to Admin' : 'Grant Final Approval')
-              : 'Reject Proposal',
+              ? (isAdviserStage
+                  ? 'Approve and forward to admin'
+                  : 'Grant final approval')
+              : 'Reject proposal',
           style: AppText.cardTitle,
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(event.title, style: AppText.body.copyWith(fontWeight: FontWeight.w500)),
-            if (!isAdviserStage && event.adviserApprovalNote?.isNotEmpty == true) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.line,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Adviser note: "${event.adviserApprovalNote}"',
-                  style: AppText.caption.copyWith(fontStyle: FontStyle.italic),
-                ),
+            Text(event.title,
+                style: AppText.body.copyWith(fontWeight: FontWeight.w700)),
+            if (!isAdviserStage &&
+                event.adviserApprovalNote?.isNotEmpty == true) ...[
+              const SizedBox(height: 10),
+              BrutInlineMessage(
+                text: 'Adviser note: "${event.adviserApprovalNote}"',
+                tone: BrutTone.neutral,
+                icon: Icons.chat_bubble_outline,
               ),
             ],
-            const SizedBox(height: 12),
-            const Text('Feedback (optional)', style: AppText.caption),
-            const SizedBox(height: 6),
-            TextField(
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'Feedback (optional)',
               controller: controller,
               maxLines: 3,
-              decoration: InputDecoration(
-                hintText: approved ? 'Any notes...' : 'Reason for rejection...',
-              ),
+              hint: approved ? 'Any notes…' : 'Reason for rejection…',
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: approved ? AppColors.brand : AppColors.coral,
-            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          BrutButton(
+            label: approved ? 'Approve' : 'Reject',
+            expand: false,
+            size: BrutSize.small,
+            tone: approved ? BrutTone.mint : BrutTone.coral,
             onPressed: () => Navigator.pop(context, true),
-            child: Text(approved ? 'Approve' : 'Reject'),
           ),
         ],
       ),
@@ -73,12 +72,17 @@ class EventDetailScreen extends StatelessWidget {
     if (confirmed == true) {
       final app = context.read<AppState>();
       final String? error = isAdviserStage
-          ? await app.adviserDecision(event, approved: approved, note: controller.text.trim())
-          : await app.adminDecision(event, approved: approved, note: controller.text.trim());
+          ? await app.adviserDecision(event,
+              approved: approved, note: controller.text.trim())
+          : await app.adminDecision(event,
+              approved: approved, note: controller.text.trim());
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? '${event.title} — ${approved ? 'Approved' : 'Rejected'}')),
+        SnackBar(
+          content: Text(error ??
+              '${event.title} — ${approved ? 'Approved' : 'Rejected'}'),
+        ),
       );
     }
   }
@@ -108,91 +112,92 @@ class EventDetailScreen extends StatelessWidget {
 
         return Scaffold(
           body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+            bottom: false,
+            child: Column(
+              children: [
+                BrutHeader(
+                  eyebrow: '${event.org} · ${event.date}',
+                  title: event.title,
+                  tone: eventStatusTone(event.status),
+                  onBack: () => Navigator.of(context).maybePop(),
+                  action: BrutBadge(
+                    label: event.statusLabel,
+                    tone: eventStatusTone(event.status),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    event.title,
-                    style: const TextStyle(
-                      fontFamily: AppText.headerFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 19,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text('${event.org} · ${event.date}', style: AppText.caption),
-                  const SizedBox(height: 18),
-                  _ApprovalStatusCard(event: event),
-                  if (canAdviserDecide || canAdminDecide) ...[
-                    const SizedBox(height: 14),
-                    Row(
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => _decide(context, approved: false, isAdviserStage: canAdviserDecide),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.coral, width: 0.8),
-                              foregroundColor: AppColors.coral,
+                        _ApprovalStatusCard(event: event),
+                        if (canAdviserDecide || canAdminDecide) ...[
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: BrutButton(
+                                  label: 'Reject',
+                                  tone: BrutTone.coral,
+                                  onPressed: () => _decide(context,
+                                      approved: false,
+                                      isAdviserStage: canAdviserDecide),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: BrutButton(
+                                  label: 'Approve',
+                                  tone: BrutTone.mint,
+                                  onPressed: () => _decide(context,
+                                      approved: true,
+                                      isAdviserStage: canAdviserDecide),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        BrutCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const BrutSectionTitle('Event details'),
+                              const SizedBox(height: 12),
+                              _detailRow('Requested budget', event.budget,
+                                  mono: true),
+                              const SizedBox(height: 8),
+                              _detailRow('School year', event.academicLabel),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _ApprovalTimelineCard(event: event),
+                        // Editing a proposal belongs to whoever may
+                        // propose one, and only while it is still draft or
+                        // rejected. Officers are read-only and no longer
+                        // get this button.
+                        if ((role?.canProposeEvents ?? false) &&
+                            event.status == EventApprovalStatus.rejected) ...[
+                          const SizedBox(height: 14),
+                          BrutButton(
+                            label: 'Edit proposal',
+                            icon: Icons.edit_outlined,
+                            tone: BrutTone.neutral,
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    CreateEventScreen(existingEvent: event),
+                              ),
                             ),
-                            child: const Text('Reject'),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _decide(context, approved: true, isAdviserStage: canAdviserDecide),
-                            child: const Text('Approve'),
-                          ),
-                        ),
+                        ],
                       ],
                     ),
-                  ],
-                  const SizedBox(height: 14),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Event details', style: AppText.cardTitle),
-                          const SizedBox(height: 10),
-                          _detailRow('Requested budget', event.budget, mono: true),
-                          const SizedBox(height: 6),
-                          _detailRow('School year', event.academicLabel),
-                        ],
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 14),
-                  _ApprovalTimelineCard(event: event),
-                  // Editing a proposal belongs to whoever may propose one,
-                  // and only while it is still draft or rejected. Officers
-                  // are read-only and no longer get this button.
-                  if ((role?.canProposeEvents ?? false) &&
-                      event.status == EventApprovalStatus.rejected) ...[
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => CreateEventScreen(existingEvent: event)),
-                      ),
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text('Edit Proposal'),
-                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -202,16 +207,17 @@ class EventDetailScreen extends StatelessWidget {
 
   Widget _detailRow(String label, String value, {bool mono = false}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppText.caption),
-        Text(
-          value,
-          style: TextStyle(
-            fontFamily: mono ? AppText.monoFamily : AppText.bodyFamily,
-            fontWeight: FontWeight.w500,
-            fontSize: 12,
-            color: AppColors.ink,
+        Expanded(child: MonoLabel(label)),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: mono
+                ? AppText.number
+                : AppText.body.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -229,101 +235,114 @@ class _ApprovalStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRejected = event.status == EventApprovalStatus.rejected;
+    final rejectionNote = event.rejectedBy == 'Adviser'
+        ? event.adviserApprovalNote
+        : event.adminApprovalNote;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Approval status', style: AppText.caption),
-            const SizedBox(height: 14),
-            if (isRejected)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.coralTint,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.cancel_outlined, size: 18, color: AppColors.coral),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Rejected by ${event.rejectedBy}', style: const TextStyle(fontFamily: AppText.headerFamily, fontWeight: FontWeight.w500, fontSize: 13, color: AppColors.coral)),
-                          if ((event.rejectedBy == 'Adviser' ? event.adviserApprovalNote : event.adminApprovalNote)?.isNotEmpty == true) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              (event.rejectedBy == 'Adviser' ? event.adviserApprovalNote : event.adminApprovalNote)!,
-                              style: AppText.caption.copyWith(height: 1.4),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: _stageChip(
-                      label: 'Adviser Review',
-                      done: event.status != EventApprovalStatus.pendingAdviser,
-                      current: event.status == EventApprovalStatus.pendingAdviser,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _stageChip(
-                      label: 'Admin Approval',
-                      done: event.status == EventApprovalStatus.approved,
-                      current: event.status == EventApprovalStatus.pendingAdmin,
-                    ),
-                  ),
-                ],
-              ),
-            if (!isRejected && event.adviserApprovalNote?.isNotEmpty == true) ...[
-              const SizedBox(height: 10),
-              Text('Adviser: "${event.adviserApprovalNote}"', style: AppText.caption.copyWith(fontStyle: FontStyle.italic)),
-            ],
-            if (!isRejected && event.adminApprovalNote?.isNotEmpty == true) ...[
-              const SizedBox(height: 6),
-              Text('Admin: "${event.adminApprovalNote}"', style: AppText.caption.copyWith(fontStyle: FontStyle.italic)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _stageChip({required String label, required bool done, required bool current}) {
-    final color = done ? AppColors.mint : (current ? AppColors.sun : AppColors.muted);
-    final bg = done ? AppColors.mintTint : (current ? AppColors.sunTint : AppColors.line);
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+    return BrutCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            done ? Icons.check_circle : (current ? Icons.hourglass_top : Icons.radio_button_unchecked),
-            size: 16,
-            color: color,
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontFamily: AppText.bodyFamily, fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+          const BrutSectionTitle('Approval status'),
+          const SizedBox(height: 14),
+          if (isRejected)
+            BrutInlineMessage(
+              tone: BrutTone.coral,
+              icon: Icons.cancel_outlined,
+              text: rejectionNote?.isNotEmpty == true
+                  ? 'Rejected by ${event.rejectedBy}. $rejectionNote'
+                  : 'Rejected by ${event.rejectedBy}.',
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _StageChip(
+                    label: 'Adviser review',
+                    done: event.status != EventApprovalStatus.pendingAdviser,
+                    current:
+                        event.status == EventApprovalStatus.pendingAdviser,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _StageChip(
+                    label: 'Admin approval',
+                    done: event.status == EventApprovalStatus.approved ||
+                        event.status == EventApprovalStatus.completed,
+                    current: event.status == EventApprovalStatus.pendingAdmin,
+                  ),
+                ),
+              ],
+            ),
+          if (!isRejected && event.adviserApprovalNote?.isNotEmpty == true) ...[
+            const SizedBox(height: 10),
+            Text('Adviser: "${event.adviserApprovalNote}"',
+                style: AppText.caption.copyWith(fontStyle: FontStyle.italic)),
+          ],
+          if (!isRejected && event.adminApprovalNote?.isNotEmpty == true) ...[
+            const SizedBox(height: 6),
+            Text('Admin: "${event.adminApprovalNote}"',
+                style: AppText.caption.copyWith(fontStyle: FontStyle.italic)),
+          ],
         ],
       ),
     );
   }
 }
 
+class _StageChip extends StatelessWidget {
+  const _StageChip({
+    required this.label,
+    required this.done,
+    required this.current,
+  });
+
+  final String label;
+  final bool done;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    // Done is green, waiting is yellow, not reached is flat grey with no
+    // shadow — a stage nobody is holding should not look like a control.
+    final tone = done
+        ? BrutTone.mint
+        : current
+            ? BrutTone.sun
+            : BrutTone.neutral;
+    final reached = done || current;
+
+    return BrutSurface(
+      fill: reached ? tone.fill(context) : AppColors.line,
+      radius: AppRadius.rowAll,
+      shadow: reached ? AppShadows.sm : AppShadows.none,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      child: Column(
+        children: [
+          Icon(
+            done
+                ? Icons.check_circle
+                : current
+                    ? Icons.hourglass_top
+                    : Icons.radio_button_unchecked,
+            size: 18,
+            color: reached ? AppColors.ink : AppColors.muted,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppText.buttonLabel.copyWith(
+              fontSize: 11,
+              color: reached ? AppColors.ink : AppColors.subtle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// The real review history from `GET /events/{id}/approvals`: who decided
 /// what, when, and any remarks.
@@ -371,38 +390,26 @@ class _ApprovalTimelineCardState extends State<_ApprovalTimelineCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text('Review history', style: AppText.cardTitle),
-              ),
-              if (_loading)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                IconButton(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-            ],
+          BrutSectionTitle(
+            'Review history',
+            aside: _loading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : BrutIconButton(
+                    icon: Icons.refresh,
+                    label: 'Reload review history',
+                    size: 30,
+                    onPressed: _load,
+                  ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _body(),
         ],
       ),
@@ -411,10 +418,7 @@ class _ApprovalTimelineCardState extends State<_ApprovalTimelineCard> {
 
   Widget _body() {
     if (_error != null) {
-      return Text(
-        _error!,
-        style: AppText.caption.copyWith(color: AppColors.coral),
-      );
+      return BrutInlineMessage(text: _error!, tone: BrutTone.coral);
     }
 
     final records = _records;
@@ -451,10 +455,10 @@ class _ApprovalRow extends StatelessWidget {
 
   final ApprovalRecord record;
 
-  Color get _decisionColor => switch (record.decision) {
-        'approved' => AppColors.mint,
-        'rejected' => AppColors.coral,
-        _ => AppColors.sun,
+  BrutTone get _tone => switch (record.decision) {
+        'approved' => BrutTone.mint,
+        'rejected' => BrutTone.coral,
+        _ => BrutTone.sun,
       };
 
   String get _decisionLabel => switch (record.decision) {
@@ -481,10 +485,14 @@ class _ApprovalRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 8,
-          height: 8,
-          margin: const EdgeInsets.only(top: 5),
-          decoration: BoxDecoration(color: _decisionColor, shape: BoxShape.circle),
+          width: 12,
+          height: 12,
+          margin: const EdgeInsets.only(top: 3),
+          decoration: BoxDecoration(
+            color: _tone.fill(context),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.ink, width: 1.5),
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -493,32 +501,31 @@ class _ApprovalRow extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Step ${record.stepOrder}',
-                    style: AppText.caption.copyWith(fontWeight: FontWeight.w500),
-                  ),
+                  MonoLabel('Step ${record.stepOrder}'),
                   const SizedBox(width: 8),
                   Text(
                     _decisionLabel,
-                    style: AppText.caption.copyWith(color: _decisionColor),
+                    style: AppText.body.copyWith(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 2),
-              Text(_when, style: AppText.caption),
+              const SizedBox(height: 3),
+              Text(_when, style: AppText.moneySmall),
               if (record.reviewerId != null) ...[
                 const SizedBox(height: 2),
                 Text(
                   'Reviewer ${record.reviewerId}',
-                  style: const TextStyle(
-                    fontFamily: AppText.bodyFamily,
+                  style: AppText.caption.copyWith(
                     fontSize: 10,
                     color: AppColors.muted,
                   ),
                 ),
               ],
               if (record.remarks?.isNotEmpty == true) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 Text(
                   '“${record.remarks}”',
                   style: AppText.caption.copyWith(fontStyle: FontStyle.italic),

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import '../widgets/scope_picker.dart';
+import '../theme/brut.dart';
 
 /// One catalog item: its stock, its movement ledger, and the form for
 /// recording a movement.
@@ -460,7 +460,7 @@ class _MovementSheetState extends State<_MovementSheet> {
 
               const Text('What happened', style: AppText.caption),
               const SizedBox(height: 6),
-              LabeledDropdown<InventoryMovementType>(
+              BrutDropdown<InventoryMovementType>(
                 value: _type,
                 hint: 'Select',
                 items: [
@@ -482,7 +482,7 @@ class _MovementSheetState extends State<_MovementSheet> {
 
               const Text('Event', style: AppText.caption),
               const SizedBox(height: 6),
-              LabeledDropdown<String>(
+              BrutDropdown<String>(
                 value: _eventId,
                 hint: 'Select an event',
                 items: [

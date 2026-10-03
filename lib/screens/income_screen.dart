@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import '../widgets/scope_picker.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
 
@@ -432,7 +432,7 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
 
               const Text('Event', style: AppText.caption),
               const SizedBox(height: 6),
-              LabeledDropdown<String>(
+              BrutDropdown<String>(
                 value: _eventId,
                 hint: events.isEmpty ? 'No events available' : 'Select an event',
                 items: [
@@ -445,7 +445,7 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
 
               const Text('Source type', style: AppText.caption),
               const SizedBox(height: 6),
-              LabeledDropdown<FundSource>(
+              BrutDropdown<FundSource>(
                 value: _sourceType,
                 hint: 'Select a source type',
                 items: [
