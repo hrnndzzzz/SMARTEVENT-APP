@@ -245,11 +245,11 @@ class _OcrCard extends StatelessWidget {
         children: [
           const BrutSectionTitle('Receipt reading'),
           const SizedBox(height: 12),
-          detailRow('Merchant', expense.ocrMerchant ?? 'Not read'),
+          BrutDetailRow('Merchant', expense.ocrMerchant ?? 'Not read'),
           const SizedBox(height: 8),
-          detailRow('Date', expense.ocrDate ?? 'Not read'),
+          BrutDetailRow('Date', expense.ocrDate ?? 'Not read'),
           const SizedBox(height: 8),
-          detailRow(
+          BrutDetailRow(
             'Amount',
             expense.ocrAmount == null
                 ? 'Not read'
@@ -277,27 +277,6 @@ class _OcrCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A label on the left, its value right-aligned on the right. Shared by
-/// the detail cards on this screen so their columns line up.
-Widget detailRow(String label, String value, {bool mono = false}) {
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(child: MonoLabel(label)),
-      const SizedBox(width: 12),
-      Flexible(
-        child: Text(
-          value,
-          textAlign: TextAlign.right,
-          style: mono
-              ? AppText.number
-              : AppText.body.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ),
-    ],
-  );
 }
 
 class _LinesCard extends StatelessWidget {
@@ -422,9 +401,9 @@ class _PurchaseCard extends StatelessWidget {
         children: [
           const BrutSectionTitle('Purchase completed'),
           const SizedBox(height: 12),
-          detailRow('Vendor', expense.purchaseVendor ?? '—'),
+          BrutDetailRow('Vendor', expense.purchaseVendor ?? '—'),
           const SizedBox(height: 8),
-          detailRow(
+          BrutDetailRow(
             'Paid',
             expense.paidAmount == null
                 ? '—'
@@ -432,13 +411,13 @@ class _PurchaseCard extends StatelessWidget {
             mono: expense.paidAmount != null,
           ),
           const SizedBox(height: 8),
-          detailRow('Method', expense.paymentMethod ?? '—'),
+          BrutDetailRow('Method', expense.paymentMethod ?? '—'),
           const SizedBox(height: 8),
-          detailRow('Reference', expense.paymentReference ?? '—'),
+          BrutDetailRow('Reference', expense.paymentReference ?? '—'),
           const SizedBox(height: 8),
-          detailRow('Paid on', _date(expense.paidOn), mono: true),
+          BrutDetailRow('Paid on', _date(expense.paidOn), mono: true),
           const SizedBox(height: 8),
-          detailRow('Received on', _date(expense.receivedOn), mono: true),
+          BrutDetailRow('Received on', _date(expense.receivedOn), mono: true),
         ],
       ),
     );

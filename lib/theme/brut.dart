@@ -1261,3 +1261,35 @@ class BrutRetry extends StatelessWidget {
     );
   }
 }
+
+/// A label on the left, its value right-aligned opposite. Detail cards
+/// across the app use this so their columns line up with each other.
+class BrutDetailRow extends StatelessWidget {
+  const BrutDetailRow(this.label, this.value, {super.key, this.mono = false});
+
+  final String label;
+  final String value;
+
+  /// For amounts, quantities and dates.
+  final bool mono;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: MonoLabel(label)),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: mono
+                ? AppText.number
+                : AppText.body.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}

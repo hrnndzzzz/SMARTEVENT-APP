@@ -79,9 +79,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   /// Ready to save: an image that scanned (or was entered manually), a
   /// category, a description and an amount.
   bool get _canSave =>
-      (_scan != null || _manualEntry) &&
-      _categoryId != null &&
-      !_saving;
+      (_scan != null || _manualEntry) && _categoryId != null && !_saving;
 
   Future<void> _pick(ImageSource source) async {
     final XFile? photo = await _picker.pickImage(source: source);
@@ -95,8 +93,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
       final extension = photo.name.contains('.')
           ? '.${photo.name.split('.').last.toLowerCase()}'
           : 'that file';
-      setState(() => _error =
-          'Receipts must be JPEG, PNG, WebP or HEIC — $extension is not supported.');
+      setState(
+        () => _error =
+            'Receipts must be JPEG, PNG, WebP or HEIC — $extension is not supported.',
+      );
       return;
     }
     if (bytes.length > _maxBytes) {
@@ -126,9 +126,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
     });
 
     final outcome = await context.read<AppState>().scanReceipt(
-          bytes: _capturedBytes!,
-          filename: _capturedFilename ?? 'receipt.jpg',
-        );
+      bytes: _capturedBytes!,
+      filename: _capturedFilename ?? 'receipt.jpg',
+    );
 
     if (!mounted) return;
 
@@ -148,8 +148,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
       _scan = scan;
       // Prefilled from the reading, all of it editable.
       _vendorController.text = scan.merchant ?? '';
-      _totalController.text =
-          scan.amount == null ? '' : MoneyInput.fromDouble(scan.amount!);
+      _totalController.text = scan.amount == null
+          ? ''
+          : MoneyInput.fromDouble(scan.amount!);
       _expenseDate = scan.date;
       _lines = [
         for (final item in scan.items)
@@ -233,31 +234,31 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final scan = _scan;
 
     final error = await context.read<AppState>().createExpense(
-          categoryId: _categoryId!,
-          eventId: _eventId,
-          description: _vendorController.text.trim(),
-          amount: amount,
-          expenseDate: _expenseDate,
-          receipt: scan == null
-              ? null
-              : ReceiptDetailsInput(
-                  receiptUrl: scan.receiptUrl,
-                  purpose: _purposeController.text.trim(),
-                  merchant: scan.merchant,
-                  issuedOn: scan.date,
-                  amount: amount,
-                ),
-          items: [
-            for (final line in _lines)
-              ExpenseLineInput(
-                name: line.name.trim(),
-                amount: MoneyInput.normalize(line.amount)!,
-                category: line.category,
-              ),
-          ],
-          departmentId: _departmentId,
-          organizationId: _organizationId,
-        );
+      categoryId: _categoryId!,
+      eventId: _eventId,
+      description: _vendorController.text.trim(),
+      amount: amount,
+      expenseDate: _expenseDate,
+      receipt: scan == null
+          ? null
+          : ReceiptDetailsInput(
+              receiptUrl: scan.receiptUrl,
+              purpose: _purposeController.text.trim(),
+              merchant: scan.merchant,
+              issuedOn: scan.date,
+              amount: amount,
+            ),
+      items: [
+        for (final line in _lines)
+          ExpenseLineInput(
+            name: line.name.trim(),
+            amount: MoneyInput.normalize(line.amount)!,
+            category: line.category,
+          ),
+      ],
+      departmentId: _departmentId,
+      organizationId: _organizationId,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -267,7 +268,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Expense saved: ${_vendorController.text.trim()}')),
+        SnackBar(
+          content: Text('Expense saved: ${_vendorController.text.trim()}'),
+        ),
       );
       _reset();
     }
@@ -306,20 +309,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Scan Receipt',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 18,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 18),
+              const Text('Scan receipt', style: AppText.screenTitle),
+              const SizedBox(height: 4),
               const Text(
                 'Nothing is saved until you press Save.',
                 style: AppText.caption,
@@ -390,24 +387,19 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   lines: _lines,
                   onChanged: (lines) => setState(() => _lines = lines),
                 ),
-                const SizedBox(height: 18),
-                FilledButton(
+                const SizedBox(height: 20),
+                BrutButton(
+                  label: 'Save expense',
+                  size: BrutSize.large,
+                  busy: _saving,
+                  busyLabel: 'Saving…',
                   onPressed: _canSave ? _save : null,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  child: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Save expense'),
                 ),
-                const SizedBox(height: 8),
-                TextButton(
+                const SizedBox(height: 10),
+                BrutButton(
+                  label: 'Discard',
+                  tone: BrutTone.neutral,
                   onPressed: _saving ? null : _reset,
-                  child: const Text('Discard'),
                 ),
               ],
             ],
@@ -449,11 +441,12 @@ class _CapturePreview extends StatelessWidget {
     return Column(
       children: [
         Container(
-          height: 190,
-          decoration: BoxDecoration(
+          height: 200,
+          decoration: const BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.ink),
+            borderRadius: AppRadius.cardAll,
+            border: AppBorders.all,
+            boxShadow: AppShadows.base,
           ),
           clipBehavior: Clip.antiAlias,
           child: image == null
@@ -461,31 +454,36 @@ class _CapturePreview extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.receipt_long_outlined,
-                          size: 40, color: AppColors.muted),
-                      SizedBox(height: 8),
+                      Icon(
+                        Icons.receipt_long_outlined,
+                        size: 40,
+                        color: AppColors.muted,
+                      ),
+                      SizedBox(height: 10),
                       Text('No receipt captured yet', style: AppText.caption),
                     ],
                   ),
                 )
               : Image.file(image!, fit: BoxFit.cover, width: double.infinity),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: BrutButton(
+                label: 'Camera',
+                icon: Icons.photo_camera_outlined,
+                tone: BrutTone.neutral,
                 onPressed: busy ? null : onCamera,
-                icon: const Icon(Icons.photo_camera_outlined, size: 16),
-                label: const Text('Camera'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: OutlinedButton.icon(
+              child: BrutButton(
+                label: 'Gallery',
+                icon: Icons.photo_library_outlined,
+                tone: BrutTone.neutral,
                 onPressed: busy ? null : onGallery,
-                icon: const Icon(Icons.photo_library_outlined, size: 16),
-                label: const Text('Gallery'),
               ),
             ),
           ],
@@ -518,11 +516,7 @@ class _Busy extends StatelessWidget {
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({
-    required this.message,
-    this.onRetry,
-    this.onManual,
-  });
+  const _ErrorCard({required this.message, this.onRetry, this.onManual});
 
   final String message;
   final VoidCallback? onRetry;
@@ -530,28 +524,38 @@ class _ErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.coral.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-      ),
+    return BrutCard(
+      tone: BrutTone.coral,
+      tinted: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(message, style: AppText.caption.copyWith(color: AppColors.coral)),
+          BrutInlineMessage(text: message, tone: BrutTone.coral),
           if (onRetry != null || onManual != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               children: [
                 if (onRetry != null)
-                  TextButton(onPressed: onRetry, child: const Text('Try again')),
+                  Expanded(
+                    child: BrutButton(
+                      label: 'Try again',
+                      icon: Icons.refresh,
+                      size: BrutSize.small,
+                      tone: BrutTone.neutral,
+                      onPressed: onRetry,
+                    ),
+                  ),
+                if (onRetry != null && onManual != null)
+                  const SizedBox(width: 8),
                 if (onManual != null)
-                  TextButton(
-                    onPressed: onManual,
-                    child: const Text('Enter details manually'),
+                  Expanded(
+                    child: BrutButton(
+                      label: 'Enter manually',
+                      icon: Icons.edit_outlined,
+                      size: BrutSize.small,
+                      tone: BrutTone.neutral,
+                      onPressed: onManual,
+                    ),
                   ),
               ],
             ),
@@ -597,77 +601,46 @@ class _ReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          BrutSectionTitle(
             scan == null ? 'Expense details' : 'Check what we read',
-            style: AppText.cardTitle,
           ),
           if (scan != null) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             const Text(
-              'These came from the receipt image. Correct anything that is wrong.',
+              'These came from the receipt image. Correct anything that is '
+              'wrong.',
               style: AppText.caption,
             ),
           ],
-          const SizedBox(height: 12),
-
-          const Text('Description', style: AppText.caption),
-          const SizedBox(height: 6),
-          TextField(
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Description',
             controller: vendorController,
-            decoration: const InputDecoration(hintText: 'What was bought'),
+            hint: 'What was bought',
+            textCapitalization: TextCapitalization.sentences,
           ),
-          const SizedBox(height: 12),
-
-          const Text('Total amount', style: AppText.caption),
-          const SizedBox(height: 6),
-          TextField(
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Total amount',
             controller: totalController,
+            prefixIcon: Icons.payments_outlined,
+            hint: '0.00',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(prefixText: '₱ '),
           ),
-          const SizedBox(height: 12),
-
-          const Text('Date', style: AppText.caption),
-          const SizedBox(height: 6),
-          GestureDetector(
+          const SizedBox(height: 14),
+          BrutDateField(
+            label: 'Date',
+            value: expenseDate,
+            hint: 'Select a date',
             onTap: onDateTap,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                border: Border.all(color: AppColors.ink),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                expenseDate == null
-                    ? 'Select a date'
-                    : '${expenseDate!.year}-'
-                        '${expenseDate!.month.toString().padLeft(2, '0')}-'
-                        '${expenseDate!.day.toString().padLeft(2, '0')}',
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 13,
-                  color: expenseDate == null ? AppColors.muted : AppColors.ink,
-                ),
-              ),
-            ),
           ),
-          const SizedBox(height: 12),
-
-          const Text('Category', style: AppText.caption),
-          const SizedBox(height: 6),
+          const SizedBox(height: 14),
           BrutDropdown<String>(
+            label: 'Category',
             value: categoryId,
             hint: 'Select a category',
             items: [
@@ -676,20 +649,9 @@ class _ReviewCard extends StatelessWidget {
             ],
             onChanged: onCategoryChanged,
           ),
-          const SizedBox(height: 12),
-
-          const Text('Event', style: AppText.caption),
-          const SizedBox(height: 2),
-          const Text(
-            'Optional in general, but required for anything that becomes stock.',
-            style: TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 10,
-              color: AppColors.muted,
-            ),
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 14),
           BrutDropdown<String>(
+            label: 'Event',
             value: eventId,
             hint: 'No event',
             items: [
@@ -698,25 +660,24 @@ class _ReviewCard extends StatelessWidget {
             ],
             onChanged: onEventChanged,
           ),
-
+          const SizedBox(height: 4),
+          const Text(
+            'Optional in general, but required for anything that becomes '
+            'stock.',
+            style: AppText.caption,
+          ),
           if (requiresPurpose) ...[
-            const SizedBox(height: 12),
-            const Text('Receipt purpose', style: AppText.caption),
-            const SizedBox(height: 2),
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'Receipt purpose',
+              controller: purposeController,
+              hint: 'e.g. Catering for the leadership summit',
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 4),
             const Text(
               'Required whenever a receipt is attached.',
-              style: TextStyle(
-                fontFamily: AppText.bodyFamily,
-                fontSize: 10,
-                color: AppColors.muted,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: purposeController,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Catering for the leadership summit',
-              ),
+              style: AppText.caption,
             ),
           ],
         ],
@@ -724,7 +685,6 @@ class _ReviewCard extends StatelessWidget {
     );
   }
 }
-
 
 /// Line items, editable before saving.
 ///
@@ -738,33 +698,29 @@ class _LinesEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(child: Text('Line items', style: AppText.cardTitle)),
-              TextButton.icon(
-                onPressed: () => onChanged([
-                  ...lines,
-                  _EditableLine(
-                    name: '',
-                    amount: '',
-                    category: ItemCategory.consumable,
-                  ),
-                ]),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add'),
-              ),
-            ],
+          BrutSectionTitle(
+            'Line items',
+            aside: BrutButton(
+              label: 'Add',
+              icon: Icons.add,
+              size: BrutSize.small,
+              expand: false,
+              tone: BrutTone.neutral,
+              onPressed: () => onChanged([
+                ...lines,
+                _EditableLine(
+                  name: '',
+                  amount: '',
+                  category: ItemCategory.consumable,
+                ),
+              ]),
+            ),
           ),
+          const SizedBox(height: 10),
           if (lines.isEmpty)
             const Text(
               'Optional. Add lines if you want this expense itemized — only '
@@ -828,7 +784,9 @@ class _LineEditorRow extends StatelessWidget {
               width: 110,
               child: TextFormField(
                 initialValue: line.amount,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(labelText: 'Amount'),
                 onChanged: (v) => onChanged(
                   _EditableLine(
@@ -845,14 +803,16 @@ class _LineEditorRow extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        Row(
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            for (final category in ItemCategory.values) ...[
-              ChoiceChip(
-                label: Text(category.label),
+            for (final category in ItemCategory.values)
+              BrutChip(
+                label: category.label,
                 selected: line.category == category,
-                onSelected: (_) => onChanged(
+                onTap: () => onChanged(
                   _EditableLine(
                     name: line.name,
                     amount: line.amount,
@@ -860,8 +820,6 @@ class _LineEditorRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-            ],
           ],
         ),
       ],
