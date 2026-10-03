@@ -2252,11 +2252,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateProfile({required String name, required String email, Department? department}) {
+  /// Local only: there is no profile endpoint, so this changes what this
+  /// device shows until the session ends. The screen says so.
+  ///
+  /// It no longer takes a department. The theme follows the account's real
+  /// department from `/auth/me`, so letting anyone pick one here changed a
+  /// field nothing read.
+  void updateProfile({required String name, required String email}) {
     if (currentAccount == null) return;
     currentAccount!.name = name;
     currentAccount!.email = email;
-    if (department != null) currentAccount!.department = department;
     notifyListeners();
   }
 
