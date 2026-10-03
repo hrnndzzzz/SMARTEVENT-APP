@@ -888,6 +888,7 @@ class BrutTextField extends StatefulWidget {
     this.suffix,
     this.prefixIcon,
     this.maxLines = 1,
+    this.maxLength,
     this.enabled = true,
     this.autofocus = false,
     this.onChanged,
@@ -906,6 +907,10 @@ class BrutTextField extends StatefulWidget {
   final Widget? suffix;
   final IconData? prefixIcon;
   final int maxLines;
+
+  /// A hard cap, enforced as you type. The counter is hidden — the limit
+  /// is a guard rail, not a target.
+  final int? maxLength;
   final bool enabled;
   final bool autofocus;
   final ValueChanged<String>? onChanged;
@@ -971,6 +976,10 @@ class _BrutTextFieldState extends State<BrutTextField> {
             keyboardType: widget.keyboardType,
             textInputAction: widget.textInputAction,
             maxLines: widget.obscureText ? 1 : widget.maxLines,
+            maxLength: widget.maxLength,
+            buildCounter: (_, {required currentLength, required isFocused,
+                    required maxLength}) =>
+                null,
             autofocus: widget.autofocus,
             textCapitalization: widget.textCapitalization,
             onChanged: widget.onChanged,

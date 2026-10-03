@@ -35,7 +35,11 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
 
   /// Keeps the header in step with the catalog after a movement changes it.
   RemoteInventoryItem get _current =>
-      context.read<AppState>().catalog.where((i) => i.id == _item.id).firstOrNull ??
+      context
+          .read<AppState>()
+          .catalog
+          .where((i) => i.id == _item.id)
+          .firstOrNull ??
       _item;
 
   Future<void> _loadMovements() async {
@@ -73,9 +77,11 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     setState(() => _item = _current);
     messenger.showSnackBar(
       SnackBar(
-        content: Text(error ??
-            'Draft confirmed. Stock is unchanged — it was added when the '
-                'purchase was completed.'),
+        content: Text(
+          error ??
+              'Draft confirmed. Stock is unchanged — it was added when the '
+                  'purchase was completed.',
+        ),
         duration: Duration(seconds: error == null ? 5 : 6),
       ),
     );
@@ -84,103 +90,91 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final item = app.catalog.where((i) => i.id == _item.id).firstOrNull ?? _item;
+    final item =
+        app.catalog.where((i) => i.id == _item.id).firstOrNull ?? _item;
     final role = app.currentRole;
 
-    final canMove = (role?.canRecordInventoryMovements ?? false) && item.isUsable;
+    final canMove =
+        (role?.canRecordInventoryMovements ?? false) && item.isUsable;
     final canManage = role?.canManageCatalog ?? false;
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                item.itemName,
-                style: const TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 19,
-                  color: AppColors.ink,
-                ),
-              ),
-              if (item.description?.isNotEmpty == true) ...[
-                const SizedBox(height: 4),
-                Text(item.description!, style: AppText.caption),
-              ],
-              const SizedBox(height: 14),
+        bottom: false,
+        child: Column(
+          children: [
+            BrutHeader(
+              eyebrow: 'Catalog item',
+              title: item.itemName,
+              tone: item.isLowStock ? BrutTone.sun : BrutTone.brand,
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (item.description?.isNotEmpty == true) ...[
+                      Text(item.description!, style: AppText.caption),
+                      const SizedBox(height: 14),
+                    ],
+                    _StockCard(item: item),
 
-              _StockCard(item: item),
+                    if (item.isDraft) ...[
+                      const SizedBox(height: 14),
+                      _DraftNotice(onConfirm: canManage ? _confirmDraft : null),
+                    ],
 
-              if (item.isDraft) ...[
-                const SizedBox(height: 14),
-                _DraftNotice(
-                  onConfirm: canManage ? _confirmDraft : null,
-                ),
-              ],
+                    if (canMove) ...[
+                      const SizedBox(height: 14),
+                      BrutButton(
+                        label: 'Record movement',
+                        icon: Icons.swap_vert,
+                        onPressed: _openMovementForm,
+                      ),
+                    ] else if (!item.isUsable &&
+                        (role?.canRecordInventoryMovements ?? false)) ...[
+                      const SizedBox(height: 14),
+                      BrutInlineMessage(
+                        tone: BrutTone.sun,
+                        icon: Icons.lock_outline,
+                        text: item.isDraft
+                            ? 'Movements are unavailable until this draft is '
+                                  'confirmed by an administrator.'
+                            : 'Movements need an event link. An administrator can '
+                                  'repair this record.',
+                      ),
+                    ],
 
-              if (canMove) ...[
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  onPressed: _openMovementForm,
-                  icon: const Icon(Icons.swap_vert, size: 18),
-                  label: const Text('Record movement'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(46),
-                  ),
-                ),
-              ] else if (!item.isUsable &&
-                  (role?.canRecordInventoryMovements ?? false)) ...[
-                const SizedBox(height: 14),
-                Text(
-                  item.isDraft
-                      ? 'Movements are unavailable until this draft is '
-                          'confirmed by an administrator.'
-                      : 'Movements need an event link. An administrator can '
-                          'repair this record.',
-                  style: AppText.caption,
-                ),
-              ],
-
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text('Movement ledger', style: AppText.cardTitle),
-                  ),
-                  if (_loading)
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    IconButton(
-                      onPressed: _loadMovements,
-                      icon: const Icon(Icons.refresh, size: 16),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                    const SizedBox(height: 22),
+                    BrutSectionTitle(
+                      'Movement ledger',
+                      aside: _loading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : BrutIconButton(
+                              icon: Icons.refresh,
+                              label: 'Reload the ledger',
+                              size: 30,
+                              onPressed: _loadMovements,
+                            ),
                     ),
-                ],
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Every change to stock, and why.',
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 12),
+                    _Ledger(movements: _movements, error: _movementsError),
+                  ],
+                ),
               ),
-              const SizedBox(height: 2),
-              const Text(
-                'Every change to stock, and why.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 10),
-              _Ledger(movements: _movements, error: _movementsError),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -194,30 +188,24 @@ class _StockCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: item.isLowStock ? AppColors.sunTint : AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: item.isLowStock ? AppColors.sun : AppColors.ink,
-        ),
-      ),
+    return BrutCard(
+      tone: item.isLowStock ? BrutTone.sun : BrutTone.neutral,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const MonoLabel('In stock'),
+          const SizedBox(height: 4),
           Text('${item.quantity} ${item.unit}', style: AppText.moneyLarge),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             item.isLowStock
                 ? 'At or below the threshold of ${item.lowStockThreshold}.'
                 : 'Threshold ${item.lowStockThreshold} ${item.unit}.',
-            style: AppText.caption,
+            style: AppText.body.copyWith(fontSize: 12.5),
           ),
           if (item.location?.isNotEmpty == true) ...[
-            const SizedBox(height: 6),
-            Text('Kept at ${item.location}', style: AppText.caption),
+            const SizedBox(height: 10),
+            BrutBadge(label: 'Kept at ${item.location}', mono: true),
           ],
         ],
       ),
@@ -232,30 +220,26 @@ class _DraftNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.sunTint,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.sun.withValues(alpha: 0.4)),
-      ),
+    return BrutCard(
+      tone: BrutTone.sun,
+      tinted: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Unconfirmed draft',
-              style: AppText.cardTitle.copyWith(color: AppColors.ink)),
+          const BrutSectionTitle('Unconfirmed draft'),
           const SizedBox(height: 6),
           Text(
             'This record was created by completing a purchase. Confirming it '
             'makes it usable for movements — it does not add stock again.',
-            style: AppText.caption.copyWith(color: AppColors.ink),
+            style: AppText.body.copyWith(fontSize: 12.5),
           ),
           if (onConfirm != null) ...[
-            const SizedBox(height: 10),
-            OutlinedButton(
+            const SizedBox(height: 12),
+            BrutButton(
+              label: 'Confirm this item',
+              tone: BrutTone.neutral,
+              size: BrutSize.small,
               onPressed: onConfirm,
-              child: const Text('Confirm this item'),
             ),
           ],
         ],
@@ -273,25 +257,30 @@ class _Ledger extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (error != null) {
-      return Text(error!, style: AppText.caption.copyWith(color: AppColors.coral));
+      return BrutInlineMessage(text: error!, tone: BrutTone.coral);
     }
     if (movements == null) {
       return const Text('Loading…', style: AppText.caption);
     }
     if (movements!.isEmpty) {
-      return const Text('No movements recorded yet.', style: AppText.caption);
+      return const BrutEmptyState(
+        title: 'No movements recorded yet',
+        hint: 'Stock has not changed since this item was created.',
+      );
     }
 
     final ordered = [...movements!]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    return Column(
-      children: [
-        for (final movement in ordered) ...[
-          _MovementRow(movement: movement),
-          if (movement != ordered.last) const Divider(height: 18),
+    return BrutCard(
+      child: Column(
+        children: [
+          for (final movement in ordered) ...[
+            _MovementRow(movement: movement),
+            if (movement != ordered.last) const Divider(height: 20),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -304,7 +293,6 @@ class _MovementRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final incoming = movement.isIncoming;
-    final color = incoming ? AppColors.ink : AppColors.coral;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,46 +301,29 @@ class _MovementRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text(movement.type.label,
-                      style:
-                          AppText.caption.copyWith(fontWeight: FontWeight.w500)),
-                  if (movement.isFromPurchase) ...[
-                    const SizedBox(width: 6),
-                    const Text(
-                      'from a purchase',
-                      style: TextStyle(
-                        fontFamily: AppText.bodyFamily,
-                        fontSize: 10,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ],
+              Text(
+                movement.type.label,
+                style: AppText.body.copyWith(fontWeight: FontWeight.w700),
               ),
+              if (movement.isFromPurchase) ...[
+                const SizedBox(height: 4),
+                const BrutBadge(label: 'From a purchase', mono: true),
+              ],
               if (movement.reason?.isNotEmpty == true) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(movement.reason!, style: AppText.caption),
               ],
-              const SizedBox(height: 2),
-              Text(
-                '${movement.createdAt.toLocal().year}-'
-                '${movement.createdAt.toLocal().month.toString().padLeft(2, '0')}-'
-                '${movement.createdAt.toLocal().day.toString().padLeft(2, '0')}',
-                style: const TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
-              ),
+              const SizedBox(height: 4),
+              MonoLabel(BrutDateField.format(movement.createdAt.toLocal())),
             ],
           ),
         ),
+        const SizedBox(width: 10),
         // The sign is the point of a ledger row, so it is never dropped.
-        Text(
-          '${incoming ? '+' : ''}${movement.changeQty}',
-          style: AppText.moneySmall.copyWith(color: color),
+        BrutBadge(
+          label: '${incoming ? '+' : ''}${movement.changeQty}',
+          tone: incoming ? BrutTone.mint : BrutTone.coral,
+          mono: true,
         ),
       ],
     );
@@ -415,12 +386,12 @@ class _MovementSheetState extends State<_MovementSheet> {
     });
 
     final error = await context.read<AppState>().recordInventoryMovement(
-          widget.item,
-          type: _type,
-          eventId: _eventId!,
-          count: _countController.text,
-          reason: _reasonController.text,
-        );
+      widget.item,
+      type: _type,
+      eventId: _eventId!,
+      count: _countController.text,
+      reason: _reasonController.text,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -433,34 +404,40 @@ class _MovementSheetState extends State<_MovementSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events =
-        context.watch<AppState>().events.where((e) => e.remoteId != null).toList();
+    final events = context
+        .watch<AppState>()
+        .events
+        .where((e) => e.remoteId != null)
+        .toList();
     final projected = _projected;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
         decoration: const BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.card),
+          ),
+          border: AppBorders.all,
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Move ${widget.item.itemName}', style: AppText.cardTitle),
-              const SizedBox(height: 2),
+              BrutSectionTitle('Move ${widget.item.itemName}'),
+              const SizedBox(height: 4),
               Text(
                 '${widget.item.quantity} ${widget.item.unit} in stock now.',
                 style: AppText.caption,
               ),
-              const SizedBox(height: 16),
-
-              const Text('What happened', style: AppText.caption),
-              const SizedBox(height: 6),
+              const SizedBox(height: 18),
               BrutDropdown<InventoryMovementType>(
+                label: 'What happened',
                 value: _type,
                 hint: 'Select',
                 items: [
@@ -469,20 +446,11 @@ class _MovementSheetState extends State<_MovementSheet> {
                 ],
                 onChanged: (v) => setState(() => _type = v ?? _type),
               ),
-              const SizedBox(height: 4),
-              Text(
-                _type.hint,
-                style: const TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              const Text('Event', style: AppText.caption),
               const SizedBox(height: 6),
+              Text(_type.hint, style: AppText.caption),
+              const SizedBox(height: 14),
               BrutDropdown<String>(
+                label: 'Event',
                 value: _eventId,
                 hint: 'Select an event',
                 items: [
@@ -492,74 +460,52 @@ class _MovementSheetState extends State<_MovementSheet> {
                 onChanged: (v) => setState(() => _eventId = v),
               ),
               const SizedBox(height: 14),
-
-              Text('How many ${widget.item.unit}', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              BrutTextField(
+                label: 'How many ${widget.item.unit}',
                 controller: _countController,
                 keyboardType: TextInputType.number,
                 onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  helperText: _type == InventoryMovementType.adjustment
-                      // The one case where the user genuinely picks the
-                      // direction, so a minus is meaningful here.
-                      ? 'Use a minus for a downward correction.'
-                      : 'A positive count — the direction follows from '
-                          'what happened.',
-                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _type == InventoryMovementType.adjustment
+                    // The one case where the user genuinely picks the
+                    // direction, so a minus is meaningful here.
+                    ? 'Use a minus for a downward correction.'
+                    : 'A positive count — the direction follows from what '
+                          'happened.',
+                style: AppText.caption,
               ),
               if (projected != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  projected < 0
+                const SizedBox(height: 10),
+                BrutInlineMessage(
+                  tone: projected < 0 ? BrutTone.coral : BrutTone.neutral,
+                  icon: projected < 0 ? Icons.block : Icons.arrow_forward,
+                  text: projected < 0
                       ? 'That would leave $projected — stock cannot go below '
-                          'zero.'
+                            'zero.'
                       : 'Stock would become $projected ${widget.item.unit}.',
-                  style: AppText.caption.copyWith(
-                    color: projected < 0 ? AppColors.coral : AppColors.subtle,
-                  ),
                 ),
               ],
               const SizedBox(height: 14),
-
-              const Text('Reason', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              BrutTextField(
+                label: 'Reason',
                 controller: _reasonController,
+                hint: 'Why this is being moved',
                 maxLength: InventoryService.maxReasonLength,
-                decoration: const InputDecoration(
-                  hintText: 'Why this is being moved',
-                ),
+                textCapitalization: TextCapitalization.sentences,
               ),
-
               if (_error != null) ...[
-                const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.coral.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(_error!,
-                      style: AppText.caption.copyWith(color: AppColors.coral)),
-                ),
+                const SizedBox(height: 14),
+                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
               ],
-
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                style:
-                    FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Record movement'),
+              const SizedBox(height: 20),
+              BrutButton(
+                label: 'Record movement',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Recording…',
+                onPressed: _submit,
               ),
             ],
           ),
