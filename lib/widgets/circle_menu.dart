@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 
 class CircleMenuItem {
   final IconData icon;
@@ -62,7 +65,9 @@ class _CircleMenuState extends State<CircleMenu>
     const double mainButtonSize = 56;
     const double smallButtonSize = 48;
     const double itemSpacing = 64;
-    final tint = Color.lerp(widget.color, Colors.white, 0.92)!;
+    // Light enough to keep ink on top legible, dark enough to read as
+    // the area's accent.
+    final tint = Color.lerp(widget.color, AppColors.surface, 0.55)!;
 
     return Stack(
       children: [
@@ -73,17 +78,23 @@ class _CircleMenuState extends State<CircleMenu>
             duration: const Duration(milliseconds: 250),
             child: GestureDetector(
               onTap: _toggle,
-              child: Container(color: Colors.black.withOpacity(0.25)),
+              // The scrim is flat ink at half strength, like the sheets.
+              child: ColoredBox(
+                color: AppColors.ink.withValues(alpha: 0.5),
+                child: const SizedBox.expand(),
+              ),
             ),
           ),
         ),
 
         // Stacked vertical items, each with its own staggered delay
-
         ...List.generate(widget.items.length, (index) {
           const double gapFromMain = 16;
           final itemBottom =
-              baseBottomOffset + mainButtonSize + gapFromMain + (itemSpacing * index);
+              baseBottomOffset +
+              mainButtonSize +
+              gapFromMain +
+              (itemSpacing * index);
 
           final start = (index / widget.items.length) * 0.5;
           final end = start + 0.5;
@@ -108,60 +119,36 @@ class _CircleMenuState extends State<CircleMenu>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
+                          BrutSurface(
+                            fill: AppColors.surface,
+                            radius: AppRadius.controlAll,
+                            shadow: AppShadows.sm,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
+                              vertical: 5,
                             ),
                             child: Text(
                               widget.items[index].label,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: widget.color,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: AppText.buttonLabel.copyWith(fontSize: 12),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
+                          const SizedBox(width: 10),
+                          BrutSurface(
                             onTap: () {
                               widget.items[index].onTap();
                               _toggle();
                             },
-                            child: Container(
-                              width: smallButtonSize,
-                              height: smallButtonSize,
-                              decoration: BoxDecoration(
-                                color: tint,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: widget.color.withOpacity(0.3),
-                                  width: 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                widget.items[index].icon,
-                                color: widget.color,
-                                size: 22,
-                              ),
+                            semanticLabel: widget.items[index].label,
+                            fill: tint,
+                            radius: AppRadius.pill,
+                            shadow: AppShadows.base,
+                            width: smallButtonSize,
+                            height: smallButtonSize,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              widget.items[index].icon,
+                              color: AppColors.ink,
+                              size: 22,
                             ),
                           ),
                         ],
@@ -183,28 +170,27 @@ class _CircleMenuState extends State<CircleMenu>
             onTapUp: (_) => setState(() => _isPressed = false),
             onTapCancel: () => setState(() => _isPressed = false),
             onTap: _toggle,
-            child: AnimatedScale(
-              scale: _isPressed ? 0.95 : 1.0,
-              duration: const Duration(milliseconds: 100),
-              child: Container(
-                width: mainButtonSize,
-                height: mainButtonSize,
-                decoration: BoxDecoration(
-                  color: widget.color,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: AnimatedRotation(
-                  turns: _isOpen ? 0.125 : 0,
-                  duration: const Duration(milliseconds: 300),
-                  child: const Icon(Icons.apps, color: Colors.white, size: 28),
-                ),
+            child: AnimatedContainer(
+              duration: AppMotion.press,
+              curve: Curves.easeOut,
+              width: mainButtonSize,
+              height: mainButtonSize,
+              alignment: Alignment.center,
+              // Same press as every other control: it drops onto its own
+              // shadow rather than scaling.
+              transform: _isPressed
+                  ? Matrix4.translationValues(3, 3, 0)
+                  : Matrix4.identity(),
+              decoration: BoxDecoration(
+                color: widget.color,
+                shape: BoxShape.circle,
+                border: AppBorders.all,
+                boxShadow: _isPressed ? AppShadows.none : AppShadows.base,
+              ),
+              child: AnimatedRotation(
+                turns: _isOpen ? 0.125 : 0,
+                duration: AppMotion.accordion,
+                child: const Icon(Icons.apps, color: AppColors.ink, size: 28),
               ),
             ),
           ),

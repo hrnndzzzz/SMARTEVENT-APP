@@ -51,73 +51,29 @@ class _AdminScreenState extends State<AdminScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            BrutHeader(
+              title: 'Administration',
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Administration',
-                        style: TextStyle(
-                          fontFamily: AppText.headerFamily,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 18,
-                          color: AppColors.ink,
+                  for (final (i, label) in const [
+                    (0, 'Roster'),
+                    (1, 'Accounts'),
+                    (2, 'Audit'),
+                  ])
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: BrutChip(
+                          label: label,
+                          selected: _tab == i,
+                          onTap: () => _select(i),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      for (final (i, label) in const [
-                        (0, 'Approved Roster'),
-                        (1, 'Accounts'),
-                        (2, 'Audit'),
-                      ])
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _select(i),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 8),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _tab == i
-                                    ? AppColors.brand
-                                    : AppColors.surface,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: _tab == i
-                                      ? AppColors.brand
-                                      : AppColors.ink,
-                                ),
-                              ),
-                              child: Text(
-                                label,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: AppText.bodyFamily,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: _tab == i
-                                      ? Colors.white
-                                      : AppColors.subtle,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
             ),
@@ -156,15 +112,16 @@ class _RosterTab extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             if (load.isLoading && app.roster.isEmpty)
-              const Center(child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              ))
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
             else if (load.hasFailed && app.roster.isEmpty)
-              Text(load.error!,
-                  style: AppText.caption.copyWith(color: AppColors.coral))
+              BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
             else if (app.roster.isEmpty)
-              const Text('Nobody on the roster yet.', style: AppText.caption)
+              const BrutEmptyState(title: 'Nobody on the roster yet')
             else
               for (final entry in app.roster) ...[
                 _RosterCard(entry: entry),
@@ -183,7 +140,7 @@ class _RosterTab extends StatelessWidget {
               builder: (_) => const _AddRosterSheet(),
             ),
             icon: const Icon(Icons.person_add_alt),
-            label: const Text('Add to Roster'),
+            label: Text('Add to roster', style: AppText.buttonLabel),
           ),
         ),
       ],
@@ -211,10 +168,12 @@ class _RosterCard extends StatelessWidget {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          BrutButton(
+            label: 'Remove',
+            tone: BrutTone.coral,
+            size: BrutSize.small,
+            expand: false,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.coral),
-            child: const Text('Remove'),
           ),
         ],
       ),
@@ -230,13 +189,7 @@ class _RosterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -246,49 +199,34 @@ class _RosterCard extends StatelessWidget {
               // A claimed entry is spent: its account carries on from here,
               // so removal and free editing are both gone.
               if (entry.isClaimed)
-                const _Tag(
-                  label: 'Claimed',
-                  fg: AppColors.ink,
-                  bg: AppColors.mintTint,
-                )
+                const BrutBadge(label: 'Claimed', tone: BrutTone.mint)
               else
-                IconButton(
+                BrutIconButton(
+                  icon: Icons.delete_outline,
+                  label: 'Remove ${entry.fullName} from the roster',
+                  size: 32,
                   onPressed: () => _confirmRemove(context),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
                 ),
             ],
           ),
           const SizedBox(height: 4),
           Text(entry.email, style: AppText.caption),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
-              _Tag(
-                label: entry.role.label,
-                fg: AppColors.brand,
-                bg: AppColors.brandTint,
-              ),
+              BrutBadge(label: entry.role.label, tone: BrutTone.brand),
               if (entry.position?.isNotEmpty == true)
-                _Tag(
-                  label: entry.position!,
-                  fg: AppColors.subtle,
-                  bg: AppColors.line,
-                ),
+                BrutBadge(label: entry.position!, mono: true),
             ],
           ),
           if (entry.isClaimed) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             const Text(
               'An account was created from this entry. Manage it under '
               'Accounts.',
-              style: TextStyle(
-                fontFamily: AppText.bodyFamily,
-                fontSize: 10,
-                color: AppColors.muted,
-              ),
+              style: AppText.caption,
             ),
           ],
         ],
@@ -315,15 +253,16 @@ class _AccountsTab extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         if (load.isLoading && app.managedUsers.isEmpty)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          )
         else if (load.hasFailed && app.managedUsers.isEmpty)
-          Text(load.error!,
-              style: AppText.caption.copyWith(color: AppColors.coral))
+          BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
         else if (app.managedUsers.isEmpty)
-          const Text('No accounts in your scope.', style: AppText.caption)
+          const BrutEmptyState(title: 'No accounts in your scope')
         else
           for (final user in app.managedUsers) ...[
             _UserCard(user: user),
@@ -343,17 +282,19 @@ class _UserCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(suspend ? 'Suspend this account?' : 'Restore access?',
-            style: AppText.cardTitle),
+        title: Text(
+          suspend ? 'Suspend this account?' : 'Restore access?',
+          style: AppText.cardTitle,
+        ),
         content: Text(
           suspend
               // Spelling out what suspension actually does, rather than a
               // bare "are you sure".
               ? '${user.fullName} will lose access immediately, including on '
-                  'any device already signed in. Their records stay exactly '
-                  'as they are, and you can restore access later.'
+                    'any device already signed in. Their records stay exactly '
+                    'as they are, and you can restore access later.'
               : '${user.fullName} will be able to sign in again. If they '
-                  'never finished setting a password, they still have to.',
+                    'never finished setting a password, they still have to.',
           style: AppText.caption,
         ),
         actions: [
@@ -361,12 +302,12 @@ class _UserCard extends StatelessWidget {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          BrutButton(
+            label: suspend ? 'Suspend' : 'Restore',
+            tone: suspend ? BrutTone.coral : BrutTone.mint,
+            size: BrutSize.small,
+            expand: false,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: suspend
-                ? FilledButton.styleFrom(backgroundColor: AppColors.coral)
-                : null,
-            child: Text(suspend ? 'Suspend' : 'Restore'),
           ),
         ],
       ),
@@ -374,12 +315,15 @@ class _UserCard extends StatelessWidget {
     if (confirmed != true || !context.mounted) return;
 
     final messenger = ScaffoldMessenger.of(context);
-    final error =
-        await context.read<AppState>().setUserSuspended(user, suspend);
+    final error = await context.read<AppState>().setUserSuspended(
+      user,
+      suspend,
+    );
     messenger.showSnackBar(
       SnackBar(
-        content: Text(error ??
-            (suspend ? 'Access suspended.' : 'Access restored.')),
+        content: Text(
+          error ?? (suspend ? 'Access suspended.' : 'Access restored.'),
+        ),
       ),
     );
   }
@@ -388,72 +332,55 @@ class _UserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSelf = context.watch<AppState>().currentAccount?.id == user.id;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: Text(user.fullName, style: AppText.cardTitle)),
-              _Tag(
+              const SizedBox(width: 8),
+              BrutBadge(
                 label: user.statusLabel,
-                fg: user.isSuspended
-                    ? AppColors.coral
+                tone: user.isSuspended
+                    ? BrutTone.coral
                     : user.isUsable
-                        ? AppColors.ink
-                        : AppColors.ink,
-                bg: user.isSuspended
-                    ? AppColors.coralTint
-                    : user.isUsable
-                        ? AppColors.mintTint
-                        : AppColors.sunTint,
+                    ? BrutTone.mint
+                    : BrutTone.sun,
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(user.email, style: AppText.caption),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
-              _Tag(
+              BrutBadge(
                 label: user.role?.label ?? 'Unknown role',
-                fg: AppColors.brand,
-                bg: AppColors.brandTint,
+                tone: BrutTone.brand,
               ),
               if (user.position?.isNotEmpty == true)
-                _Tag(
-                  label: user.position!,
-                  fg: AppColors.subtle,
-                  bg: AppColors.line,
-                ),
+                BrutBadge(label: user.position!, mono: true),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           if (isSelf)
-            const Text(
-              'This is your own account — you cannot change your own access.',
-              style: TextStyle(
-                fontFamily: AppText.bodyFamily,
-                fontSize: 10,
-                color: AppColors.muted,
-              ),
+            const BrutInlineMessage(
+              tone: BrutTone.neutral,
+              icon: Icons.person_outline,
+              text:
+                  'This is your own account — you cannot change your own '
+                  'access.',
             )
           else
-            OutlinedButton(
+            BrutButton(
+              label: user.isSuspended ? 'Restore access' : 'Suspend access',
+              tone: user.isSuspended ? BrutTone.mint : BrutTone.coral,
+              size: BrutSize.small,
               onPressed: () => _confirmSuspension(context, !user.isSuspended),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(40),
-                foregroundColor:
-                    user.isSuspended ? AppColors.ink : AppColors.coral,
-              ),
-              child: Text(user.isSuspended ? 'Restore access' : 'Suspend access'),
             ),
         ],
       ),
@@ -479,15 +406,16 @@ class _AuditTab extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         if (load.isLoading && app.auditLog.isEmpty)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(),
-          ))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          )
         else if (load.hasFailed && app.auditLog.isEmpty)
-          Text(load.error!,
-              style: AppText.caption.copyWith(color: AppColors.coral))
+          BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
         else if (app.auditLog.isEmpty)
-          const Text('Nothing recorded yet.', style: AppText.caption)
+          const BrutEmptyState(title: 'Nothing recorded yet')
         else
           for (final entry in app.auditLog) ...[
             _AuditRow(entry: entry),
@@ -509,56 +437,27 @@ class _AuditRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(entry.readableAction,
-            style: AppText.caption.copyWith(fontWeight: FontWeight.w500)),
-        const SizedBox(height: 2),
         Text(
+          entry.readableAction,
+          style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        MonoLabel(
           '${at.year}-${at.month.toString().padLeft(2, '0')}'
           '-${at.day.toString().padLeft(2, '0')} '
           '${at.hour.toString().padLeft(2, '0')}:'
           '${at.minute.toString().padLeft(2, '0')}'
           '${entry.entityType == null ? '' : ' · ${entry.entityType}'}',
-          style: AppText.caption,
         ),
         if (entry.userId != null) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           // An id, not a name — the backend does not resolve them.
           Text(
             'By ${entry.userId}',
-            style: const TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 10,
-              color: AppColors.muted,
-            ),
+            style: AppText.caption.copyWith(fontSize: 10),
           ),
         ],
       ],
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag({required this.label, required this.fg, required this.bg});
-
-  final String label;
-  final Color fg;
-  final Color bg;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: fg,
-        ),
-      ),
     );
   }
 }
@@ -602,7 +501,8 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
       setState(() => _error = 'Enter the email they will register with.');
       return;
     }
-    if (app.mustChooseScope && (_departmentId == null || _organizationId == null)) {
+    if (app.mustChooseScope &&
+        (_departmentId == null || _organizationId == null)) {
       setState(() => _error = 'Choose a department and organization.');
       return;
     }
@@ -644,28 +544,31 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
     final app = context.watch<AppState>();
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
         decoration: const BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.card),
+          ),
+          border: AppBorders.all,
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Add to the approved roster',
-                  style: AppText.cardTitle),
-              const SizedBox(height: 2),
+              const BrutSectionTitle('Add to the approved roster'),
+              const SizedBox(height: 4),
               const Text(
                 'This creates no account. It lets that email register, and '
                 'their name and role come from this entry.',
                 style: AppText.caption,
               ),
-              const SizedBox(height: 16),
-
+              const SizedBox(height: 18),
               if (app.mustChooseScope) ...[
                 ScopePicker(
                   departments: app.departments,
@@ -684,42 +587,25 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
                 ),
                 const SizedBox(height: 14),
               ],
-
-              const Text('Full name', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(controller: _nameController),
-              const SizedBox(height: 14),
-
-              const Text('Email', style: AppText.caption),
-              const SizedBox(height: 2),
-              const Text(
-                'Must match exactly what they register with.',
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
+              BrutTextField(
+                label: 'Full name',
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
               ),
-              const SizedBox(height: 6),
-              TextField(
+              const SizedBox(height: 14),
+              BrutTextField(
+                label: 'Email',
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 14),
-
-              const Text('Role', style: AppText.caption),
-              const SizedBox(height: 2),
-              const Text(
-                'Admin and SDS accounts are created separately by a Super '
-                'Admin, not through the roster.',
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
-              ),
               const SizedBox(height: 6),
+              const Text(
+                'Must match exactly what they register with.',
+                style: AppText.caption,
+              ),
+              const SizedBox(height: 14),
               BrutDropdown<UserRole>(
+                label: 'Role',
                 value: _role,
                 hint: 'Select a role',
                 items: [
@@ -728,49 +614,34 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
                 ],
                 onChanged: (v) => setState(() => _role = v ?? _role),
               ),
-              const SizedBox(height: 14),
-
-              const Text('Position (optional)', style: AppText.caption),
-              const SizedBox(height: 2),
+              const SizedBox(height: 6),
               const Text(
-                'A title like President. It never affects permissions.',
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
+                'Admin and SDS accounts are created separately by a Super '
+                'Admin, not through the roster.',
+                style: AppText.caption,
+              ),
+              const SizedBox(height: 14),
+              BrutTextField(
+                label: 'Position (optional)',
+                controller: _positionController,
+                textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 6),
-              TextField(controller: _positionController),
-
+              const Text(
+                'A title like President. It never affects permissions.',
+                style: AppText.caption,
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.coral.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(_error!,
-                      style: AppText.caption.copyWith(color: AppColors.coral)),
-                ),
+                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
               ],
-
               const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                style:
-                    FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Add to roster'),
+              BrutButton(
+                label: 'Add to roster',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Adding…',
+                onPressed: _submit,
               ),
             ],
           ),
