@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import 'verify_otp_screen.dart';
 
 /// Roster-based self-registration.
@@ -47,8 +47,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     if (_passwordController.text.length < _minPasswordLength) {
-      setState(() =>
-          _error = 'Your password must be at least $_minPasswordLength characters.');
+      setState(
+        () => _error =
+            'Your password must be at least $_minPasswordLength characters.',
+      );
       return;
     }
     if (_passwordController.text != _confirmController.text) {
@@ -62,9 +64,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     final error = await context.read<AppState>().register(
-          email: email,
-          password: _passwordController.text,
-        );
+      email: email,
+      password: _passwordController.text,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -88,86 +90,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
+              BrutIconButton(
+                icon: Icons.arrow_back,
+                label: 'Back',
                 onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Create your account',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 19,
-                  color: AppColors.ink,
-                ),
-              ),
+              const SizedBox(height: 20),
+              const Text('Create your account', style: AppText.titleBig),
               const SizedBox(height: 4),
               const Text(
                 'Your email must already be on your organization’s approved '
                 'roster. Your name and role come from that record.',
                 style: AppText.caption,
               ),
-              const SizedBox(height: 22),
-              const Text('School email', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              const SizedBox(height: 24),
+              BrutTextField(
+                label: 'School email',
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(hintText: 'yourname@lcup.edu.ph'),
+                hint: 'yourname@lcup.edu.ph',
               ),
               const SizedBox(height: 14),
-              const Text('Password', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              BrutTextField(
+                label: 'Password',
                 controller: _passwordController,
                 obscureText: _obscure,
-                decoration: InputDecoration(
-                  helperText: 'At least $_minPasswordLength characters.',
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscure
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      size: 18,
-                    ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 18,
                   ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text('Confirm password', style: AppText.caption),
               const SizedBox(height: 6),
-              TextField(controller: _confirmController, obscureText: _obscure),
+              Text(
+                'At least $_minPasswordLength characters.',
+                style: AppText.caption,
+              ),
+              const SizedBox(height: 14),
+              BrutTextField(
+                label: 'Confirm password',
+                controller: _confirmController,
+                obscureText: _obscure,
+              ),
               if (_error != null) ...[
                 const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.coral.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: AppText.caption.copyWith(color: AppColors.coral),
-                  ),
-                ),
+                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
               ],
-              const SizedBox(height: 22),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Create account'),
+              const SizedBox(height: 24),
+              BrutButton(
+                label: 'Create account',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Creating…',
+                onPressed: _submit,
               ),
             ],
           ),

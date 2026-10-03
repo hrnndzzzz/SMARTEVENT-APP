@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../main.dart';
 
 /// Password change, and the mandatory first-login setup.
@@ -66,9 +66,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     });
 
     final error = await context.read<AppState>().changePassword(
-          currentPassword: _currentController.text,
-          newPassword: _newController.text,
-        );
+      currentPassword: _currentController.text,
+      newPassword: _newController.text,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -77,9 +77,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     });
 
     if (error == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Password updated.')));
 
       final role = context.read<AppState>().currentRole;
       if (widget.mandatory && role != null) {
@@ -108,34 +108,32 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!widget.mandatory)
-                  IconButton(
+                // A mandatory setup offers no way back, by design.
+                if (!widget.mandatory) ...[
+                  BrutIconButton(
+                    icon: Icons.arrow_back,
+                    label: 'Back',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                   ),
-                const SizedBox(height: 10),
+                  const SizedBox(height: 20),
+                ],
                 Text(
                   widget.mandatory ? 'Set your password' : 'Change password',
-                  style: const TextStyle(
-                    fontFamily: AppText.headerFamily,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 19,
-                    color: AppColors.ink,
-                  ),
+                  style: AppText.titleBig,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   widget.mandatory
                       ? 'Your account was created with a temporary password. '
-                          'Set your own before continuing.'
+                            'Set your own before continuing.'
                       : 'Choose a new password for your account.',
                   style: AppText.caption,
                 ),
                 const SizedBox(height: 22),
                 _PasswordField(
-                  label: widget.mandatory ? 'Temporary password' : 'Current password',
+                  label: widget.mandatory
+                      ? 'Temporary password'
+                      : 'Current password',
                   controller: _currentController,
                 ),
                 const SizedBox(height: 14),
@@ -151,29 +149,24 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 14),
-                  _ErrorNote(message: _error!),
+                  BrutInlineMessage(text: _error!, tone: BrutTone.coral),
                 ],
-                const SizedBox(height: 22),
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(widget.mandatory ? 'Set password' : 'Update password'),
+                const SizedBox(height: 24),
+                BrutButton(
+                  label: widget.mandatory ? 'Set password' : 'Update password',
+                  size: BrutSize.large,
+                  busy: _submitting,
+                  busyLabel: 'Saving…',
+                  onPressed: _submit,
                 ),
                 if (widget.mandatory) ...[
                   const SizedBox(height: 10),
-                  TextButton(
+                  BrutButton(
+                    label: 'Sign out instead',
+                    tone: BrutTone.neutral,
                     onPressed: _submitting
                         ? null
                         : () => context.read<AppState>().signOut(),
-                    child: const Text('Sign out instead'),
                   ),
                 ],
               ],
@@ -208,46 +201,25 @@ class _PasswordFieldState extends State<_PasswordField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.label, style: AppText.caption),
-        const SizedBox(height: 6),
-        TextField(
+        BrutTextField(
+          label: widget.label,
           controller: widget.controller,
           obscureText: _obscure,
-          decoration: InputDecoration(
-            helperText: widget.helper,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                size: 18,
-              ),
-              onPressed: () => setState(() => _obscure = !_obscure),
+          suffix: IconButton(
+            icon: Icon(
+              _obscure
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: 18,
             ),
+            onPressed: () => setState(() => _obscure = !_obscure),
           ),
         ),
+        if (widget.helper != null) ...[
+          const SizedBox(height: 6),
+          Text(widget.helper!, style: AppText.caption),
+        ],
       ],
-    );
-  }
-}
-
-class _ErrorNote extends StatelessWidget {
-  const _ErrorNote({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.coral.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        message,
-        style: AppText.caption.copyWith(color: AppColors.coral),
-      ),
     );
   }
 }

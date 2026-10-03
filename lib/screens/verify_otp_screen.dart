@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 
 /// Verify Email — the step between registering and being able to sign in.
 ///
@@ -39,7 +39,9 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   Future<void> _verify() async {
     final code = _codeController.text.trim();
     if (code.length != _codeLength) {
-      setState(() => _error = 'Enter the $_codeLength-character code from your email.');
+      setState(
+        () => _error = 'Enter the $_codeLength-character code from your email.',
+      );
       return;
     }
 
@@ -49,9 +51,10 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
       _notice = null;
     });
 
-    final outcome = await context
-        .read<AppState>()
-        .verifyOtp(email: widget.email, otpCode: code);
+    final outcome = await context.read<AppState>().verifyOtp(
+      email: widget.email,
+      otpCode: code,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -66,7 +69,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     // worth mentioning but is NOT a registration failure.
     final message = result.confirmationEmailFailed
         ? '${result.detail} We could not send the confirmation email, but '
-            'your account is active — you can sign in now.'
+              'your account is active — you can sign in now.'
         : result.detail;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -88,7 +91,9 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     setState(() {
       _resending = false;
       _error = error;
-      _notice = error == null ? 'A new code is on its way to ${widget.email}.' : null;
+      _notice = error == null
+          ? 'A new code is on its way to ${widget.email}.'
+          : null;
     });
   }
 
@@ -101,90 +106,58 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
+              BrutIconButton(
+                icon: Icons.arrow_back,
+                label: 'Back',
                 onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Verify your email',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 19,
-                  color: AppColors.ink,
-                ),
-              ),
+              const SizedBox(height: 20),
+              const Text('Verify your email', style: AppText.titleBig),
               const SizedBox(height: 4),
               Text(
                 'We sent a $_codeLength-character code to ${widget.email}. '
                 'Enter it to activate your account.',
                 style: AppText.caption,
               ),
-              const SizedBox(height: 22),
-              const Text('Verification code', style: AppText.caption),
-              const SizedBox(height: 6),
-              TextField(
+              const SizedBox(height: 24),
+              BrutTextField(
+                label: 'Verification code',
                 controller: _codeController,
                 maxLength: _codeLength,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(counterText: ''),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 14),
-                _Note(message: _error!, tone: _NoteTone.error),
+                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
               ],
               if (_notice != null) ...[
                 const SizedBox(height: 14),
-                _Note(message: _notice!, tone: _NoteTone.info),
+                BrutInlineMessage(
+                  text: _notice!,
+                  tone: BrutTone.mint,
+                  icon: Icons.mark_email_read_outlined,
+                ),
               ],
-              const SizedBox(height: 22),
-              FilledButton(
-                onPressed: _submitting ? null : _verify,
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                child: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Verify'),
+              const SizedBox(height: 24),
+              BrutButton(
+                label: 'Verify',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: 'Verifying…',
+                onPressed: _verify,
               ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: _resending || _submitting ? null : _resend,
-                child: Text(_resending ? 'Sending…' : 'Resend code'),
+              const SizedBox(height: 10),
+              BrutButton(
+                label: 'Resend code',
+                tone: BrutTone.neutral,
+                busy: _resending,
+                busyLabel: 'Sending…',
+                onPressed: _submitting ? null : _resend,
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-enum _NoteTone { error, info }
-
-class _Note extends StatelessWidget {
-  const _Note({required this.message, required this.tone});
-
-  final String message;
-  final _NoteTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = tone == _NoteTone.error ? AppColors.coral : AppColors.mint;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(message, style: AppText.caption.copyWith(color: color)),
     );
   }
 }
