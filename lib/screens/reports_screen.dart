@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../api/export_saver.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
@@ -34,7 +33,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     setState(() => _exporting = true);
 
     final messenger = ScaffoldMessenger.of(context);
-    final outcome = await context.read<AppState>().exportFinancialReport(format);
+    final outcome = await context.read<AppState>().exportFinancialReport(
+      format,
+    );
 
     if (!mounted) return;
     setState(() => _exporting = false);
@@ -60,8 +61,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (shareProblem != null) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('$shareProblem The report itself downloaded fine '
-              '(${file.filename}, ${_size(file.sizeBytes)}).'),
+          content: Text(
+            '$shareProblem The report itself downloaded fine '
+            '(${file.filename}, ${_size(file.sizeBytes)}).',
+          ),
           duration: const Duration(seconds: 6),
         ),
       );
@@ -91,8 +94,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (shareProblem != null) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('$shareProblem The file downloaded fine '
-              '(${file.filename}, ${_size(file.sizeBytes)}).'),
+          content: Text(
+            '$shareProblem The file downloaded fine '
+            '(${file.filename}, ${_size(file.sizeBytes)}).',
+          ),
           duration: const Duration(seconds: 6),
         ),
       );
@@ -102,8 +107,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   static String _size(int bytes) => bytes < 1024
       ? '$bytes B'
       : bytes < 1024 * 1024
-          ? '${(bytes / 1024).toStringAsFixed(1)} KB'
-          : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      ? '${(bytes / 1024).toStringAsFixed(1)} KB'
+      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
   @override
   Widget build(BuildContext context) {
@@ -127,20 +132,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                     onBellTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (_) => const NotificationsScreen()),
+                        builder: (_) => const NotificationsScreen(),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Financial Reports',
-                    style: TextStyle(
-                      fontFamily: AppText.headerFamily,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 18,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 18),
+                  const Text('Financial reports', style: AppText.screenTitle),
+                  const SizedBox(height: 4),
                   const Text(
                     'Income and approved spending over a period.',
                     style: AppText.caption,
@@ -176,10 +174,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ],
                     _EventsCard(report: report),
                     const SizedBox(height: 18),
-                    _ExportRow(
-                      busy: _exporting,
-                      onExport: _export,
-                    ),
+                    _ExportRow(busy: _exporting, onExport: _export),
                   ],
                   const SizedBox(height: 24),
                   const Divider(),
@@ -209,19 +204,12 @@ class _Filters extends StatelessWidget {
     final period = app.reportPeriod;
     final problem = app.reportFilterProblem;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Period', style: AppText.caption),
-          const SizedBox(height: 6),
           BrutDropdown<ReportPeriod>(
+            label: 'Period',
             value: period,
             hint: 'Select a period',
             items: [
@@ -232,38 +220,41 @@ class _Filters extends StatelessWidget {
               if (v != null) app.setReportFilters(period: v);
             },
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           // Calendar and academic periods answer different questions, so
           // which one is in use is stated rather than implied.
-          Text(
-            period.explanation,
-            style: const TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 10,
-              color: AppColors.muted,
-            ),
-          ),
-
+          Text(period.explanation, style: AppText.caption),
           if (period.usesReferenceDate) ...[
             const SizedBox(height: 14),
-            const Text('Reference date', style: AppText.caption),
-            const SizedBox(height: 6),
-            _DateField(
+            BrutDateField(
+              label: 'Reference date',
               value: app.reportReferenceDate,
-              onPick: (date) => app.setReportFilters(referenceDate: date),
+              hint: 'Today',
+              onTap: () async {
+                final now = DateTime.now();
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: app.reportReferenceDate ?? now,
+                  firstDate: DateTime(now.year - 5),
+                  lastDate: DateTime(now.year + 1),
+                );
+                if (picked != null) {
+                  app.setReportFilters(referenceDate: picked);
+                }
+              },
             ),
           ],
-
           if (period.needsSchoolYear) ...[
             const SizedBox(height: 14),
-            const Text('School year', style: AppText.caption),
-            const SizedBox(height: 6),
             BrutDropdown<String>(
+              label: 'School year',
               value: app.reportSchoolYear,
               hint: 'Select a school year',
               items: [
-                for (final year
-                    in SchoolYear.mergeOptions(app.knownSchoolYears, DateTime.now()))
+                for (final year in SchoolYear.mergeOptions(
+                  app.knownSchoolYears,
+                  DateTime.now(),
+                ))
                   DropdownMenuItem(value: year, child: Text(year)),
               ],
               onChanged: (v) {
@@ -271,12 +262,10 @@ class _Filters extends StatelessWidget {
               },
             ),
           ],
-
           if (period.needsSemester) ...[
             const SizedBox(height: 14),
-            const Text('Semester', style: AppText.caption),
-            const SizedBox(height: 6),
             BrutDropdown<Semester>(
+              label: 'Semester',
               value: app.reportSemester,
               hint: 'Select a semester',
               items: [
@@ -288,119 +277,37 @@ class _Filters extends StatelessWidget {
               },
             ),
           ],
-
           const SizedBox(height: 14),
-          const Text('Event scope', style: AppText.caption),
-          const SizedBox(height: 6),
+          const MonoLabel('Event scope'),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
-              _ScopeChip(
+              BrutChip(
                 label: 'All',
                 selected: app.reportEventScope == null,
                 onTap: () => app.setReportFilters(clearScope: true),
               ),
               for (final scope in EventScope.values)
-                _ScopeChip(
+                BrutChip(
                   label: scope.label,
                   selected: app.reportEventScope == scope,
                   onTap: () => app.setReportFilters(eventScope: scope),
                 ),
             ],
           ),
-
           if (problem != null) ...[
-            const SizedBox(height: 12),
-            Text(problem,
-                style: AppText.caption.copyWith(color: AppColors.ink)),
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: problem, tone: BrutTone.sun),
           ],
-
-          const SizedBox(height: 16),
-          FilledButton(
+          const SizedBox(height: 18),
+          BrutButton(
+            label: 'Generate report',
+            icon: Icons.insert_chart_outlined,
             onPressed: problem != null ? null : app.loadFinancialReport,
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-            child: const Text('Generate report'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ScopeChip extends StatelessWidget {
-  const _ScopeChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.brand : AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: selected ? AppColors.brand : AppColors.ink),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: AppText.bodyFamily,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : AppColors.subtle,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  const _DateField({required this.value, required this.onPick});
-
-  final DateTime? value;
-  final ValueChanged<DateTime> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final now = DateTime.now();
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: value ?? now,
-          firstDate: DateTime(now.year - 5),
-          lastDate: DateTime(now.year + 1),
-        );
-        if (picked != null) onPick(picked);
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.ink),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          value == null
-              ? 'Today'
-              : '${value!.year}-${value!.month.toString().padLeft(2, '0')}'
-                  '-${value!.day.toString().padLeft(2, '0')}',
-          style: TextStyle(
-            fontFamily: AppText.bodyFamily,
-            fontSize: 13,
-            color: value == null ? AppColors.muted : AppColors.ink,
-          ),
-        ),
       ),
     );
   }
@@ -415,7 +322,7 @@ class _WindowCard extends StatelessWidget {
   static String _date(DateTime? value) => value == null
       ? '—'
       : '${value.year}-${value.month.toString().padLeft(2, '0')}'
-          '-${value.day.toString().padLeft(2, '0')}';
+            '-${value.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -428,17 +335,13 @@ class _WindowCard extends StatelessWidget {
       if (report.eventScope != null) report.eventScope!.label,
     ];
 
-    return Container(
-      width: double.infinity,
+    return BrutCard(
+      tone: BrutTone.brand,
+      tinted: true,
+      radius: AppRadius.rowAll,
+      shadow: AppShadows.sm,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.line,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        parts.join(' · '),
-        style: AppText.caption.copyWith(color: AppColors.ink),
-      ),
+      child: MonoLabel(parts.join(' · ')),
     );
   }
 }
@@ -450,38 +353,40 @@ class _TotalsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _figure('Income', report.totalIncome, AppColors.ink),
-          const SizedBox(height: 10),
-          _figure('Approved spending', report.totalExpenses, AppColors.ink),
-          const Divider(height: 22),
-          _figure('Net balance', report.netBalance,
-              report.netBalance < 0 ? AppColors.coral : AppColors.ink),
-
+          _figure('Income', report.totalIncome),
+          const SizedBox(height: 12),
+          _figure('Approved spending', report.totalExpenses),
+          const Divider(height: 24),
+          _figure(
+            'Net balance',
+            report.netBalance,
+            tone: report.netBalance < 0 ? BrutTone.coral : BrutTone.mint,
+          ),
           if (report.hasWithheldIncome) ...[
-            const SizedBox(height: 12),
-            _note(
-              '₱${report.withheldIncomeTotal.toStringAsFixed(2)} of income '
-              '(${report.withheldIncomeCount} '
-              '${report.withheldIncomeCount == 1 ? 'entry' : 'entries'}) is '
-              'held out of these totals pending a receipt decision.',
+            const SizedBox(height: 14),
+            BrutInlineMessage(
+              tone: BrutTone.sun,
+              icon: Icons.pause_circle_outline,
+              text:
+                  '₱${report.withheldIncomeTotal.toStringAsFixed(2)} of '
+                  'income (${report.withheldIncomeCount} '
+                  '${report.withheldIncomeCount == 1 ? 'entry' : 'entries'}) '
+                  'is held out of these totals pending a receipt decision.',
             ),
           ],
           if (report.hasUnassignedSpending) ...[
-            const SizedBox(height: 8),
-            _note(
-              '₱${report.unassignedExpenseTotal.toStringAsFixed(2)} of '
-              'spending is not linked to any event, so it is in the total '
-              'above but in none of the events below.',
+            const SizedBox(height: 10),
+            BrutInlineMessage(
+              tone: BrutTone.sun,
+              icon: Icons.link_off,
+              text:
+                  '₱${report.unassignedExpenseTotal.toStringAsFixed(2)} of '
+                  'spending is not linked to any event, so it is in the '
+                  'total above but in none of the events below.',
             ),
           ],
         ],
@@ -489,26 +394,19 @@ class _TotalsCard extends StatelessWidget {
     );
   }
 
-  Widget _figure(String label, double value, Color color) {
+  Widget _figure(String label, double value, {BrutTone? tone}) {
     return Row(
       children: [
-        Expanded(child: Text(label, style: AppText.caption)),
-        Text('₱${value.toStringAsFixed(2)}',
-            style: AppText.moneySmall.copyWith(color: color)),
+        Expanded(child: MonoLabel(label)),
+        if (tone != null)
+          BrutBadge(
+            label: '₱${value.toStringAsFixed(2)}',
+            tone: tone,
+            mono: true,
+          )
+        else
+          Text('₱${value.toStringAsFixed(2)}', style: AppText.number),
       ],
-    );
-  }
-
-  Widget _note(String text) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.sunTint,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text,
-          style: AppText.caption.copyWith(color: AppColors.ink)),
     );
   }
 }
@@ -520,41 +418,43 @@ class _SourcesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Where the income came from', style: AppText.cardTitle),
-          const SizedBox(height: 10),
+          const BrutSectionTitle('Where the income came from'),
+          const SizedBox(height: 12),
           for (final source in report.incomeBySource) ...[
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(source.source.isEmpty ? '—' : source.source,
-                          style: AppText.body),
                       Text(
+                        source.source.isEmpty ? '—' : source.source,
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      MonoLabel(
                         '${source.sourceType.label} · '
                         '${source.incomeCount} '
                         '${source.incomeCount == 1 ? 'entry' : 'entries'}',
-                        style: AppText.caption,
                       ),
                     ],
                   ),
                 ),
-                Text('₱${source.totalIncome.toStringAsFixed(2)}',
-                    style: AppText.moneySmall),
+                const SizedBox(width: 10),
+                Text(
+                  '₱${source.totalIncome.toStringAsFixed(2)}',
+                  style: AppText.number,
+                ),
               ],
             ),
-            if (source != report.incomeBySource.last) const Divider(height: 18),
+            if (source != report.incomeBySource.last) const Divider(height: 20),
           ],
         ],
       ),
@@ -570,42 +470,30 @@ class _EventsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (report.events.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.ink),
-        ),
-        child: const Text(
-          'No events fall in this period.',
-          style: AppText.caption,
+      return const BrutCard(
+        child: BrutEmptyState(
+          title: 'No events in this period',
+          hint: 'Widen the period, or clear the scope filter.',
+          icon: Icons.event_busy_outlined,
         ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Events (${report.events.length})', style: AppText.cardTitle),
-          const SizedBox(height: 2),
+          BrutSectionTitle(
+            'Events',
+            aside: MonoLabel('${report.events.length} in period'),
+          ),
+          const SizedBox(height: 4),
           // Saying this plainly, because the two figures genuinely differ.
           const Text(
             'These rows do not necessarily add up to the totals above.',
-            style: TextStyle(
-              fontFamily: AppText.bodyFamily,
-              fontSize: 10,
-              color: AppColors.muted,
-            ),
+            style: AppText.caption,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           for (final event in report.events) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -614,38 +502,51 @@ class _EventsCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(event.title, style: AppText.body),
                       Text(
+                        event.title,
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      MonoLabel(
                         [
                           if (event.schoolYear != null) event.schoolYear!,
-                          if (event.semester != null) event.semester!.shortLabel,
+                          if (event.semester != null)
+                            event.semester!.shortLabel,
                           if (event.eventScope != null) event.eventScope!.label,
                         ].join(' · '),
-                        style: AppText.caption,
                       ),
-                      if (event.withheldIncomeCount > 0)
-                        Text(
-                          '₱${event.withheldIncomeTotal.toStringAsFixed(2)} '
-                          'withheld',
-                          style: AppText.caption
-                              .copyWith(color: AppColors.ink),
+                      if (event.withheldIncomeCount > 0) ...[
+                        const SizedBox(height: 6),
+                        BrutBadge(
+                          label:
+                              '₱${event.withheldIncomeTotal.toStringAsFixed(2)} withheld',
+                          tone: BrutTone.sun,
+                          mono: true,
                         ),
+                      ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('+₱${event.totalIncome.toStringAsFixed(2)}',
-                        style: AppText.moneySmall
-                            .copyWith(color: AppColors.ink)),
-                    Text('−₱${event.totalExpenses.toStringAsFixed(2)}',
-                        style: AppText.caption),
+                    Text(
+                      '+₱${event.totalIncome.toStringAsFixed(2)}',
+                      style: AppText.number,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '−₱${event.totalExpenses.toStringAsFixed(2)}',
+                      style: AppText.moneySmall,
+                    ),
                   ],
                 ),
               ],
             ),
-            if (event != report.events.last) const Divider(height: 18),
+            if (event != report.events.last) const Divider(height: 20),
           ],
         ],
       ),
@@ -662,38 +563,45 @@ class _ExportRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Export', style: AppText.cardTitle),
-        const SizedBox(height: 2),
+        const BrutSectionTitle('Export'),
+        const SizedBox(height: 4),
         const Text(
           'Uses the filters above, so the file matches what is shown. The '
           'HTML export is print-ready.',
           style: AppText.caption,
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            for (final format in ExportFormat.values) ...[
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: busy ? null : () => onExport(format),
-                  child: Text(format.label),
-                ),
-              ),
-              if (format != ExportFormat.values.last) const SizedBox(width: 8),
-            ],
-          ],
-        ),
-        if (busy) ...[
-          const SizedBox(height: 10),
-          const Center(
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+        const SizedBox(height: 12),
+        _FormatButtons(busy: busy, onExport: onExport),
+      ],
+    );
+  }
+}
+
+/// One button per export format, all the same width.
+class _FormatButtons extends StatelessWidget {
+  const _FormatButtons({required this.busy, required this.onExport});
+
+  final bool busy;
+  final ValueChanged<ExportFormat> onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final format in ExportFormat.values) ...[
+          Expanded(
+            child: BrutButton(
+              label: format.label,
+              tone: BrutTone.neutral,
+              size: BrutSize.small,
+              busy: busy,
+              busyLabel: '…',
+              onPressed: () => onExport(format),
             ),
           ),
+          if (format != ExportFormat.values.last) const SizedBox(width: 8),
         ],
       ],
     );
@@ -706,22 +614,11 @@ class _NotYetGenerated extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 32),
-      child: Column(
-        children: [
-          Icon(Icons.insert_chart_outlined, size: 44, color: AppColors.muted),
-          SizedBox(height: 14),
-          Text('No report yet', style: AppText.cardTitle),
-          SizedBox(height: 6),
-          SizedBox(
-            width: 280,
-            child: Text(
-              'Choose a period and generate one.',
-              style: AppText.caption,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: BrutEmptyState(
+        icon: Icons.insert_chart_outlined,
+        title: 'No report yet',
+        hint: 'Choose a period and generate one.',
       ),
     );
   }
@@ -734,17 +631,7 @@ class _ErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.coral.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-      ),
-      child: Text(message,
-          style: AppText.caption.copyWith(color: AppColors.coral)),
-    );
+    return BrutInlineMessage(text: message, tone: BrutTone.coral);
   }
 }
 
@@ -762,28 +649,16 @@ class _DashboardExportRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Dashboard snapshot', style: AppText.cardTitle),
-        const SizedBox(height: 2),
+        const BrutSectionTitle('Dashboard snapshot'),
+        const SizedBox(height: 4),
         const Text(
           'Current totals and counts. Not affected by the filters above.',
           style: AppText.caption,
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            for (final format in ExportFormat.values) ...[
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: busy ? null : () => onExport(format),
-                  child: Text(format.label),
-                ),
-              ),
-              if (format != ExportFormat.values.last) const SizedBox(width: 8),
-            ],
-          ],
-        ),
+        const SizedBox(height: 12),
+        _FormatButtons(busy: busy, onExport: onExport),
       ],
     );
   }
