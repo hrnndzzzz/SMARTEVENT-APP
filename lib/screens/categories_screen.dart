@@ -4,6 +4,7 @@ import '../api/models/category.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
@@ -28,7 +29,7 @@ class CategoriesScreen extends StatelessWidget {
           ? FloatingActionButton.extended(
               onPressed: () => _openForm(context),
               icon: const Icon(Icons.add),
-              label: const Text('New Category'),
+              label: Text('New category', style: AppText.buttonLabel),
             )
           : null,
       body: SafeArea(
@@ -42,20 +43,14 @@ class CategoriesScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Budget Categories',
-                style: TextStyle(
-                  fontFamily: AppText.headerFamily,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 18,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 18),
+              const Text('Budget categories', style: AppText.screenTitle),
+              const SizedBox(height: 4),
               const Text(
                 'Allocation and remaining balance per category.',
                 style: AppText.caption,
@@ -96,8 +91,9 @@ class _Body extends StatelessWidget {
     }
 
     if (load.hasFailed && app.categories.isEmpty) {
-      return _Retry(
-        message: load.error!,
+      return BrutRetry(
+        title: 'Could not load categories',
+        message: load.error,
         sessionExpired: load.sessionExpired,
         onRetry: () => app.loadCategories(),
       );
@@ -113,10 +109,8 @@ class _Body extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 96),
         itemCount: app.categories.length,
         separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (_, i) => _CategoryCard(
-          category: app.categories[i],
-          canManage: canManage,
-        ),
+        itemBuilder: (_, i) =>
+            _CategoryCard(category: app.categories[i], canManage: canManage),
       ),
     );
   }
@@ -138,47 +132,28 @@ class _CategoryCard extends StatelessWidget {
 
   bool get _isLow {
     final threshold = category.lowBalanceThreshold;
-    return threshold != null && threshold > 0 && category.remainingBudget <= threshold;
+    return threshold != null &&
+        threshold > 0 &&
+        category.remainingBudget <= threshold;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.ink),
-      ),
+    return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(category.name, style: AppText.cardTitle),
-              ),
-              if (_isLow)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.sunTint,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Low balance',
-                    style: TextStyle(
-                      fontFamily: AppText.bodyFamily,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
+              Expanded(child: Text(category.name, style: AppText.cardTitle)),
+              if (_isLow) ...[
+                const BrutBadge(label: 'Low balance', tone: BrutTone.sun),
+                const SizedBox(width: 4),
+              ],
               if (canManage)
                 PopupMenuButton<String>(
                   padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.more_horiz, size: 18),
+                  icon: const Icon(Icons.more_horiz, size: 20),
                   onSelected: (value) {
                     if (value == 'edit') {
                       CategoriesScreen._openForm(context, existing: category);
@@ -193,25 +168,18 @@ class _CategoryCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: _usedFraction,
-              minHeight: 6,
-              backgroundColor: AppColors.line,
-              valueColor: AlwaysStoppedAnimation(
-                _isLow ? AppColors.sun : AppColors.brand,
-              ),
-            ),
+          const SizedBox(height: 12),
+          BrutProgressBar(
+            value: _usedFraction,
+            tone: _isLow ? BrutTone.sun : BrutTone.brand,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Row(
             children: [
               _Figure(label: 'Allocated', value: category.allocatedBudget),
-              const SizedBox(width: 18),
+              const SizedBox(width: 16),
               _Figure(label: 'Spent', value: _spent),
-              const SizedBox(width: 18),
+              const SizedBox(width: 16),
               _Figure(label: 'Remaining', value: category.remainingBudget),
             ],
           ),
@@ -235,10 +203,12 @@ class _CategoryCard extends StatelessWidget {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          BrutButton(
+            label: 'Delete',
+            tone: BrutTone.coral,
+            size: BrutSize.small,
+            expand: false,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.coral),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -266,13 +236,20 @@ class _Figure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: AppText.caption),
-        const SizedBox(height: 2),
-        Text('₱${value.toStringAsFixed(2)}', style: AppText.moneySmall),
-      ],
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MonoLabel(label),
+          const SizedBox(height: 4),
+          Text(
+            '₱${value.toStringAsFixed(2)}',
+            style: AppText.number,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -285,71 +262,13 @@ class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.folder_open_outlined, size: 44, color: AppColors.muted),
-          const SizedBox(height: 14),
-          const Text('No categories yet', style: AppText.cardTitle),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 280,
-            child: Text(
-              canManage
-                  ? 'Create one to start allocating budget. It will then be '
-                      'selectable when recording events and expenses.'
-                  : 'An administrator has not set up budget categories yet.',
-              style: AppText.caption,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Retry extends StatelessWidget {
-  const _Retry({
-    required this.message,
-    required this.sessionExpired,
-    required this.onRetry,
-  });
-
-  final String message;
-  final bool sessionExpired;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_outlined, size: 44, color: AppColors.muted),
-            const SizedBox(height: 14),
-            const Text('Could not load categories', style: AppText.cardTitle),
-            const SizedBox(height: 6),
-            Text(message, style: AppText.caption, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            // Retrying an expired session just fails again — say so instead
-            // of offering a button that cannot work.
-            if (sessionExpired)
-              const Text(
-                'Sign out and sign in again to continue.',
-                style: AppText.caption,
-                textAlign: TextAlign.center,
-              )
-            else
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Try again'),
-              ),
-          ],
-        ),
+      child: BrutEmptyState(
+        icon: Icons.folder_open_outlined,
+        title: 'No categories yet',
+        hint: canManage
+            ? 'Create one to start allocating budget. It will then be '
+                  'selectable when recording events and expenses.'
+            : 'An administrator has not set up budget categories yet.',
       ),
     );
   }
@@ -367,8 +286,9 @@ class _CategoryForm extends StatefulWidget {
 }
 
 class _CategoryFormState extends State<_CategoryForm> {
-  late final TextEditingController _nameController =
-      TextEditingController(text: widget.existing?.name ?? '');
+  late final TextEditingController _nameController = TextEditingController(
+    text: widget.existing?.name ?? '',
+  );
   late final TextEditingController _budgetController = TextEditingController(
     text: widget.existing?.allocatedBudget.toStringAsFixed(2) ?? '',
   );
@@ -418,12 +338,13 @@ class _CategoryFormState extends State<_CategoryForm> {
         ? await app.updateCategory(
             widget.existing!,
             name: name == widget.existing!.name ? null : name,
-            allocatedBudget:
-                budget == widget.existing!.allocatedBudget ? null : budget,
+            allocatedBudget: budget == widget.existing!.allocatedBudget
+                ? null
+                : budget,
             lowBalanceThreshold:
                 threshold == (widget.existing!.lowBalanceThreshold ?? 0)
-                    ? null
-                    : threshold,
+                ? null
+                : threshold,
           )
         : await app.createCategory(
             name: name,
@@ -440,7 +361,9 @@ class _CategoryFormState extends State<_CategoryForm> {
     if (error == null) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isEdit ? 'Category updated.' : 'Category created.')),
+        SnackBar(
+          content: Text(_isEdit ? 'Category updated.' : 'Category created.'),
+        ),
       );
     }
   }
@@ -452,76 +375,64 @@ class _CategoryFormState extends State<_CategoryForm> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
         decoration: const BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.card),
+          ),
+          border: AppBorders.all,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(_isEdit ? 'Edit category' : 'New category',
-                style: AppText.cardTitle),
-            const SizedBox(height: 16),
-            const Text('Name', style: AppText.caption),
-            const SizedBox(height: 6),
-            TextField(controller: _nameController),
+            BrutSectionTitle(_isEdit ? 'Edit category' : 'New category'),
+            const SizedBox(height: 18),
+            BrutTextField(
+              label: 'Name',
+              controller: _nameController,
+              textCapitalization: TextCapitalization.words,
+            ),
             const SizedBox(height: 14),
-            const Text('Allocated budget', style: AppText.caption),
-            const SizedBox(height: 6),
-            TextField(
+            BrutTextField(
+              label: 'Allocated budget',
               controller: _budgetController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(prefixText: '₱ '),
+              prefixIcon: Icons.payments_outlined,
+              hint: '0.00',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             if (_isEdit) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               const Text(
                 'Changing this does not top up the remaining balance — that '
                 'only moves when expenses are approved.',
-                style: TextStyle(
-                  fontFamily: AppText.bodyFamily,
-                  fontSize: 10,
-                  color: AppColors.muted,
-                ),
+                style: AppText.caption,
               ),
             ],
             const SizedBox(height: 14),
-            const Text('Low-balance threshold', style: AppText.caption),
-            const SizedBox(height: 6),
-            TextField(
+            BrutTextField(
+              label: 'Low-balance threshold',
               controller: _thresholdController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(prefixText: '₱ '),
+              prefixIcon: Icons.payments_outlined,
+              hint: '0.00',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.coral.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.coral.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  _error!,
-                  style: AppText.caption.copyWith(color: AppColors.coral),
-                ),
-              ),
+              BrutInlineMessage(text: _error!, tone: BrutTone.coral),
             ],
             const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _submitting ? null : _submit,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-              child: _submitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(_isEdit ? 'Save changes' : 'Create category'),
+            BrutButton(
+              label: _isEdit ? 'Save changes' : 'Create category',
+              size: BrutSize.large,
+              busy: _submitting,
+              busyLabel: 'Saving…',
+              onPressed: _submit,
             ),
           ],
         ),

@@ -22,7 +22,7 @@ void main() {
     await tester.pumpWidget(_host(state));
     await tester.pump();
 
-    expect(find.text('New Category'), findsNothing);
+    expect(find.text('New category'), findsNothing);
   });
 
   testWidgets('advisers get no create control either', (tester) async {
@@ -31,7 +31,7 @@ void main() {
     await tester.pumpWidget(_host(state));
     await tester.pump();
 
-    expect(find.text('New Category'), findsNothing);
+    expect(find.text('New category'), findsNothing);
   });
 
   testWidgets('treasurers get no create control', (tester) async {
@@ -39,7 +39,7 @@ void main() {
     await tester.pumpWidget(_host(state));
     await tester.pump();
 
-    expect(find.text('New Category'), findsNothing);
+    expect(find.text('New category'), findsNothing);
   });
 
   testWidgets('admins do get a create control', (tester) async {
@@ -47,7 +47,7 @@ void main() {
     await tester.pumpWidget(_host(state));
     await tester.pump();
 
-    expect(find.text('New Category'), findsOneWidget);
+    expect(find.text('New category'), findsOneWidget);
   });
 
   testWidgets('super admins do too', (tester) async {
@@ -55,7 +55,7 @@ void main() {
     await tester.pumpWidget(_host(state));
     await tester.pump();
 
-    expect(find.text('New Category'), findsOneWidget);
+    expect(find.text('New category'), findsOneWidget);
   });
 
   testWidgets('an empty list explains itself differently per role',
