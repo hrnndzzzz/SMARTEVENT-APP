@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import 'connection_banner.dart';
 import 'notification_peek.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
@@ -111,19 +112,30 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BrutSurface(
-      onTap: onTap,
-      semanticLabel: 'Account',
-      fill: accent,
-      radius: AppRadius.pill,
-      shadow: AppShadows.sm,
-      width: 38,
-      height: 38,
-      alignment: Alignment.center,
-      child: Text(
-        initials,
-        style: AppText.number.copyWith(fontSize: 13),
-      ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        BrutSurface(
+          onTap: onTap,
+          semanticLabel: 'Account',
+          fill: accent,
+          radius: AppRadius.pill,
+          shadow: AppShadows.sm,
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          child: Text(
+            initials,
+            style: AppText.number.copyWith(fontSize: 13),
+          ),
+        ),
+        // Whether the backend is answering, where you are already looking.
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: ConnectionDot(ringColor: context.palette.canvas),
+        ),
+      ],
     );
   }
 }

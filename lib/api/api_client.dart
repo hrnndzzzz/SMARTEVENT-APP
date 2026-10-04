@@ -22,9 +22,15 @@ class ApiClient {
   ApiClient({
     TokenStore? tokenStore,
     http.Client? httpClient,
+    this.onReachability,
     this.timeout = const Duration(seconds: 20),
   })  : _tokenStore = tokenStore ?? TokenStore(),
         _httpClient = httpClient ?? http.Client();
+
+  /// Told whether the backend answered, after every request. An error
+  /// status still counts as reachable: the server is there, it just said
+  /// no. Only a failure to reach it at all is `false`.
+  final void Function({required bool reachable})? onReachability;
 
   final TokenStore _tokenStore;
   final http.Client _httpClient;
@@ -208,19 +214,24 @@ class ApiClient {
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     try {
       final response = await request().timeout(timeout);
+      onReachability?.call(reachable: true);
       return _handleResponse(response);
     } on ApiException {
+      // The server answered — it just answered with a refusal.
       rethrow;
     } on TimeoutException {
+      onReachability?.call(reachable: false);
       throw NetworkException(
         'The backend at $baseUrl did not respond in time.',
       );
     } on http.ClientException catch (error) {
+      onReachability?.call(reachable: false);
       throw NetworkException(
         'Could not reach the backend at $baseUrl.',
         cause: error.message,
       );
     } catch (error) {
+      onReachability?.call(reachable: false);
       // DNS, TLS and socket failures surface as different types on mobile,
       // desktop and web (SocketException, HandshakeException, browser
       // errors). Treating the remainder as "unreachable" is more useful

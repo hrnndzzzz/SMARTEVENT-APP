@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'state/app_settings.dart';
 import 'state/app_state.dart';
+import 'state/reachability.dart';
+import 'widgets/connection_banner.dart';
 import 'theme/app_theme.dart';
 import 'theme/brut.dart';
 import 'screens/welcome_screen.dart';
@@ -25,21 +27,38 @@ void main() {
   runApp(const SmartEventApp());
 }
 
-class SmartEventApp extends StatelessWidget {
+class SmartEventApp extends StatefulWidget {
   const SmartEventApp({super.key});
+
+  @override
+  State<SmartEventApp> createState() => _SmartEventAppState();
+}
+
+class _SmartEventAppState extends State<SmartEventApp> {
+  // Built here rather than inside a provider factory so AppState can be
+  // handed the same instance the UI watches.
+  final _reachability = Reachability();
+  late final _appState = AppState(reachability: _reachability)
+    // Kick off the stored-session check as soon as the state exists, so
+    // the gate below has something to wait for.
+    ..restoreSession();
+  final _settings = AppSettings()..restore();
+
+  @override
+  void dispose() {
+    _reachability.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          // Kick off the stored-session check as soon as the state exists,
-          // so the gate below has something to wait for.
-          create: (_) => AppState()..restoreSession(),
-        ),
+        ChangeNotifierProvider.value(value: _appState),
         // Outside AppState on purpose: signing out must not reset the
         // theme, and a dark screen turning white on log out reads as a bug.
-        ChangeNotifierProvider(create: (_) => AppSettings()..restore()),
+        ChangeNotifierProvider.value(value: _settings),
+        ChangeNotifierProvider.value(value: _reachability),
       ],
       child: Consumer2<AppState, AppSettings>(
         builder: (context, app, settings, _) => MaterialApp(
@@ -65,7 +84,7 @@ class SmartEventApp extends StatelessWidget {
                   : media,
               // One-hand layout, so it stays a phone-width column on a
               // tablet or a desktop window instead of stretching across it.
-              child: AppColumn(child: child!),
+              child: AppColumn(child: ConnectionBanner(child: child!)),
             );
           },
           home: const _StartupGate(),

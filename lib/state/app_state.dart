@@ -18,6 +18,7 @@ import '../api/income_service.dart';
 import '../api/models/scope.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
+import 'reachability.dart';
 import '../theme/app_colors.dart';
 import '../api/models/money.dart';
 import '../api/models/notification.dart';
@@ -376,6 +377,11 @@ class ExpenseEntry {
 }
 
 class AppState extends ChangeNotifier {
+  /// [reachability], when given, is told whether the backend answered
+  /// after every request. Optional so a test can build a plain AppState.
+  AppState({Reachability? reachability})
+      : _apiClient = ApiClient(onReachability: reachability?.report);
+
   /// Turns anything thrown by the API layer into one user-facing message,
   /// keeping the three cases distinct on purpose:
   ///
@@ -1954,7 +1960,7 @@ class AppState extends ChangeNotifier {
   Account? currentAccount;
   UserRole? currentRole;
 
-  final ApiClient _apiClient = ApiClient();
+  final ApiClient _apiClient;
   late final AuthService _authService = AuthService(_apiClient);
 
   /// Thrown when `/auth/me` reports a role this build doesn't know. Better
