@@ -33,60 +33,53 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
     final app = context.watch<AppState>();
     final load = app.receiptsLoad;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text('Receipts', style: AppText.screenTitle),
-              const SizedBox(height: 4),
-              const Text(
-                'Proof of spending, and anything that looks like a duplicate.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 14),
-              const _FilterBar(),
-              const SizedBox(height: 14),
-              Expanded(
-                child: switch (load) {
-                  _ when load.isLoading && app.receipts.isEmpty => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
-                    title: 'Could not load receipts',
-                    message: load.error,
-                    sessionExpired: load.sessionExpired,
-                    onRetry: app.loadReceipts,
-                  ),
-                  _ when app.receipts.isEmpty => const _Empty(),
-                  _ => RefreshIndicator(
-                    onRefresh: app.loadReceipts,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      itemCount: app.receipts.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) =>
-                          _ReceiptCard(receipt: app.receipts[i]),
-                    ),
-                  ),
-                },
-              ),
-            ],
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Receipts', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          const Text(
+            'Proof of spending, and anything that looks like a duplicate.',
+            style: AppText.caption,
           ),
-        ),
+          const SizedBox(height: 14),
+          const _FilterBar(),
+          const SizedBox(height: 14),
+          Expanded(
+            child: switch (load) {
+              _ when load.isLoading && app.receipts.isEmpty => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
+                title: 'Could not load receipts',
+                message: load.error,
+                sessionExpired: load.sessionExpired,
+                onRetry: app.loadReceipts,
+              ),
+              _ when app.receipts.isEmpty => const _Empty(),
+              _ => RefreshIndicator(
+                onRefresh: app.loadReceipts,
+                child: ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  itemCount: app.receipts.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _ReceiptCard(receipt: app.receipts[i]),
+                ),
+              ),
+            },
+          ),
+        ],
       ),
     );
   }

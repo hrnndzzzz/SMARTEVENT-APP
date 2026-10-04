@@ -23,7 +23,7 @@ class CategoriesScreen extends StatelessWidget {
     final app = context.watch<AppState>();
     final canManage = app.currentRole?.canManageCatalog ?? false;
 
-    return Scaffold(
+    return BrutScreen(
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
               onPressed: () => _openForm(context),
@@ -31,34 +31,28 @@ class CategoriesScreen extends StatelessWidget {
               label: Text('New category', style: AppText.buttonLabel),
             )
           : null,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text('Budget categories', style: AppText.screenTitle),
-              const SizedBox(height: 4),
-              const Text(
-                'Allocation and remaining balance per category.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 14),
-              Expanded(child: _Body(canManage: canManage)),
-            ],
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Budget categories', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          const Text(
+            'Allocation and remaining balance per category.',
+            style: AppText.caption,
           ),
-        ),
+          const SizedBox(height: 14),
+          Expanded(child: _Body(canManage: canManage)),
+        ],
       ),
     );
   }

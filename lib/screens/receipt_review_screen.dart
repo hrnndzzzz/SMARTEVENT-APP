@@ -115,127 +115,109 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
     // The API also refuses the person who recorded it.
     final canReview = _receipt.isAwaitingReview && (role?.canReview ?? false);
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              eyebrow: 'Duplicate review',
-              title: 'Receipt',
-              tone: receiptStatusTone(_receipt.reviewStatus),
-              onBack: () => Navigator.of(context).maybePop(),
+    return BrutScreen(
+      header: BrutHeader(
+        eyebrow: 'Duplicate review',
+        title: 'Receipt',
+        tone: receiptStatusTone(_receipt.reviewStatus),
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _StatusCard(receipt: _receipt),
+          const SizedBox(height: 14),
+          _DetailsCard(receipt: _receipt, title: 'This receipt'),
+
+          if (_receipt.hasSimilar) ...[
+            const SizedBox(height: 18),
+            BrutSectionTitle(
+              'Similar receipts',
+              aside: _loadingSimilar
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _StatusCard(receipt: _receipt),
-                    const SizedBox(height: 14),
-                    _DetailsCard(receipt: _receipt, title: 'This receipt'),
+            const SizedBox(height: 4),
+            const Text(
+              'Matched on merchant, amount and a nearby date. Similar is '
+              'not the same as duplicated — compare them before deciding.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 10),
+            if (_similarError != null)
+              BrutInlineMessage(text: _similarError!, tone: BrutTone.coral)
+            else if (_similar != null && _similar!.isEmpty)
+              const BrutInlineMessage(
+                tone: BrutTone.neutral,
+                icon: Icons.visibility_off_outlined,
+                text:
+                    'The similar receipts are outside what your account '
+                    'can see, so they cannot be shown here.',
+              )
+            else
+              for (final other in _similar ?? const <Receipt>[]) ...[
+                _DetailsCard(receipt: other, title: 'Compared with'),
+                const SizedBox(height: 10),
+              ],
+          ],
 
-                    if (_receipt.hasSimilar) ...[
-                      const SizedBox(height: 18),
-                      BrutSectionTitle(
-                        'Similar receipts',
-                        aside: _loadingSimilar
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Matched on merchant, amount and a nearby date. Similar is '
-                        'not the same as duplicated — compare them before deciding.',
-                        style: AppText.caption,
-                      ),
-                      const SizedBox(height: 10),
-                      if (_similarError != null)
-                        BrutInlineMessage(
-                          text: _similarError!,
-                          tone: BrutTone.coral,
-                        )
-                      else if (_similar != null && _similar!.isEmpty)
-                        const BrutInlineMessage(
-                          tone: BrutTone.neutral,
-                          icon: Icons.visibility_off_outlined,
-                          text:
-                              'The similar receipts are outside what your account '
-                              'can see, so they cannot be shown here.',
-                        )
-                      else
-                        for (final other in _similar ?? const <Receipt>[]) ...[
-                          _DetailsCard(receipt: other, title: 'Compared with'),
-                          const SizedBox(height: 10),
-                        ],
-                    ],
-
-                    if (canReview) ...[
-                      const SizedBox(height: 18),
-                      const BrutSectionTitle('Your decision'),
-                      const SizedBox(height: 4),
-                      Text(
-                        'A reason of at least ${ReceiptService.minReasonLength} '
-                        'characters is required, and the decision is final.',
-                        style: AppText.caption,
-                      ),
-                      const SizedBox(height: 10),
-                      BrutTextField(
-                        controller: _reasonController,
-                        maxLines: 3,
-                        hint: 'Why this is or is not a duplicate',
-                      ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 12),
-                        BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-                      ],
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: BrutButton(
-                              label: 'Reject',
-                              tone: BrutTone.coral,
-                              busy: _submitting,
-                              onPressed: () =>
-                                  _decide(ReceiptDecision.rejected),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: BrutButton(
-                              label: 'Clear',
-                              tone: BrutTone.mint,
-                              busy: _submitting,
-                              busyLabel: 'Saving…',
-                              onPressed: () => _decide(ReceiptDecision.cleared),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else if (_receipt.isAwaitingReview) ...[
-                      const SizedBox(height: 18),
-                      const BrutInlineMessage(
-                        tone: BrutTone.sun,
-                        icon: Icons.hourglass_top,
-                        text:
-                            'This receipt is waiting on an Adviser or Admin to '
-                            'decide.',
-                      ),
-                    ],
-                  ],
+          if (canReview) ...[
+            const SizedBox(height: 18),
+            const BrutSectionTitle('Your decision'),
+            const SizedBox(height: 4),
+            Text(
+              'A reason of at least ${ReceiptService.minReasonLength} '
+              'characters is required, and the decision is final.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 10),
+            BrutTextField(
+              controller: _reasonController,
+              maxLines: 3,
+              hint: 'Why this is or is not a duplicate',
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: BrutButton(
+                    label: 'Reject',
+                    tone: BrutTone.coral,
+                    busy: _submitting,
+                    onPressed: () => _decide(ReceiptDecision.rejected),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: BrutButton(
+                    label: 'Clear',
+                    tone: BrutTone.mint,
+                    busy: _submitting,
+                    busyLabel: 'Saving…',
+                    onPressed: () => _decide(ReceiptDecision.cleared),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (_receipt.isAwaitingReview) ...[
+            const SizedBox(height: 18),
+            const BrutInlineMessage(
+              tone: BrutTone.sun,
+              icon: Icons.hourglass_top,
+              text:
+                  'This receipt is waiting on an Adviser or Admin to '
+                  'decide.',
             ),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -204,156 +204,146 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Consumer<AppState>(
-                  builder: (context, app, _) {
-                    final pendingEvents = app.pendingAdminEvents;
-                    final handledEvents = app.adminHandledEvents;
-                    final pendingExpenses = app.pendingExpenses;
-                    final handledExpenses = app.expenses
-                        .where((e) => e.status != ExpenseStatus.pending)
-                        .toList();
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Consumer<AppState>(
+              builder: (context, app, _) {
+                final pendingEvents = app.pendingAdminEvents;
+                final handledEvents = app.adminHandledEvents;
+                final pendingExpenses = app.pendingExpenses;
+                final handledExpenses = app.expenses
+                    .where((e) => e.status != ExpenseStatus.pending)
+                    .toList();
 
-                    return ListView(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      children: [
-                        MetricCard(
-                          label: 'Total budget allocated',
-                          value: '₱${app.totalAllocated.toStringAsFixed(2)}',
-                          icon: Icons.account_balance_wallet_outlined,
-                          tone: BrutTone.brand,
-                        ),
-                        const SizedBox(height: 10),
-                        ExpendedCard(
-                          expended: app.totalExpended,
-                          allocated: app.totalAllocated,
-                        ),
-                        const SizedBox(height: 10),
-                        RemainingBalanceCard(balance: app.remainingBalance),
-                        const SizedBox(height: 16),
-                        AllocationVsActualCard(
-                          budgets: app.categoryBudgets,
-                          spend: app.spendByCategory,
-                        ),
-                        const SizedBox(height: 10),
-                        ExpenseDistributionCard(
-                          spendByCategory: app.spendByCategory,
-                        ),
-                        const SizedBox(height: 16),
-                        _QuickActionsRow(
-                          onSetBudget: () => _setCategoryBudget(context),
-                          onGenerateReports: _generatingReport
-                              ? null
-                              : _generateReports,
-                          onViewAnalytics: () => _viewAnalytics(context),
-                          isGenerating: _generatingReport,
-                        ),
-                        const SizedBox(height: 18),
-                        BrutSectionTitle(
-                          'Pending final approval',
-                          aside: MonoLabel('${pendingEvents.length} waiting'),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Tap a request to review and decide.',
-                          style: AppText.caption,
-                        ),
-                        const SizedBox(height: 10),
-                        if (pendingEvents.isEmpty)
-                          const BrutEmptyState(
-                            title: 'All caught up',
-                            hint: 'Nothing is waiting on final approval.',
-                            icon: Icons.task_alt,
-                          )
-                        else
-                          for (final event in pendingEvents) ...[
-                            _EventSummaryCard(
-                              event: event,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      EventDetailScreen(event: event),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                        if (pendingExpenses.isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          BrutSectionTitle(
-                            'Pending expenses',
-                            aside: MonoLabel(
-                              '${pendingExpenses.length} waiting',
+                return ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: [
+                    MetricCard(
+                      label: 'Total budget allocated',
+                      value: '₱${app.totalAllocated.toStringAsFixed(2)}',
+                      icon: Icons.account_balance_wallet_outlined,
+                      tone: BrutTone.brand,
+                    ),
+                    const SizedBox(height: 10),
+                    ExpendedCard(
+                      expended: app.totalExpended,
+                      allocated: app.totalAllocated,
+                    ),
+                    const SizedBox(height: 10),
+                    RemainingBalanceCard(balance: app.remainingBalance),
+                    const SizedBox(height: 16),
+                    AllocationVsActualCard(
+                      budgets: app.categoryBudgets,
+                      spend: app.spendByCategory,
+                    ),
+                    const SizedBox(height: 10),
+                    ExpenseDistributionCard(
+                      spendByCategory: app.spendByCategory,
+                    ),
+                    const SizedBox(height: 16),
+                    _QuickActionsRow(
+                      onSetBudget: () => _setCategoryBudget(context),
+                      onGenerateReports: _generatingReport
+                          ? null
+                          : _generateReports,
+                      onViewAnalytics: () => _viewAnalytics(context),
+                      isGenerating: _generatingReport,
+                    ),
+                    const SizedBox(height: 18),
+                    BrutSectionTitle(
+                      'Pending final approval',
+                      aside: MonoLabel('${pendingEvents.length} waiting'),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Tap a request to review and decide.',
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 10),
+                    if (pendingEvents.isEmpty)
+                      const BrutEmptyState(
+                        title: 'All caught up',
+                        hint: 'Nothing is waiting on final approval.',
+                        icon: Icons.task_alt,
+                      )
+                    else
+                      for (final event in pendingEvents) ...[
+                        _EventSummaryCard(
+                          event: event,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => EventDetailScreen(event: event),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Tap to approve or reject.',
-                            style: AppText.caption,
-                          ),
-                          const SizedBox(height: 10),
-                          for (final expense in pendingExpenses) ...[
-                            ExpensePendingCard(
-                              expense: expense,
-                              reviewerRole: 'Admin',
-                              onInsufficientBudget: () =>
-                                  _setCategoryBudget(context),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                        ],
-                        if (handledEvents.isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          const BrutSectionTitle('Recently handled events'),
-                          const SizedBox(height: 10),
-                          for (final event in handledEvents) ...[
-                            _HandledEventRow(
-                              event: event,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      EventDetailScreen(event: event),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                        ],
-                        if (handledExpenses.isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          const BrutSectionTitle('Recently handled expenses'),
-                          const SizedBox(height: 10),
-                          for (final expense in handledExpenses) ...[
-                            _HandledExpenseRow(expense: expense),
-                            const SizedBox(height: 6),
-                          ],
-                        ],
+                        ),
+                        const SizedBox(height: 10),
                       ],
-                    );
-                  },
-                ),
-              ),
-            ],
+                    if (pendingExpenses.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      BrutSectionTitle(
+                        'Pending expenses',
+                        aside: MonoLabel('${pendingExpenses.length} waiting'),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Tap to approve or reject.',
+                        style: AppText.caption,
+                      ),
+                      const SizedBox(height: 10),
+                      for (final expense in pendingExpenses) ...[
+                        ExpensePendingCard(
+                          expense: expense,
+                          reviewerRole: 'Admin',
+                          onInsufficientBudget: () =>
+                              _setCategoryBudget(context),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                    if (handledEvents.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      const BrutSectionTitle('Recently handled events'),
+                      const SizedBox(height: 10),
+                      for (final event in handledEvents) ...[
+                        _HandledEventRow(
+                          event: event,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => EventDetailScreen(event: event),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                    ],
+                    if (handledExpenses.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      const BrutSectionTitle('Recently handled expenses'),
+                      const SizedBox(height: 10),
+                      for (final expense in handledExpenses) ...[
+                        _HandledExpenseRow(expense: expense),
+                        const SizedBox(height: 6),
+                      ],
+                    ],
+                  ],
+                );
+              },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

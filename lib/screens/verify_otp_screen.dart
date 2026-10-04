@@ -99,64 +99,64 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BrutIconButton(
-                icon: Icons.arrow_back,
-                label: 'Back',
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              const SizedBox(height: 20),
-              const Text('Verify your email', style: AppText.titleBig),
-              const SizedBox(height: 4),
-              Text(
-                'We sent a $_codeLength-character code to ${widget.email}. '
-                'Enter it to activate your account.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 24),
-              BrutTextField(
-                label: 'Verification code',
-                controller: _codeController,
-                maxLength: _codeLength,
-                textCapitalization: TextCapitalization.characters,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              if (_notice != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(
-                  text: _notice!,
-                  tone: BrutTone.mint,
-                  icon: Icons.mark_email_read_outlined,
-                ),
-              ],
-              const SizedBox(height: 24),
-              BrutButton(
-                label: 'Verify',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Verifying…',
-                onPressed: _verify,
-              ),
-              const SizedBox(height: 10),
-              BrutButton(
-                label: 'Resend code',
-                tone: BrutTone.neutral,
-                busy: _resending,
-                busyLabel: 'Sending…',
-                onPressed: _submitting ? null : _resend,
-              ),
-            ],
+    return BrutScreen(
+      header: BrutFlowHeader(
+        flowName: 'Create account',
+        title: 'Verify your email',
+        currentStep: 1,
+        steps: [
+          BrutStep(
+            label: 'Account',
+            onJump: () => Navigator.of(context).maybePop(),
           ),
+          const BrutStep(label: 'Verify'),
+        ],
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      footer: BrutFooter(
+        child: BrutButton(
+          label: 'Verify',
+          size: BrutSize.large,
+          busy: _submitting,
+          busyLabel: 'Verifying…',
+          onPressed: _verify,
         ),
+        secondary: BrutButton(
+          label: 'Resend code',
+          tone: BrutTone.neutral,
+          busy: _resending,
+          busyLabel: 'Sending…',
+          onPressed: _submitting ? null : _resend,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'We sent a $_codeLength-character code to ${widget.email}. '
+            'Enter it to activate your account.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 24),
+          BrutTextField(
+            label: 'Verification code',
+            controller: _codeController,
+            maxLength: _codeLength,
+            textCapitalization: TextCapitalization.characters,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+          if (_notice != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(
+              text: _notice!,
+              tone: BrutTone.mint,
+              icon: Icons.mark_email_read_outlined,
+            ),
+          ],
+        ],
       ),
     );
   }

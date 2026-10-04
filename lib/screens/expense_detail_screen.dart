@@ -82,76 +82,63 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
         (role?.canRecordFinance ?? false) &&
         _assetLines.isNotEmpty;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              eyebrow:
-                  '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
-              title: expense.vendor,
-              tone: expenseStatusTone(expense.status),
-              onBack: () => Navigator.of(context).maybePop(),
+    return BrutScreen(
+      header: BrutHeader(
+        eyebrow: '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
+        title: expense.vendor,
+        tone: expenseStatusTone(expense.status),
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _StatusRow(expense: expense),
+          if (expense.isFlagged) ...[
+            const SizedBox(height: 14),
+            _FlagCard(reason: expense.flagReason),
+          ],
+          if (remote != null) ...[
+            const SizedBox(height: 14),
+            _OcrCard(expense: remote),
+          ],
+          const SizedBox(height: 14),
+          _LinesCard(
+            lines: _lines,
+            error: _linesError,
+            loading: _loadingLines,
+            onRetry: _loadLines,
+          ),
+          if (remote != null && remote.isPurchaseCompleted) ...[
+            const SizedBox(height: 14),
+            _PurchaseCard(expense: remote),
+          ],
+          if (canComplete) ...[
+            const SizedBox(height: 20),
+            BrutButton(
+              label: 'Complete purchase',
+              icon: Icons.local_shipping_outlined,
+              tone: BrutTone.mint,
+              size: BrutSize.large,
+              onPressed: _openCompletePurchase,
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _StatusRow(expense: expense),
-                    if (expense.isFlagged) ...[
-                      const SizedBox(height: 14),
-                      _FlagCard(reason: expense.flagReason),
-                    ],
-                    if (remote != null) ...[
-                      const SizedBox(height: 14),
-                      _OcrCard(expense: remote),
-                    ],
-                    const SizedBox(height: 14),
-                    _LinesCard(
-                      lines: _lines,
-                      error: _linesError,
-                      loading: _loadingLines,
-                      onRetry: _loadLines,
-                    ),
-                    if (remote != null && remote.isPurchaseCompleted) ...[
-                      const SizedBox(height: 14),
-                      _PurchaseCard(expense: remote),
-                    ],
-                    if (canComplete) ...[
-                      const SizedBox(height: 20),
-                      BrutButton(
-                        label: 'Complete purchase',
-                        icon: Icons.local_shipping_outlined,
-                        tone: BrutTone.mint,
-                        size: BrutSize.large,
-                        onPressed: _openCompletePurchase,
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Approval alone does not add stock. Recording payment '
-                        'and delivery does, once.',
-                        style: AppText.caption,
-                        textAlign: TextAlign.center,
-                      ),
-                    ] else if (expense.isPurchaseCompleted) ...[
-                      const SizedBox(height: 20),
-                      const BrutInlineMessage(
-                        tone: BrutTone.mint,
-                        icon: Icons.inventory_2_outlined,
-                        text:
-                            'This purchase has already been completed. '
-                            'Stock was added once and cannot be added again.',
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            const SizedBox(height: 8),
+            const Text(
+              'Approval alone does not add stock. Recording payment '
+              'and delivery does, once.',
+              style: AppText.caption,
+              textAlign: TextAlign.center,
+            ),
+          ] else if (expense.isPurchaseCompleted) ...[
+            const SizedBox(height: 20),
+            const BrutInlineMessage(
+              tone: BrutTone.mint,
+              icon: Icons.inventory_2_outlined,
+              text:
+                  'This purchase has already been completed. '
+                  'Stock was added once and cannot be added again.',
             ),
           ],
-        ),
+        ],
       ),
     );
   }

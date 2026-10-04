@@ -1044,6 +1044,9 @@ class BrutFlowHeader extends StatelessWidget {
                         fill: i <= currentStep ? accent : context.palette.line,
                         radius: AppRadius.pill,
                         shadow: AppShadows.none,
+                        // Without an explicit width the bar shrinks to its
+                        // (empty) child and renders as a dot.
+                        width: double.infinity,
                         height: AppLayout.stepBarHeight,
                         child: const SizedBox.shrink(),
                       ),

@@ -83,74 +83,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BrutIconButton(
-                icon: Icons.arrow_back,
-                label: 'Back',
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              const SizedBox(height: 20),
-              const Text('Create your account', style: AppText.titleBig),
-              const SizedBox(height: 4),
-              const Text(
-                'Your email must already be on your organization’s approved '
-                'roster. Your name and role come from that record.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 24),
-              BrutTextField(
-                label: 'School email',
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                hint: 'yourname@lcup.edu.ph',
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Password',
-                controller: _passwordController,
-                obscureText: _obscure,
-                suffix: IconButton(
-                  icon: Icon(
-                    _obscure
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'At least $_minPasswordLength characters.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Confirm password',
-                controller: _confirmController,
-                obscureText: _obscure,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              const SizedBox(height: 24),
-              BrutButton(
-                label: 'Create account',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Creating…',
-                onPressed: _submit,
-              ),
-            ],
-          ),
+    return BrutScreen(
+      header: BrutFlowHeader(
+        flowName: 'Create account',
+        title: 'Create your account',
+        currentStep: 0,
+        steps: const [
+          BrutStep(label: 'Account'),
+          BrutStep(label: 'Verify'),
+        ],
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      footer: BrutFooter(
+        child: BrutButton(
+          label: 'Create account',
+          size: BrutSize.large,
+          busy: _submitting,
+          busyLabel: 'Creating…',
+          onPressed: _submit,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Your email must already be on your organization’s approved '
+            'roster. Your name and role come from that record.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 24),
+          BrutTextField(
+            label: 'School email',
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            hint: 'yourname@lcup.edu.ph',
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Password',
+            controller: _passwordController,
+            obscureText: _obscure,
+            suffix: IconButton(
+              icon: Icon(
+                _obscure
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size: 18,
+              ),
+              onPressed: () => setState(() => _obscure = !_obscure),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'At least $_minPasswordLength characters.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Confirm password',
+            controller: _confirmController,
+            obscureText: _obscure,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

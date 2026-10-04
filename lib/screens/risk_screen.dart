@@ -37,60 +37,54 @@ class _RiskScreenState extends State<RiskScreen> {
     final load = app.flaggedLoad;
     final flagged = app.flaggedExpenses;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text('Flagged for review', style: AppText.screenTitle),
-              const SizedBox(height: 4),
-              const Text(
-                'Expenses the system noticed something about. A flag is a '
-                'prompt to look, not a finding.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: switch (load) {
-                  _ when load.isLoading && flagged.isEmpty => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  _ when load.hasFailed && flagged.isEmpty => BrutRetry(
-                    title: 'Could not load flagged expenses',
-                    message: load.error,
-                    sessionExpired: load.sessionExpired,
-                    onRetry: app.loadFlaggedExpenses,
-                  ),
-                  _ when flagged.isEmpty => const _NothingFlagged(),
-                  _ => RefreshIndicator(
-                    onRefresh: app.loadFlaggedExpenses,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      itemCount: flagged.length + 1,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => i == flagged.length
-                          ? const _CriteriaCard()
-                          : _FlaggedCard(expense: flagged[i]),
-                    ),
-                  ),
-                },
-              ),
-            ],
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Flagged for review', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          const Text(
+            'Expenses the system noticed something about. A flag is a '
+            'prompt to look, not a finding.',
+            style: AppText.caption,
           ),
-        ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: switch (load) {
+              _ when load.isLoading && flagged.isEmpty => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              _ when load.hasFailed && flagged.isEmpty => BrutRetry(
+                title: 'Could not load flagged expenses',
+                message: load.error,
+                sessionExpired: load.sessionExpired,
+                onRetry: app.loadFlaggedExpenses,
+              ),
+              _ when flagged.isEmpty => const _NothingFlagged(),
+              _ => RefreshIndicator(
+                onRefresh: app.loadFlaggedExpenses,
+                child: ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  itemCount: flagged.length + 1,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => i == flagged.length
+                      ? const _CriteriaCard()
+                      : _FlaggedCard(expense: flagged[i]),
+                ),
+              ),
+            },
+          ),
+        ],
       ),
     );
   }

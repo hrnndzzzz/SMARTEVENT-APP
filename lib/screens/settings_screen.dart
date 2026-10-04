@@ -25,66 +25,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettings>();
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              title: 'Settings',
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const BrutInlineMessage(
-                      tone: BrutTone.sun,
-                      icon: Icons.info_outline,
-                      text:
-                          'These stay on this device. There is no settings '
-                          'endpoint yet, so they do not follow your account.',
-                    ),
-                    const SizedBox(height: 20),
-                    const BrutSectionTitle('Appearance'),
-                    const SizedBox(height: 10),
-                    const _ThemePicker(),
-                    const SizedBox(height: 18),
-                    _SwitchTile(
-                      label: 'Reduce motion',
-                      subtitle:
-                          'Turns off the press effect, screen '
-                          'transitions and every other movement. Your '
-                          'phone\'s own setting is honoured either way.',
-                      value: settings.reduceMotion,
-                      onChanged: settings.setReduceMotion,
-                    ),
-                    const SizedBox(height: 20),
-                    const BrutSectionTitle('This device'),
-                    const SizedBox(height: 10),
-                    _SwitchTile(
-                      label: 'Biometric login',
-                      subtitle:
-                          'Unlock with your fingerprint or face instead '
-                          'of your password.',
-                      value: _biometricLogin,
-                      onChanged: (v) => setState(() => _biometricLogin = v),
-                    ),
-                    const SizedBox(height: 10),
-                    _SwitchTile(
-                      label: 'Data saver',
-                      subtitle: 'Load receipt images at a lower resolution.',
-                      value: _dataSaver,
-                      onChanged: (v) => setState(() => _dataSaver = v),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+    return BrutScreen(
+      header: BrutHeader(
+        title: 'Settings',
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const BrutInlineMessage(
+            tone: BrutTone.sun,
+            icon: Icons.info_outline,
+            text:
+                'These stay on this device. There is no settings '
+                'endpoint yet, so they do not follow your account.',
+          ),
+          const SizedBox(height: 20),
+          const BrutSectionTitle('Appearance'),
+          const SizedBox(height: 10),
+          const _ThemePicker(),
+          const SizedBox(height: 18),
+          _SwitchTile(
+            label: 'Reduce motion',
+            subtitle:
+                'Turns off the press effect, screen '
+                'transitions and every other movement. Your '
+                'phone\'s own setting is honoured either way.',
+            value: settings.reduceMotion,
+            onChanged: settings.setReduceMotion,
+          ),
+          const SizedBox(height: 20),
+          const BrutSectionTitle('This device'),
+          const SizedBox(height: 10),
+          _SwitchTile(
+            label: 'Biometric login',
+            subtitle:
+                'Unlock with your fingerprint or face instead '
+                'of your password.',
+            value: _biometricLogin,
+            onChanged: (v) => setState(() => _biometricLogin = v),
+          ),
+          const SizedBox(height: 10),
+          _SwitchTile(
+            label: 'Data saver',
+            subtitle: 'Load receipt images at a lower resolution.',
+            value: _dataSaver,
+            onChanged: (v) => setState(() => _dataSaver = v),
+          ),
+        ],
       ),
     );
   }

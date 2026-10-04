@@ -149,127 +149,110 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              eyebrow: 'Step 2 of 2 · Payment and delivery',
-              title: 'Complete purchase',
-              tone: BrutTone.mint,
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Adds the asset lines of “${widget.expense.vendor}” to '
-                      'stock. This happens once and cannot be repeated.',
-                      style: AppText.caption,
-                    ),
-                    const SizedBox(height: 20),
-                    BrutDateField(
-                      label: 'Paid on',
-                      value: _paidOn,
-                      hint: 'Select the payment date',
-                      onTap: () => _pickDate(paid: true),
-                    ),
-                    const SizedBox(height: 14),
-                    BrutDateField(
-                      label: 'Received on',
-                      value: _receivedOn,
-                      hint: 'Select the delivery date',
-                      onTap: () => _pickDate(paid: false),
-                    ),
-                    const SizedBox(height: 14),
-                    BrutTextField(
-                      label: 'Amount paid',
-                      controller: _amountController,
-                      prefixIcon: Icons.payments_outlined,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Must equal the expense total of '
-                      '₱${widget.expense.amount.toStringAsFixed(2)}.',
-                      style: AppText.caption,
-                    ),
-                    const SizedBox(height: 14),
-                    BrutDropdown<PaymentMethod>(
-                      label: 'Payment method',
-                      value: _method,
-                      hint: 'How it was paid',
-                      items: [
-                        for (final method in PaymentMethod.values)
-                          DropdownMenuItem(
-                            value: method,
-                            child: Text(method.label),
-                          ),
-                      ],
-                      onChanged: (v) => setState(() => _method = v ?? _method),
-                    ),
-                    const SizedBox(height: 14),
-                    BrutTextField(
-                      label: 'Payment reference',
-                      controller: _referenceController,
-                      hint: 'e.g. PAY-2026-001',
-                    ),
-                    const SizedBox(height: 14),
-                    BrutTextField(
-                      label: 'Supplier',
-                      controller: _vendorController,
-                      hint: 'Actual supplier',
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                    const SizedBox(height: 24),
-                    const BrutSectionTitle('Items received'),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Confirm what actually arrived. Consumables are not '
-                      'stocked by this step and are not listed.',
-                      style: AppText.caption,
-                    ),
-                    const SizedBox(height: 12),
-                    for (final line in widget.assetLines) ...[
-                      _LineConfirmation(
-                        line: line,
-                        quantity: _quantities[line.id]!,
-                        unit: _units[line.id]!,
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    if (widget.assetLines.isEmpty)
-                      const BrutEmptyState(
-                        title: 'No asset lines on this expense',
-                        hint: 'Nothing would enter stock.',
-                        icon: Icons.inventory_2_outlined,
-                      ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 14),
-                      BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            BrutFooter(
-              child: BrutButton(
-                label: 'Record payment and delivery',
-                tone: BrutTone.mint,
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Recording…',
-                onPressed: _submit,
-              ),
-            ),
-          ],
+    return BrutScreen(
+      header: BrutHeader(
+        eyebrow: 'Step 2 of 2 · Payment and delivery',
+        title: 'Complete purchase',
+        tone: BrutTone.mint,
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      footer: BrutFooter(
+        child: BrutButton(
+          label: 'Record payment and delivery',
+          tone: BrutTone.mint,
+          size: BrutSize.large,
+          busy: _submitting,
+          busyLabel: 'Recording…',
+          onPressed: _submit,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Adds the asset lines of “${widget.expense.vendor}” to '
+            'stock. This happens once and cannot be repeated.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 20),
+          BrutDateField(
+            label: 'Paid on',
+            value: _paidOn,
+            hint: 'Select the payment date',
+            onTap: () => _pickDate(paid: true),
+          ),
+          const SizedBox(height: 14),
+          BrutDateField(
+            label: 'Received on',
+            value: _receivedOn,
+            hint: 'Select the delivery date',
+            onTap: () => _pickDate(paid: false),
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Amount paid',
+            controller: _amountController,
+            prefixIcon: Icons.payments_outlined,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Must equal the expense total of '
+            '₱${widget.expense.amount.toStringAsFixed(2)}.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+          BrutDropdown<PaymentMethod>(
+            label: 'Payment method',
+            value: _method,
+            hint: 'How it was paid',
+            items: [
+              for (final method in PaymentMethod.values)
+                DropdownMenuItem(value: method, child: Text(method.label)),
+            ],
+            onChanged: (v) => setState(() => _method = v ?? _method),
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Payment reference',
+            controller: _referenceController,
+            hint: 'e.g. PAY-2026-001',
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Supplier',
+            controller: _vendorController,
+            hint: 'Actual supplier',
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 24),
+          const BrutSectionTitle('Items received'),
+          const SizedBox(height: 4),
+          const Text(
+            'Confirm what actually arrived. Consumables are not '
+            'stocked by this step and are not listed.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 12),
+          for (final line in widget.assetLines) ...[
+            _LineConfirmation(
+              line: line,
+              quantity: _quantities[line.id]!,
+              unit: _units[line.id]!,
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (widget.assetLines.isEmpty)
+            const BrutEmptyState(
+              title: 'No asset lines on this expense',
+              hint: 'Nothing would enter stock.',
+              icon: Icons.inventory_2_outlined,
+            ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

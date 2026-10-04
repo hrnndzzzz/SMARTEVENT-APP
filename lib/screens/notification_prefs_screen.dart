@@ -23,70 +23,57 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              eyebrow: 'Account',
-              title: 'Notification preferences',
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Choose what you want to be notified about.',
-                      style: AppText.caption,
-                    ),
-                    const SizedBox(height: 14),
-                    const BrutInlineMessage(
-                      tone: BrutTone.sun,
-                      icon: Icons.info_outline,
-                      text:
-                          'These stay on this device. The backend has no '
-                          'preference endpoint yet, so notifications are '
-                          'still recorded in your inbox either way.',
-                    ),
-                    const SizedBox(height: 18),
-                    _PrefTile(
-                      label: 'Low-stock alerts',
-                      subtitle:
-                          'When inventory items fall below their threshold.',
-                      value: _lowStock,
-                      onChanged: (v) => setState(() => _lowStock = v),
-                    ),
-                    const SizedBox(height: 10),
-                    _PrefTile(
-                      label: 'Pending approvals',
-                      subtitle: 'When a request needs your review.',
-                      value: _approvals,
-                      onChanged: (v) => setState(() => _approvals = v),
-                    ),
-                    const SizedBox(height: 10),
-                    _PrefTile(
-                      label: 'Event reminders',
-                      subtitle: 'Upcoming and overdue event activity.',
-                      value: _eventReminders,
-                      onChanged: (v) => setState(() => _eventReminders = v),
-                    ),
-                    const SizedBox(height: 10),
-                    _PrefTile(
-                      label: 'Financial logs',
-                      subtitle: 'New expenses and transactions recorded.',
-                      value: _financialLogs,
-                      onChanged: (v) => setState(() => _financialLogs = v),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+    return BrutScreen(
+      header: BrutHeader(
+        eyebrow: 'Account',
+        title: 'Notification preferences',
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Choose what you want to be notified about.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+          const BrutInlineMessage(
+            tone: BrutTone.sun,
+            icon: Icons.info_outline,
+            text:
+                'These stay on this device. The backend has no '
+                'preference endpoint yet, so notifications are '
+                'still recorded in your inbox either way.',
+          ),
+          const SizedBox(height: 18),
+          _PrefTile(
+            label: 'Low-stock alerts',
+            subtitle: 'When inventory items fall below their threshold.',
+            value: _lowStock,
+            onChanged: (v) => setState(() => _lowStock = v),
+          ),
+          const SizedBox(height: 10),
+          _PrefTile(
+            label: 'Pending approvals',
+            subtitle: 'When a request needs your review.',
+            value: _approvals,
+            onChanged: (v) => setState(() => _approvals = v),
+          ),
+          const SizedBox(height: 10),
+          _PrefTile(
+            label: 'Event reminders',
+            subtitle: 'Upcoming and overdue event activity.',
+            value: _eventReminders,
+            onChanged: (v) => setState(() => _eventReminders = v),
+          ),
+          const SizedBox(height: 10),
+          _PrefTile(
+            label: 'Financial logs',
+            subtitle: 'New expenses and transactions recorded.',
+            value: _financialLogs,
+            onChanged: (v) => setState(() => _financialLogs = v),
+          ),
+        ],
       ),
     );
   }

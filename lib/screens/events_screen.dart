@@ -31,107 +31,99 @@ class EventsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text('Events', style: AppText.screenTitle),
-                  ),
-                  // Officers are read-only and SDS has no event access, so
-                  // only roles that may actually propose get this.
-                  if (context.watch<AppState>().currentRole?.canProposeEvents ??
-                      false)
-                    BrutButton(
-                      label: 'New',
-                      icon: Icons.add,
-                      size: BrutSize.small,
-                      expand: false,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const CreateEventScreen(),
-                        ),
-                      ),
+              const Expanded(child: Text('Events', style: AppText.screenTitle)),
+              // Officers are read-only and SDS has no event access, so
+              // only roles that may actually propose get this.
+              if (context.watch<AppState>().currentRole?.canProposeEvents ??
+                  false)
+                BrutButton(
+                  label: 'New',
+                  icon: Icons.add,
+                  size: BrutSize.small,
+                  expand: false,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CreateEventScreen(),
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const _SchoolYearFilterBar(),
-              const SizedBox(height: 12),
-              Expanded(
-                child: Consumer<AppState>(
-                  builder: (context, app, _) {
-                    if (app.eventsLoad.isLoading && app.events.isEmpty) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (app.eventsLoad.hasFailed && app.events.isEmpty) {
-                      return Center(
-                        child: BrutEmptyState(
-                          title: 'Could not load events',
-                          hint: app.eventsLoad.error,
-                          icon: Icons.cloud_off_outlined,
-                          action: BrutButton(
-                            label: 'Try again',
-                            icon: Icons.refresh,
-                            size: BrutSize.small,
-                            expand: false,
-                            tone: BrutTone.neutral,
-                            onPressed: app.loadEvents,
-                          ),
-                        ),
-                      );
-                    }
-                    if (app.events.isEmpty) {
-                      final filtered =
-                          app.schoolYearFilter != null ||
-                          app.showOnlyMissingSchoolYear;
-                      return Center(
-                        child: BrutEmptyState(
-                          icon: Icons.event_outlined,
-                          // An active filter is a far likelier reason for
-                          // an empty list than there being none.
-                          title: filtered
-                              ? 'No events match this filter'
-                              : 'No events yet',
-                          hint: filtered
-                              ? 'Clear the filter to see every event.'
-                              : (app.currentRole?.canProposeEvents ?? false)
-                              ? 'Tap New to submit one.'
-                              : null,
-                        ),
-                      );
-                    }
-                    return ListView(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      children: [
-                        for (final event in app.events) ...[
-                          _EventCard(event: event),
-                          const SizedBox(height: 10),
-                        ],
-                      ],
-                    );
-                  },
+                  ),
                 ),
-              ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          const _SchoolYearFilterBar(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Consumer<AppState>(
+              builder: (context, app, _) {
+                if (app.eventsLoad.isLoading && app.events.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (app.eventsLoad.hasFailed && app.events.isEmpty) {
+                  return Center(
+                    child: BrutEmptyState(
+                      title: 'Could not load events',
+                      hint: app.eventsLoad.error,
+                      icon: Icons.cloud_off_outlined,
+                      action: BrutButton(
+                        label: 'Try again',
+                        icon: Icons.refresh,
+                        size: BrutSize.small,
+                        expand: false,
+                        tone: BrutTone.neutral,
+                        onPressed: app.loadEvents,
+                      ),
+                    ),
+                  );
+                }
+                if (app.events.isEmpty) {
+                  final filtered =
+                      app.schoolYearFilter != null ||
+                      app.showOnlyMissingSchoolYear;
+                  return Center(
+                    child: BrutEmptyState(
+                      icon: Icons.event_outlined,
+                      // An active filter is a far likelier reason for
+                      // an empty list than there being none.
+                      title: filtered
+                          ? 'No events match this filter'
+                          : 'No events yet',
+                      hint: filtered
+                          ? 'Clear the filter to see every event.'
+                          : (app.currentRole?.canProposeEvents ?? false)
+                          ? 'Tap New to submit one.'
+                          : null,
+                    ),
+                  );
+                }
+                return ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: [
+                    for (final event in app.events) ...[
+                      _EventCard(event: event),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

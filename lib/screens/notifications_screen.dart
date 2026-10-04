@@ -37,47 +37,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final app = context.watch<AppState>();
     final load = app.noticesLoad;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              title: 'Notifications',
-              eyebrow: app.unreadNoticeCount > 0
-                  ? '${app.unreadNoticeCount} unread'
-                  : null,
-              onBack: () => Navigator.of(context).maybePop(),
+    return BrutScreen(
+      header: BrutHeader(
+        title: 'Notifications',
+        eyebrow: app.unreadNoticeCount > 0
+            ? '${app.unreadNoticeCount} unread'
+            : null,
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      scrollable: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: switch (load) {
+          _ when load.isLoading && app.notices.isEmpty => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          _ when load.hasFailed && app.notices.isEmpty => BrutRetry(
+            title: 'Could not load notifications',
+            message: load.error,
+            sessionExpired: load.sessionExpired,
+            onRetry: app.loadNotices,
+          ),
+          _ when app.notices.isEmpty => const _Empty(),
+          _ => RefreshIndicator(
+            onRefresh: app.loadNotices,
+            child: ListView.separated(
+              padding: const EdgeInsets.only(bottom: 16),
+              itemCount: app.notices.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => _SwipeToRead(notice: app.notices[i]),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: switch (load) {
-                  _ when load.isLoading && app.notices.isEmpty => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  _ when load.hasFailed && app.notices.isEmpty => BrutRetry(
-                    title: 'Could not load notifications',
-                    message: load.error,
-                    sessionExpired: load.sessionExpired,
-                    onRetry: app.loadNotices,
-                  ),
-                  _ when app.notices.isEmpty => const _Empty(),
-                  _ => RefreshIndicator(
-                    onRefresh: app.loadNotices,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      itemCount: app.notices.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) =>
-                          _SwipeToRead(notice: app.notices[i]),
-                    ),
-                  ),
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        },
       ),
     );
   }

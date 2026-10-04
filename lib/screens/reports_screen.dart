@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import 'export_preview_screen.dart';
@@ -99,80 +100,71 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final load = app.financialReportLoad;
     final report = app.financialReport;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AppHeader(
-                    onAvatarTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AccountScreen()),
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: AppLayout.contentPadding),
+          const Text('Financial reports', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          const Text(
+            'Income and approved spending over a period.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: AppLayout.contentPadding),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
+              children: [
+                const _Filters(),
+                const SizedBox(height: 14),
+                if (load.isLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(),
                     ),
-                    onBellTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text('Financial reports', style: AppText.screenTitle),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Income and approved spending over a period.',
-                    style: AppText.caption,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                children: [
-                  const _Filters(),
+                  )
+                else if (load.hasFailed)
+                  _ErrorCard(message: load.error!)
+                else if (report == null)
+                  const _NotYetGenerated()
+                else ...[
+                  _WindowCard(report: report),
                   const SizedBox(height: 14),
-                  if (load.isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else if (load.hasFailed)
-                    _ErrorCard(message: load.error!)
-                  else if (report == null)
-                    const _NotYetGenerated()
-                  else ...[
-                    _WindowCard(report: report),
+                  _TotalsCard(report: report),
+                  const SizedBox(height: 14),
+                  if (report.incomeBySource.isNotEmpty) ...[
+                    _SourcesCard(report: report),
                     const SizedBox(height: 14),
-                    _TotalsCard(report: report),
-                    const SizedBox(height: 14),
-                    if (report.incomeBySource.isNotEmpty) ...[
-                      _SourcesCard(report: report),
-                      const SizedBox(height: 14),
-                    ],
-                    _EventsCard(report: report),
-                    const SizedBox(height: 18),
-                    _ExportRow(busy: _exporting, onExport: _export),
                   ],
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 12),
-                  // Separate from the report above: this exports the
-                  // dashboard snapshot, which has no period filters.
-                  _DashboardExportRow(
-                    busy: _exporting,
-                    onExport: _exportDashboard,
-                  ),
+                  _EventsCard(report: report),
+                  const SizedBox(height: 18),
+                  _ExportRow(busy: _exporting, onExport: _export),
                 ],
-              ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 12),
+                // Separate from the report above: this exports the
+                // dashboard snapshot, which has no period filters.
+                _DashboardExportRow(
+                  busy: _exporting,
+                  onExport: _exportDashboard,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

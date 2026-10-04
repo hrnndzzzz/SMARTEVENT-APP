@@ -39,7 +39,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
     final load = app.incomesLoad;
     final canRecord = app.currentRole?.canRecordFinance ?? false;
 
-    return Scaffold(
+    return BrutScreen(
       floatingActionButton: canRecord
           ? FloatingActionButton.extended(
               onPressed: () => BrutSheet.show<void>(
@@ -50,59 +50,52 @@ class _IncomeScreenState extends State<IncomeScreen> {
               label: Text('Record income', style: AppText.buttonLabel),
             )
           : null,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text('Income', style: AppText.screenTitle),
-              const SizedBox(height: 4),
-              const Text(
-                'Money received, by where it came from.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 12),
-              if (app.incomes.isNotEmpty) const _Totals(),
-              if (app.incomes.isNotEmpty) const SizedBox(height: 12),
-              Expanded(
-                child: switch (load) {
-                  _ when load.isLoading && app.incomes.isEmpty => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
-                    title: 'Could not load income',
-                    message: load.error,
-                    sessionExpired: load.sessionExpired,
-                    onRetry: app.loadIncomes,
-                  ),
-                  _ when app.incomes.isEmpty => _Empty(canRecord: canRecord),
-                  _ => RefreshIndicator(
-                    onRefresh: app.loadIncomes,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 96),
-                      itemCount: app.incomes.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) =>
-                          _IncomeCard(income: app.incomes[i]),
-                    ),
-                  ),
-                },
-              ),
-            ],
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Income', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          const Text(
+            'Money received, by where it came from.',
+            style: AppText.caption,
           ),
-        ),
+          const SizedBox(height: 12),
+          if (app.incomes.isNotEmpty) const _Totals(),
+          if (app.incomes.isNotEmpty) const SizedBox(height: 12),
+          Expanded(
+            child: switch (load) {
+              _ when load.isLoading && app.incomes.isEmpty => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
+                title: 'Could not load income',
+                message: load.error,
+                sessionExpired: load.sessionExpired,
+                onRetry: app.loadIncomes,
+              ),
+              _ when app.incomes.isEmpty => _Empty(canRecord: canRecord),
+              _ => RefreshIndicator(
+                onRefresh: app.loadIncomes,
+                child: ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 96),
+                  itemCount: app.incomes.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _IncomeCard(income: app.incomes[i]),
+                ),
+              ),
+            },
+          ),
+        ],
       ),
     );
   }

@@ -46,7 +46,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
         !role.isLetterOnly &&
         role.hasOperationalAccess;
 
-    return Scaffold(
+    return BrutScreen(
       floatingActionButton: canUpload
           ? FloatingActionButton.extended(
               onPressed: () => BrutSheet.show<void>(
@@ -57,59 +57,52 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
               label: Text('Upload letter', style: AppText.buttonLabel),
             )
           : null,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Proposal letters', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          Text(switch (role) {
+            null => 'Not signed in.',
+            final r when r.isLetterOnly =>
+              'Letters submitted across the school, for your review.',
+            _ => 'Letters submitted for your organization’s events.',
+          }, style: AppText.caption),
+          const SizedBox(height: 14),
+          Expanded(
+            child: switch (load) {
+              _ when load.isLoading && app.letters.isEmpty => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              _ when load.hasFailed && app.letters.isEmpty => BrutRetry(
+                title: 'Could not load letters',
+                message: load.error,
+                sessionExpired: load.sessionExpired,
+                onRetry: app.loadLetters,
+              ),
+              _ when app.letters.isEmpty => _Empty(canUpload: canUpload),
+              _ => RefreshIndicator(
+                onRefresh: app.loadLetters,
+                child: ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 96),
+                  itemCount: app.letters.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _LetterCard(letter: app.letters[i]),
                 ),
               ),
-              const SizedBox(height: 18),
-              const Text('Proposal letters', style: AppText.screenTitle),
-              const SizedBox(height: 4),
-              Text(switch (role) {
-                null => 'Not signed in.',
-                final r when r.isLetterOnly =>
-                  'Letters submitted across the school, for your review.',
-                _ => 'Letters submitted for your organization’s events.',
-              }, style: AppText.caption),
-              const SizedBox(height: 14),
-              Expanded(
-                child: switch (load) {
-                  _ when load.isLoading && app.letters.isEmpty => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  _ when load.hasFailed && app.letters.isEmpty => BrutRetry(
-                    title: 'Could not load letters',
-                    message: load.error,
-                    sessionExpired: load.sessionExpired,
-                    onRetry: app.loadLetters,
-                  ),
-                  _ when app.letters.isEmpty => _Empty(canUpload: canUpload),
-                  _ => RefreshIndicator(
-                    onRefresh: app.loadLetters,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 96),
-                      itemCount: app.letters.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) =>
-                          _LetterCard(letter: app.letters[i]),
-                    ),
-                  ),
-                },
-              ),
-            ],
+            },
           ),
-        ),
+        ],
       ),
     );
   }

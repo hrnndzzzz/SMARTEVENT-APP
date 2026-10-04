@@ -95,84 +95,69 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
         (role?.canRecordInventoryMovements ?? false) && item.isUsable;
     final canManage = role?.canManageCatalog ?? false;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              eyebrow: 'Catalog item',
-              title: item.itemName,
-              tone: item.isLowStock ? BrutTone.sun : BrutTone.brand,
-              onBack: () => Navigator.of(context).maybePop(),
+    return BrutScreen(
+      header: BrutHeader(
+        eyebrow: 'Catalog item',
+        title: item.itemName,
+        tone: item.isLowStock ? BrutTone.sun : BrutTone.brand,
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (item.description?.isNotEmpty == true) ...[
+            Text(item.description!, style: AppText.caption),
+            const SizedBox(height: 14),
+          ],
+          _StockCard(item: item),
+
+          if (item.isDraft) ...[
+            const SizedBox(height: 14),
+            _DraftNotice(onConfirm: canManage ? _confirmDraft : null),
+          ],
+
+          if (canMove) ...[
+            const SizedBox(height: 14),
+            BrutButton(
+              label: 'Record movement',
+              icon: Icons.swap_vert,
+              onPressed: _openMovementForm,
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (item.description?.isNotEmpty == true) ...[
-                      Text(item.description!, style: AppText.caption),
-                      const SizedBox(height: 14),
-                    ],
-                    _StockCard(item: item),
-
-                    if (item.isDraft) ...[
-                      const SizedBox(height: 14),
-                      _DraftNotice(onConfirm: canManage ? _confirmDraft : null),
-                    ],
-
-                    if (canMove) ...[
-                      const SizedBox(height: 14),
-                      BrutButton(
-                        label: 'Record movement',
-                        icon: Icons.swap_vert,
-                        onPressed: _openMovementForm,
-                      ),
-                    ] else if (!item.isUsable &&
-                        (role?.canRecordInventoryMovements ?? false)) ...[
-                      const SizedBox(height: 14),
-                      BrutInlineMessage(
-                        tone: BrutTone.sun,
-                        icon: Icons.lock_outline,
-                        text: item.isDraft
-                            ? 'Movements are unavailable until this draft is '
-                                  'confirmed by an administrator.'
-                            : 'Movements need an event link. An administrator can '
-                                  'repair this record.',
-                      ),
-                    ],
-
-                    const SizedBox(height: 22),
-                    BrutSectionTitle(
-                      'Movement ledger',
-                      aside: _loading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : BrutIconButton(
-                              icon: Icons.refresh,
-                              label: 'Reload the ledger',
-                              size: 30,
-                              onPressed: _loadMovements,
-                            ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Every change to stock, and why.',
-                      style: AppText.caption,
-                    ),
-                    const SizedBox(height: 12),
-                    _Ledger(movements: _movements, error: _movementsError),
-                  ],
-                ),
-              ),
+          ] else if (!item.isUsable &&
+              (role?.canRecordInventoryMovements ?? false)) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(
+              tone: BrutTone.sun,
+              icon: Icons.lock_outline,
+              text: item.isDraft
+                  ? 'Movements are unavailable until this draft is '
+                        'confirmed by an administrator.'
+                  : 'Movements need an event link. An administrator can '
+                        'repair this record.',
             ),
           ],
-        ),
+
+          const SizedBox(height: 22),
+          BrutSectionTitle(
+            'Movement ledger',
+            aside: _loading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : BrutIconButton(
+                    icon: Icons.refresh,
+                    label: 'Reload the ledger',
+                    size: 30,
+                    onPressed: _loadMovements,
+                  ),
+          ),
+          const SizedBox(height: 4),
+          const Text('Every change to stock, and why.', style: AppText.caption),
+          const SizedBox(height: 12),
+          _Ledger(movements: _movements, error: _movementsError),
+        ],
       ),
     );
   }

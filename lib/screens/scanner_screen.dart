@@ -297,114 +297,107 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final app = context.watch<AppState>();
     final showForm = _scan != null || _manualEntry;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text('Scan receipt', style: AppText.screenTitle),
-              const SizedBox(height: 4),
-              const Text(
-                'Nothing is saved until you press Save.',
-                style: AppText.caption,
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      bottomPadding: 96,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Scan receipt', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          const Text(
+            'Nothing is saved until you press Save.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+
+          _CapturePreview(
+            image: _capturedImage,
+            busy: _scanning,
+            onCamera: () => _pick(ImageSource.camera),
+            onGallery: () => _pick(ImageSource.gallery),
+          ),
+
+          if (_scanning) ...[
+            const SizedBox(height: 14),
+            const _Busy(label: 'Reading the receipt…'),
+          ],
+
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            _ErrorCard(
+              message: _error!,
+              // Losing the photo to a failed read would be the worst
+              // outcome, so both recoveries stay available.
+              onRetry: _hasImage && !_scanning ? _runScan : null,
+              onManual: _hasImage && !showForm ? _startManualEntry : null,
+            ),
+          ],
+
+          if (showForm) ...[
+            const SizedBox(height: 14),
+            // Only an account without its own scope sees this; everyone
+            // else has theirs applied server-side.
+            if (app.mustChooseScope) ...[
+              ScopePicker(
+                departments: app.departments,
+                departmentId: _departmentId,
+                onDepartmentChanged: (id) => setState(() {
+                  _departmentId = id;
+                  // An organization only exists inside one department,
+                  // so a department change invalidates the choice.
+                  _organizationId = null;
+                }),
+                organizations: app.organizationsIn(_departmentId),
+                organizationId: _organizationId,
+                onOrganizationChanged: (id) =>
+                    setState(() => _organizationId = id),
               ),
               const SizedBox(height: 14),
-
-              _CapturePreview(
-                image: _capturedImage,
-                busy: _scanning,
-                onCamera: () => _pick(ImageSource.camera),
-                onGallery: () => _pick(ImageSource.gallery),
-              ),
-
-              if (_scanning) ...[
-                const SizedBox(height: 14),
-                const _Busy(label: 'Reading the receipt…'),
-              ],
-
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                _ErrorCard(
-                  message: _error!,
-                  // Losing the photo to a failed read would be the worst
-                  // outcome, so both recoveries stay available.
-                  onRetry: _hasImage && !_scanning ? _runScan : null,
-                  onManual: _hasImage && !showForm ? _startManualEntry : null,
-                ),
-              ],
-
-              if (showForm) ...[
-                const SizedBox(height: 14),
-                // Only an account without its own scope sees this; everyone
-                // else has theirs applied server-side.
-                if (app.mustChooseScope) ...[
-                  ScopePicker(
-                    departments: app.departments,
-                    departmentId: _departmentId,
-                    onDepartmentChanged: (id) => setState(() {
-                      _departmentId = id;
-                      // An organization only exists inside one department,
-                      // so a department change invalidates the choice.
-                      _organizationId = null;
-                    }),
-                    organizations: app.organizationsIn(_departmentId),
-                    organizationId: _organizationId,
-                    onOrganizationChanged: (id) =>
-                        setState(() => _organizationId = id),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                _ReviewCard(
-                  scan: _scan,
-                  categories: app.categories,
-                  categoryId: _categoryId,
-                  onCategoryChanged: (id) => setState(() => _categoryId = id),
-                  events: app.events,
-                  eventId: _eventId,
-                  onEventChanged: (id) => setState(() => _eventId = id),
-                  vendorController: _vendorController,
-                  totalController: _totalController,
-                  purposeController: _purposeController,
-                  expenseDate: _expenseDate,
-                  onDateTap: _pickDate,
-                  requiresPurpose: _scan != null,
-                ),
-                const SizedBox(height: 14),
-                _LinesEditor(
-                  lines: _lines,
-                  onChanged: (lines) => setState(() => _lines = lines),
-                ),
-                const SizedBox(height: 20),
-                BrutButton(
-                  label: 'Save expense',
-                  size: BrutSize.large,
-                  busy: _saving,
-                  busyLabel: 'Saving…',
-                  onPressed: _canSave ? _save : null,
-                ),
-                const SizedBox(height: 10),
-                BrutButton(
-                  label: 'Discard',
-                  tone: BrutTone.neutral,
-                  onPressed: _saving ? null : _reset,
-                ),
-              ],
             ],
-          ),
-        ),
+            _ReviewCard(
+              scan: _scan,
+              categories: app.categories,
+              categoryId: _categoryId,
+              onCategoryChanged: (id) => setState(() => _categoryId = id),
+              events: app.events,
+              eventId: _eventId,
+              onEventChanged: (id) => setState(() => _eventId = id),
+              vendorController: _vendorController,
+              totalController: _totalController,
+              purposeController: _purposeController,
+              expenseDate: _expenseDate,
+              onDateTap: _pickDate,
+              requiresPurpose: _scan != null,
+            ),
+            const SizedBox(height: 14),
+            _LinesEditor(
+              lines: _lines,
+              onChanged: (lines) => setState(() => _lines = lines),
+            ),
+            const SizedBox(height: 20),
+            BrutButton(
+              label: 'Save expense',
+              size: BrutSize.large,
+              busy: _saving,
+              busyLabel: 'Saving…',
+              onPressed: _canSave ? _save : null,
+            ),
+            const SizedBox(height: 10),
+            BrutButton(
+              label: 'Discard',
+              tone: BrutTone.neutral,
+              onPressed: _saving ? null : _reset,
+            ),
+          ],
+        ],
       ),
     );
   }

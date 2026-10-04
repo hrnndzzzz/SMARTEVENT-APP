@@ -14,71 +14,65 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Consumer<AppState>(
-                  builder: (context, app, _) {
-                    return ListView(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      children: [
-                        MetricCard(
-                          label: 'Total budget allocated',
-                          value: '₱${app.totalAllocated.toStringAsFixed(2)}',
-                          icon: Icons.account_balance_wallet_outlined,
-                          tone: BrutTone.brand,
-                        ),
-                        const SizedBox(height: 10),
-                        ExpendedCard(
-                          expended: app.totalExpended,
-                          allocated: app.totalAllocated,
-                        ),
-                        const SizedBox(height: 10),
-                        RemainingBalanceCard(balance: app.remainingBalance),
-                        const SizedBox(height: 16),
-                        AllocationVsActualCard(
-                          budgets: app.categoryBudgets,
-                          spend: app.spendByCategory,
-                        ),
-                        const SizedBox(height: 10),
-                        ExpenseDistributionCard(
-                          spendByCategory: app.spendByCategory,
-                        ),
-                        const SizedBox(height: 20),
-                        const _QuickReports(),
-                        const SizedBox(height: 20),
-                        BrutSectionTitle(
-                          'Recent activity',
-                          aside: app.expenses.isEmpty
-                              ? null
-                              : MonoLabel('${app.expenses.length} logged'),
-                        ),
-                        const SizedBox(height: 10),
-                        _RecentExpensesList(entries: app.expenses),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Consumer<AppState>(
+              builder: (context, app, _) {
+                return ListView(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  children: [
+                    MetricCard(
+                      label: 'Total budget allocated',
+                      value: '₱${app.totalAllocated.toStringAsFixed(2)}',
+                      icon: Icons.account_balance_wallet_outlined,
+                      tone: BrutTone.brand,
+                    ),
+                    const SizedBox(height: 10),
+                    ExpendedCard(
+                      expended: app.totalExpended,
+                      allocated: app.totalAllocated,
+                    ),
+                    const SizedBox(height: 10),
+                    RemainingBalanceCard(balance: app.remainingBalance),
+                    const SizedBox(height: 16),
+                    AllocationVsActualCard(
+                      budgets: app.categoryBudgets,
+                      spend: app.spendByCategory,
+                    ),
+                    const SizedBox(height: 10),
+                    ExpenseDistributionCard(
+                      spendByCategory: app.spendByCategory,
+                    ),
+                    const SizedBox(height: 20),
+                    const _QuickReports(),
+                    const SizedBox(height: 20),
+                    BrutSectionTitle(
+                      'Recent activity',
+                      aside: app.expenses.isEmpty
+                          ? null
+                          : MonoLabel('${app.expenses.length} logged'),
+                    ),
+                    const SizedBox(height: 10),
+                    _RecentExpensesList(entries: app.expenses),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -34,7 +34,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final load = app.catalogLoad;
     final canManage = app.currentRole?.canManageCatalog ?? false;
 
-    return Scaffold(
+    return BrutScreen(
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
               onPressed: () => BrutSheet.show<void>(
@@ -45,58 +45,52 @@ class _InventoryScreenState extends State<InventoryScreen> {
               label: Text('New item', style: AppText.buttonLabel),
             )
           : null,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text('Inventory', style: AppText.screenTitle),
-              const SizedBox(height: 4),
-              const Text(
-                'Stock changes only through recorded movements.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 12),
-              const _FilterBar(),
-              const SizedBox(height: 12),
-              Expanded(
-                child: switch (load) {
-                  _ when load.isLoading && app.catalog.isEmpty => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  _ when load.hasFailed && app.catalog.isEmpty => BrutRetry(
-                    title: 'Could not load inventory',
-                    message: load.error,
-                    sessionExpired: load.sessionExpired,
-                    onRetry: app.loadCatalog,
-                  ),
-                  _ when app.catalog.isEmpty => _Empty(canManage: canManage),
-                  _ => RefreshIndicator(
-                    onRefresh: app.loadCatalog,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 96),
-                      itemCount: app.catalog.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _ItemCard(item: app.catalog[i]),
-                    ),
-                  ),
-                },
-              ),
-            ],
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Inventory', style: AppText.screenTitle),
+          const SizedBox(height: 4),
+          const Text(
+            'Stock changes only through recorded movements.',
+            style: AppText.caption,
           ),
-        ),
+          const SizedBox(height: 12),
+          const _FilterBar(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: switch (load) {
+              _ when load.isLoading && app.catalog.isEmpty => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              _ when load.hasFailed && app.catalog.isEmpty => BrutRetry(
+                title: 'Could not load inventory',
+                message: load.error,
+                sessionExpired: load.sessionExpired,
+                onRetry: app.loadCatalog,
+              ),
+              _ when app.catalog.isEmpty => _Empty(canManage: canManage),
+              _ => RefreshIndicator(
+                onRefresh: app.loadCatalog,
+                child: ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 96),
+                  itemCount: app.catalog.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _ItemCard(item: app.catalog[i]),
+                ),
+              ),
+            },
+          ),
+        ],
       ),
     );
   }

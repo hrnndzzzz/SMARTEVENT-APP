@@ -122,102 +122,85 @@ class EventDetailScreen extends StatelessWidget {
             (role?.isAdministrator ?? false) &&
             event.status == EventApprovalStatus.pendingAdmin;
 
-        return Scaffold(
-          body: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                BrutHeader(
-                  eyebrow: '${event.org} · ${event.date}',
-                  title: event.title,
-                  tone: eventStatusTone(event.status),
-                  onBack: () => Navigator.of(context).maybePop(),
-                  action: BrutBadge(
-                    label: event.statusLabel,
-                    tone: eventStatusTone(event.status),
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _ApprovalStatusCard(event: event),
-                        if (canAdviserDecide || canAdminDecide) ...[
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: BrutButton(
-                                  label: 'Reject',
-                                  tone: BrutTone.coral,
-                                  onPressed: () => _decide(
-                                    context,
-                                    approved: false,
-                                    isAdviserStage: canAdviserDecide,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: BrutButton(
-                                  label: 'Approve',
-                                  tone: BrutTone.mint,
-                                  onPressed: () => _decide(
-                                    context,
-                                    approved: true,
-                                    isAdviserStage: canAdviserDecide,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        BrutCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const BrutSectionTitle('Event details'),
-                              const SizedBox(height: 12),
-                              _detailRow(
-                                'Requested budget',
-                                event.budget,
-                                mono: true,
-                              ),
-                              const SizedBox(height: 8),
-                              _detailRow('School year', event.academicLabel),
-                            ],
-                          ),
+        return BrutScreen(
+          header: BrutHeader(
+            eyebrow: '${event.org} · ${event.date}',
+            title: event.title,
+            tone: eventStatusTone(event.status),
+            onBack: () => Navigator.of(context).maybePop(),
+            action: BrutBadge(
+              label: event.statusLabel,
+              tone: eventStatusTone(event.status),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ApprovalStatusCard(event: event),
+              if (canAdviserDecide || canAdminDecide) ...[
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: BrutButton(
+                        label: 'Reject',
+                        tone: BrutTone.coral,
+                        onPressed: () => _decide(
+                          context,
+                          approved: false,
+                          isAdviserStage: canAdviserDecide,
                         ),
-                        const SizedBox(height: 14),
-                        _ApprovalTimelineCard(event: event),
-                        // Editing a proposal belongs to whoever may
-                        // propose one, and only while it is still draft or
-                        // rejected. Officers are read-only and no longer
-                        // get this button.
-                        if ((role?.canProposeEvents ?? false) &&
-                            event.status == EventApprovalStatus.rejected) ...[
-                          const SizedBox(height: 14),
-                          BrutButton(
-                            label: 'Edit proposal',
-                            icon: Icons.edit_outlined,
-                            tone: BrutTone.neutral,
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    CreateEventScreen(existingEvent: event),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: BrutButton(
+                        label: 'Approve',
+                        tone: BrutTone.mint,
+                        onPressed: () => _decide(
+                          context,
+                          approved: true,
+                          isAdviserStage: canAdviserDecide,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 14),
+              BrutCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const BrutSectionTitle('Event details'),
+                    const SizedBox(height: 12),
+                    _detailRow('Requested budget', event.budget, mono: true),
+                    const SizedBox(height: 8),
+                    _detailRow('School year', event.academicLabel),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _ApprovalTimelineCard(event: event),
+              // Editing a proposal belongs to whoever may
+              // propose one, and only while it is still draft or
+              // rejected. Officers are read-only and no longer
+              // get this button.
+              if ((role?.canProposeEvents ?? false) &&
+                  event.status == EventApprovalStatus.rejected) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Edit proposal',
+                  icon: Icons.edit_outlined,
+                  tone: BrutTone.neutral,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CreateEventScreen(existingEvent: event),
                     ),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
         );
       },

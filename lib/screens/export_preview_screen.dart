@@ -41,29 +41,21 @@ class ExportPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              eyebrow: '${format.label} · ${describeSize(file.sizeBytes)}',
-              title: file.filename,
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Expanded(
-              child: switch (format) {
-                ExportFormat.html => _HtmlView(file: file),
-                ExportFormat.csv => _CsvTable(file: file),
-                ExportFormat.pdf => _FileSummary(file: file),
-              },
-            ),
-            BrutFooter(
-              child: _ShareButton(file: file, subject: subject),
-            ),
-          ],
-        ),
+    return BrutScreen(
+      header: BrutHeader(
+        eyebrow: '${format.label} · ${describeSize(file.sizeBytes)}',
+        title: file.filename,
+        onBack: () => Navigator.of(context).maybePop(),
       ),
+      scrollable: false,
+      footer: BrutFooter(
+        child: _ShareButton(file: file, subject: subject),
+      ),
+      child: switch (format) {
+        ExportFormat.html => _HtmlView(file: file),
+        ExportFormat.csv => _CsvTable(file: file),
+        ExportFormat.pdf => _FileSummary(file: file),
+      },
     );
   }
 }

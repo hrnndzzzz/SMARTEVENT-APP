@@ -125,97 +125,91 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     final isRequest = _step == _Step.request;
 
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BrutIconButton(
-                icon: Icons.arrow_back,
-                label: 'Back',
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              const SizedBox(height: 20),
-              const Text('Reset password', style: AppText.titleBig),
-              const SizedBox(height: 4),
-              Text(
-                isRequest
-                    ? 'We will email you a code to reset your password.'
-                    : 'Enter the code we emailed you and choose a new password.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 24),
-              BrutTextField(
-                label: 'Email',
-                controller: _emailController,
-                enabled: isRequest,
-                keyboardType: TextInputType.emailAddress,
-              ),
-              if (!isRequest) ...[
-                const SizedBox(height: 14),
-                BrutTextField(
-                  label: 'Reset code',
-                  controller: _codeController,
-                  maxLength: _codeLength,
-                  textCapitalization: TextCapitalization.characters,
-                ),
-                const SizedBox(height: 14),
-                BrutTextField(
-                  label: 'New password',
-                  controller: _passwordController,
-                  obscureText: true,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'At least $_minPasswordLength characters.',
-                  style: AppText.caption,
-                ),
-                const SizedBox(height: 14),
-                BrutTextField(
-                  label: 'Confirm new password',
-                  controller: _confirmController,
-                  obscureText: true,
-                ),
-              ],
-              if (_notice != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(
-                  text: _notice!,
-                  tone: BrutTone.mint,
-                  icon: Icons.mark_email_read_outlined,
-                ),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              const SizedBox(height: 24),
-              BrutButton(
-                label: isRequest ? 'Send reset code' : 'Reset password',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: isRequest ? 'Sending…' : 'Resetting…',
-                onPressed: isRequest ? _requestCode : _reset,
-              ),
-              if (!isRequest) ...[
-                const SizedBox(height: 10),
-                BrutButton(
-                  label: 'Use a different email',
-                  tone: BrutTone.neutral,
-                  onPressed: _submitting
-                      ? null
-                      : () => setState(() {
-                          _step = _Step.request;
-                          _error = null;
-                          _notice = null;
-                        }),
-                ),
-              ],
-            ],
+    return BrutScreen(
+      header: BrutFlowHeader(
+        flowName: 'Reset password',
+        title: isRequest ? 'Find your account' : 'Choose a password',
+        currentStep: isRequest ? 0 : 1,
+        steps: [
+          BrutStep(
+            label: 'Email',
+            // Only once there is a step to come back from.
+            onJump: isRequest
+                ? null
+                : () => setState(() {
+                    _step = _Step.request;
+                    _error = null;
+                    _notice = null;
+                  }),
           ),
+          const BrutStep(label: 'Reset'),
+        ],
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      footer: BrutFooter(
+        child: BrutButton(
+          label: isRequest ? 'Send reset code' : 'Reset password',
+          size: BrutSize.large,
+          busy: _submitting,
+          busyLabel: isRequest ? 'Sending…' : 'Resetting…',
+          onPressed: isRequest ? _requestCode : _reset,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            isRequest
+                ? 'We will email you a code to reset your password.'
+                : 'Enter the code we emailed you and choose a new password.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 24),
+          BrutTextField(
+            label: 'Email',
+            controller: _emailController,
+            enabled: isRequest,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          if (!isRequest) ...[
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'Reset code',
+              controller: _codeController,
+              maxLength: _codeLength,
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'New password',
+              controller: _passwordController,
+              obscureText: true,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'At least $_minPasswordLength characters.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'Confirm new password',
+              controller: _confirmController,
+              obscureText: true,
+            ),
+          ],
+          if (_notice != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(
+              text: _notice!,
+              tone: BrutTone.mint,
+              icon: Icons.mark_email_read_outlined,
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

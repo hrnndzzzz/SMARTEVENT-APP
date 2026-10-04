@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/scope_picker.dart';
@@ -45,46 +46,44 @@ class _AdminScreenState extends State<AdminScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            BrutHeader(
-              title: 'Administration',
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Row(
-                children: [
-                  for (final (i, label) in const [
-                    (0, 'Roster'),
-                    (1, 'Accounts'),
-                    (2, 'Audit'),
-                  ])
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: BrutChip(
-                          label: label,
-                          selected: _tab == i,
-                          onTap: () => _select(i),
-                        ),
-                      ),
+    return BrutScreen(
+      header: BrutHeader(
+        title: 'Administration',
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              for (final (i, label) in const [
+                (0, 'Roster'),
+                (1, 'Accounts'),
+                (2, 'Audit'),
+              ])
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: AppLayout.tight),
+                    child: BrutChip(
+                      label: label,
+                      selected: _tab == i,
+                      onTap: () => _select(i),
                     ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: switch (_tab) {
-                0 => const _RosterTab(),
-                1 => const _AccountsTab(),
-                _ => const _AuditTab(),
-              },
-            ),
-          ],
-        ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppLayout.between),
+          Expanded(
+            child: switch (_tab) {
+              0 => const _RosterTab(),
+              1 => const _AccountsTab(),
+              _ => const _AuditTab(),
+            },
+          ),
+        ],
       ),
     );
   }
@@ -101,7 +100,7 @@ class _RosterTab extends StatelessWidget {
     return Stack(
       children: [
         ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
+          padding: const EdgeInsets.only(bottom: 96),
           children: [
             const Text(
               'People approved to create an account. Adding someone here '
@@ -128,9 +127,11 @@ class _RosterTab extends StatelessWidget {
               ],
           ],
         ),
+        // The screen already supplies the side gutter, so this only needs
+        // to clear the bottom.
         Positioned(
-          right: 16,
-          bottom: 16,
+          right: 0,
+          bottom: AppLayout.gutter,
           child: FloatingActionButton.extended(
             onPressed: () => BrutSheet.show<void>(
               context,
@@ -241,7 +242,7 @@ class _AccountsTab extends StatelessWidget {
     final load = app.usersLoad;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
       children: [
         const Text(
           'Accounts that exist. Access is revoked by suspending, which keeps '
@@ -394,7 +395,7 @@ class _AuditTab extends StatelessWidget {
     final load = app.auditLoad;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
       children: [
         const Text(
           'A read-only record of administrative changes. Entries cannot be '

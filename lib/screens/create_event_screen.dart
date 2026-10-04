@@ -216,154 +216,133 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final app = context.watch<AppState>();
     final categories = app.categories;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            BrutHeader(
-              eyebrow: _isEditing ? 'Revise proposal' : 'New proposal',
-              title: _isEditing ? 'Edit event' : 'New event',
-              onBack: () => Navigator.of(context).maybePop(),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      _isEditing
-                          ? 'Update the details of this proposal.'
-                          : 'Submit a new activity for adviser review.',
-                      style: AppText.caption,
-                    ),
-                    const SizedBox(height: 20),
-                    BrutTextField(
-                      label: 'Event name',
-                      controller: _nameController,
-                      hint: 'e.g. Leadership Summit 2026',
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                    const SizedBox(height: 14),
-                    if (!_isEditing) ...[
-                      BrutDropdown<String>(
-                        label: 'Category',
-                        value: _selectedCategoryId,
-                        hint: 'Select a category',
-                        items: [
-                          for (final c in categories)
-                            DropdownMenuItem(value: c.id, child: Text(c.name)),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _selectedCategoryId = v),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (!_isEditing && app.mustChooseScope) ...[
-                      ScopePicker(
-                        departments: app.departments,
-                        departmentId: _departmentId,
-                        onDepartmentChanged: (id) => setState(() {
-                          _departmentId = id;
-                          _organizationId = null;
-                        }),
-                        organizations: app.organizationsIn(_departmentId),
-                        organizationId: _organizationId,
-                        onOrganizationChanged: (id) =>
-                            setState(() => _organizationId = id),
-                        explanation:
-                            'Your account is not tied to a department, so '
-                            'choose where this event belongs.',
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    // Required: these are what make the event reportable by
-                    // year, semester and department, and the backend
-                    // rejects a new event without them.
-                    BrutDropdown<String>(
-                      label: 'School year',
-                      value: _schoolYear,
-                      hint: 'Select a school year',
-                      items: [
-                        for (final year in _schoolYearOptions)
-                          DropdownMenuItem(value: year, child: Text(year)),
-                      ],
-                      onChanged: (v) => setState(() => _schoolYear = v),
-                    ),
-                    const SizedBox(height: 14),
-                    BrutDropdown<Semester>(
-                      label: 'Semester',
-                      value: _semester,
-                      hint: 'Select a semester',
-                      items: [
-                        for (final s in Semester.values)
-                          DropdownMenuItem(value: s, child: Text(s.label)),
-                      ],
-                      onChanged: (v) => setState(() => _semester = v),
-                    ),
-                    const SizedBox(height: 14),
-                    BrutDropdown<EventScope>(
-                      label: 'Event scope',
-                      value: _eventScope,
-                      hint: 'Departmental or organizational',
-                      items: [
-                        for (final scope in EventScope.values)
-                          DropdownMenuItem(
-                            value: scope,
-                            child: Text(scope.label),
-                          ),
-                      ],
-                      onChanged: (v) => setState(() => _eventScope = v),
-                    ),
-                    const SizedBox(height: 14),
-                    GestureDetector(
-                      onTap: _pickDate,
-                      child: AbsorbPointer(
-                        child: BrutTextField(
-                          label: 'Date',
-                          controller: _dateController,
-                          hint: 'Tap to select a date',
-                          suffix: const Icon(
-                            Icons.calendar_today_outlined,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    BrutTextField(
-                      label: 'Requested budget',
-                      controller: _budgetController,
-                      hint: '0.00',
-                      prefixIcon: Icons.payments_outlined,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    BrutTextField(
-                      label: 'Description',
-                      controller: _descriptionController,
-                      hint: 'Briefly describe the event…',
-                      maxLines: 3,
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            BrutFooter(
-              child: BrutButton(
-                label: _isEditing ? 'Save changes' : 'Submit for review',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: _isEditing ? 'Saving…' : 'Submitting…',
-                onPressed: _submit,
-              ),
-            ),
-          ],
+    return BrutScreen(
+      header: BrutHeader(
+        eyebrow: _isEditing ? 'Revise proposal' : 'New proposal',
+        title: _isEditing ? 'Edit event' : 'New event',
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      footer: BrutFooter(
+        child: BrutButton(
+          label: _isEditing ? 'Save changes' : 'Submit for review',
+          size: BrutSize.large,
+          busy: _submitting,
+          busyLabel: _isEditing ? 'Saving…' : 'Submitting…',
+          onPressed: _submit,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _isEditing
+                ? 'Update the details of this proposal.'
+                : 'Submit a new activity for adviser review.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 20),
+          BrutTextField(
+            label: 'Event name',
+            controller: _nameController,
+            hint: 'e.g. Leadership Summit 2026',
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 14),
+          if (!_isEditing) ...[
+            BrutDropdown<String>(
+              label: 'Category',
+              value: _selectedCategoryId,
+              hint: 'Select a category',
+              items: [
+                for (final c in categories)
+                  DropdownMenuItem(value: c.id, child: Text(c.name)),
+              ],
+              onChanged: (v) => setState(() => _selectedCategoryId = v),
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (!_isEditing && app.mustChooseScope) ...[
+            ScopePicker(
+              departments: app.departments,
+              departmentId: _departmentId,
+              onDepartmentChanged: (id) => setState(() {
+                _departmentId = id;
+                _organizationId = null;
+              }),
+              organizations: app.organizationsIn(_departmentId),
+              organizationId: _organizationId,
+              onOrganizationChanged: (id) =>
+                  setState(() => _organizationId = id),
+              explanation:
+                  'Your account is not tied to a department, so '
+                  'choose where this event belongs.',
+            ),
+            const SizedBox(height: 14),
+          ],
+          // Required: these are what make the event reportable by
+          // year, semester and department, and the backend
+          // rejects a new event without them.
+          BrutDropdown<String>(
+            label: 'School year',
+            value: _schoolYear,
+            hint: 'Select a school year',
+            items: [
+              for (final year in _schoolYearOptions)
+                DropdownMenuItem(value: year, child: Text(year)),
+            ],
+            onChanged: (v) => setState(() => _schoolYear = v),
+          ),
+          const SizedBox(height: 14),
+          BrutDropdown<Semester>(
+            label: 'Semester',
+            value: _semester,
+            hint: 'Select a semester',
+            items: [
+              for (final s in Semester.values)
+                DropdownMenuItem(value: s, child: Text(s.label)),
+            ],
+            onChanged: (v) => setState(() => _semester = v),
+          ),
+          const SizedBox(height: 14),
+          BrutDropdown<EventScope>(
+            label: 'Event scope',
+            value: _eventScope,
+            hint: 'Departmental or organizational',
+            items: [
+              for (final scope in EventScope.values)
+                DropdownMenuItem(value: scope, child: Text(scope.label)),
+            ],
+            onChanged: (v) => setState(() => _eventScope = v),
+          ),
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: _pickDate,
+            child: AbsorbPointer(
+              child: BrutTextField(
+                label: 'Date',
+                controller: _dateController,
+                hint: 'Tap to select a date',
+                suffix: const Icon(Icons.calendar_today_outlined, size: 16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Requested budget',
+            controller: _budgetController,
+            hint: '0.00',
+            prefixIcon: Icons.payments_outlined,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Description',
+            controller: _descriptionController,
+            hint: 'Briefly describe the event…',
+            maxLines: 3,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+        ],
       ),
     );
   }

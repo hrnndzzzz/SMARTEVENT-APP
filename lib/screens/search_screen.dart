@@ -106,88 +106,81 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppHeader(
-                onAvatarTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AccountScreen()),
-                ),
-                onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SearchBar(
-                controller: _controller,
-                onChanged: (_) => setState(() {}),
-                onClear: () => setState(() => _controller.clear()),
-              ),
-              const SizedBox(height: 12),
-              _FilterChips(
-                selected: _filter,
-                onSelect: (f) => setState(() => _filter = f),
-              ),
-              const SizedBox(height: 12),
-              _DropdownChip(
-                value: _category,
-                options: _categoryOptions,
-                onSelected: (v) => setState(() => _category = v),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Consumer<AppState>(
-                  builder: (context, app, _) {
-                    final results = _buildResults(app);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        BrutSectionTitle(
-                          _controller.text.trim().isEmpty
-                              ? 'All results'
-                              : 'Results for "${_controller.text.trim()}"',
-                          aside: MonoLabel('${results.length} found'),
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: results.isEmpty
-                              ? const _EmptyResults()
-                              : ListView(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  children: [
-                                    for (final r in results) ...[
-                                      _ResultCard(
-                                        result: r,
-                                        onTap: r.event == null
-                                            ? null
-                                            : () => Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      EventDetailScreen(
-                                                        event: r.event!,
-                                                      ),
-                                                ),
-                                              ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ],
-                                  ],
-                                ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+    return BrutScreen(
+      topBar: AppHeader(
+        onAvatarTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SearchBar(
+            controller: _controller,
+            onChanged: (_) => setState(() {}),
+            onClear: () => setState(() => _controller.clear()),
           ),
-        ),
+          const SizedBox(height: 12),
+          _FilterChips(
+            selected: _filter,
+            onSelect: (f) => setState(() => _filter = f),
+          ),
+          const SizedBox(height: 12),
+          _DropdownChip(
+            value: _category,
+            options: _categoryOptions,
+            onSelected: (v) => setState(() => _category = v),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Consumer<AppState>(
+              builder: (context, app, _) {
+                final results = _buildResults(app);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    BrutSectionTitle(
+                      _controller.text.trim().isEmpty
+                          ? 'All results'
+                          : 'Results for "${_controller.text.trim()}"',
+                      aside: MonoLabel('${results.length} found'),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: results.isEmpty
+                          ? const _EmptyResults()
+                          : ListView(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              children: [
+                                for (final r in results) ...[
+                                  _ResultCard(
+                                    result: r,
+                                    onTap: r.event == null
+                                        ? null
+                                        : () => Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => EventDetailScreen(
+                                                event: r.event!,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+                              ],
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
