@@ -1054,14 +1054,13 @@ class _BrutTextFieldState extends State<BrutTextField> {
   }
 }
 
-/// A dropdown styled like the rest of the system.
+/// A picker that opens a sheet of choices rather than a native dropdown.
 ///
-/// The design would rather this opened a bottom sheet of choice rows, and
-/// for a long colour-coded list that is better. It stays a native
-/// dropdown here because every picker in the app — school year, semester,
-/// scope, category, department, movement type — would have to change
-/// behaviour at once, and several are covered by widget tests that tap
-/// them. Converting them is a separate, testable change.
+/// The design asks for this because a native menu cannot show a long,
+/// colour-coded list legibly, and because a row with room for a check
+/// mark reads as a choice in a way a menu line does not. The API is the
+/// same as a `DropdownButton` — value, items, onChanged — so every call
+/// site in the app passes the `DropdownMenuItem`s it already had.
 class BrutDropdown<T> extends StatelessWidget {
   const BrutDropdown({
     super.key,
@@ -1081,9 +1080,26 @@ class BrutDropdown<T> extends StatelessWidget {
   final ValueChanged<T?>? onChanged;
   final bool enabled;
 
+  bool get _live => enabled && onChanged != null && items.isNotEmpty;
+
+  Future<void> _open(BuildContext context) async {
+    final chosen = await showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _ChoiceSheet<T>(
+        title: label ?? hint,
+        value: value,
+        items: items,
+      ),
+    );
+    // Null means dismissed, which is not the same as choosing nothing.
+    if (chosen != null) onChanged?.call(chosen);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final live = enabled && onChanged != null;
+    final current = items.where((i) => i.value == value).firstOrNull;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1093,40 +1109,132 @@ class BrutDropdown<T> extends StatelessWidget {
           MonoLabel(label!),
           const SizedBox(height: 6),
         ],
-        Container(
+        BrutSurface(
+          onTap: _live ? () => _open(context) : null,
+          enabled: _live,
+          semanticLabel: label,
+          radius: AppRadius.controlAll,
+          shadow: AppShadows.sm,
           height: 46,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: live ? context.palette.surface : context.palette.line,
-            borderRadius: AppRadius.controlAll,
-            border: Border.fromBorderSide(
-              live ? context.side : context.disabledSide,
-            ),
-            boxShadow: live ? context.shadows(AppShadows.sm) : AppShadows.none,
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<T>(
-              isExpanded: true,
-              value: value,
-              items: items,
-              onChanged: live ? onChanged : null,
-              icon: Icon(
-                Icons.expand_more,
-                size: 20,
-                color: live ? context.palette.ink : context.palette.muted,
+          child: Row(
+            children: [
+              Expanded(
+                child: current == null
+                    ? Text(
+                        hint,
+                        style: AppText.body.copyWith(
+                          color: context.palette.muted,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : DefaultTextStyle.merge(
+                        style: AppText.body
+                            .copyWith(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        child: current.child,
+                      ),
               ),
-              borderRadius: AppRadius.rowAll,
-              dropdownColor: context.palette.surface,
-              style: AppText.body.copyWith(fontWeight: FontWeight.w600),
-              hint: Text(
-                hint,
-                style: AppText.body.copyWith(color: context.palette.muted),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+              const SizedBox(width: 8),
+              const Icon(Icons.expand_more, size: 20),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ChoiceSheet<T> extends StatelessWidget {
+  const _ChoiceSheet({
+    required this.title,
+    required this.value,
+    required this.items,
+  });
+
+  final String title;
+  final T? value;
+  final List<DropdownMenuItem<T>> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        // Never taller than most of the screen: a sheet that fills it is
+        // a screen, and should have been one.
+        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+      ),
+      decoration: BoxDecoration(
+        color: context.palette.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadius.card),
+        ),
+        border: context.borderAll,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
+            child: Row(
+              children: [
+                Expanded(child: BrutSectionTitle(title)),
+                BrutIconButton(
+                  icon: Icons.close,
+                  label: 'Close',
+                  size: 32,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                16 + MediaQuery.viewPaddingOf(context).bottom,
+              ),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (_, i) {
+                final item = items[i];
+                final selected = item.value == value;
+                return BrutSurface(
+                  onTap: () => Navigator.of(context).pop(item.value),
+                  fill: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                  radius: AppRadius.rowAll,
+                  shadow: selected ? AppShadows.base : AppShadows.sm,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: DefaultTextStyle.merge(
+                          style: AppText.body.copyWith(
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                          child: item.child,
+                        ),
+                      ),
+                      if (selected) ...[
+                        const SizedBox(width: 10),
+                        const Icon(Icons.check, size: 18),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

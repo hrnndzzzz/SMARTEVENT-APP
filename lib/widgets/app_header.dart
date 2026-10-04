@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import 'notification_peek.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
 /// in as, the bell, and the avatar.
@@ -145,11 +146,16 @@ class _BellWithBadge extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        BrutIconButton(
-          icon: Icons.notifications_none,
-          label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
-          onPressed: onTap,
-          size: 38,
+        // A tap opens the inbox; a hold shows what the number counts.
+        NotificationPeek(
+          onTap: onTap,
+          child: BrutIconButton(
+            icon: Icons.notifications_none,
+            label:
+                count > 0 ? 'Notifications, $count unread' : 'Notifications',
+            onPressed: onTap,
+            size: 38,
+          ),
         ),
         if (count > 0)
           Positioned(

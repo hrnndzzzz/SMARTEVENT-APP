@@ -7,9 +7,12 @@ import '../theme/brut.dart';
 
 /// The signed-in user's notification inbox.
 ///
-/// Tapping one marks it read. There is no mark-all-read and no delete,
-/// because the backend has neither — and a button that silently does
-/// nothing is worse than its absence.
+/// Tapping one marks it read, and so does swiping it. There is no
+/// mark-all-read and no delete, because the backend has neither — and a
+/// button that silently does nothing is worse than its absence. That is
+/// also why a swipe springs back instead of sliding the row away: the row
+/// is still there, it is just read now, and pretending otherwise would be
+/// a lie the next refresh exposes.
 ///
 /// The backend currently raises these for registration confirmations only,
 /// so an empty inbox is the normal state rather than a sign of breakage.
@@ -67,7 +70,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       itemCount: app.notices.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (_, i) =>
-                          _NoticeCard(notice: app.notices[i]),
+                          _SwipeToRead(notice: app.notices[i]),
                     ),
                   ),
                 },
@@ -75,6 +78,62 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Swiping an unread notice marks it read. A read one does not move,
+/// because there would be nothing for the gesture to do.
+class _SwipeToRead extends StatelessWidget {
+  const _SwipeToRead({required this.notice});
+
+  final AppNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!notice.isUnread) return _NoticeCard(notice: notice);
+
+    return Dismissible(
+      key: ValueKey(notice.id),
+      direction: DismissDirection.endToStart,
+      background: _SwipeBackground(),
+      // Always false: the action is "mark read", not "remove", so the row
+      // springs back and redraws as read.
+      confirmDismiss: (_) async {
+        final messenger = ScaffoldMessenger.of(context);
+        final error = await context.read<AppState>().markNoticeRead(notice);
+        if (error != null) {
+          messenger.showSnackBar(SnackBar(content: Text(error)));
+        }
+        return false;
+      },
+      child: _NoticeCard(notice: notice),
+    );
+  }
+}
+
+class _SwipeBackground extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: context.palette.mintTint,
+        borderRadius: AppRadius.cardAll,
+        border: context.borderAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.mark_email_read_outlined, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            'Mark read',
+            style: AppText.buttonLabel.copyWith(fontSize: 12.5),
+          ),
+        ],
       ),
     );
   }
@@ -114,7 +173,9 @@ class _NoticeCard extends StatelessWidget {
                   notice.title,
                   style: notice.isUnread
                       ? AppText.cardTitle
-                      : AppText.cardTitle.copyWith(color: context.palette.subtle),
+                      : AppText.cardTitle.copyWith(
+                          color: context.palette.subtle,
+                        ),
                 ),
               ),
               if (notice.isUnread) ...[
