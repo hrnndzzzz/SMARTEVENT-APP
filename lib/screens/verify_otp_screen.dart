@@ -114,19 +114,19 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         onBack: () => Navigator.of(context).maybePop(),
       ),
       footer: BrutFooter(
-        child: BrutButton(
-          label: 'Verify',
-          size: BrutSize.large,
-          busy: _submitting,
-          busyLabel: 'Verifying…',
-          onPressed: _verify,
-        ),
         secondary: BrutButton(
           label: 'Resend code',
           tone: BrutTone.neutral,
           busy: _resending,
           busyLabel: 'Sending…',
           onPressed: _submitting ? null : _resend,
+        ),
+        child: BrutButton(
+          label: 'Verify',
+          size: BrutSize.large,
+          busy: _submitting,
+          busyLabel: 'Verifying…',
+          onPressed: _verify,
         ),
       ),
       child: Column(
