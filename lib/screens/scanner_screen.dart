@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/scope_picker.dart';
@@ -442,22 +442,22 @@ class _CapturePreview extends StatelessWidget {
       children: [
         Container(
           height: 200,
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
+          decoration: BoxDecoration(
+            color: context.palette.surface,
             borderRadius: AppRadius.cardAll,
-            border: AppBorders.all,
-            boxShadow: AppShadows.base,
+            border: context.borderAll,
+            boxShadow: context.shadows(AppShadows.base),
           ),
           clipBehavior: Clip.antiAlias,
           child: image == null
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.receipt_long_outlined,
                         size: 40,
-                        color: AppColors.muted,
+                        color: context.palette.muted,
                       ),
                       SizedBox(height: 10),
                       Text('No receipt captured yet', style: AppText.caption),

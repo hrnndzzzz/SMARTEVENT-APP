@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'complete_purchase_screen.dart';
 
@@ -205,7 +205,7 @@ class _FlagCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.flag_outlined, size: 18, color: AppColors.ink),
+              Icon(Icons.flag_outlined, size: 18, color: context.palette.ink),
               const SizedBox(width: 8),
               Text('Flagged for review', style: AppText.cardTitle),
             ],
@@ -270,7 +270,7 @@ class _OcrCard extends StatelessWidget {
             Text(
               'Receipt attached. Event, amount and date are locked while it '
               'is recorded.',
-              style: AppText.caption.copyWith(color: AppColors.muted),
+              style: AppText.caption.copyWith(color: context.palette.muted),
             ),
           ],
         ],

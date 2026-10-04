@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// Opens the Approve/Reject dialog for a pending expense. [reviewerRole]
@@ -150,7 +150,7 @@ class ExpensePendingCard extends StatelessWidget {
                 'Review',
                 style: AppText.buttonLabel.copyWith(fontSize: 12.5),
               ),
-              const Icon(Icons.chevron_right, size: 18, color: AppColors.ink),
+              Icon(Icons.chevron_right, size: 18, color: context.palette.ink),
             ],
           ),
         ],

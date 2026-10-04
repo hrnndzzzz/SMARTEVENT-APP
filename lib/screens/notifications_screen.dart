@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// The signed-in user's notification inbox.
@@ -114,7 +114,7 @@ class _NoticeCard extends StatelessWidget {
                   notice.title,
                   style: notice.isUnread
                       ? AppText.cardTitle
-                      : AppText.cardTitle.copyWith(color: AppColors.subtle),
+                      : AppText.cardTitle.copyWith(color: context.palette.subtle),
                 ),
               ),
               if (notice.isUnread) ...[

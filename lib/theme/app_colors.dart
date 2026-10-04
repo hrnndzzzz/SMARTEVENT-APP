@@ -75,6 +75,29 @@ class AppColors {
   /// Behind the phone-width column on a tablet or desktop window.
   static const Color backdrop = Color(0xFFE9ECEF);
 
+  // ── Dark theme ────────────────────────────────────────────────────────
+  // The accents keep their light-theme hex: a yellow badge is the same
+  // yellow in both themes, and still carries dark ink. What flips is the
+  // canvas, and with it the ink — which means the outlines and the hard
+  // shadows flip too, since they are the same mark as the text.
+  static const Color canvasDark = Color(0xFF121417);
+  static const Color surfaceDark = Color(0xFF1F2329);
+  static const Color inkDark = Color(0xFFF2F1EC);
+  static const Color lineDark = Color(0xFF2E343C);
+  static const Color mutedDark = Color(0xFF6F7884);
+  static const Color subtleDark = Color(0xFFA9B1BC);
+  static const Color alertInkDark = Color(0xFFFF8A8F);
+  static const Color backdropDark = Color(0xFF0B0C0E);
+
+  // The tints are the accents flattened against the dark surface rather
+  // than against white, so a tinted panel stays a panel instead of
+  // becoming the brightest thing on a dark screen.
+  static const Color brandTintDark = Color(0xFF2A405F);
+  static const Color orangeTintDark = Color(0xFF63422F);
+  static const Color sunTintDark = Color(0xFF6D6330);
+  static const Color mintTintDark = Color(0xFF365641);
+  static const Color coralTintDark = Color(0xFF573038);
+
   // ── Department accents ────────────────────────────────────────────────
   // SmartEvent needs six distinguishable department colours. These extend
   // the palette in the same register (bright, light enough for ink text)

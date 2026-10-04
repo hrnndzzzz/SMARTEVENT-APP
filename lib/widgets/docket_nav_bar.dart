@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// Shared bottom nav bar for SmartEvent's six sections.
@@ -31,9 +31,9 @@ class DocketNavBar extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.fromLTRB(8, 8, 8, inset > 8 ? inset : 8),
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        border: AppBorders.top,
+      decoration: BoxDecoration(
+        color: context.palette.canvas,
+        border: context.borderTop,
       ),
       child: Row(
         children: List.generate(_items.length, (i) {
@@ -44,11 +44,11 @@ class DocketNavBar extends StatelessWidget {
               child: BrutSurface(
                 onTap: onTap == null ? null : () => onTap!(i),
                 semanticLabel: _items[i].$2,
-                fill: isActive ? accent : AppColors.canvas,
+                fill: isActive ? accent : context.palette.canvas,
                 radius: AppRadius.controlAll,
                 shadow: isActive ? AppShadows.sm : AppShadows.none,
                 side: isActive
-                    ? AppBorders.side
+                    ? context.side
                     : const BorderSide(color: Colors.transparent, width: 2),
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
@@ -57,13 +57,13 @@ class DocketNavBar extends StatelessWidget {
                     Icon(
                       _items[i].$1,
                       size: 18,
-                      color: isActive ? AppColors.ink : AppColors.subtle,
+                      color: isActive ? context.palette.ink : context.palette.subtle,
                     ),
                     const SizedBox(height: 3),
                     Text(
                       _items[i].$2.toUpperCase(),
                       style: AppText.navLabel.copyWith(
-                        color: isActive ? AppColors.ink : AppColors.subtle,
+                        color: isActive ? context.palette.ink : context.palette.subtle,
                       ),
                     ),
                   ],

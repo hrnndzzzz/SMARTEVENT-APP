@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -105,13 +105,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         vertical: 13,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.line,
+                        color: context.palette.line,
                         borderRadius: AppRadius.controlAll,
-                        border: Border.fromBorderSide(AppBorders.disabled),
+                        border: Border.fromBorderSide(context.disabledSide),
                       ),
                       child: Text(
                         widget.role,
-                        style: AppText.body.copyWith(color: AppColors.subtle),
+                        style: AppText.body.copyWith(color: context.palette.subtle),
                       ),
                     ),
                   ],

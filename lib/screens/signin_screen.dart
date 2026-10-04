@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../main.dart';
 import 'change_password_screen.dart';
@@ -96,8 +96,8 @@ class _SignInScreenState extends State<SignInScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
+        decoration: BoxDecoration(
+          color: context.palette.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(
@@ -179,7 +179,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
                     size: 18,
-                    color: AppColors.subtle,
+                    color: context.palette.subtle,
                   ),
                   onPressed: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
@@ -208,7 +208,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: Text(
                       'Forgot password?',
                       style: AppText.caption.copyWith(
-                        color: AppColors.ink,
+                        color: context.palette.ink,
                         fontWeight: FontWeight.w700,
                         decoration: TextDecoration.underline,
                         decorationThickness: 2,
@@ -234,7 +234,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   child: Text(
                     'On the roster but no account yet? Create one',
                     style: AppText.caption.copyWith(
-                      color: AppColors.ink,
+                      color: context.palette.ink,
                       fontWeight: FontWeight.w700,
                       decoration: TextDecoration.underline,
                       decorationThickness: 2,

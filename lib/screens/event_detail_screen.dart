@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'create_event_screen.dart';
 import 'events_screen.dart' show eventStatusTone;
@@ -314,7 +314,7 @@ class _StageChip extends StatelessWidget {
     final reached = done || current;
 
     return BrutSurface(
-      fill: reached ? tone.fill(context) : AppColors.line,
+      fill: reached ? tone.fill(context) : context.palette.line,
       radius: AppRadius.rowAll,
       shadow: reached ? AppShadows.sm : AppShadows.none,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -327,7 +327,7 @@ class _StageChip extends StatelessWidget {
                     ? Icons.hourglass_top
                     : Icons.radio_button_unchecked,
             size: 18,
-            color: reached ? AppColors.ink : AppColors.muted,
+            color: reached ? context.palette.ink : context.palette.muted,
           ),
           const SizedBox(height: 6),
           Text(
@@ -335,7 +335,7 @@ class _StageChip extends StatelessWidget {
             textAlign: TextAlign.center,
             style: AppText.buttonLabel.copyWith(
               fontSize: 11,
-              color: reached ? AppColors.ink : AppColors.subtle,
+              color: reached ? context.palette.ink : context.palette.subtle,
             ),
           ),
         ],
@@ -491,7 +491,7 @@ class _ApprovalRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: _tone.fill(context),
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.ink, width: 1.5),
+            border: Border.all(color: context.palette.ink, width: 1.5),
           ),
         ),
         const SizedBox(width: 10),
@@ -520,7 +520,7 @@ class _ApprovalRow extends StatelessWidget {
                   'Reviewer ${record.reviewerId}',
                   style: AppText.caption.copyWith(
                     fontSize: 10,
-                    color: AppColors.muted,
+                    color: context.palette.muted,
                   ),
                 ),
               ],

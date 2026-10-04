@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
@@ -266,7 +266,7 @@ class _DropdownChip extends StatelessWidget {
         ],
         child: BrutSurface(
           fill: isDefault
-              ? AppColors.surface
+              ? context.palette.surface
               : Theme.of(context).colorScheme.primary,
           radius: AppRadius.controlAll,
           shadow: isDefault ? AppShadows.none : AppShadows.sm,
@@ -280,7 +280,7 @@ class _DropdownChip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: AppText.buttonLabel.copyWith(
                     fontSize: 12,
-                    color: isDefault ? AppColors.subtle : AppColors.ink,
+                    color: isDefault ? context.palette.subtle : context.palette.ink,
                   ),
                 ),
               ),
@@ -332,7 +332,7 @@ class _ResultCard extends StatelessWidget {
             width: 8,
             decoration: BoxDecoration(
               color: tone.fill(context),
-              border: const Border(right: AppBorders.side),
+              border: Border(right: context.side),
               borderRadius: const BorderRadius.horizontal(
                 left: Radius.circular(AppRadius.row - AppBorders.width),
               ),

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_settings.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 
 /// Device settings.
 ///
-/// Nothing here is stored on the account yet — there is no settings
-/// endpoint — so the screen says so rather than implying a preference
-/// follows you to another device. Dark mode is disabled outright, because
-/// the screens that have not been converted to the design system would
-/// render dark text on a dark canvas.
+/// Nothing here is stored on the account — there is no settings endpoint
+/// — so the screen says so rather than implying a preference follows you
+/// to another device. The theme and reduce-motion choices do persist on
+/// this phone and survive signing out.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -22,6 +23,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<AppSettings>();
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -40,21 +43,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const BrutInlineMessage(
                       tone: BrutTone.sun,
                       icon: Icons.info_outline,
-                      text: 'These stay on this device. There is no settings '
+                      text:
+                          'These stay on this device. There is no settings '
                           'endpoint yet, so they do not follow your account.',
                     ),
+                    const SizedBox(height: 20),
+                    const BrutSectionTitle('Appearance'),
+                    const SizedBox(height: 10),
+                    const _ThemePicker(),
                     const SizedBox(height: 18),
-                    const _SwitchTile(
-                      label: 'Dark mode',
-                      subtitle: 'Not available yet — most screens would be '
-                          'unreadable on a dark canvas.',
-                      value: false,
-                      onChanged: null,
+                    _SwitchTile(
+                      label: 'Reduce motion',
+                      subtitle:
+                          'Turns off the press effect, screen '
+                          'transitions and every other movement. Your '
+                          'phone\'s own setting is honoured either way.',
+                      value: settings.reduceMotion,
+                      onChanged: settings.setReduceMotion,
                     ),
+                    const SizedBox(height: 20),
+                    const BrutSectionTitle('This device'),
                     const SizedBox(height: 10),
                     _SwitchTile(
                       label: 'Biometric login',
-                      subtitle: 'Unlock with your fingerprint or face instead '
+                      subtitle:
+                          'Unlock with your fingerprint or face instead '
                           'of your password.',
                       value: _biometricLogin,
                       onChanged: (v) => setState(() => _biometricLogin = v),
@@ -117,6 +130,60 @@ class _SwitchTile extends StatelessWidget {
           Switch(value: value, onChanged: onChanged),
         ],
       ),
+    );
+  }
+}
+
+/// Light, Dark or System, as three choices you can see at once rather
+/// than a switch that only says one of them.
+class _ThemePicker extends StatelessWidget {
+  const _ThemePicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<AppSettings>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            for (final mode in ThemeMode.values) ...[
+              Expanded(
+                child: BrutSurface(
+                  onTap: () => settings.setThemeMode(mode),
+                  semanticLabel: mode.label,
+                  fill: settings.themeMode == mode
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                  radius: AppRadius.controlAll,
+                  shadow: settings.themeMode == mode
+                      ? AppShadows.base
+                      : AppShadows.none,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    children: [
+                      Icon(switch (mode) {
+                        ThemeMode.light => Icons.light_mode_outlined,
+                        ThemeMode.dark => Icons.dark_mode_outlined,
+                        ThemeMode.system => Icons.brightness_auto_outlined,
+                      }, size: 20),
+                      const SizedBox(height: 6),
+                      Text(
+                        mode.label,
+                        style: AppText.buttonLabel.copyWith(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (mode != ThemeMode.values.last) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(settings.themeMode.explanation, style: AppText.caption),
+      ],
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 class CircleMenuItem {
@@ -67,7 +67,7 @@ class _CircleMenuState extends State<CircleMenu>
     const double itemSpacing = 64;
     // Light enough to keep ink on top legible, dark enough to read as
     // the area's accent.
-    final tint = Color.lerp(widget.color, AppColors.surface, 0.55)!;
+    final tint = Color.lerp(widget.color, context.palette.surface, 0.55)!;
 
     return Stack(
       children: [
@@ -80,7 +80,7 @@ class _CircleMenuState extends State<CircleMenu>
               onTap: _toggle,
               // The scrim is flat ink at half strength, like the sheets.
               child: ColoredBox(
-                color: AppColors.ink.withValues(alpha: 0.5),
+                color: context.palette.ink.withValues(alpha: 0.5),
                 child: const SizedBox.expand(),
               ),
             ),
@@ -120,7 +120,7 @@ class _CircleMenuState extends State<CircleMenu>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           BrutSurface(
-                            fill: AppColors.surface,
+                            fill: context.palette.surface,
                             radius: AppRadius.controlAll,
                             shadow: AppShadows.sm,
                             padding: const EdgeInsets.symmetric(
@@ -147,7 +147,7 @@ class _CircleMenuState extends State<CircleMenu>
                             alignment: Alignment.center,
                             child: Icon(
                               widget.items[index].icon,
-                              color: AppColors.ink,
+                              color: context.palette.ink,
                               size: 22,
                             ),
                           ),
@@ -184,13 +184,15 @@ class _CircleMenuState extends State<CircleMenu>
               decoration: BoxDecoration(
                 color: widget.color,
                 shape: BoxShape.circle,
-                border: AppBorders.all,
-                boxShadow: _isPressed ? AppShadows.none : AppShadows.base,
+                border: context.borderAll,
+                boxShadow: _isPressed
+                    ? AppShadows.none
+                    : context.shadows(AppShadows.base),
               ),
               child: AnimatedRotation(
                 turns: _isOpen ? 0.125 : 0,
                 duration: AppMotion.accordion,
-                child: const Icon(Icons.apps, color: AppColors.ink, size: 28),
+                child: Icon(Icons.apps, color: context.palette.ink, size: 28),
               ),
             ),
           ),

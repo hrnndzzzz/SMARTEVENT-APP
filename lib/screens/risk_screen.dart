@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
@@ -199,14 +199,17 @@ class _CriteriaCard extends StatelessWidget {
             const BrutSectionTitle('What causes a flag'),
             const SizedBox(height: 12),
             _line(
+              context,
               'A receipt resembles another one — same merchant and '
               'amount, a nearby date.',
             ),
             _line(
+              context,
               'The amount read from a receipt differs from the amount '
               'recorded against it.',
             ),
             _line(
+              context,
               'An exact duplicate receipt is refused outright and never '
               'reaches this list.',
             ),
@@ -222,7 +225,7 @@ class _CriteriaCard extends StatelessWidget {
     );
   }
 
-  Widget _line(String text) {
+  Widget _line(BuildContext context, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -232,8 +235,8 @@ class _CriteriaCard extends StatelessWidget {
             width: 6,
             height: 6,
             margin: const EdgeInsets.only(top: 6, right: 10),
-            decoration: const BoxDecoration(
-              color: AppColors.ink,
+            decoration: BoxDecoration(
+              color: context.palette.ink,
               shape: BoxShape.circle,
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
@@ -160,7 +161,7 @@ class _EventCard extends StatelessWidget {
             width: 8,
             decoration: BoxDecoration(
               color: tone.fill(context),
-              border: const Border(right: AppBorders.side),
+              border: Border(right: context.side),
               borderRadius: const BorderRadius.horizontal(
                 left: Radius.circular(AppRadius.row - AppBorders.width),
               ),

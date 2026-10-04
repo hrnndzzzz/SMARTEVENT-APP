@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_theme.dart';
+import 'palette.dart';
 
 /// The component kit for SmartEvent's soft-pop neo-brutalist UI.
 ///
@@ -33,30 +34,31 @@ enum BrutTone {
 }
 
 extension BrutToneColors on BrutTone {
-  /// The solid fill.
+  /// The solid fill. The accents are fixed; the neutral and dark ones
+  /// follow the theme.
   Color fill(BuildContext context) => switch (this) {
-        BrutTone.neutral => AppColors.surface,
+        BrutTone.neutral => context.palette.surface,
         BrutTone.brand => Theme.of(context).colorScheme.primary,
         BrutTone.sun => AppColors.sun,
         BrutTone.mint => AppColors.mint,
         BrutTone.coral => AppColors.coral,
-        BrutTone.dark => AppColors.ink,
+        BrutTone.dark => context.palette.ink,
       };
 
   /// The soft version, for a background sitting behind a paragraph.
   Color tint(BuildContext context) => switch (this) {
-        BrutTone.neutral => AppColors.surface,
-        BrutTone.brand => AppColors.brandTint,
-        BrutTone.sun => AppColors.sunTint,
-        BrutTone.mint => AppColors.mintTint,
-        BrutTone.coral => AppColors.coralTint,
-        BrutTone.dark => AppColors.line,
+        BrutTone.neutral => context.palette.surface,
+        BrutTone.brand => context.palette.brandTint,
+        BrutTone.sun => context.palette.sunTint,
+        BrutTone.mint => context.palette.mintTint,
+        BrutTone.coral => context.palette.coralTint,
+        BrutTone.dark => context.palette.line,
       };
 
-  /// Ink on every accent — they are all light enough for it. Only the
-  /// dark tone flips, and it flips all the way to the surface colour.
-  Color get foreground =>
-      this == BrutTone.dark ? AppColors.surface : AppColors.ink;
+  /// The foreground that belongs on this tone's fill — measured from the
+  /// fill rather than declared, so it is right in either theme.
+  Color foreground(BuildContext context) =>
+      context.foregroundOn(fill(context));
 }
 
 /// Fill, 2px outline, radius, hard shadow, and the press.
@@ -67,7 +69,7 @@ class BrutSurface extends StatefulWidget {
   const BrutSurface({
     super.key,
     required this.child,
-    this.fill = AppColors.surface,
+    this.fill,
     this.radius = AppRadius.rowAll,
     this.shadow = AppShadows.base,
     this.side,
@@ -82,7 +84,9 @@ class BrutSurface extends StatefulWidget {
   });
 
   final Widget child;
-  final Color fill;
+
+  /// Defaults to the theme's surface.
+  final Color? fill;
   final BorderRadius radius;
   final List<BoxShadow> shadow;
   final BorderSide? side;
@@ -107,16 +111,29 @@ class _BrutSurfaceState extends State<BrutSurface> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final pressed = _down && _interactive;
+    final fill =
+        widget.enabled ? (widget.fill ?? palette.surface) : palette.line;
     // A disabled control has nothing to drop onto, so it loses its shadow
     // as well — the flatness is the signal.
-    final shadow =
-        pressed || !widget.enabled ? AppShadows.none : widget.shadow;
+    final shadow = pressed || !widget.enabled
+        ? AppShadows.none
+        : context.shadows(widget.shadow);
     final travel =
         pressed ? AppShadows.travelFor(widget.shadow) : Offset.zero;
     final duration = MediaQuery.disableAnimationsOf(context)
         ? const Duration(milliseconds: 1)
         : AppMotion.press;
+
+    // The design's one structural rule: ink is the foreground for the
+    // nearest background. Measuring the fill and handing the answer down
+    // as the default text and icon colour is what makes a white button
+    // inside a yellow card come out right, in either theme, however
+    // deeply things nest.
+    final foreground = widget.enabled
+        ? context.foregroundOn(fill)
+        : palette.subtle;
 
     Widget surface = AnimatedContainer(
       duration: duration,
@@ -127,15 +144,21 @@ class _BrutSurfaceState extends State<BrutSurface> {
       alignment: widget.alignment,
       transform: Matrix4.translationValues(travel.dx, travel.dy, 0),
       decoration: BoxDecoration(
-        color: widget.enabled ? widget.fill : AppColors.line,
+        color: fill,
         borderRadius: widget.radius,
         border: Border.fromBorderSide(
           widget.side ??
-              (widget.enabled ? AppBorders.side : AppBorders.disabled),
+              (widget.enabled ? context.side : context.disabledSide),
         ),
         boxShadow: shadow,
       ),
-      child: widget.child,
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: foreground),
+        child: IconTheme.merge(
+          data: IconThemeData(color: foreground),
+          child: widget.child,
+        ),
+      ),
     );
 
     if (_interactive) {
@@ -207,7 +230,7 @@ class BrutButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
-    final foreground = enabled ? tone.foreground : AppColors.subtle;
+    final foreground = enabled ? tone.foreground(context) : context.palette.subtle;
     final text = busy ? (busyLabel ?? label) : label;
 
     final content = Row(
@@ -294,7 +317,7 @@ class BrutIconButton extends StatelessWidget {
       child: Icon(
         icon,
         size: size * 0.45,
-        color: enabled ? tone.foreground : AppColors.subtle,
+        color: enabled ? tone.foreground(context) : context.palette.subtle,
       ),
     );
   }
@@ -359,7 +382,7 @@ class BrutBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = tone.foreground;
+    final foreground = tone.foreground(context);
     return BrutSurface(
       fill: tone.fill(context),
       radius: AppRadius.controlAll,
@@ -434,10 +457,10 @@ class BrutIconTile extends StatelessWidget {
         color: tone.fill(context),
         borderRadius:
             size >= 40 ? AppRadius.rowAll : AppRadius.controlAll,
-        border: AppBorders.all,
+        border: context.borderAll,
       ),
       alignment: Alignment.center,
-      child: Icon(icon, size: size * 0.5, color: tone.foreground),
+      child: Icon(icon, size: size * 0.5, color: tone.foreground(context)),
     );
   }
 }
@@ -494,8 +517,8 @@ class BrutListRow extends StatelessWidget {
           if (trailing != null) ...[const SizedBox(width: 8), trailing!],
           if (onTap != null) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right,
-                size: 18, color: AppColors.subtle),
+            Icon(Icons.chevron_right,
+                size: 18, color: context.palette.subtle),
           ],
         ],
       ),
@@ -523,7 +546,7 @@ class BrutMetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = tone.foreground;
+    final foreground = tone.foreground(context);
     return BrutSurface(
       onTap: onTap,
       fill: tone.fill(context),
@@ -583,9 +606,9 @@ class BrutProgressBar extends StatelessWidget {
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: AppColors.line,
+        color: context.palette.line,
         borderRadius: AppRadius.pill,
-        border: AppBorders.all,
+        border: context.borderAll,
       ),
       clipBehavior: Clip.antiAlias,
       child: Align(
@@ -596,7 +619,7 @@ class BrutProgressBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: tone.fill(context),
               border: ratio > 0 && ratio < 1
-                  ? const Border(right: AppBorders.side)
+                  ? Border(right: context.side)
                   : null,
             ),
           ),
@@ -625,14 +648,17 @@ class BrutEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _DashedBorderPainter(radius: AppRadius.row),
+      painter: _DashedBorderPainter(
+        radius: AppRadius.row,
+        ink: context.palette.ink,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 32, color: AppColors.muted),
+              Icon(icon, size: 32, color: context.palette.muted),
               const SizedBox(height: 12),
             ],
             Text(
@@ -653,14 +679,15 @@ class BrutEmptyState extends StatelessWidget {
 }
 
 class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.radius});
+  const _DashedBorderPainter({required this.radius, required this.ink});
 
   final double radius;
+  final Color ink;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.ink.withValues(alpha: 0.4)
+      ..color = ink.withValues(alpha: 0.4)
       ..strokeWidth = AppBorders.width
       ..style = PaintingStyle.stroke;
 
@@ -685,7 +712,7 @@ class _DashedBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashedBorderPainter oldDelegate) =>
-      oldDelegate.radius != radius;
+      oldDelegate.radius != radius || oldDelegate.ink != ink;
 }
 
 /// A sentence in a tinted box, next to the thing it is about. Errors use
@@ -714,13 +741,13 @@ class BrutInlineMessage extends StatelessWidget {
         decoration: BoxDecoration(
           color: tone.tint(context),
           borderRadius: AppRadius.controlAll,
-          border: AppBorders.all,
+          border: context.borderAll,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 16, color: AppColors.ink),
+              Icon(icon, size: 16, color: context.palette.ink),
               const SizedBox(width: 8),
             ],
             Expanded(
@@ -728,7 +755,7 @@ class BrutInlineMessage extends StatelessWidget {
                 text,
                 style: AppText.body.copyWith(
                   fontSize: 12.5,
-                  color: _isError ? AppColors.alertInk : AppColors.ink,
+                  color: _isError ? context.palette.alertInk : context.palette.ink,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -781,9 +808,9 @@ class BrutHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        border: AppBorders.bottom,
+      decoration: BoxDecoration(
+        color: context.palette.canvas,
+        border: context.borderBottom,
       ),
       child: Row(
         children: [
@@ -833,9 +860,9 @@ class BrutFooter extends StatelessWidget {
     final inset = MediaQuery.viewPaddingOf(context).bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, inset > 12 ? inset : 12),
-      decoration: const BoxDecoration(
-        color: AppColors.canvas,
-        border: AppBorders.top,
+      decoration: BoxDecoration(
+        color: context.palette.canvas,
+        border: context.borderTop,
       ),
       child: child,
     );
@@ -857,13 +884,13 @@ class AppColumn extends StatelessWidget {
     if (width <= maxWidth) return child;
 
     return ColoredBox(
-      color: AppColors.backdrop,
+      color: context.palette.backdrop,
       child: Center(
         child: Container(
           width: maxWidth,
-          decoration: const BoxDecoration(
-            color: AppColors.canvas,
-            border: Border(left: AppBorders.side, right: AppBorders.side),
+          decoration: BoxDecoration(
+            color: context.palette.canvas,
+            border: Border(left: context.side, right: context.side),
           ),
           child: child,
         ),
@@ -873,7 +900,7 @@ class AppColumn extends StatelessWidget {
 }
 
 /// A text field that gains its shadow on focus and tints coral when it has
-/// an error, with the message underneath in [AppColors.alertInk] — coral
+/// an error, with the message underneath in [context.palette.alertInk] — coral
 /// itself is a fill colour and cannot be read at 12px.
 class BrutTextField extends StatefulWidget {
   const BrutTextField({
@@ -940,10 +967,10 @@ class _BrutTextFieldState extends State<BrutTextField> {
   Widget build(BuildContext context) {
     final hasError = widget.errorText != null;
     final fill = !widget.enabled
-        ? AppColors.line
+        ? context.palette.line
         : hasError
-            ? AppColors.coralTint
-            : AppColors.surface;
+            ? context.palette.coralTint
+            : context.palette.surface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -961,12 +988,14 @@ class _BrutTextFieldState extends State<BrutTextField> {
             color: fill,
             borderRadius: AppRadius.controlAll,
             border: Border.fromBorderSide(
-              widget.enabled ? AppBorders.side : AppBorders.disabled,
+              widget.enabled ? context.side : context.disabledSide,
             ),
             // A field rests on a small shadow and lifts onto the full one
             // when it takes focus, so the active field is obvious without
             // a colour change.
-            boxShadow: _focus.hasFocus ? AppShadows.base : AppShadows.sm,
+            boxShadow: context.shadows(
+              _focus.hasFocus ? AppShadows.base : AppShadows.sm,
+            ),
           ),
           child: TextField(
             controller: widget.controller,
@@ -984,11 +1013,11 @@ class _BrutTextFieldState extends State<BrutTextField> {
             textCapitalization: widget.textCapitalization,
             onChanged: widget.onChanged,
             onSubmitted: widget.onSubmitted,
-            cursorColor: AppColors.ink,
+            cursorColor: context.palette.ink,
             style: AppText.body.copyWith(fontWeight: FontWeight.w600),
             decoration: InputDecoration(
               hintText: widget.hint,
-              hintStyle: AppText.body.copyWith(color: AppColors.muted),
+              hintStyle: AppText.body.copyWith(color: context.palette.muted),
               filled: false,
               isDense: true,
               border: InputBorder.none,
@@ -1001,7 +1030,7 @@ class _BrutTextFieldState extends State<BrutTextField> {
               ),
               prefixIcon: widget.prefixIcon == null
                   ? null
-                  : Icon(widget.prefixIcon, size: 18, color: AppColors.subtle),
+                  : Icon(widget.prefixIcon, size: 18, color: context.palette.subtle),
               prefixIconConstraints:
                   const BoxConstraints(minWidth: 38, minHeight: 38),
               suffixIcon: widget.suffix,
@@ -1015,7 +1044,7 @@ class _BrutTextFieldState extends State<BrutTextField> {
           Text(
             widget.errorText!,
             style: AppText.caption.copyWith(
-              color: AppColors.alertInk,
+              color: context.palette.alertInk,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1068,12 +1097,12 @@ class BrutDropdown<T> extends StatelessWidget {
           height: 46,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: live ? AppColors.surface : AppColors.line,
+            color: live ? context.palette.surface : context.palette.line,
             borderRadius: AppRadius.controlAll,
             border: Border.fromBorderSide(
-              live ? AppBorders.side : AppBorders.disabled,
+              live ? context.side : context.disabledSide,
             ),
-            boxShadow: live ? AppShadows.sm : AppShadows.none,
+            boxShadow: live ? context.shadows(AppShadows.sm) : AppShadows.none,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<T>(
@@ -1084,14 +1113,14 @@ class BrutDropdown<T> extends StatelessWidget {
               icon: Icon(
                 Icons.expand_more,
                 size: 20,
-                color: live ? AppColors.ink : AppColors.muted,
+                color: live ? context.palette.ink : context.palette.muted,
               ),
               borderRadius: AppRadius.rowAll,
-              dropdownColor: AppColors.surface,
+              dropdownColor: context.palette.surface,
               style: AppText.body.copyWith(fontWeight: FontWeight.w600),
               hint: Text(
                 hint,
-                style: AppText.body.copyWith(color: AppColors.muted),
+                style: AppText.body.copyWith(color: context.palette.muted),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1125,7 +1154,7 @@ class BrutChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final fill = selected
         ? (tone ?? BrutTone.brand).fill(context)
-        : AppColors.surface;
+        : context.palette.surface;
 
     return BrutSurface(
       onTap: onTap,
@@ -1138,7 +1167,7 @@ class BrutChip extends StatelessWidget {
         label,
         style: AppText.buttonLabel.copyWith(
           fontSize: 12,
-          color: selected ? AppColors.ink : AppColors.subtle,
+          color: selected ? context.palette.ink : context.palette.subtle,
         ),
       ),
     );
@@ -1210,7 +1239,7 @@ class BrutDateField extends StatelessWidget {
                 child: Text(
                   text,
                   style: value == null
-                      ? AppText.body.copyWith(color: AppColors.muted)
+                      ? AppText.body.copyWith(color: context.palette.muted)
                       : AppText.number,
                 ),
               ),

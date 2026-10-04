@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
@@ -290,12 +290,12 @@ class _UploadSheetState extends State<_UploadSheet> {
       ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
+        decoration: BoxDecoration(
+          color: context.palette.surface,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.card),
           ),
-          border: AppBorders.all,
+          border: context.borderAll,
         ),
         child: SingleChildScrollView(
           child: Column(

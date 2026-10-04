@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'signin_screen.dart';
 
@@ -88,8 +89,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         width: 72,
                         height: 72,
                         alignment: Alignment.center,
-                        child: const Icon(Icons.groups_outlined,
-                            color: AppColors.ink, size: 34),
+                        child: Icon(Icons.groups_outlined,
+                            color: context.palette.ink, size: 34),
                       ),
                       const SizedBox(height: 22),
                       const MonoLabel('LCUP · Student organisations'),
@@ -108,7 +109,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           child: Text(
                             _taglines[_taglineIndex],
                             key: ValueKey(_taglineIndex),
-                            style: AppText.body.copyWith(color: AppColors.subtle),
+                            style: AppText.body.copyWith(color: context.palette.subtle),
                           ),
                         ),
                       ),

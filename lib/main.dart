@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'state/app_settings.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/brut.dart';
@@ -29,12 +30,19 @@ class SmartEventApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      // Kick off the stored-session check as soon as the state exists, so
-      // the gate below has something to wait for.
-      create: (_) => AppState()..restoreSession(),
-      child: Consumer<AppState>(
-        builder: (context, app, _) => MaterialApp(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          // Kick off the stored-session check as soon as the state exists,
+          // so the gate below has something to wait for.
+          create: (_) => AppState()..restoreSession(),
+        ),
+        // Outside AppState on purpose: signing out must not reset the
+        // theme, and a dark screen turning white on log out reads as a bug.
+        ChangeNotifierProvider(create: (_) => AppSettings()..restore()),
+      ],
+      child: Consumer2<AppState, AppSettings>(
+        builder: (context, app, settings, _) => MaterialApp(
           title: 'SmartEvent',
           debugShowCheckedModeBanner: false,
           // Primary actions are blue in every department — that is the
@@ -43,9 +51,23 @@ class SmartEventApp extends StatelessWidget {
           // CITE account reads as orange and blue rather than either one
           // on its own.
           theme: AppTheme.light(accent: app.themeColor),
-          // One-hand layout, so it stays a phone-width column on a tablet
-          // or a desktop window instead of stretching across it.
-          builder: (context, child) => AppColumn(child: child!),
+          darkTheme: AppTheme.dark(accent: app.themeColor),
+          themeMode: settings.themeMode,
+          builder: (context, child) {
+            // Reduce motion is applied here rather than per widget, so it
+            // reaches screen transitions and Material's own animations as
+            // well as the press effect. The OS setting still wins on its
+            // own; this only ever adds.
+            final media = MediaQuery.of(context);
+            return MediaQuery(
+              data: settings.reduceMotion
+                  ? media.copyWith(disableAnimations: true)
+                  : media,
+              // One-hand layout, so it stays a phone-width column on a
+              // tablet or a desktop window instead of stretching across it.
+              child: AppColumn(child: child!),
+            );
+          },
           home: const _StartupGate(),
         ),
       ),

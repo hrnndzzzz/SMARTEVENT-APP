@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// Shared financial-overview widgets used across all three role
@@ -129,17 +130,17 @@ class RemainingBalanceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                MonoLabel('Remaining balance', color: tone.foreground),
+                MonoLabel('Remaining balance', color: tone.foreground(context)),
                 const SizedBox(height: 4),
                 Text(
                   '₱${balance.toStringAsFixed(2)}',
-                  style: AppText.moneyLarge.copyWith(color: tone.foreground),
+                  style: AppText.moneyLarge.copyWith(color: tone.foreground(context)),
                 ),
                 if (isLow) ...[
                   const SizedBox(height: 4),
                   Text(
                     'Running low — under ₱500 left.',
-                    style: AppText.caption.copyWith(color: tone.foreground),
+                    style: AppText.caption.copyWith(color: tone.foreground(context)),
                   ),
                 ],
               ],
@@ -147,7 +148,7 @@ class RemainingBalanceCard extends StatelessWidget {
           ),
           Icon(
             isLow ? Icons.warning_amber_rounded : Icons.savings_outlined,
-            color: tone.foreground,
+            color: tone.foreground(context),
             size: 22,
           ),
         ],
@@ -224,13 +225,16 @@ class AllocationVsActualCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            const Wrap(
+            Wrap(
               spacing: 12,
               runSpacing: 6,
               children: [
-                LegendDot(color: AppColors.brandTint, label: 'Allocated'),
-                LegendDot(color: AppColors.brand, label: 'Actual'),
-                LegendDot(color: AppColors.coral, label: 'Over'),
+                LegendDot(
+                  color: context.palette.brandTint,
+                  label: 'Allocated',
+                ),
+                const LegendDot(color: AppColors.brand, label: 'Actual'),
+                const LegendDot(color: AppColors.coral, label: 'Over'),
               ],
             ),
           ],
@@ -257,7 +261,7 @@ class _Cluster extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _Bar(fraction: allocatedFraction, fill: AppColors.brandTint),
+        _Bar(fraction: allocatedFraction, fill: context.palette.brandTint),
         const SizedBox(width: 4),
         _Bar(
           fraction: actualFraction,
@@ -290,7 +294,7 @@ class _Bar extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: fill,
-        border: AppBorders.all,
+        border: context.borderAll,
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppRadius.control),
         ),
@@ -315,7 +319,7 @@ class LegendDot extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: AppColors.ink, width: 1.5),
+            border: Border.all(color: context.palette.ink, width: 1.5),
           ),
         ),
         const SizedBox(width: 6),
@@ -386,17 +390,17 @@ class ExpenseDistributionCard extends StatelessWidget {
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: AppBorders.all,
+                  border: context.borderAll,
                   gradient: SweepGradient(colors: colors, stops: stops),
                 ),
                 child: Center(
                   child: Container(
                     width: 60,
                     height: 60,
-                    decoration: const BoxDecoration(
-                      color: AppColors.surface,
+                    decoration: BoxDecoration(
+                      color: context.palette.surface,
                       shape: BoxShape.circle,
-                      border: AppBorders.all,
+                      border: context.borderAll,
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -453,7 +457,7 @@ class LegendRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.ink, width: 1.5),
+            border: Border.all(color: context.palette.ink, width: 1.5),
           ),
         ),
         const SizedBox(width: 8),

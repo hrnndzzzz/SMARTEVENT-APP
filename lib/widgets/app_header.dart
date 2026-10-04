@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
@@ -71,7 +72,7 @@ class AppHeader extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.bolt, size: 15, color: AppColors.ink),
+                    Icon(Icons.bolt, size: 15, color: context.palette.ink),
                     const SizedBox(width: 5),
                     Text('SmartEvent', style: AppText.wordmark),
                   ],
@@ -160,7 +161,7 @@ class _BellWithBadge extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.coral,
                 borderRadius: AppRadius.pill,
-                border: AppBorders.all,
+                border: context.borderAll,
               ),
               child: Text(
                 // Past 99 the exact number stops being useful and starts
@@ -169,7 +170,7 @@ class _BellWithBadge extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: AppText.monoLabel.copyWith(
                   fontSize: 9,
-                  color: AppColors.ink,
+                  color: context.palette.ink,
                   letterSpacing: 0,
                 ),
               ),

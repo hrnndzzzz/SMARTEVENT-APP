@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/expense_review.dart';
@@ -436,15 +436,15 @@ class _ActionTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           loading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppColors.ink,
+                    color: context.palette.ink,
                   ),
                 )
-              : Icon(icon, color: AppColors.ink, size: 20),
+              : Icon(icon, color: context.palette.ink, size: 20),
           const SizedBox(height: 8),
           Text(
             label,
@@ -497,7 +497,7 @@ class _EventSummaryCard extends StatelessWidget {
                 'Review',
                 style: AppText.buttonLabel.copyWith(fontSize: 12.5),
               ),
-              const Icon(Icons.chevron_right, size: 18, color: AppColors.ink),
+              Icon(Icons.chevron_right, size: 18, color: context.palette.ink),
             ],
           ),
         ],
