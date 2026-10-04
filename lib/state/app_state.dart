@@ -236,11 +236,20 @@ extension DepartmentInfo on Department {
     Department.case_ => 'College of Arts, Sciences & Education',
   };
 
+  /// The department's identity colour, used as a *fill* behind ink: the
+  /// brand pill, the avatar, the active nav tab.
+  ///
+  /// Primary actions stay blue for every department (see `AppTheme.light`),
+  /// so CITE reads as orange and blue — its own two colours — rather than
+  /// orange alone.
+  ///
+  /// None of these is coral. Coral means "a problem", and a department
+  /// wearing it would read as one.
   Color get color => switch (this) {
     Department.systemWide => AppColors.brand,
-    Department.cite => AppColors.sun,
+    Department.cite => AppColors.orange,
     Department.cithm => AppColors.mint,
-    Department.cbea => AppColors.coral,
+    Department.cbea => AppColors.sun,
     Department.camp => AppColors.teal,
     Department.case_ => AppColors.violet,
   };

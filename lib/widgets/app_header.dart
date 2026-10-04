@@ -49,7 +49,9 @@ class AppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final accent = app.themeColor;
+    // The department accent comes from the theme rather than from state:
+    // main.dart puts it there, so every identity surface reads one value.
+    final accent = Theme.of(context).colorScheme.secondary;
     final initials = _initialsFor(app.currentAccount?.name ?? 'Guest');
     final scopeLine = subtitle ?? _scopeLineFor(app);
 

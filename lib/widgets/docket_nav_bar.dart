@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -28,7 +26,7 @@ class DocketNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = context.watch<AppState>().themeColor;
+    final accent = Theme.of(context).colorScheme.secondary;
     final inset = MediaQuery.viewPaddingOf(context).bottom;
 
     return Container(

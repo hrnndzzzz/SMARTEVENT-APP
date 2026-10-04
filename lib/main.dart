@@ -37,10 +37,12 @@ class SmartEventApp extends StatelessWidget {
         builder: (context, app, _) => MaterialApp(
           title: 'SmartEvent',
           debugShowCheckedModeBanner: false,
-          // The whole app re-tints to the signed-in account's department,
-          // so buttons, chips and fills follow it without each screen
-          // having to ask.
-          theme: AppTheme.light(primary: app.themeColor),
+          // Primary actions are blue in every department — that is the
+          // one rule the palette is built on. The department shows itself
+          // in the brand pill, the avatar and the active nav tab, so a
+          // CITE account reads as orange and blue rather than either one
+          // on its own.
+          theme: AppTheme.light(accent: app.themeColor),
           // One-hand layout, so it stays a phone-width column on a tablet
           // or a desktop window instead of stretching across it.
           builder: (context, child) => AppColumn(child: child!),

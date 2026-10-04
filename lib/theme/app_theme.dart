@@ -239,11 +239,19 @@ class AppMotion {
 class AppTheme {
   AppTheme._();
 
-  /// [primary] defaults to the brand blue but is overridden with the
-  /// signed-in account's department accent (see `AppState.themeColor`).
-  /// It is always used as a *fill* with ink on top, never as text on the
-  /// canvas — the accents are deliberately too light for that.
-  static ThemeData light({Color primary = AppColors.brand}) {
+  /// [primary] is the colour of a primary action, and stays blue: one
+  /// colour, one meaning, and blue means "this is the action".
+  ///
+  /// [accent] is the signed-in account's department (see
+  /// `AppState.themeColor`). It identifies whose records you are looking
+  /// at — the brand pill, the avatar, the active nav tab — and is reached
+  /// through `colorScheme.secondary`. Both are always used as *fills*
+  /// with ink on top, never as text on the canvas: the palette is
+  /// deliberately too light for that.
+  static ThemeData light({
+    Color primary = AppColors.brand,
+    Color accent = AppColors.brand,
+  }) {
     final textTheme = const TextTheme(
       displaySmall: AppText.display,
       headlineMedium: AppText.titleBig,
@@ -270,7 +278,7 @@ class AppTheme {
         seedColor: primary,
         primary: primary,
         onPrimary: AppColors.ink,
-        secondary: AppColors.sun,
+        secondary: accent,
         onSecondary: AppColors.ink,
         tertiary: AppColors.mint,
         onTertiary: AppColors.ink,

@@ -42,6 +42,11 @@ class AppColors {
   /// Urgent, rejected, over budget, offline.
   static const Color coral = Color(0xFFFF5964);
 
+  /// CITE's own orange. Added to the palette for the department rather
+  /// than borrowing a status colour — it sits in the same soft-pop
+  /// register and carries ink text at 7.3:1.
+  static const Color orange = Color(0xFFFF8A3D);
+
   /// Rare. Destructive emphasis only.
   static const Color alert = Color(0xFFEF4444);
 
@@ -55,6 +60,7 @@ class AppColors {
   static const Color sunTint = Color(0xFFFFF2BB);
   static const Color mintTint = Color(0xFFD3EFD6);
   static const Color coralTint = Color(0xFFFFDADD);
+  static const Color orangeTint = Color(0xFFFFE2CD);
 
   // ── Neutrals ──────────────────────────────────────────────────────────
   /// Disabled fills, progress tracks, hairline panels.
@@ -70,20 +76,22 @@ class AppColors {
   static const Color backdrop = Color(0xFFE9ECEF);
 
   // ── Department accents ────────────────────────────────────────────────
-  // SmartEvent needs six distinguishable department colours, two more than
-  // the four accents above. These two extend the palette in the same
-  // register (bright, light enough for ink text) rather than reaching for
-  // the muted earth tones they replace.
+  // SmartEvent needs six distinguishable department colours. These extend
+  // the palette in the same register (bright, light enough for ink text)
+  // rather than reaching for the muted earth tones they replace.
   static const Color violet = Color(0xFFB07BFF);
   static const Color teal = Color(0xFF3FC8C0);
 
-  /// Every accent that may be used as a department or area fill. Ink text
-  /// is legible on all of them.
+  /// Every accent that may be used as a department or a grouping fill.
+  ///
+  /// [coral] is deliberately absent. It means "a problem" everywhere else
+  /// in the app, so a department or a spending category wearing it would
+  /// read as an error at a glance.
   static const List<Color> accents = [
     brand,
+    orange,
     sun,
     mint,
-    coral,
     violet,
     teal,
   ];
