@@ -148,7 +148,13 @@ class _ThemePicker extends StatelessWidget {
       children: [
         Row(
           children: [
-            for (final mode in ThemeMode.values) ...[
+            // Light, Dark, System — the order the design states, which is
+            // not the order the enum happens to declare.
+            for (final mode in const [
+              ThemeMode.light,
+              ThemeMode.dark,
+              ThemeMode.system,
+            ]) ...[
               Expanded(
                 child: BrutSurface(
                   onTap: () => settings.setThemeMode(mode),
@@ -177,7 +183,7 @@ class _ThemePicker extends StatelessWidget {
                   ),
                 ),
               ),
-              if (mode != ThemeMode.values.last) const SizedBox(width: 8),
+              if (mode != ThemeMode.system) const SizedBox(width: 8),
             ],
           ],
         ),
