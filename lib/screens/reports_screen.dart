@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../api/export_saver.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
@@ -51,24 +51,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return;
     }
 
-    // The bytes arrived and were validated; hand them to the share sheet so
-    // they can be saved, mailed or opened in a viewer.
-    final shareProblem = await ExportSaver.share(
-      file,
-      subject: 'SMARTEVENT financial report',
-    );
-
-    if (shareProblem != null) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '$shareProblem The report itself downloaded fine '
-            '(${file.filename}, ${_size(file.sizeBytes)}).',
-          ),
-          duration: const Duration(seconds: 6),
+    // The bytes arrived and were validated. Show them before anything
+    // leaves the device: sharing used to be the only thing that happened
+    // after an export, so the first look anyone got at a report was in
+    // whatever app they had already sent it to.
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExportPreviewScreen(
+          file: file,
+          format: format,
+          subject: 'SMARTEVENT financial report',
         ),
-      );
-    }
+      ),
+    );
   }
 
   /// The dashboard snapshot, which takes no period filters.
@@ -87,28 +82,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return;
     }
 
-    final shareProblem = await ExportSaver.share(
-      file,
-      subject: 'SMARTEVENT dashboard',
-    );
-    if (shareProblem != null) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '$shareProblem The file downloaded fine '
-            '(${file.filename}, ${_size(file.sizeBytes)}).',
-          ),
-          duration: const Duration(seconds: 6),
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExportPreviewScreen(
+          file: file,
+          format: format,
+          subject: 'SMARTEVENT dashboard',
         ),
-      );
-    }
+      ),
+    );
   }
-
-  static String _size(int bytes) => bytes < 1024
-      ? '$bytes B'
-      : bytes < 1024 * 1024
-      ? '${(bytes / 1024).toStringAsFixed(1)} KB'
-      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
   @override
   Widget build(BuildContext context) {
