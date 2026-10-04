@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
@@ -62,8 +63,10 @@ class _SignInScreenState extends State<SignInScreen> {
       if (failures.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Signed in, but some data could not load.\n'
-                '${failures.first}'),
+            content: Text(
+              'Signed in, but some data could not load.\n'
+              '${failures.first}',
+            ),
             duration: const Duration(seconds: 6),
           ),
         );
@@ -72,11 +75,12 @@ class _SignInScreenState extends State<SignInScreen> {
         MaterialPageRoute(builder: (_) => RootShell(role: app.currentRole!)),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
+
   void _openForgotPassword() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -91,43 +95,39 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   void _showQuickLoginSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
+    BrutSheet.show<void>(
+      context,
+      builder: (sheetContext) => BrutSheet(
+        title: 'Dev quick login',
+        subtitle: 'Testing shortcut — not part of the real sign-in flow.',
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Dev Quick Login', style: AppText.cardTitle),
-            const SizedBox(height: 4),
-            const Text('Testing shortcut — not part of the real sign-in flow.', style: AppText.caption),
-            const SizedBox(height: 16),
             for (final role in UserRole.values) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(switch (role) {
-                  UserRole.officer => Icons.person_outline,
-                  UserRole.treasurer => Icons.account_balance_wallet_outlined,
-                  UserRole.adviser => Icons.fact_check_outlined,
-                  UserRole.sdsStaff => Icons.description_outlined,
-                  UserRole.admin => Icons.admin_panel_settings_outlined,
-                  UserRole.superAdmin => Icons.shield_outlined,
-                }),
-                title: Text('Sign in as ${role.label}'),
+              BrutListRow(
+                title: 'Sign in as ${role.label}',
+                marker: BrutIconTile(
+                  size: 32,
+                  icon: switch (role) {
+                    UserRole.officer => Icons.person_outline,
+                    UserRole.treasurer => Icons.account_balance_wallet_outlined,
+                    UserRole.adviser => Icons.fact_check_outlined,
+                    UserRole.sdsStaff => Icons.description_outlined,
+                    UserRole.admin => Icons.admin_panel_settings_outlined,
+                    UserRole.superAdmin => Icons.shield_outlined,
+                  },
+                ),
                 onTap: () {
                   context.read<AppState>().devQuickLogin(role);
-                  Navigator.of(context).pop();
+                  Navigator.of(sheetContext).pop();
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(builder: (_) => RootShell(role: role)),
                   );
                 },
               ),
+              if (role != UserRole.values.last)
+                const SizedBox(height: AppLayout.tight),
             ],
           ],
         ),
@@ -155,8 +155,10 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: const Text('Welcome back', style: AppText.display),
               ),
               const SizedBox(height: 6),
-              const Text('Sign in to your SmartEvent account.',
-                  style: AppText.caption),
+              const Text(
+                'Sign in to your SmartEvent account.',
+                style: AppText.caption,
+              ),
               const SizedBox(height: 24),
               BrutTextField(
                 label: 'LCUP email',
@@ -196,7 +198,8 @@ class _SignInScreenState extends State<SignInScreen> {
                         height: 18,
                         child: Checkbox(
                           value: _rememberMe,
-                          onChanged: (v) => setState(() => _rememberMe = v ?? true),
+                          onChanged: (v) =>
+                              setState(() => _rememberMe = v ?? true),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -248,5 +251,4 @@ class _SignInScreenState extends State<SignInScreen> {
       ),
     );
   }
-
 }

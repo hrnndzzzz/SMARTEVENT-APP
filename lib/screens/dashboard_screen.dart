@@ -26,7 +26,9 @@ class DashboardScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -55,7 +57,9 @@ class DashboardScreen extends StatelessWidget {
                           spend: app.spendByCategory,
                         ),
                         const SizedBox(height: 10),
-                        ExpenseDistributionCard(spendByCategory: app.spendByCategory),
+                        ExpenseDistributionCard(
+                          spendByCategory: app.spendByCategory,
+                        ),
                         const SizedBox(height: 20),
                         const _QuickReports(),
                         const SizedBox(height: 20),
@@ -94,9 +98,9 @@ class _QuickReports extends StatelessWidget {
           label: 'Open reports & export',
           icon: Icons.insert_chart_outlined,
           tone: BrutTone.neutral,
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ReportsScreen()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const ReportsScreen())),
         ),
       ],
     );
@@ -108,10 +112,10 @@ class _RecentExpensesList extends StatelessWidget {
   const _RecentExpensesList({required this.entries});
 
   static String _label(ExpenseStatus s) => switch (s) {
-        ExpenseStatus.approved => 'Approved',
-        ExpenseStatus.rejected => 'Rejected',
-        ExpenseStatus.pending => 'Pending',
-      };
+    ExpenseStatus.approved => 'Approved',
+    ExpenseStatus.rejected => 'Rejected',
+    ExpenseStatus.pending => 'Pending',
+  };
 
   @override
   Widget build(BuildContext context) {

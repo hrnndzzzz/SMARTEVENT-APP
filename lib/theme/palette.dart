@@ -170,7 +170,7 @@ extension BrutShapeOf on BuildContext {
   /// offset. On a dark canvas the shadow is light, because it is the same
   /// mark as the text.
   List<BoxShadow> shadows(List<BoxShadow> base) => [
-        for (final b in base)
-          BoxShadow(color: palette.ink, offset: b.offset, blurRadius: 0),
-      ];
+    for (final b in base)
+      BoxShadow(color: palette.ink, offset: b.offset, blurRadius: 0),
+  ];
 }

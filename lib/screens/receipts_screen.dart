@@ -45,7 +45,9 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -60,25 +62,26 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
               const SizedBox(height: 14),
               Expanded(
                 child: switch (load) {
-                  _ when load.isLoading && app.receipts.isEmpty =>
-                    const Center(child: CircularProgressIndicator()),
+                  _ when load.isLoading && app.receipts.isEmpty => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                   _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
-                      title: 'Could not load receipts',
-                      message: load.error,
-                      sessionExpired: load.sessionExpired,
-                      onRetry: app.loadReceipts,
-                    ),
+                    title: 'Could not load receipts',
+                    message: load.error,
+                    sessionExpired: load.sessionExpired,
+                    onRetry: app.loadReceipts,
+                  ),
                   _ when app.receipts.isEmpty => const _Empty(),
                   _ => RefreshIndicator(
-                      onRefresh: app.loadReceipts,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        itemCount: app.receipts.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) =>
-                            _ReceiptCard(receipt: app.receipts[i]),
-                      ),
+                    onRefresh: app.loadReceipts,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      itemCount: app.receipts.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) =>
+                          _ReceiptCard(receipt: app.receipts[i]),
                     ),
+                  ),
                 },
               ),
             ],
@@ -109,9 +112,8 @@ class _FilterBar extends StatelessWidget {
         BrutChip(
           label: 'Needs review',
           selected: pending,
-          onTap: () => app.applyReceiptFilter(
-            reviewStatus: ReceiptReviewStatus.pending,
-          ),
+          onTap: () =>
+              app.applyReceiptFilter(reviewStatus: ReceiptReviewStatus.pending),
         ),
         BrutChip(
           label: 'Flagged',
@@ -131,17 +133,19 @@ class _ReceiptCard extends StatelessWidget {
   /// "Clear" means nothing looked alike, so it is deliberately the
   /// quietest state — it is not an approval anyone made.
   BrutTone get _tone => switch (receipt.reviewStatus) {
-        ReceiptReviewStatus.clear => BrutTone.neutral,
-        ReceiptReviewStatus.pending => BrutTone.sun,
-        ReceiptReviewStatus.cleared => BrutTone.mint,
-        ReceiptReviewStatus.rejected => BrutTone.coral,
-      };
+    ReceiptReviewStatus.clear => BrutTone.neutral,
+    ReceiptReviewStatus.pending => BrutTone.sun,
+    ReceiptReviewStatus.cleared => BrutTone.mint,
+    ReceiptReviewStatus.rejected => BrutTone.coral,
+  };
 
   @override
   Widget build(BuildContext context) {
     return BrutCard(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ReceiptReviewScreen(receipt: receipt)),
+        MaterialPageRoute(
+          builder: (_) => ReceiptReviewScreen(receipt: receipt),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,8 +201,7 @@ class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final filtered =
-        app.receiptStatusFilter != null || app.receiptFlaggedOnly;
+    final filtered = app.receiptStatusFilter != null || app.receiptFlaggedOnly;
 
     return Center(
       child: BrutEmptyState(
@@ -208,7 +211,7 @@ class _Empty extends StatelessWidget {
             // An empty review queue is good news, so say so.
             ? 'Nothing is waiting on a duplicate decision.'
             : 'Receipts appear here once they are attached to an expense '
-                'or an income.',
+                  'or an income.',
       ),
     );
   }

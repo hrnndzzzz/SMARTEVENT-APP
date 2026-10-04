@@ -42,10 +42,8 @@ class _IncomeScreenState extends State<IncomeScreen> {
     return Scaffold(
       floatingActionButton: canRecord
           ? FloatingActionButton.extended(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
+              onPressed: () => BrutSheet.show<void>(
+                context,
                 builder: (_) => const _RecordIncomeSheet(),
               ),
               icon: const Icon(Icons.add),
@@ -63,7 +61,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
                   MaterialPageRoute(builder: (_) => const AccountScreen()),
                 ),
                 onBellTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
@@ -78,24 +78,26 @@ class _IncomeScreenState extends State<IncomeScreen> {
               if (app.incomes.isNotEmpty) const SizedBox(height: 12),
               Expanded(
                 child: switch (load) {
-                  _ when load.isLoading && app.incomes.isEmpty =>
-                    const Center(child: CircularProgressIndicator()),
+                  _ when load.isLoading && app.incomes.isEmpty => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                   _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
-                      title: 'Could not load income',
-                      message: load.error,
-                      sessionExpired: load.sessionExpired,
-                      onRetry: app.loadIncomes,
-                    ),
+                    title: 'Could not load income',
+                    message: load.error,
+                    sessionExpired: load.sessionExpired,
+                    onRetry: app.loadIncomes,
+                  ),
                   _ when app.incomes.isEmpty => _Empty(canRecord: canRecord),
                   _ => RefreshIndicator(
-                      onRefresh: app.loadIncomes,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 96),
-                        itemCount: app.incomes.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _IncomeCard(income: app.incomes[i]),
-                      ),
+                    onRefresh: app.loadIncomes,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 96),
+                      itemCount: app.incomes.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) =>
+                          _IncomeCard(income: app.incomes[i]),
                     ),
+                  ),
                 },
               ),
             ],
@@ -128,8 +130,10 @@ class _Totals extends StatelessWidget {
                   children: [
                     const MonoLabel('Counted'),
                     const SizedBox(height: 4),
-                    Text('₱${app.countedIncomeTotal.toStringAsFixed(2)}',
-                        style: AppText.moneyLarge),
+                    Text(
+                      '₱${app.countedIncomeTotal.toStringAsFixed(2)}',
+                      style: AppText.moneyLarge,
+                    ),
                   ],
                 ),
               ),
@@ -144,8 +148,10 @@ class _Totals extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         '₱${withheld.toStringAsFixed(2)}',
-                        style: AppText.moneyLarge
-                            .copyWith(fontSize: 16, color: context.palette.subtle),
+                        style: AppText.moneyLarge.copyWith(
+                          fontSize: 16,
+                          color: context.palette.subtle,
+                        ),
                       ),
                     ],
                   ),
@@ -160,8 +166,10 @@ class _Totals extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(child: MonoLabel(entry.key.label)),
-                    Text('₱${entry.value.toStringAsFixed(2)}',
-                        style: AppText.number),
+                    Text(
+                      '₱${entry.value.toStringAsFixed(2)}',
+                      style: AppText.number,
+                    ),
                   ],
                 ),
               ),
@@ -194,7 +202,9 @@ class _IncomeCard extends StatelessWidget {
                 '₱${income.amount.toStringAsFixed(2)}',
                 style: AppText.moneyLarge.copyWith(
                   fontSize: 16,
-                  color: income.isWithheld ? context.palette.muted : context.palette.ink,
+                  color: income.isWithheld
+                      ? context.palette.muted
+                      : context.palette.ink,
                 ),
               ),
             ],
@@ -242,7 +252,7 @@ class _Empty extends StatelessWidget {
         title: 'No income recorded yet',
         hint: canRecord
             ? 'Record money as it comes in — fees, sponsorships and '
-                'donations each count separately in reports.'
+                  'donations each count separately in reports.'
             : 'Income appears here once a Treasurer records it.',
       ),
     );
@@ -305,13 +315,13 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
     });
 
     final error = await context.read<AppState>().recordIncome(
-          eventId: _eventId!,
-          source: _sourceController.text.trim(),
-          sourceType: _sourceType,
-          purpose: _purposeController.text.trim(),
-          amount: MoneyInput.normalize(_amountController.text)!,
-          receivedOn: _receivedOn,
-        );
+      eventId: _eventId!,
+      source: _sourceController.text.trim(),
+      sourceType: _sourceType,
+      purpose: _purposeController.text.trim(),
+      amount: MoneyInput.normalize(_amountController.text)!,
+      receivedOn: _receivedOn,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -321,9 +331,9 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
 
     if (error == null) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Income recorded.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Income recorded.')));
     }
   }
 
@@ -340,99 +350,82 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events = context.watch<AppState>().events
+    final events = context
+        .watch<AppState>()
+        .events
         .where((e) => e.remoteId != null)
         .toList();
 
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.card),
-          ),
-          border: context.borderAll,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const BrutSectionTitle('Record income'),
-              const SizedBox(height: 18),
-              BrutDropdown<String>(
-                label: 'Event',
-                value: _eventId,
-                hint:
-                    events.isEmpty ? 'No events available' : 'Select an event',
-                items: [
-                  for (final e in events)
-                    DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-                ],
-                onChanged: (v) => setState(() => _eventId = v),
-              ),
-              const SizedBox(height: 14),
-              BrutDropdown<FundSource>(
-                label: 'Source type',
-                value: _sourceType,
-                hint: 'Select a source type',
-                items: [
-                  for (final s in FundSource.values)
-                    DropdownMenuItem(value: s, child: Text(s.label)),
-                ],
-                onChanged: (v) =>
-                    setState(() => _sourceType = v ?? _sourceType),
-              ),
-              const SizedBox(height: 6),
-              Text(_sourceType.hint, style: AppText.caption),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Received from',
-                controller: _sourceController,
-                hint: 'The actual payer, e.g. ABC Corporation',
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Purpose',
-                controller: _purposeController,
-                hint: 'What the money is for',
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Amount',
-                controller: _amountController,
-                prefixIcon: Icons.payments_outlined,
-                hint: '0.00',
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-              const SizedBox(height: 14),
-              BrutDateField(
-                label: 'Received on',
-                value: _receivedOn,
-                hint: 'Select a date',
-                onTap: _pickDate,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              const SizedBox(height: 20),
-              BrutButton(
-                label: 'Record income',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Recording…',
-                onPressed: _submit,
-              ),
+    return BrutSheet(
+      title: 'Record income',
+      footer: BrutButton(
+        label: 'Record income',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Recording…',
+        onPressed: _submit,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutDropdown<String>(
+            label: 'Event',
+            value: _eventId,
+            hint: events.isEmpty ? 'No events available' : 'Select an event',
+            items: [
+              for (final e in events)
+                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
             ],
+            onChanged: (v) => setState(() => _eventId = v),
           ),
-        ),
+          const SizedBox(height: 14),
+          BrutDropdown<FundSource>(
+            label: 'Source type',
+            value: _sourceType,
+            hint: 'Select a source type',
+            items: [
+              for (final s in FundSource.values)
+                DropdownMenuItem(value: s, child: Text(s.label)),
+            ],
+            onChanged: (v) => setState(() => _sourceType = v ?? _sourceType),
+          ),
+          const SizedBox(height: 6),
+          Text(_sourceType.hint, style: AppText.caption),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Received from',
+            controller: _sourceController,
+            hint: 'The actual payer, e.g. ABC Corporation',
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Purpose',
+            controller: _purposeController,
+            hint: 'What the money is for',
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Amount',
+            controller: _amountController,
+            prefixIcon: Icons.payments_outlined,
+            hint: '0.00',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 14),
+          BrutDateField(
+            label: 'Received on',
+            value: _receivedOn,
+            hint: 'Select a date',
+            onTap: _pickDate,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

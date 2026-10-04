@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/scope_picker.dart';
 
@@ -133,10 +132,8 @@ class _RosterTab extends StatelessWidget {
           right: 16,
           bottom: 16,
           child: FloatingActionButton.extended(
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
+            onPressed: () => BrutSheet.show<void>(
+              context,
               builder: (_) => const _AddRosterSheet(),
             ),
             icon: const Icon(Icons.person_add_alt),
@@ -543,109 +540,89 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return BrutSheet(
+      title: 'Add to the approved roster',
+      subtitle:
+          'This creates no account. It lets that email register, and '
+          'their name and role come from this entry.',
+      footer: BrutButton(
+        label: 'Add to roster',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Adding…',
+        onPressed: _submit,
       ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.card),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (app.mustChooseScope) ...[
+            ScopePicker(
+              departments: app.departments,
+              departmentId: _departmentId,
+              onDepartmentChanged: (id) => setState(() {
+                _departmentId = id;
+                _organizationId = null;
+              }),
+              organizations: app.organizationsIn(_departmentId),
+              organizationId: _organizationId,
+              onOrganizationChanged: (id) =>
+                  setState(() => _organizationId = id),
+              explanation:
+                  'Your account is not tied to a department, so choose '
+                  'where this member belongs.',
+            ),
+            const SizedBox(height: 14),
+          ],
+          BrutTextField(
+            label: 'Full name',
+            controller: _nameController,
+            textCapitalization: TextCapitalization.words,
           ),
-          border: context.borderAll,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const BrutSectionTitle('Add to the approved roster'),
-              const SizedBox(height: 4),
-              const Text(
-                'This creates no account. It lets that email register, and '
-                'their name and role come from this entry.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 18),
-              if (app.mustChooseScope) ...[
-                ScopePicker(
-                  departments: app.departments,
-                  departmentId: _departmentId,
-                  onDepartmentChanged: (id) => setState(() {
-                    _departmentId = id;
-                    _organizationId = null;
-                  }),
-                  organizations: app.organizationsIn(_departmentId),
-                  organizationId: _organizationId,
-                  onOrganizationChanged: (id) =>
-                      setState(() => _organizationId = id),
-                  explanation:
-                      'Your account is not tied to a department, so choose '
-                      'where this member belongs.',
-                ),
-                const SizedBox(height: 14),
-              ],
-              BrutTextField(
-                label: 'Full name',
-                controller: _nameController,
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Email',
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Must match exactly what they register with.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 14),
-              BrutDropdown<UserRole>(
-                label: 'Role',
-                value: _role,
-                hint: 'Select a role',
-                items: [
-                  for (final role in memberRoles)
-                    DropdownMenuItem(value: role, child: Text(role.label)),
-                ],
-                onChanged: (v) => setState(() => _role = v ?? _role),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Admin and SDS accounts are created separately by a Super '
-                'Admin, not through the roster.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Position (optional)',
-                controller: _positionController,
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'A title like President. It never affects permissions.',
-                style: AppText.caption,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              const SizedBox(height: 20),
-              BrutButton(
-                label: 'Add to roster',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Adding…',
-                onPressed: _submit,
-              ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Email',
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Must match exactly what they register with.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+          BrutDropdown<UserRole>(
+            label: 'Role',
+            value: _role,
+            hint: 'Select a role',
+            items: [
+              for (final role in memberRoles)
+                DropdownMenuItem(value: role, child: Text(role.label)),
             ],
+            onChanged: (v) => setState(() => _role = v ?? _role),
           ),
-        ),
+          const SizedBox(height: 6),
+          const Text(
+            'Admin and SDS accounts are created separately by a Super '
+            'Admin, not through the roster.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Position (optional)',
+            controller: _positionController,
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'A title like President. It never affects permissions.',
+            style: AppText.caption,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

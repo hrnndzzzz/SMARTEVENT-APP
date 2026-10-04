@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// One catalog item: its stock, its movement ledger, and the form for
@@ -60,10 +59,8 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
   }
 
   Future<void> _openMovementForm() async {
-    final recorded = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    final recorded = await BrutSheet.show<bool>(
+      context,
       builder: (_) => _MovementSheet(item: _current),
     );
     if (recorded == true && mounted) await _loadMovements();
@@ -411,105 +408,88 @@ class _MovementSheetState extends State<_MovementSheet> {
         .toList();
     final projected = _projected;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return BrutSheet(
+      title: 'Move ${widget.item.itemName}',
+      footer: BrutButton(
+        label: 'Record movement',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Recording…',
+        onPressed: _submit,
       ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.card),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '${widget.item.quantity} ${widget.item.unit} in stock now.',
+            style: AppText.caption,
           ),
-          border: context.borderAll,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              BrutSectionTitle('Move ${widget.item.itemName}'),
-              const SizedBox(height: 4),
-              Text(
-                '${widget.item.quantity} ${widget.item.unit} in stock now.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 18),
-              BrutDropdown<InventoryMovementType>(
-                label: 'What happened',
-                value: _type,
-                hint: 'Select',
-                items: [
-                  for (final t in selectableMovementTypes)
-                    DropdownMenuItem(value: t, child: Text(t.label)),
-                ],
-                onChanged: (v) => setState(() => _type = v ?? _type),
-              ),
-              const SizedBox(height: 6),
-              Text(_type.hint, style: AppText.caption),
-              const SizedBox(height: 14),
-              BrutDropdown<String>(
-                label: 'Event',
-                value: _eventId,
-                hint: 'Select an event',
-                items: [
-                  for (final e in events)
-                    DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-                ],
-                onChanged: (v) => setState(() => _eventId = v),
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'How many ${widget.item.unit}',
-                controller: _countController,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _type == InventoryMovementType.adjustment
-                    // The one case where the user genuinely picks the
-                    // direction, so a minus is meaningful here.
-                    ? 'Use a minus for a downward correction.'
-                    : 'A positive count — the direction follows from what '
-                          'happened.',
-                style: AppText.caption,
-              ),
-              if (projected != null) ...[
-                const SizedBox(height: 10),
-                BrutInlineMessage(
-                  tone: projected < 0 ? BrutTone.coral : BrutTone.neutral,
-                  icon: projected < 0 ? Icons.block : Icons.arrow_forward,
-                  text: projected < 0
-                      ? 'That would leave $projected — stock cannot go below '
-                            'zero.'
-                      : 'Stock would become $projected ${widget.item.unit}.',
-                ),
-              ],
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Reason',
-                controller: _reasonController,
-                hint: 'Why this is being moved',
-                maxLength: InventoryService.maxReasonLength,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              const SizedBox(height: 20),
-              BrutButton(
-                label: 'Record movement',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Recording…',
-                onPressed: _submit,
-              ),
+          const SizedBox(height: 18),
+          BrutDropdown<InventoryMovementType>(
+            label: 'What happened',
+            value: _type,
+            hint: 'Select',
+            items: [
+              for (final t in selectableMovementTypes)
+                DropdownMenuItem(value: t, child: Text(t.label)),
             ],
+            onChanged: (v) => setState(() => _type = v ?? _type),
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(_type.hint, style: AppText.caption),
+          const SizedBox(height: 14),
+          BrutDropdown<String>(
+            label: 'Event',
+            value: _eventId,
+            hint: 'Select an event',
+            items: [
+              for (final e in events)
+                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
+            ],
+            onChanged: (v) => setState(() => _eventId = v),
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'How many ${widget.item.unit}',
+            controller: _countController,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _type == InventoryMovementType.adjustment
+                // The one case where the user genuinely picks the
+                // direction, so a minus is meaningful here.
+                ? 'Use a minus for a downward correction.'
+                : 'A positive count — the direction follows from what '
+                      'happened.',
+            style: AppText.caption,
+          ),
+          if (projected != null) ...[
+            const SizedBox(height: 10),
+            BrutInlineMessage(
+              tone: projected < 0 ? BrutTone.coral : BrutTone.neutral,
+              icon: projected < 0 ? Icons.block : Icons.arrow_forward,
+              text: projected < 0
+                  ? 'That would leave $projected — stock cannot go below '
+                        'zero.'
+                  : 'Stock would become $projected ${widget.item.unit}.',
+            ),
+          ],
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Reason',
+            controller: _reasonController,
+            hint: 'Why this is being moved',
+            maxLength: InventoryService.maxReasonLength,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

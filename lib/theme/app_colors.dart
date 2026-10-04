@@ -110,12 +110,5 @@ class AppColors {
   /// [coral] is deliberately absent. It means "a problem" everywhere else
   /// in the app, so a department or a spending category wearing it would
   /// read as an error at a glance.
-  static const List<Color> accents = [
-    brand,
-    orange,
-    sun,
-    mint,
-    violet,
-    teal,
-  ];
+  static const List<Color> accents = [brand, orange, sun, mint, violet, teal];
 }

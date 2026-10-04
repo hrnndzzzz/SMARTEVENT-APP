@@ -39,9 +39,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   /// Known years merged with local suggestions, so the picker is never
   /// empty and a brand-new school year can still be started.
   List<String> get _schoolYearOptions => SchoolYear.mergeOptions(
-        context.read<AppState>().knownSchoolYears,
-        DateTime.now(),
-      );
+    context.read<AppState>().knownSchoolYears,
+    DateTime.now(),
+  );
 
   @override
   void initState() {
@@ -80,8 +80,18 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
     if (picked != null) {
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       setState(() {
         _pickedDate = picked;
@@ -116,8 +126,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _submit() async {
     final problem = _validate();
     if (problem != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(problem)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(problem)));
       return;
     }
 
@@ -162,9 +173,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
       }
     } else {
       setState(() => _submitting = true);
@@ -189,13 +200,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
       if (error == null) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$title submitted for review.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$title submitted for review.')));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
       }
     }
   }
@@ -299,7 +310,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       items: [
                         for (final scope in EventScope.values)
                           DropdownMenuItem(
-                              value: scope, child: Text(scope.label)),
+                            value: scope,
+                            child: Text(scope.label),
+                          ),
                       ],
                       onChanged: (v) => setState(() => _eventScope = v),
                     ),
@@ -311,8 +324,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           label: 'Date',
                           controller: _dateController,
                           hint: 'Tap to select a date',
-                          suffix: const Icon(Icons.calendar_today_outlined,
-                              size: 16),
+                          suffix: const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 16,
+                          ),
                         ),
                       ),
                     ),
@@ -322,8 +337,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       controller: _budgetController,
                       hint: '0.00',
                       prefixIcon: Icons.payments_outlined,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     BrutTextField(

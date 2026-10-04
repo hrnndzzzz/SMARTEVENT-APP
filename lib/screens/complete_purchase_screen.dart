@@ -88,20 +88,16 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
   }
 
   String? _validate() => purchaseCompletionProblem(
-        assetLines: widget.assetLines,
-        paidOn: _paidOn,
-        receivedOn: _receivedOn,
-        rawPaidAmount: _amountController.text,
-        expenseTotal: widget.expense.amount,
-        reference: _referenceController.text,
-        vendor: _vendorController.text,
-        quantities: {
-          for (final e in _quantities.entries) e.key: e.value.text,
-        },
-        units: {
-          for (final e in _units.entries) e.key: e.value.text,
-        },
-      );
+    assetLines: widget.assetLines,
+    paidOn: _paidOn,
+    receivedOn: _receivedOn,
+    rawPaidAmount: _amountController.text,
+    expenseTotal: widget.expense.amount,
+    reference: _referenceController.text,
+    vendor: _vendorController.text,
+    quantities: {for (final e in _quantities.entries) e.key: e.value.text},
+    units: {for (final e in _units.entries) e.key: e.value.text},
+  );
 
   Future<void> _submit() async {
     final problem = _validate();
@@ -132,8 +128,10 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
       ],
     );
 
-    final error =
-        await context.read<AppState>().completePurchase(widget.expense, completion);
+    final error = await context.read<AppState>().completePurchase(
+      widget.expense,
+      completion,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -192,8 +190,9 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
                       label: 'Amount paid',
                       controller: _amountController,
                       prefixIcon: Icons.payments_outlined,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -304,8 +303,7 @@ class _LineConfirmation extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text('₱${line.amount.toStringAsFixed(2)}',
-                  style: AppText.number),
+              Text('₱${line.amount.toStringAsFixed(2)}', style: AppText.number),
             ],
           ),
           const SizedBox(height: 12),

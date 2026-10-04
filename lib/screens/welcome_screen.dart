@@ -44,7 +44,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     super.dispose();
   }
 
-
   void _goToSignIn() {
     Navigator.of(context).push(_fadeUpRoute(const SignInScreen()));
   }
@@ -55,7 +54,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       reverseTransitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutCubic,
+        );
         return FadeTransition(
           opacity: curved,
           child: SlideTransition(
@@ -89,8 +91,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         width: 72,
                         height: 72,
                         alignment: Alignment.center,
-                        child: Icon(Icons.groups_outlined,
-                            color: context.palette.ink, size: 34),
+                        child: Icon(
+                          Icons.groups_outlined,
+                          color: context.palette.ink,
+                          size: 34,
+                        ),
                       ),
                       const SizedBox(height: 22),
                       const MonoLabel('LCUP · Student organisations'),
@@ -105,11 +110,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         height: 20,
                         child: AnimatedSwitcher(
                           duration: const Duration(seconds: 1),
-                          transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(opacity: animation, child: child),
                           child: Text(
                             _taglines[_taglineIndex],
                             key: ValueKey(_taglineIndex),
-                            style: AppText.body.copyWith(color: context.palette.subtle),
+                            style: AppText.body.copyWith(
+                              color: context.palette.subtle,
+                            ),
                           ),
                         ),
                       ),

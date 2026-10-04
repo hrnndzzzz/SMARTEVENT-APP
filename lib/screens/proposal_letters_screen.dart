@@ -3,7 +3,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
@@ -50,10 +49,8 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
     return Scaffold(
       floatingActionButton: canUpload
           ? FloatingActionButton.extended(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
+              onPressed: () => BrutSheet.show<void>(
+                context,
                 builder: (_) => const _UploadSheet(),
               ),
               icon: const Icon(Icons.upload_file),
@@ -284,81 +281,56 @@ class _UploadSheetState extends State<_UploadSheet> {
         .where((e) => e.remoteId != null)
         .toList();
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return BrutSheet(
+      title: 'Upload a proposal letter',
+      subtitle:
+          'Separate from submitting the event — this does not '
+          'advance its review.',
+      footer: BrutButton(
+        label: 'Upload letter',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Uploading…',
+        onPressed: _submit,
       ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.card),
-          ),
-          border: context.borderAll,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const BrutSectionTitle('Upload a proposal letter'),
-              const SizedBox(height: 4),
-              const Text(
-                'Separate from submitting the event — this does not advance '
-                'its review.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 18),
-              BrutDropdown<String>(
-                label: 'Event',
-                value: _eventId,
-                hint: events.isEmpty
-                    ? 'No events available'
-                    : 'Select an event',
-                items: [
-                  for (final e in events)
-                    DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-                ],
-                onChanged: (v) => setState(() => _eventId = v),
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Title',
-                controller: _titleController,
-                maxLength: 200,
-                hint: 'e.g. Leadership Summit proposal letter',
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 14),
-              const MonoLabel('Document'),
-              const SizedBox(height: 6),
-              BrutButton(
-                label: _filename ?? 'Choose a file',
-                icon: Icons.attach_file,
-                tone: BrutTone.neutral,
-                onPressed: _submitting ? null : _pick,
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'PDF, JPEG or PNG, up to 10MB.',
-                style: AppText.caption,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              const SizedBox(height: 20),
-              BrutButton(
-                label: 'Upload letter',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Uploading…',
-                onPressed: _submit,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutDropdown<String>(
+            label: 'Event',
+            value: _eventId,
+            hint: events.isEmpty ? 'No events available' : 'Select an event',
+            items: [
+              for (final e in events)
+                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
             ],
+            onChanged: (v) => setState(() => _eventId = v),
           ),
-        ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Title',
+            controller: _titleController,
+            maxLength: 200,
+            hint: 'e.g. Leadership Summit proposal letter',
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 14),
+          const MonoLabel('Document'),
+          const SizedBox(height: 6),
+          BrutButton(
+            label: _filename ?? 'Choose a file',
+            icon: Icons.attach_file,
+            tone: BrutTone.neutral,
+            onPressed: _submitting ? null : _pick,
+          ),
+          const SizedBox(height: 6),
+          const Text('PDF, JPEG or PNG, up to 10MB.', style: AppText.caption),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

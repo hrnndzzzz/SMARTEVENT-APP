@@ -111,7 +111,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       child: Text(
                         widget.role,
-                        style: AppText.body.copyWith(color: context.palette.subtle),
+                        style: AppText.body.copyWith(
+                          color: context.palette.subtle,
+                        ),
                       ),
                     ),
                   ],

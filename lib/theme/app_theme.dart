@@ -167,8 +167,9 @@ class AppRadius {
 
   static const BorderRadius cardAll = BorderRadius.all(Radius.circular(card));
   static const BorderRadius rowAll = BorderRadius.all(Radius.circular(row));
-  static const BorderRadius controlAll =
-      BorderRadius.all(Radius.circular(control));
+  static const BorderRadius controlAll = BorderRadius.all(
+    Radius.circular(control),
+  );
 
   /// Pills, switches, avatars, dots, progress bars.
   static const BorderRadius pill = BorderRadius.all(Radius.circular(999));
@@ -187,8 +188,10 @@ class AppBorders {
   static const double width = 2;
 
   static const BorderSide side = BorderSide(color: AppColors.ink, width: width);
-  static const BorderSide disabled =
-      BorderSide(color: AppColors.muted, width: width);
+  static const BorderSide disabled = BorderSide(
+    color: AppColors.muted,
+    width: width,
+  );
 
   static const Border all = Border.fromBorderSide(side);
   static const Border top = Border(top: side);
@@ -255,8 +258,7 @@ class AppTheme {
   static ThemeData light({
     Color primary = AppColors.brand,
     Color accent = AppColors.brand,
-  }) =>
-      _build(Brightness.light, primary, accent);
+  }) => _build(Brightness.light, primary, accent);
 
   /// The same theme on a dark canvas.
   ///
@@ -267,8 +269,7 @@ class AppTheme {
   static ThemeData dark({
     Color primary = AppColors.brand,
     Color accent = AppColors.brand,
-  }) =>
-      _build(Brightness.dark, primary, accent);
+  }) => _build(Brightness.dark, primary, accent);
 
   static ThemeData _build(Brightness brightness, Color primary, Color accent) {
     final isDark = brightness == Brightness.dark;
@@ -277,42 +278,40 @@ class AppTheme {
     final disabledSide = BorderSide(color: p.muted, width: AppBorders.width);
 
     OutlineInputBorder fieldBorder(Color color) => OutlineInputBorder(
-          borderRadius: AppRadius.controlAll,
-          borderSide: BorderSide(color: color, width: AppBorders.width),
-        );
+      borderRadius: AppRadius.controlAll,
+      borderSide: BorderSide(color: color, width: AppBorders.width),
+    );
 
     /// Material's own buttons cannot draw a hard offset shadow — its
     /// elevation is always a blur — so a themed button is flat with a 2px
     /// outline. `BrutButton` in `brut.dart` is the one that sits on its
     /// shadow and drops onto it; use that for primary actions.
     ButtonStyle filled(Color fill) => ButtonStyle(
-          backgroundColor: WidgetStateProperty.resolveWith(
-            (states) =>
-                states.contains(WidgetState.disabled) ? p.line : fill,
-          ),
-          foregroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.disabled)
-                ? p.subtle
-                // Ink on a bright fill, the theme's ink on a neutral one.
-                : (fill.computeLuminance() > 0.45 ? AppColors.ink : p.ink),
-          ),
-          side: WidgetStateProperty.resolveWith(
-            (states) =>
-                states.contains(WidgetState.disabled) ? disabledSide : side,
-          ),
-          elevation: const WidgetStatePropertyAll(0),
-          shadowColor: const WidgetStatePropertyAll(Colors.transparent),
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          textStyle: const WidgetStatePropertyAll(AppText.buttonLabel),
-          iconSize: const WidgetStatePropertyAll(18),
-          padding: const WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-          minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
-          shape: const WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: AppRadius.controlAll),
-          ),
-        );
+      backgroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled) ? p.line : fill,
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? p.subtle
+            // Ink on a bright fill, the theme's ink on a neutral one.
+            : (fill.computeLuminance() > 0.45 ? AppColors.ink : p.ink),
+      ),
+      side: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled) ? disabledSide : side,
+      ),
+      elevation: const WidgetStatePropertyAll(0),
+      shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      textStyle: const WidgetStatePropertyAll(AppText.buttonLabel),
+      iconSize: const WidgetStatePropertyAll(18),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
+      shape: const WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: AppRadius.controlAll),
+      ),
+    );
 
     final textTheme = const TextTheme(
       displaySmall: AppText.display,
@@ -398,8 +397,10 @@ class AppTheme {
         filled: true,
         fillColor: p.surface,
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 13,
+        ),
         hintStyle: AppText.body.copyWith(color: p.muted),
         labelStyle: AppText.body.copyWith(color: p.ink),
         // Error text is alertInk, not coral: coral is a fill colour and
@@ -421,9 +422,7 @@ class AppTheme {
         disabledColor: p.line,
         labelStyle: AppText.buttonLabel.copyWith(fontSize: 12, color: p.ink),
         side: side,
-        shape: const RoundedRectangleBorder(
-          borderRadius: AppRadius.controlAll,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.controlAll),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -496,8 +495,7 @@ class AppTheme {
       ),
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              states.contains(WidgetState.selected) ? p.ink : p.muted,
+          (states) => states.contains(WidgetState.selected) ? p.ink : p.muted,
         ),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(

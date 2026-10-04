@@ -47,7 +47,8 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
                     const BrutInlineMessage(
                       tone: BrutTone.sun,
                       icon: Icons.info_outline,
-                      text: 'These stay on this device. The backend has no '
+                      text:
+                          'These stay on this device. The backend has no '
                           'preference endpoint yet, so notifications are '
                           'still recorded in your inbox either way.',
                     ),

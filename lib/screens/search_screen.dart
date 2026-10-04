@@ -280,7 +280,9 @@ class _DropdownChip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: AppText.buttonLabel.copyWith(
                     fontSize: 12,
-                    color: isDefault ? context.palette.subtle : context.palette.ink,
+                    color: isDefault
+                        ? context.palette.subtle
+                        : context.palette.ink,
                   ),
                 ),
               ),

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../api/models/category.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
@@ -65,10 +64,8 @@ class CategoriesScreen extends StatelessWidget {
   }
 
   static Future<void> _openForm(BuildContext context, {Category? existing}) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    return BrutSheet.show<void>(
+      context,
       builder: (_) => _CategoryForm(existing: existing),
     );
   }
@@ -370,72 +367,53 @@ class _CategoryFormState extends State<_CategoryForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return BrutSheet(
+      title: _isEdit ? 'Edit category' : 'New category',
+      footer: BrutButton(
+        label: _isEdit ? 'Save changes' : 'Create category',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Saving…',
+        onPressed: _submit,
       ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.card),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutTextField(
+            label: 'Name',
+            controller: _nameController,
+            textCapitalization: TextCapitalization.words,
           ),
-          border: context.borderAll,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            BrutSectionTitle(_isEdit ? 'Edit category' : 'New category'),
-            const SizedBox(height: 18),
-            BrutTextField(
-              label: 'Name',
-              controller: _nameController,
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 14),
-            BrutTextField(
-              label: 'Allocated budget',
-              controller: _budgetController,
-              prefixIcon: Icons.payments_outlined,
-              hint: '0.00',
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-            ),
-            if (_isEdit) ...[
-              const SizedBox(height: 6),
-              const Text(
-                'Changing this does not top up the remaining balance — that '
-                'only moves when expenses are approved.',
-                style: AppText.caption,
-              ),
-            ],
-            const SizedBox(height: 14),
-            BrutTextField(
-              label: 'Low-balance threshold',
-              controller: _thresholdController,
-              prefixIcon: Icons.payments_outlined,
-              hint: '0.00',
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-            ],
-            const SizedBox(height: 20),
-            BrutButton(
-              label: _isEdit ? 'Save changes' : 'Create category',
-              size: BrutSize.large,
-              busy: _submitting,
-              busyLabel: 'Saving…',
-              onPressed: _submit,
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Allocated budget',
+            controller: _budgetController,
+            prefixIcon: Icons.payments_outlined,
+            hint: '0.00',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          if (_isEdit) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Changing this does not top up the remaining balance — that '
+              'only moves when expenses are approved.',
+              style: AppText.caption,
             ),
           ],
-        ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Low-balance threshold',
+            controller: _thresholdController,
+            prefixIcon: Icons.payments_outlined,
+            hint: '0.00',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }

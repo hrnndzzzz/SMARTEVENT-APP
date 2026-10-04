@@ -40,8 +40,9 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
       _linesError = null;
     });
 
-    final outcome =
-        await context.read<AppState>().loadExpenseLines(widget.expense);
+    final outcome = await context.read<AppState>().loadExpenseLines(
+      widget.expense,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -52,8 +53,9 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
   }
 
   /// Only asset lines can be confirmed as received stock.
-  List<ExpenseLine> get _assetLines =>
-      [...?_lines?.where((line) => line.isAsset)];
+  List<ExpenseLine> get _assetLines => [
+    ...?_lines?.where((line) => line.isAsset),
+  ];
 
   Future<void> _openCompletePurchase() async {
     final completed = await Navigator.of(context).push<bool>(
@@ -75,7 +77,8 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
 
     // Own approved expense or an administrator, with at least one asset
     // line to confirm. The API re-checks ownership regardless.
-    final canComplete = expense.canStartPurchaseCompletion &&
+    final canComplete =
+        expense.canStartPurchaseCompletion &&
         (role?.canRecordFinance ?? false) &&
         _assetLines.isNotEmpty;
 
@@ -138,7 +141,8 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
                       const BrutInlineMessage(
                         tone: BrutTone.mint,
                         icon: Icons.inventory_2_outlined,
-                        text: 'This purchase has already been completed. '
+                        text:
+                            'This purchase has already been completed. '
                             'Stock was added once and cannot be added again.',
                       ),
                     ],
@@ -156,10 +160,10 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
 /// One mapping from expense status to meaning, shared with the dashboard
 /// so a status can never be green in one list and yellow in another.
 BrutTone expenseStatusTone(ExpenseStatus status) => switch (status) {
-      ExpenseStatus.approved => BrutTone.mint,
-      ExpenseStatus.rejected => BrutTone.coral,
-      ExpenseStatus.pending => BrutTone.sun,
-    };
+  ExpenseStatus.approved => BrutTone.mint,
+  ExpenseStatus.rejected => BrutTone.coral,
+  ExpenseStatus.pending => BrutTone.sun,
+};
 
 class _StatusRow extends StatelessWidget {
   const _StatusRow({required this.expense});
@@ -232,7 +236,8 @@ class _OcrCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasAnything = expense.ocrMerchant != null ||
+    final hasAnything =
+        expense.ocrMerchant != null ||
         expense.ocrDate != null ||
         expense.ocrAmount != null ||
         expense.hasReceipt;
@@ -261,7 +266,8 @@ class _OcrCard extends StatelessWidget {
             BrutInlineMessage(
               tone: BrutTone.sun,
               icon: Icons.priority_high,
-              text: 'This differs from the recorded total of '
+              text:
+                  'This differs from the recorded total of '
                   '₱${expense.amount.toStringAsFixed(2)}.',
             ),
           ],
@@ -426,5 +432,5 @@ class _PurchaseCard extends StatelessWidget {
   static String _date(DateTime? value) => value == null
       ? '—'
       : '${value.year}-${value.month.toString().padLeft(2, '0')}'
-          '-${value.day.toString().padLeft(2, '0')}';
+            '-${value.day.toString().padLeft(2, '0')}';
 }

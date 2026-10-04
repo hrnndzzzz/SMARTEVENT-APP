@@ -24,8 +24,8 @@ class EventDetailScreen extends StatelessWidget {
         title: Text(
           approved
               ? (isAdviserStage
-                  ? 'Approve and forward to admin'
-                  : 'Grant final approval')
+                    ? 'Approve and forward to admin'
+                    : 'Grant final approval')
               : 'Reject proposal',
           style: AppText.cardTitle,
         ),
@@ -33,8 +33,10 @@ class EventDetailScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(event.title,
-                style: AppText.body.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              event.title,
+              style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+            ),
             if (!isAdviserStage &&
                 event.adviserApprovalNote?.isNotEmpty == true) ...[
               const SizedBox(height: 10),
@@ -72,16 +74,23 @@ class EventDetailScreen extends StatelessWidget {
     if (confirmed == true) {
       final app = context.read<AppState>();
       final String? error = isAdviserStage
-          ? await app.adviserDecision(event,
-              approved: approved, note: controller.text.trim())
-          : await app.adminDecision(event,
-              approved: approved, note: controller.text.trim());
+          ? await app.adviserDecision(
+              event,
+              approved: approved,
+              note: controller.text.trim(),
+            )
+          : await app.adminDecision(
+              event,
+              approved: approved,
+              note: controller.text.trim(),
+            );
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error ??
-              '${event.title} — ${approved ? 'Approved' : 'Rejected'}'),
+          content: Text(
+            error ?? '${event.title} — ${approved ? 'Approved' : 'Rejected'}',
+          ),
         ),
       );
     }
@@ -96,17 +105,20 @@ class EventDetailScreen extends StatelessWidget {
         // Nobody reviews their own proposal. The API enforces this too, so
         // this only avoids offering a button that is certain to 403.
         final currentUserId = app.currentAccount?.id;
-        final isOwnProposal = currentUserId != null &&
+        final isOwnProposal =
+            currentUserId != null &&
             event.proposedBy != null &&
             event.proposedBy == currentUserId;
 
         // Two-stage review: the Adviser resolves the adviser stage, an
         // Admin or Super Admin the admin stage. An Admin must not see
         // Approve while the event is still waiting on the adviser.
-        final canAdviserDecide = !isOwnProposal &&
+        final canAdviserDecide =
+            !isOwnProposal &&
             role == UserRole.adviser &&
             event.status == EventApprovalStatus.pendingAdviser;
-        final canAdminDecide = !isOwnProposal &&
+        final canAdminDecide =
+            !isOwnProposal &&
             (role?.isAdministrator ?? false) &&
             event.status == EventApprovalStatus.pendingAdmin;
 
@@ -140,9 +152,11 @@ class EventDetailScreen extends StatelessWidget {
                                 child: BrutButton(
                                   label: 'Reject',
                                   tone: BrutTone.coral,
-                                  onPressed: () => _decide(context,
-                                      approved: false,
-                                      isAdviserStage: canAdviserDecide),
+                                  onPressed: () => _decide(
+                                    context,
+                                    approved: false,
+                                    isAdviserStage: canAdviserDecide,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -150,9 +164,11 @@ class EventDetailScreen extends StatelessWidget {
                                 child: BrutButton(
                                   label: 'Approve',
                                   tone: BrutTone.mint,
-                                  onPressed: () => _decide(context,
-                                      approved: true,
-                                      isAdviserStage: canAdviserDecide),
+                                  onPressed: () => _decide(
+                                    context,
+                                    approved: true,
+                                    isAdviserStage: canAdviserDecide,
+                                  ),
                                 ),
                               ),
                             ],
@@ -165,8 +181,11 @@ class EventDetailScreen extends StatelessWidget {
                             children: [
                               const BrutSectionTitle('Event details'),
                               const SizedBox(height: 12),
-                              _detailRow('Requested budget', event.budget,
-                                  mono: true),
+                              _detailRow(
+                                'Requested budget',
+                                event.budget,
+                                mono: true,
+                              ),
                               const SizedBox(height: 8),
                               _detailRow('School year', event.academicLabel),
                             ],
@@ -260,15 +279,15 @@ class _ApprovalStatusCard extends StatelessWidget {
                   child: _StageChip(
                     label: 'Adviser review',
                     done: event.status != EventApprovalStatus.pendingAdviser,
-                    current:
-                        event.status == EventApprovalStatus.pendingAdviser,
+                    current: event.status == EventApprovalStatus.pendingAdviser,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _StageChip(
                     label: 'Admin approval',
-                    done: event.status == EventApprovalStatus.approved ||
+                    done:
+                        event.status == EventApprovalStatus.approved ||
                         event.status == EventApprovalStatus.completed,
                     current: event.status == EventApprovalStatus.pendingAdmin,
                   ),
@@ -277,13 +296,17 @@ class _ApprovalStatusCard extends StatelessWidget {
             ),
           if (!isRejected && event.adviserApprovalNote?.isNotEmpty == true) ...[
             const SizedBox(height: 10),
-            Text('Adviser: "${event.adviserApprovalNote}"',
-                style: AppText.caption.copyWith(fontStyle: FontStyle.italic)),
+            Text(
+              'Adviser: "${event.adviserApprovalNote}"',
+              style: AppText.caption.copyWith(fontStyle: FontStyle.italic),
+            ),
           ],
           if (!isRejected && event.adminApprovalNote?.isNotEmpty == true) ...[
             const SizedBox(height: 6),
-            Text('Admin: "${event.adminApprovalNote}"',
-                style: AppText.caption.copyWith(fontStyle: FontStyle.italic)),
+            Text(
+              'Admin: "${event.adminApprovalNote}"',
+              style: AppText.caption.copyWith(fontStyle: FontStyle.italic),
+            ),
           ],
         ],
       ),
@@ -309,8 +332,8 @@ class _StageChip extends StatelessWidget {
     final tone = done
         ? BrutTone.mint
         : current
-            ? BrutTone.sun
-            : BrutTone.neutral;
+        ? BrutTone.sun
+        : BrutTone.neutral;
     final reached = done || current;
 
     return BrutSurface(
@@ -324,8 +347,8 @@ class _StageChip extends StatelessWidget {
             done
                 ? Icons.check_circle
                 : current
-                    ? Icons.hourglass_top
-                    : Icons.radio_button_unchecked,
+                ? Icons.hourglass_top
+                : Icons.radio_button_unchecked,
             size: 18,
             color: reached ? context.palette.ink : context.palette.muted,
           ),
@@ -456,17 +479,17 @@ class _ApprovalRow extends StatelessWidget {
   final ApprovalRecord record;
 
   BrutTone get _tone => switch (record.decision) {
-        'approved' => BrutTone.mint,
-        'rejected' => BrutTone.coral,
-        _ => BrutTone.sun,
-      };
+    'approved' => BrutTone.mint,
+    'rejected' => BrutTone.coral,
+    _ => BrutTone.sun,
+  };
 
   String get _decisionLabel => switch (record.decision) {
-        'approved' => 'Approved',
-        'rejected' => 'Rejected',
-        'pending' => 'Awaiting decision',
-        final other => other,
-      };
+    'approved' => 'Approved',
+    'rejected' => 'Rejected',
+    'pending' => 'Awaiting decision',
+    final other => other,
+  };
 
   String get _when {
     final decidedAt = record.decidedAt;

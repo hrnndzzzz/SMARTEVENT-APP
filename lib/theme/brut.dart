@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_layout.dart';
 import 'app_theme.dart';
 import 'palette.dart';
 
@@ -37,28 +38,27 @@ extension BrutToneColors on BrutTone {
   /// The solid fill. The accents are fixed; the neutral and dark ones
   /// follow the theme.
   Color fill(BuildContext context) => switch (this) {
-        BrutTone.neutral => context.palette.surface,
-        BrutTone.brand => Theme.of(context).colorScheme.primary,
-        BrutTone.sun => AppColors.sun,
-        BrutTone.mint => AppColors.mint,
-        BrutTone.coral => AppColors.coral,
-        BrutTone.dark => context.palette.ink,
-      };
+    BrutTone.neutral => context.palette.surface,
+    BrutTone.brand => Theme.of(context).colorScheme.primary,
+    BrutTone.sun => AppColors.sun,
+    BrutTone.mint => AppColors.mint,
+    BrutTone.coral => AppColors.coral,
+    BrutTone.dark => context.palette.ink,
+  };
 
   /// The soft version, for a background sitting behind a paragraph.
   Color tint(BuildContext context) => switch (this) {
-        BrutTone.neutral => context.palette.surface,
-        BrutTone.brand => context.palette.brandTint,
-        BrutTone.sun => context.palette.sunTint,
-        BrutTone.mint => context.palette.mintTint,
-        BrutTone.coral => context.palette.coralTint,
-        BrutTone.dark => context.palette.line,
-      };
+    BrutTone.neutral => context.palette.surface,
+    BrutTone.brand => context.palette.brandTint,
+    BrutTone.sun => context.palette.sunTint,
+    BrutTone.mint => context.palette.mintTint,
+    BrutTone.coral => context.palette.coralTint,
+    BrutTone.dark => context.palette.line,
+  };
 
   /// The foreground that belongs on this tone's fill — measured from the
   /// fill rather than declared, so it is right in either theme.
-  Color foreground(BuildContext context) =>
-      context.foregroundOn(fill(context));
+  Color foreground(BuildContext context) => context.foregroundOn(fill(context));
 }
 
 /// Fill, 2px outline, radius, hard shadow, and the press.
@@ -113,15 +113,15 @@ class _BrutSurfaceState extends State<BrutSurface> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final pressed = _down && _interactive;
-    final fill =
-        widget.enabled ? (widget.fill ?? palette.surface) : palette.line;
+    final fill = widget.enabled
+        ? (widget.fill ?? palette.surface)
+        : palette.line;
     // A disabled control has nothing to drop onto, so it loses its shadow
     // as well — the flatness is the signal.
     final shadow = pressed || !widget.enabled
         ? AppShadows.none
         : context.shadows(widget.shadow);
-    final travel =
-        pressed ? AppShadows.travelFor(widget.shadow) : Offset.zero;
+    final travel = pressed ? AppShadows.travelFor(widget.shadow) : Offset.zero;
     final duration = MediaQuery.disableAnimationsOf(context)
         ? const Duration(milliseconds: 1)
         : AppMotion.press;
@@ -147,8 +147,7 @@ class _BrutSurfaceState extends State<BrutSurface> {
         color: fill,
         borderRadius: widget.radius,
         border: Border.fromBorderSide(
-          widget.side ??
-              (widget.enabled ? context.side : context.disabledSide),
+          widget.side ?? (widget.enabled ? context.side : context.disabledSide),
         ),
         boxShadow: shadow,
       ),
@@ -214,23 +213,25 @@ class BrutButton extends StatelessWidget {
   final bool expand;
 
   double get _height => switch (size) {
-        BrutSize.small => 36,
-        BrutSize.medium => 44,
-        BrutSize.large => 52,
-      };
+    BrutSize.small => 36,
+    BrutSize.medium => 44,
+    BrutSize.large => 52,
+  };
 
   double get _fontSize => switch (size) {
-        BrutSize.small => 13,
-        BrutSize.medium => 14,
-        BrutSize.large => 15,
-      };
+    BrutSize.small => 13,
+    BrutSize.medium => 14,
+    BrutSize.large => 15,
+  };
 
   double get _iconSize => size == BrutSize.small ? 16 : 18;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
-    final foreground = enabled ? tone.foreground(context) : context.palette.subtle;
+    final foreground = enabled
+        ? tone.foreground(context)
+        : context.palette.subtle;
     final text = busy ? (busyLabel ?? label) : label;
 
     final content = Row(
@@ -241,10 +242,7 @@ class BrutButton extends StatelessWidget {
           SizedBox(
             width: _iconSize,
             height: _iconSize,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: foreground,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 2, color: foreground),
           )
         else if (icon != null)
           Icon(icon, size: _iconSize, color: foreground),
@@ -255,8 +253,10 @@ class BrutButton extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: AppText.buttonLabel
-                .copyWith(fontSize: _fontSize, color: foreground),
+            style: AppText.buttonLabel.copyWith(
+              fontSize: _fontSize,
+              color: foreground,
+            ),
           ),
         ),
         if (trailingIcon != null) ...[
@@ -274,7 +274,9 @@ class BrutButton extends StatelessWidget {
       shadow: AppShadows.base,
       height: _height,
       width: expand ? double.infinity : null,
-      padding: EdgeInsets.symmetric(horizontal: size == BrutSize.small ? 12 : 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: size == BrutSize.small ? 12 : 16,
+      ),
       alignment: Alignment.center,
       child: content,
     );
@@ -406,8 +408,7 @@ class BrutBadge extends StatelessWidget {
             mono ? label.toUpperCase() : label,
             style: mono
                 ? AppText.monoLabel.copyWith(color: foreground)
-                : AppText.buttonLabel
-                    .copyWith(fontSize: 11, color: foreground),
+                : AppText.buttonLabel.copyWith(fontSize: 11, color: foreground),
           ),
         ],
       ),
@@ -455,8 +456,7 @@ class BrutIconTile extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: tone.fill(context),
-        borderRadius:
-            size >= 40 ? AppRadius.rowAll : AppRadius.controlAll,
+        borderRadius: size >= 40 ? AppRadius.rowAll : AppRadius.controlAll,
         border: context.borderAll,
       ),
       alignment: Alignment.center,
@@ -517,8 +517,7 @@ class BrutListRow extends StatelessWidget {
           if (trailing != null) ...[const SizedBox(width: 8), trailing!],
           if (onTap != null) ...[
             const SizedBox(width: 4),
-            Icon(Icons.chevron_right,
-                size: 18, color: context.palette.subtle),
+            Icon(Icons.chevron_right, size: 18, color: context.palette.subtle),
           ],
         ],
       ),
@@ -573,10 +572,7 @@ class BrutMetricTile extends StatelessWidget {
           ),
           if (footnote != null) ...[
             const SizedBox(height: 4),
-            Text(
-              footnote!,
-              style: AppText.caption.copyWith(color: foreground),
-            ),
+            Text(footnote!, style: AppText.caption.copyWith(color: foreground)),
           ],
         ],
       ),
@@ -692,10 +688,9 @@ class _DashedBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(radius),
-      ));
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
 
     // Walk the outline and draw only every other 6px stretch.
     const dash = 6.0;
@@ -755,7 +750,9 @@ class BrutInlineMessage extends StatelessWidget {
                 text,
                 style: AppText.body.copyWith(
                   fontSize: 12.5,
-                  color: _isError ? context.palette.alertInk : context.palette.ink,
+                  color: _isError
+                      ? context.palette.alertInk
+                      : context.palette.ink,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -785,9 +782,88 @@ class BrutSectionTitle extends StatelessWidget {
   }
 }
 
-/// A screen header: a back button tinted with the area's accent, a mono
-/// eyebrow over a one-line title, an optional action, and the 2px rule
-/// that separates it from the content.
+/// The frame every screen is built in.
+///
+/// A fixed header, one scrolling area with the standard gutters, and a
+/// docked footer. Screens used to each pick their own padding — there
+/// were twelve different combinations — which is the kind of thing nobody
+/// notices one screen at a time and everybody notices flipping between
+/// them.
+class BrutScreen extends StatelessWidget {
+  const BrutScreen({
+    super.key,
+    required this.child,
+    this.header,
+    this.topBar,
+    this.footer,
+    this.floatingActionButton,
+    this.scrollable = true,
+    this.bottomPadding = AppLayout.contentPadding,
+  });
+
+  /// A [BrutHeader] or [BrutFlowHeader], drawn edge to edge with its own
+  /// padding and its own 2px rule.
+  final Widget? header;
+
+  /// A header that sits inside the gutters instead — the app's top bar,
+  /// with the brand pill and the avatar.
+  final Widget? topBar;
+
+  /// The content. Gets the side gutters either way; gets a scroll view
+  /// too unless [scrollable] is false, in which case it is expanded as it
+  /// is and manages its own.
+  final Widget child;
+  final Widget? footer;
+  final Widget? floatingActionButton;
+  final bool scrollable;
+
+  /// Room under the content, for a screen with a floating button over it.
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final gutters = EdgeInsets.fromLTRB(
+      AppLayout.gutter,
+      AppLayout.contentPadding,
+      AppLayout.gutter,
+      bottomPadding,
+    );
+
+    return Scaffold(
+      floatingActionButton: floatingActionButton,
+      body: SafeArea(
+        // The footer handles the bottom inset itself, so the safe area
+        // must not also pad it or the gap doubles.
+        bottom: false,
+        child: Column(
+          children: [
+            ?header,
+            if (topBar != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppLayout.gutter,
+                  AppLayout.headerTopPadding,
+                  AppLayout.gutter,
+                  0,
+                ),
+                child: topBar,
+              ),
+            Expanded(
+              child: scrollable
+                  ? SingleChildScrollView(padding: gutters, child: child)
+                  : Padding(padding: gutters.copyWith(bottom: 0), child: child),
+            ),
+            ?footer,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A screen header: a 40px back button tinted with the area's accent, a
+/// mono eyebrow over a one-line title, an optional action, and the 2px
+/// rule that separates it from the content.
 class BrutHeader extends StatelessWidget {
   const BrutHeader({
     super.key,
@@ -807,7 +883,12 @@ class BrutHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppLayout.gutter,
+        AppLayout.headerTopPadding,
+        AppLayout.gutter,
+        AppLayout.headerBottomPadding,
+      ),
       decoration: BoxDecoration(
         color: context.palette.canvas,
         border: context.borderBottom,
@@ -819,9 +900,10 @@ class BrutHeader extends StatelessWidget {
               icon: Icons.arrow_back,
               label: 'Back',
               tone: tone,
+              size: AppLayout.iconButton,
               onPressed: onBack,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppLayout.between),
           ],
           Expanded(
             child: Column(
@@ -841,7 +923,152 @@ class BrutHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (action != null) ...[const SizedBox(width: 12), action!],
+          if (action != null) ...[
+            const SizedBox(width: AppLayout.between),
+            action!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One step of a multi-step task.
+class BrutStep {
+  const BrutStep({required this.label, this.onJump});
+
+  /// Shown under its bar, in mono.
+  final String label;
+
+  /// Set only once the step can be reached. A bar with nothing behind it
+  /// is not a button.
+  final VoidCallback? onJump;
+}
+
+/// A header for a task that runs in steps: the usual header, plus a row
+/// of bars that say how far along you are and let you go back to a step
+/// you have already passed.
+class BrutFlowHeader extends StatelessWidget {
+  const BrutFlowHeader({
+    super.key,
+    required this.title,
+    required this.steps,
+    required this.currentStep,
+    this.flowName,
+    this.onBack,
+    this.action,
+    this.tone = BrutTone.brand,
+  });
+
+  final String title;
+  final List<BrutStep> steps;
+
+  /// Zero-based.
+  final int currentStep;
+
+  /// Named in the eyebrow beside the step count.
+  final String? flowName;
+  final VoidCallback? onBack;
+  final Widget? action;
+  final BrutTone tone;
+
+  String get _eyebrow {
+    final counted =
+        'Step ${(currentStep + 1).toString().padLeft(2, '0')} / '
+        '${steps.length.toString().padLeft(2, '0')}';
+    return flowName == null ? counted : '$counted · $flowName';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = tone.fill(context);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppLayout.gutter,
+        AppLayout.headerTopPadding,
+        AppLayout.gutter,
+        AppLayout.headerBottomPadding,
+      ),
+      decoration: BoxDecoration(
+        color: context.palette.canvas,
+        border: context.borderBottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (onBack != null) ...[
+                BrutIconButton(
+                  icon: Icons.arrow_back,
+                  label: 'Back',
+                  tone: tone,
+                  size: AppLayout.iconButton,
+                  onPressed: onBack,
+                ),
+                const SizedBox(width: AppLayout.between),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MonoLabel(_eyebrow),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      style: AppText.screenTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (action != null) ...[
+                const SizedBox(width: AppLayout.between),
+                action!,
+              ],
+            ],
+          ),
+          const SizedBox(height: AppLayout.stepBarTopGap),
+          Row(
+            children: [
+              for (var i = 0; i < steps.length; i++) ...[
+                Expanded(
+                  child: Column(
+                    children: [
+                      BrutSurface(
+                        onTap: steps[i].onJump,
+                        semanticLabel: steps[i].label,
+                        fill: i <= currentStep ? accent : context.palette.line,
+                        radius: AppRadius.pill,
+                        shadow: AppShadows.none,
+                        height: AppLayout.stepBarHeight,
+                        child: const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        steps[i].label.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.monoLabel.copyWith(
+                          fontSize: 9.5,
+                          letterSpacing: 0.6,
+                          color: i == currentStep
+                              ? context.palette.ink
+                              : context.palette.subtle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (i != steps.length - 1)
+                  const SizedBox(width: AppLayout.stepBarGap),
+              ],
+            ],
+          ),
         ],
       ),
     );
@@ -850,21 +1077,209 @@ class BrutHeader extends StatelessWidget {
 
 /// A docked footer for the primary action, clear of the system gesture
 /// area, separated from the content by the 2px rule.
+///
+/// With [onBack] it becomes the standard pair: a square back button and a
+/// full-width primary action beside it. A second action goes on its own
+/// row rather than being squeezed into the same one, so it never
+/// overlaps on a narrow phone.
 class BrutFooter extends StatelessWidget {
-  const BrutFooter({super.key, required this.child});
+  const BrutFooter({
+    super.key,
+    required this.child,
+    this.onBack,
+    this.secondary,
+    this.note,
+  });
 
   final Widget child;
+
+  /// Draws the square back button beside [child].
+  final VoidCallback? onBack;
+
+  /// A second, lesser action, on its own row underneath.
+  final Widget? secondary;
+
+  /// A mono line above everything — "Paper 1 of 6", "2 answers are not
+  /// confirmed yet".
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.viewPaddingOf(context).bottom;
+
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, inset > 12 ? inset : 12),
+      padding: EdgeInsets.fromLTRB(
+        AppLayout.gutter,
+        AppLayout.footerTopPadding,
+        AppLayout.gutter,
+        inset > AppLayout.footerBottomPadding
+            ? inset
+            : AppLayout.footerBottomPadding,
+      ),
       decoration: BoxDecoration(
         color: context.palette.canvas,
         border: context.borderTop,
       ),
-      child: child,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (note != null) ...[
+            MonoLabel(note!),
+            const SizedBox(height: AppLayout.tight),
+          ],
+          if (onBack == null)
+            child
+          else
+            Row(
+              children: [
+                SizedBox(
+                  width: AppLayout.footerAction,
+                  height: AppLayout.footerAction,
+                  child: BrutIconButton(
+                    icon: Icons.arrow_back,
+                    label: 'Back',
+                    size: AppLayout.footerAction,
+                    onPressed: onBack,
+                  ),
+                ),
+                const SizedBox(width: AppLayout.between),
+                Expanded(child: child),
+              ],
+            ),
+          if (secondary != null) ...[
+            const SizedBox(height: AppLayout.tight),
+            secondary!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The app's one bottom sheet.
+///
+/// Every sheet in the app is this: never taller than 85% of the screen,
+/// a header with the title and a close X, a body that scrolls, and a
+/// footer that stays put. Seven screens each had their own copy of the
+/// container before this.
+class BrutSheet extends StatelessWidget {
+  const BrutSheet({
+    super.key,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.footer,
+  });
+
+  final String title;
+
+  /// A sentence under the title, for a sheet that has to explain itself.
+  final String? subtitle;
+  final Widget child;
+
+  /// Stays visible while the body scrolls.
+  final Widget? footer;
+
+  /// Opens [builder] as the app's standard sheet.
+  static Future<T?> show<T>(
+    BuildContext context, {
+    required WidgetBuilder builder,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: builder,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: inset),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight:
+              MediaQuery.sizeOf(context).height *
+              AppLayout.sheetMaxHeightFraction,
+        ),
+        decoration: BoxDecoration(
+          color: context.palette.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.card),
+          ),
+          border: context.borderAll,
+          boxShadow: context.shadows(AppShadows.lg),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppLayout.sheetSidePadding,
+                AppLayout.sheetVerticalPadding,
+                AppLayout.sheetVerticalPadding,
+                AppLayout.sheetVerticalPadding,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        BrutSectionTitle(title),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 4),
+                          Text(subtitle!, style: AppText.caption),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppLayout.tight),
+                  BrutIconButton(
+                    icon: Icons.close,
+                    label: 'Close',
+                    size: 32,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  AppLayout.sheetSidePadding,
+                  0,
+                  AppLayout.sheetSidePadding,
+                  footer == null
+                      ? AppLayout.section +
+                            MediaQuery.viewPaddingOf(context).bottom
+                      : AppLayout.contentPadding,
+                ),
+                child: child,
+              ),
+            ),
+            if (footer != null)
+              Container(
+                padding: EdgeInsets.fromLTRB(
+                  AppLayout.sheetSidePadding,
+                  AppLayout.footerTopPadding,
+                  AppLayout.sheetSidePadding,
+                  AppLayout.footerBottomPadding +
+                      MediaQuery.viewPaddingOf(context).bottom,
+                ),
+                decoration: BoxDecoration(border: context.borderTop),
+                child: footer,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -873,7 +1288,11 @@ class BrutFooter extends StatelessWidget {
 /// like a phone sitting on a desk, instead of stretching a one-hand
 /// layout across 1400px.
 class AppColumn extends StatelessWidget {
-  const AppColumn({super.key, required this.child, this.maxWidth = 420});
+  const AppColumn({
+    super.key,
+    required this.child,
+    this.maxWidth = AppLayout.columnMaxWidth,
+  });
 
   final Widget child;
   final double maxWidth;
@@ -969,8 +1388,8 @@ class _BrutTextFieldState extends State<BrutTextField> {
     final fill = !widget.enabled
         ? context.palette.line
         : hasError
-            ? context.palette.coralTint
-            : context.palette.surface;
+        ? context.palette.coralTint
+        : context.palette.surface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1006,9 +1425,13 @@ class _BrutTextFieldState extends State<BrutTextField> {
             textInputAction: widget.textInputAction,
             maxLines: widget.obscureText ? 1 : widget.maxLines,
             maxLength: widget.maxLength,
-            buildCounter: (_, {required currentLength, required isFocused,
-                    required maxLength}) =>
-                null,
+            buildCounter:
+                (
+                  _, {
+                  required currentLength,
+                  required isFocused,
+                  required maxLength,
+                }) => null,
             autofocus: widget.autofocus,
             textCapitalization: widget.textCapitalization,
             onChanged: widget.onChanged,
@@ -1030,12 +1453,20 @@ class _BrutTextFieldState extends State<BrutTextField> {
               ),
               prefixIcon: widget.prefixIcon == null
                   ? null
-                  : Icon(widget.prefixIcon, size: 18, color: context.palette.subtle),
-              prefixIconConstraints:
-                  const BoxConstraints(minWidth: 38, minHeight: 38),
+                  : Icon(
+                      widget.prefixIcon,
+                      size: 18,
+                      color: context.palette.subtle,
+                    ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 38,
+                minHeight: 38,
+              ),
               suffixIcon: widget.suffix,
-              suffixIconConstraints:
-                  const BoxConstraints(minWidth: 40, minHeight: 40),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 40,
+                minHeight: 40,
+              ),
             ),
           ),
         ),
@@ -1083,15 +1514,10 @@ class BrutDropdown<T> extends StatelessWidget {
   bool get _live => enabled && onChanged != null && items.isNotEmpty;
 
   Future<void> _open(BuildContext context) async {
-    final chosen = await showModalBottomSheet<T>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _ChoiceSheet<T>(
-        title: label ?? hint,
-        value: value,
-        items: items,
-      ),
+    final chosen = await BrutSheet.show<T>(
+      context,
+      builder: (_) =>
+          _ChoiceSheet<T>(title: label ?? hint, value: value, items: items),
     );
     // Null means dismissed, which is not the same as choosing nothing.
     if (chosen != null) onChanged?.call(chosen);
@@ -1105,10 +1531,7 @@ class BrutDropdown<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null) ...[
-          MonoLabel(label!),
-          const SizedBox(height: 6),
-        ],
+        if (label != null) ...[MonoLabel(label!), const SizedBox(height: 6)],
         BrutSurface(
           onTap: _live ? () => _open(context) : null,
           enabled: _live,
@@ -1129,8 +1552,9 @@ class BrutDropdown<T> extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       )
                     : DefaultTextStyle.merge(
-                        style: AppText.body
-                            .copyWith(fontWeight: FontWeight.w600),
+                        style: AppText.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         child: current.child,
@@ -1159,80 +1583,50 @@ class _ChoiceSheet<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        // Never taller than most of the screen: a sheet that fills it is
-        // a screen, and should have been one.
-        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
-      ),
-      decoration: BoxDecoration(
-        color: context.palette.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppRadius.card),
-        ),
-        border: context.borderAll,
-      ),
+    return BrutSheet(
+      title: title,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
-            child: Row(
-              children: [
-                Expanded(child: BrutSectionTitle(title)),
-                BrutIconButton(
-                  icon: Icons.close,
-                  label: 'Close',
-                  size: 32,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          ),
-          Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: EdgeInsets.fromLTRB(
-                16,
-                0,
-                16,
-                16 + MediaQuery.viewPaddingOf(context).bottom,
+          for (var i = 0; i < items.length; i++) ...[
+            _ChoiceRow<T>(item: items[i], selected: items[i].value == value),
+            if (i != items.length - 1) const SizedBox(height: AppLayout.tight),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ChoiceRow<T> extends StatelessWidget {
+  const _ChoiceRow({required this.item, required this.selected});
+
+  final DropdownMenuItem<T> item;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutSurface(
+      onTap: () => Navigator.of(context).pop(item.value),
+      fill: selected ? Theme.of(context).colorScheme.primary : null,
+      radius: AppRadius.rowAll,
+      shadow: selected ? AppShadows.base : AppShadows.sm,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: DefaultTextStyle.merge(
+              style: AppText.body.copyWith(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (_, i) {
-                final item = items[i];
-                final selected = item.value == value;
-                return BrutSurface(
-                  onTap: () => Navigator.of(context).pop(item.value),
-                  fill: selected
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                  radius: AppRadius.rowAll,
-                  shadow: selected ? AppShadows.base : AppShadows.sm,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: DefaultTextStyle.merge(
-                          style: AppText.body.copyWith(
-                            fontWeight:
-                                selected ? FontWeight.w700 : FontWeight.w500,
-                          ),
-                          child: item.child,
-                        ),
-                      ),
-                      if (selected) ...[
-                        const SizedBox(width: 10),
-                        const Icon(Icons.check, size: 18),
-                      ],
-                    ],
-                  ),
-                );
-              },
+              child: item.child,
             ),
           ),
+          if (selected) ...[
+            const SizedBox(width: AppLayout.tight),
+            const Icon(Icons.check, size: 18),
+          ],
         ],
       ),
     );
@@ -1331,10 +1725,7 @@ class BrutDateField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null) ...[
-          MonoLabel(label!),
-          const SizedBox(height: 6),
-        ],
+        if (label != null) ...[MonoLabel(label!), const SizedBox(height: 6)],
         BrutSurface(
           onTap: onTap,
           radius: AppRadius.controlAll,

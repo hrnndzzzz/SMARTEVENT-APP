@@ -36,8 +36,8 @@ class ExportPreviewScreen extends StatelessWidget {
   static String describeSize(int bytes) => bytes < 1024
       ? '$bytes B'
       : bytes < 1024 * 1024
-          ? '${(bytes / 1024).toStringAsFixed(1)} KB'
-          : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      ? '${(bytes / 1024).toStringAsFixed(1)} KB'
+      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
   @override
   Widget build(BuildContext context) {
@@ -84,8 +84,10 @@ class _ShareButtonState extends State<_ShareButton> {
   Future<void> _share() async {
     setState(() => _sharing = true);
     final messenger = ScaffoldMessenger.of(context);
-    final problem = await ExportSaver.share(widget.file,
-        subject: widget.subject);
+    final problem = await ExportSaver.share(
+      widget.file,
+      subject: widget.subject,
+    );
 
     if (!mounted) return;
     setState(() => _sharing = false);
@@ -310,7 +312,8 @@ class _FileSummary extends StatelessWidget {
           const BrutInlineMessage(
             tone: BrutTone.neutral,
             icon: Icons.picture_as_pdf_outlined,
-            text: 'The app has no PDF renderer, so this one cannot be shown '
+            text:
+                'The app has no PDF renderer, so this one cannot be shown '
                 'here. Share it to open it in a reader — or export the '
                 'print-ready HTML instead, which does display.',
           ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
-import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'account_screen.dart';
@@ -38,10 +37,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Scaffold(
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
+              onPressed: () => BrutSheet.show<void>(
+                context,
                 builder: (_) => const _NewItemSheet(),
               ),
               icon: const Icon(Icons.add),
@@ -324,130 +321,110 @@ class _NewItemSheetState extends State<_NewItemSheet> {
         .where((e) => e.remoteId != null)
         .toList();
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return BrutSheet(
+      title: 'New inventory item',
+      footer: BrutButton(
+        label: 'Add item',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Adding…',
+        onPressed: _submit,
       ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: BoxDecoration(
-          color: context.palette.surface,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppRadius.card),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutDropdown<String>(
+            label: 'Event',
+            value: _eventId,
+            hint: events.isEmpty ? 'No events available' : 'Select an event',
+            items: [
+              for (final e in events)
+                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
+            ],
+            onChanged: (v) => setState(() => _eventId = v),
           ),
-          border: context.borderAll,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Item name',
+            controller: _nameController,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Description',
+            controller: _descriptionController,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const BrutSectionTitle('New inventory item'),
-              const SizedBox(height: 18),
-              BrutDropdown<String>(
-                label: 'Event',
-                value: _eventId,
-                hint: events.isEmpty
-                    ? 'No events available'
-                    : 'Select an event',
-                items: [
-                  for (final e in events)
-                    DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-                ],
-                onChanged: (v) => setState(() => _eventId = v),
+              Expanded(
+                child: BrutTextField(
+                  label: 'Starting stock',
+                  controller: _quantityController,
+                  keyboardType: TextInputType.number,
+                ),
               ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Item name',
-                controller: _nameController,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Description',
-                controller: _descriptionController,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 14),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: BrutTextField(
-                      label: 'Starting stock',
-                      controller: _quantityController,
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: BrutTextField(
-                      label: 'Unit',
-                      controller: _unitController,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: BrutTextField(
-                      label: 'Low-stock threshold',
-                      controller: _thresholdController,
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: BrutTextField(
-                      label: 'Location',
-                      controller: _locationController,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              BrutDropdown<InitialStockType>(
-                label: 'How this stock was obtained',
-                value: _initialType,
-                hint: 'Select',
-                items: [
-                  for (final t in InitialStockType.values)
-                    DropdownMenuItem(value: t, child: Text(t.label)),
-                ],
-                onChanged: (v) =>
-                    setState(() => _initialType = v ?? _initialType),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Newly bought goods are not opening stock — complete the '
-                'purchase on the expense instead, so the payment is '
-                'recorded.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                label: 'Reason',
-                controller: _reasonController,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                BrutInlineMessage(text: _error!, tone: BrutTone.coral),
-              ],
-              const SizedBox(height: 20),
-              BrutButton(
-                label: 'Add item',
-                size: BrutSize.large,
-                busy: _submitting,
-                busyLabel: 'Adding…',
-                onPressed: _submit,
+              const SizedBox(width: 10),
+              Expanded(
+                child: BrutTextField(
+                  label: 'Unit',
+                  controller: _unitController,
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: BrutTextField(
+                  label: 'Low-stock threshold',
+                  controller: _thresholdController,
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: BrutTextField(
+                  label: 'Location',
+                  controller: _locationController,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          BrutDropdown<InitialStockType>(
+            label: 'How this stock was obtained',
+            value: _initialType,
+            hint: 'Select',
+            items: [
+              for (final t in InitialStockType.values)
+                DropdownMenuItem(value: t, child: Text(t.label)),
+            ],
+            onChanged: (v) => setState(() => _initialType = v ?? _initialType),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Newly bought goods are not opening stock — complete the '
+            'purchase on the expense instead, so the payment is '
+            'recorded.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Reason',
+            controller: _reasonController,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
       ),
     );
   }
