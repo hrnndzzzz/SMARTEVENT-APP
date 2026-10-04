@@ -5,7 +5,6 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'account_screen.dart';
 import 'notifications_screen.dart';
 
 /// Income recorded against events, by fund source.
@@ -51,9 +50,6 @@ class _IncomeScreenState extends State<IncomeScreen> {
             )
           : null,
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

@@ -74,8 +74,8 @@ class ScopePicker extends StatelessWidget {
             hint: departmentId == null
                 ? 'Choose a department first'
                 : organizations.isEmpty
-                    ? 'No organizations in that department'
-                    : 'Select an organization',
+                ? 'No organizations in that department'
+                : 'Select an organization',
             items: [
               for (final o in organizations)
                 DropdownMenuItem(value: o.id, child: Text(o.label)),

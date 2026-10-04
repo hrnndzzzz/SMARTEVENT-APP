@@ -10,7 +10,6 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/scope_picker.dart';
-import 'account_screen.dart';
 import 'notifications_screen.dart';
 
 /// Capture a receipt, read it, correct it, then save it.
@@ -299,9 +298,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     return BrutScreen(
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

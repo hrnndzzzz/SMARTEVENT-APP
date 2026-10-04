@@ -30,7 +30,8 @@ class _ConnectionBannerState extends State<ConnectionBanner> {
     final state = context.reachable ?? Reachable.online;
 
     if (state != _lastSeen) {
-      final cameBack = _lastSeen != null &&
+      final cameBack =
+          _lastSeen != null &&
           _lastSeen != Reachable.online &&
           state == Reachable.online;
       _lastSeen = state;
@@ -76,8 +77,8 @@ class _Pill extends StatelessWidget {
     final label = !offline
         ? 'Back online'
         : reconnecting
-            ? 'Reconnecting'
-            : 'No connection to the server';
+        ? 'Reconnecting'
+        : 'No connection to the server';
     final detail = !offline
         ? 'The server is answering again'
         : 'Changes will not save until it answers';
@@ -92,10 +93,7 @@ class _Pill extends StatelessWidget {
         children: [
           ConnectionDot(size: 10, ringColor: null),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: AppText.buttonLabel.copyWith(fontSize: 12.5),
-          ),
+          Text(label, style: AppText.buttonLabel.copyWith(fontSize: 12.5)),
           const SizedBox(width: 8),
           Flexible(
             child: Text(

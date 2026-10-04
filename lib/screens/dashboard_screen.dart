@@ -5,7 +5,6 @@ import 'expense_detail_screen.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/financial_overview.dart';
-import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'reports_screen.dart';
 
@@ -16,9 +15,6 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BrutScreen(
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

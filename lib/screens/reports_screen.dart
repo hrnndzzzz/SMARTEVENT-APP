@@ -6,7 +6,6 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
-import 'account_screen.dart';
 import 'notifications_screen.dart';
 
 /// Consolidated financial reports.
@@ -102,9 +101,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return BrutScreen(
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

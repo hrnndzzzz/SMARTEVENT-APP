@@ -18,11 +18,7 @@ import '../theme/palette.dart';
 /// Keep holding and slide onto a row to mark it read; let go anywhere else
 /// to close. A normal tap still opens the inbox.
 class NotificationPeek extends StatefulWidget {
-  const NotificationPeek({
-    super.key,
-    required this.child,
-    required this.onTap,
-  });
+  const NotificationPeek({super.key, required this.child, required this.onTap});
 
   /// The bell itself.
   final Widget child;
@@ -90,8 +86,7 @@ class _NotificationPeekState extends State<NotificationPeek> {
 
     int? found;
     for (var i = 0; i < _rowKeys.length; i++) {
-      final box =
-          _rowKeys[i].currentContext?.findRenderObject() as RenderBox?;
+      final box = _rowKeys[i].currentContext?.findRenderObject() as RenderBox?;
       if (box == null) continue;
       final rect = box.localToGlobal(Offset.zero) & box.size;
       if (rect.contains(globalPosition)) {
@@ -219,9 +214,7 @@ class _PeekLayer extends StatelessWidget {
                               : Colors.transparent,
                           borderRadius: AppRadius.controlAll,
                           border: Border.fromBorderSide(
-                            highlighted == i
-                                ? context.side
-                                : BorderSide.none,
+                            highlighted == i ? context.side : BorderSide.none,
                           ),
                         ),
                         child: Column(
@@ -229,8 +222,9 @@ class _PeekLayer extends StatelessWidget {
                           children: [
                             Text(
                               rows[i].title,
-                              style: AppText.body
-                                  .copyWith(fontWeight: FontWeight.w700),
+                              style: AppText.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -247,7 +241,9 @@ class _PeekLayer extends StatelessWidget {
                       if (i != rows.length - 1) const SizedBox(height: 4),
                     ],
                     const SizedBox(height: 10),
-                    const MonoLabel('Slide onto one and let go to mark it read'),
+                    const MonoLabel(
+                      'Slide onto one and let go to mark it read',
+                    ),
                   ],
                 ],
               ),

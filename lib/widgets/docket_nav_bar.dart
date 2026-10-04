@@ -57,13 +57,17 @@ class DocketNavBar extends StatelessWidget {
                     Icon(
                       _items[i].$1,
                       size: 18,
-                      color: isActive ? context.palette.ink : context.palette.subtle,
+                      color: isActive
+                          ? context.palette.ink
+                          : context.palette.subtle,
                     ),
                     const SizedBox(height: 3),
                     Text(
                       _items[i].$2.toUpperCase(),
                       style: AppText.navLabel.copyWith(
-                        color: isActive ? context.palette.ink : context.palette.subtle,
+                        color: isActive
+                            ? context.palette.ink
+                            : context.palette.subtle,
                       ),
                     ),
                   ],

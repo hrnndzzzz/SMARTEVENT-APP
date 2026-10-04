@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import 'account_menu.dart';
 import 'connection_banner.dart';
 import 'notification_peek.dart';
 
@@ -20,19 +21,20 @@ class AppHeader extends StatelessWidget {
   /// which is almost always what you want, since a hardcoded string here
   /// goes stale the moment someone else signs in.
   final String? subtitle;
-  final VoidCallback onAvatarTap;
   final VoidCallback? onBellTap;
 
-  const AppHeader({
-    super.key,
-    required this.onAvatarTap,
-    this.subtitle,
-    this.onBellTap,
-  });
+  /// Overrides what the avatar does. It opens the account menu by
+  /// default, which is what every screen wanted.
+  final VoidCallback? onAvatarTap;
+
+  const AppHeader({super.key, this.subtitle, this.onBellTap, this.onAvatarTap});
 
   static String _initialsFor(String name) {
-    final parts =
-        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -93,7 +95,11 @@ class AppHeader extends StatelessWidget {
         const SizedBox(width: 10),
         _BellWithBadge(onTap: onBellTap),
         const SizedBox(width: 8),
-        _Avatar(initials: initials, accent: accent, onTap: onAvatarTap),
+        _Avatar(
+          initials: initials,
+          accent: accent,
+          onTap: onAvatarTap ?? () => AccountMenu.show(context),
+        ),
       ],
     );
   }
@@ -124,10 +130,7 @@ class _Avatar extends StatelessWidget {
           width: 38,
           height: 38,
           alignment: Alignment.center,
-          child: Text(
-            initials,
-            style: AppText.number.copyWith(fontSize: 13),
-          ),
+          child: Text(initials, style: AppText.number.copyWith(fontSize: 13)),
         ),
         // Whether the backend is answering, where you are already looking.
         Positioned(
@@ -163,8 +166,7 @@ class _BellWithBadge extends StatelessWidget {
           onTap: onTap,
           child: BrutIconButton(
             icon: Icons.notifications_none,
-            label:
-                count > 0 ? 'Notifications, $count unread' : 'Notifications',
+            label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
             onPressed: onTap,
             size: 38,
           ),

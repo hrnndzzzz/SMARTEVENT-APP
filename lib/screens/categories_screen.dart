@@ -5,7 +5,6 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'account_screen.dart';
 import 'notifications_screen.dart';
 
 /// Categories — full CRUD, which `FRONTEND_README.md` §4 makes mandatory:
@@ -32,9 +31,6 @@ class CategoriesScreen extends StatelessWidget {
             )
           : null,
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

@@ -7,7 +7,6 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/expense_review.dart';
 import '../widgets/financial_overview.dart';
-import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'event_detail_screen.dart';
 import 'events_screen.dart' show eventStatusTone;
@@ -20,9 +19,6 @@ class AdviserDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BrutScreen(
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

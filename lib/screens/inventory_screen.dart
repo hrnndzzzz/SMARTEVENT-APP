@@ -4,7 +4,6 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'account_screen.dart';
 import 'inventory_detail_screen.dart';
 import 'notifications_screen.dart';
 
@@ -46,9 +45,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
             )
           : null,
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

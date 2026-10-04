@@ -87,8 +87,10 @@ class ExpendedCard extends StatelessWidget {
                   children: [
                     const MonoLabel('Total expended'),
                     const SizedBox(height: 4),
-                    Text('₱${expended.toStringAsFixed(2)}',
-                        style: AppText.moneyLarge),
+                    Text(
+                      '₱${expended.toStringAsFixed(2)}',
+                      style: AppText.moneyLarge,
+                    ),
                   ],
                 ),
               ),
@@ -134,13 +136,17 @@ class RemainingBalanceCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '₱${balance.toStringAsFixed(2)}',
-                  style: AppText.moneyLarge.copyWith(color: tone.foreground(context)),
+                  style: AppText.moneyLarge.copyWith(
+                    color: tone.foreground(context),
+                  ),
                 ),
                 if (isLow) ...[
                   const SizedBox(height: 4),
                   Text(
                     'Running low — under ₱500 left.',
-                    style: AppText.caption.copyWith(color: tone.foreground(context)),
+                    style: AppText.caption.copyWith(
+                      color: tone.foreground(context),
+                    ),
                   ),
                 ],
               ],
@@ -217,8 +223,10 @@ class AllocationVsActualCard extends StatelessWidget {
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.monoLabel
-                            .copyWith(fontSize: 8, letterSpacing: 0.4),
+                        style: AppText.monoLabel.copyWith(
+                          fontSize: 8,
+                          letterSpacing: 0.4,
+                        ),
                       ),
                     ),
                   ),
@@ -229,10 +237,7 @@ class AllocationVsActualCard extends StatelessWidget {
               spacing: 12,
               runSpacing: 6,
               children: [
-                LegendDot(
-                  color: context.palette.brandTint,
-                  label: 'Allocated',
-                ),
+                LegendDot(color: context.palette.brandTint, label: 'Allocated'),
                 const LegendDot(color: AppColors.brand, label: 'Actual'),
                 const LegendDot(color: AppColors.coral, label: 'Over'),
               ],
@@ -336,12 +341,12 @@ class ExpenseDistributionCard extends StatelessWidget {
   /// One colour per category, taken from the shared accents so a category
   /// never borrows a colour that already means something else.
   static Color colorFor(String category, int index) => switch (category) {
-        'Equipment' => AppColors.brand,
-        'Venue' => AppColors.sun,
-        'Catering' => AppColors.mint,
-        'Marketing' => AppColors.violet,
-        _ => AppColors.accents[index % AppColors.accents.length],
-      };
+    'Equipment' => AppColors.brand,
+    'Venue' => AppColors.sun,
+    'Catering' => AppColors.mint,
+    'Marketing' => AppColors.violet,
+    _ => AppColors.accents[index % AppColors.accents.length],
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -420,8 +425,7 @@ class ExpenseDistributionCard extends StatelessWidget {
                       LegendRow(
                         color: colorFor(entries[i].key, i),
                         label: entries[i].key,
-                        value:
-                            '${(entries[i].value / total * 100).round()}%',
+                        value: '${(entries[i].value / total * 100).round()}%',
                       ),
                       if (i != entries.length - 1) const SizedBox(height: 8),
                     ],

@@ -12,13 +12,15 @@ import '../theme/brut.dart';
 /// snackbar (e.g. jumping straight to Set Budget) — only meaningful for
 /// Admin, since only Admin can actually change a category's budget.
 Future<void> showExpenseDecisionDialog(
-    BuildContext context,
-    ExpenseEntry expense, {
-      required String reviewerRole,
-      VoidCallback? onInsufficientBudget,
-    }) async {
+  BuildContext context,
+  ExpenseEntry expense, {
+  required String reviewerRole,
+  VoidCallback? onInsufficientBudget,
+}) async {
   final app = context.read<AppState>();
-  final remaining = (app.categoryBudgets[expense.category] ?? 0) - (app.spendByCategory[expense.category] ?? 0);
+  final remaining =
+      (app.categoryBudgets[expense.category] ?? 0) -
+      (app.spendByCategory[expense.category] ?? 0);
   final wouldExceed = expense.amount > remaining;
   final controller = TextEditingController();
 
@@ -30,9 +32,15 @@ Future<void> showExpenseDecisionDialog(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(expense.vendor, style: AppText.body.copyWith(fontWeight: FontWeight.w500)),
+          Text(
+            expense.vendor,
+            style: AppText.body.copyWith(fontWeight: FontWeight.w500),
+          ),
           const SizedBox(height: 2),
-          Text('${expense.category} · ₱${expense.amount.toStringAsFixed(2)}', style: AppText.caption),
+          Text(
+            '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
+            style: AppText.caption,
+          ),
           const SizedBox(height: 10),
           BrutInlineMessage(
             tone: wouldExceed ? BrutTone.coral : BrutTone.mint,
@@ -78,14 +86,21 @@ Future<void> showExpenseDecisionDialog(
   if (result == null || !context.mounted) return;
 
   if (result) {
-    final error = await app.approveExpense(expense, reviewerRole: reviewerRole, note: controller.text.trim());
+    final error = await app.approveExpense(
+      expense,
+      reviewerRole: reviewerRole,
+      note: controller.text.trim(),
+    );
     if (!context.mounted) return;
 
     if (error != null && onInsufficientBudget != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error),
-          action: SnackBarAction(label: 'Set Budget', onPressed: onInsufficientBudget),
+          action: SnackBarAction(
+            label: 'Set Budget',
+            onPressed: onInsufficientBudget,
+          ),
         ),
       );
     } else {
@@ -94,7 +109,11 @@ Future<void> showExpenseDecisionDialog(
       );
     }
   } else {
-    final error = await app.rejectExpense(expense, reviewerRole: reviewerRole, note: controller.text.trim());
+    final error = await app.rejectExpense(
+      expense,
+      reviewerRole: reviewerRole,
+      note: controller.text.trim(),
+    );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error ?? '${expense.vendor} rejected.')),

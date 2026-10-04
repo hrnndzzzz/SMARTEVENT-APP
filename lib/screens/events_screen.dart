@@ -5,7 +5,6 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'account_screen.dart';
 import 'notifications_screen.dart';
 import 'create_event_screen.dart';
 import 'event_detail_screen.dart';
@@ -33,9 +32,6 @@ class EventsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BrutScreen(
       topBar: AppHeader(
-        onAvatarTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const AccountScreen())),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
