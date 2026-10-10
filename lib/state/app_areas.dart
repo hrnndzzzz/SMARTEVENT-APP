@@ -118,7 +118,7 @@ const List<AppArea> appAreas = [
     icon: Icons.description_outlined,
     tone: BrutTone.teal,
     badge: _letters,
-    builder: _letters_screen,
+    builder: _lettersScreen,
   ),
   AppArea(
     id: 'search',
@@ -170,6 +170,6 @@ Widget _money(BuildContext _) => const MoneyScreen();
 Widget _inventory(BuildContext _) => const InventoryScreen();
 Widget _reports(BuildContext _) => const ReportsScreen();
 Widget _risk(BuildContext _) => const RiskScreen();
-Widget _letters_screen(BuildContext _) => const ProposalLettersScreen();
+Widget _lettersScreen(BuildContext _) => const ProposalLettersScreen();
 Widget _search(BuildContext _) => const SearchScreen();
 Widget _admin(BuildContext _) => const AdminScreen();
