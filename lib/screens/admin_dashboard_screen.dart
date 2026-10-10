@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
@@ -9,6 +10,7 @@ import '../widgets/expense_review.dart';
 import '../widgets/financial_overview.dart';
 import 'notifications_screen.dart';
 import 'event_detail_screen.dart';
+import 'reports_screen.dart';
 import 'events_screen.dart' show eventStatusTone;
 import 'expense_detail_screen.dart' show expenseStatusTone;
 
@@ -20,8 +22,6 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  bool _generatingReport = false;
-
   Future<void> _setCategoryBudget(BuildContext context) async {
     final app = context.read<AppState>();
     final categories = app.expenseCategories;
@@ -93,110 +93,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               label: 'Save',
               expand: false,
               size: BrutSize.small,
-              onPressed: () {
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
                 final amount = double.tryParse(controller.text.trim());
                 Navigator.pop(context);
                 if (amount == null || amount < 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text('Please enter a valid amount.'),
                     ),
                   );
                   return;
                 }
-                app.setCategoryBudget(selected, amount);
-                ScaffoldMessenger.of(context).showSnackBar(
+                // Awaited, and the result is reported. This used to fire
+                // and forget, then announce success — so a 403, a 409 or
+                // a dead backend still told the admin the budget was set.
+                final error = await app.setCategoryBudget(selected, amount);
+                if (!messenger.mounted) return;
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text(
-                      '$selected budget set to ₱${amount.toStringAsFixed(2)}',
+                      error ??
+                          '$selected budget set to '
+                              '₱${amount.toStringAsFixed(2)}',
                     ),
+                    duration: Duration(seconds: error == null ? 3 : 6),
                   ),
                 );
               },
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Future<void> _generateReports() async {
-    setState(() => _generatingReport = true);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() => _generatingReport = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Org-wide financial summary generated — org_summary_q2_2026.pdf',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _viewAnalytics(BuildContext context) async {
-    final app = context.read<AppState>();
-    final allocated = app.totalAllocated;
-    final expended = app.totalExpended;
-    final utilization = allocated == 0 ? 0.0 : (expended / allocated * 100);
-    final spend = app.spendByCategory;
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Org-Wide Analytics', style: AppText.cardTitle),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _analyticsRow(
-                'Total budget allocated',
-                '₱${allocated.toStringAsFixed(2)}',
-              ),
-              _analyticsRow(
-                'Total expended (approved)',
-                '₱${expended.toStringAsFixed(2)}',
-              ),
-              _analyticsRow(
-                'Overall utilization',
-                '${utilization.toStringAsFixed(0)}%',
-              ),
-              const SizedBox(height: 12),
-              const Text('By category', style: AppText.caption),
-              const SizedBox(height: 8),
-              if (expended == 0)
-                const Text('No approved expenses yet.', style: AppText.caption)
-              else
-                for (final entry in spend.entries.where((e) => e.value > 0))
-                  _analyticsRow(
-                    entry.key,
-                    '${(entry.value / expended * 100).toStringAsFixed(0)}%',
-                    indent: true,
-                  ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _analyticsRow(String label, String value, {bool indent = false}) {
-    return Padding(
-      padding: EdgeInsets.only(left: indent ? 12 : 0, bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: AppText.body.copyWith(fontSize: 13)),
-          Text(value, style: AppText.number),
-        ],
       ),
     );
   }
@@ -252,11 +179,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     const SizedBox(height: 16),
                     _QuickActionsRow(
                       onSetBudget: () => _setCategoryBudget(context),
-                      onGenerateReports: _generatingReport
-                          ? null
-                          : _generateReports,
-                      onViewAnalytics: () => _viewAnalytics(context),
-                      isGenerating: _generatingReport,
+                      onOpenReports: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ReportsScreen(),
+                        ),
+                      ),
+                      onViewAnalytics: () => BrutSheet.show<void>(
+                        context,
+                        builder: (_) => const _AnalyticsSheet(),
+                      ),
                     ),
                     const SizedBox(height: 18),
                     BrutSectionTitle(
@@ -347,15 +278,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
 class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onSetBudget;
-  final VoidCallback? onGenerateReports;
+  final VoidCallback onOpenReports;
   final VoidCallback onViewAnalytics;
-  final bool isGenerating;
 
   const _QuickActionsRow({
     required this.onSetBudget,
-    required this.onGenerateReports,
+    required this.onOpenReports,
     required this.onViewAnalytics,
-    required this.isGenerating,
   });
 
   @override
@@ -374,10 +303,9 @@ class _QuickActionsRow extends StatelessWidget {
         Expanded(
           child: _ActionTile(
             icon: Icons.description_outlined,
-            label: isGenerating ? 'Generating...' : 'Reports',
+            label: 'Reports',
             accent: BrutTone.mint,
-            onTap: onGenerateReports,
-            loading: isGenerating,
+            onTap: onOpenReports,
           ),
         ),
         const SizedBox(width: 8),
@@ -399,14 +327,12 @@ class _ActionTile extends StatelessWidget {
   final String label;
   final BrutTone accent;
   final VoidCallback? onTap;
-  final bool loading;
 
   const _ActionTile({
     required this.icon,
     required this.label,
     required this.accent,
     this.onTap,
-    this.loading = false,
   });
 
   @override
@@ -421,16 +347,7 @@ class _ActionTile extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          loading
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: context.palette.ink,
-                  ),
-                )
-              : Icon(icon, color: context.palette.ink, size: 20),
+          Icon(icon, color: context.palette.ink, size: 20),
           const SizedBox(height: 8),
           Text(
             label,
@@ -531,6 +448,269 @@ class _HandledExpenseRow extends StatelessWidget {
         tone: expenseStatusTone(expense.status),
         size: 30,
       ),
+    );
+  }
+}
+
+/// The server's own dashboard figures.
+///
+/// This used to recount the loaded lists on the phone, which meant it
+/// could disagree with the printed reports — and the reports are right.
+/// It calls `/analytics/dashboard` instead and shows what comes back,
+/// including the counts the cards behind it do not carry.
+class _AnalyticsSheet extends StatefulWidget {
+  const _AnalyticsSheet();
+
+  @override
+  State<_AnalyticsSheet> createState() => _AnalyticsSheetState();
+}
+
+class _AnalyticsSheetState extends State<_AnalyticsSheet> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().loadDashboard();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final load = app.dashboardLoad;
+    final data = app.dashboard;
+
+    return BrutSheet(
+      title: 'Organization analytics',
+      subtitle: 'Straight from the server, so these agree with the reports.',
+      child: switch (load) {
+        _ when load.isLoading && data == null => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        _ when load.hasFailed && data == null => BrutInlineMessage(
+          text: load.error!,
+          tone: BrutTone.coral,
+        ),
+        _ when data == null => const BrutEmptyState(
+          title: 'Nothing to show yet',
+          hint: 'The server returned no figures.',
+          icon: Icons.bar_chart_outlined,
+        ),
+        _ => _Figures(data: data),
+      },
+    );
+  }
+}
+
+class _Figures extends StatelessWidget {
+  const _Figures({required this.data});
+
+  final DashboardSummary data;
+
+  @override
+  Widget build(BuildContext context) {
+    final allocated = data.totalAllocatedBudget;
+    final spent = data.totalSpent;
+    final used = allocated == 0 ? 0.0 : spent / allocated;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BrutCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const BrutSectionTitle('Budget'),
+              const SizedBox(height: 12),
+              BrutDetailRow(
+                'Allocated',
+                '₱${allocated.toStringAsFixed(2)}',
+                mono: true,
+              ),
+              const SizedBox(height: 8),
+              BrutDetailRow(
+                'Spent (approved)',
+                '₱${spent.toStringAsFixed(2)}',
+                mono: true,
+              ),
+              const SizedBox(height: 8),
+              BrutDetailRow(
+                'Remaining',
+                '₱${data.totalRemainingBudget.toStringAsFixed(2)}',
+                mono: true,
+              ),
+              const SizedBox(height: 12),
+              BrutProgressBar(
+                value: used,
+                tone: used > 1 ? BrutTone.coral : BrutTone.brand,
+              ),
+              const SizedBox(height: 6),
+              MonoLabel(
+                '${(used * 100).isFinite ? (used * 100).round() : 0}% used '
+                'across ${data.totalCategories} '
+                '${data.totalCategories == 1 ? 'category' : 'categories'}',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppLayout.between),
+        _Counts(
+          title: 'Events',
+          counts: data.eventsByStatus,
+          // Both pending stages stay separate: an event waiting on the
+          // adviser is in a different queue from one waiting on an admin.
+          order: const [
+            'draft',
+            'pending_adviser',
+            'pending_admin',
+            'pending',
+            'approved',
+            'rejected',
+            'completed',
+          ],
+        ),
+        const SizedBox(height: AppLayout.between),
+        _Counts(
+          title: 'Expenses',
+          counts: data.expensesByStatus,
+          order: const ['pending', 'approved', 'rejected'],
+        ),
+        const SizedBox(height: AppLayout.between),
+        BrutCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const BrutSectionTitle('Needs a look'),
+              const SizedBox(height: 12),
+              _Needs(
+                label: 'Flagged expenses',
+                count: data.flaggedExpenseCount,
+                hint:
+                    'A receipt resembled another, or an OCR amount '
+                    'disagreed. A prompt to look, not a finding.',
+              ),
+              const SizedBox(height: 10),
+              _Needs(
+                label: 'Low stock',
+                count: data.lowStockItemCount,
+                hint: 'At or below the threshold set on the item.',
+              ),
+              const SizedBox(height: 10),
+              _Needs(
+                label: 'Unconfirmed draft items',
+                count: data.draftInventoryCount,
+                hint:
+                    'Created by a completed purchase, waiting for an '
+                    'administrator to confirm them.',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Counts extends StatelessWidget {
+  const _Counts({
+    required this.title,
+    required this.counts,
+    required this.order,
+  });
+
+  final String title;
+  final Map<String, int> counts;
+  final List<String> order;
+
+  static String _label(String key) => switch (key) {
+    'pending_adviser' => 'Pending adviser',
+    'pending_admin' => 'Pending admin',
+    'pending' => 'Pending',
+    'draft' => 'Draft',
+    'approved' => 'Approved',
+    'rejected' => 'Rejected',
+    'completed' => 'Completed',
+    final other => other,
+  };
+
+  static BrutTone _tone(String key) => switch (key) {
+    'approved' || 'completed' => BrutTone.mint,
+    'rejected' => BrutTone.coral,
+    'draft' => BrutTone.neutral,
+    _ => BrutTone.sun,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // A status the server did not mention is not zero — it is absent, and
+    // showing it as zero would invent a row.
+    final shown = [
+      for (final key in order)
+        if (counts.containsKey(key)) key,
+      for (final key in counts.keys)
+        if (!order.contains(key)) key,
+    ];
+
+    return BrutCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          BrutSectionTitle(title),
+          const SizedBox(height: 12),
+          if (shown.isEmpty)
+            const Text('None recorded yet.', style: AppText.caption)
+          else
+            Wrap(
+              spacing: AppLayout.tight,
+              runSpacing: AppLayout.tight,
+              children: [
+                for (final key in shown)
+                  BrutBadge(
+                    label: '${_label(key)} · ${counts[key]}',
+                    tone: _tone(key),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Needs extends StatelessWidget {
+  const _Needs({required this.label, required this.count, required this.hint});
+
+  final String label;
+  final int count;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(hint, style: AppText.caption),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppLayout.between),
+        BrutBadge(
+          label: '$count',
+          tone: count == 0 ? BrutTone.mint : BrutTone.sun,
+          mono: true,
+        ),
+      ],
     );
   }
 }
