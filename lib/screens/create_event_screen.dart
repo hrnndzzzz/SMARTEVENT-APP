@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../theme/palette.dart';
 import '../widgets/scope_picker.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -35,6 +37,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String? _organizationId;
 
   bool get _isEditing => widget.existingEvent != null;
+
+  /// Which half of the form is showing. The budget gets a screen of its
+  /// own because it is the number everyone argues about, and because a
+  /// keypad you can hit without looking beats a text field on a phone
+  /// held in one hand at a supplier's counter.
+  int _step = 0;
 
   /// Known years merged with local suggestions, so the picker is never
   /// empty and a brand-new school year can still be started.
@@ -211,139 +219,325 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
   }
 
+  /// Appends a digit or a decimal point, the way a calculator would.
+  void _press(String key) {
+    final text = _budgetController.text;
+    setState(() {
+      if (key == '<') {
+        if (text.isNotEmpty) {
+          _budgetController.text = text.substring(0, text.length - 1);
+        }
+        return;
+      }
+      if (key == '.') {
+        if (text.contains('.')) return;
+        _budgetController.text = text.isEmpty ? '0.' : '$text.';
+        return;
+      }
+      // Two decimal places is as fine as money gets here.
+      final dot = text.indexOf('.');
+      if (dot >= 0 && text.length - dot > 2) return;
+      if (text == '0') {
+        _budgetController.text = key;
+        return;
+      }
+      _budgetController.text = '$text$key';
+    });
+  }
+
+  String get _amountDisplay {
+    final text = _budgetController.text;
+    if (text.isEmpty) return '0';
+    final value = double.tryParse(text);
+    // While it is being typed, show exactly what was typed — formatting
+    // a half-finished number fights the person entering it.
+    if (text.endsWith('.') || text.contains('.') || value == null) return text;
+    return value.toStringAsFixed(0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final categories = app.categories;
 
     return BrutScreen(
-      header: BrutHeader(
-        eyebrow: _isEditing ? 'Revise proposal' : 'New proposal',
-        title: _isEditing ? 'Edit event' : 'New event',
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
-      footer: BrutFooter(
-        child: BrutButton(
-          label: _isEditing ? 'Save changes' : 'Submit for review',
-          size: BrutSize.large,
-          busy: _submitting,
-          busyLabel: _isEditing ? 'Saving…' : 'Submitting…',
-          onPressed: _submit,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _isEditing
-                ? 'Update the details of this proposal.'
-                : 'Submit a new activity for adviser review.',
-            style: AppText.caption,
+      header: BrutFlowHeader(
+        flowName: _isEditing ? 'Revise proposal' : 'New proposal',
+        title: _step == 0 ? 'How much?' : 'The details',
+        currentStep: _step,
+        steps: [
+          BrutStep(
+            label: 'Budget',
+            onJump: _step == 1 ? () => setState(() => _step = 0) : null,
           ),
-          const SizedBox(height: 20),
-          BrutTextField(
-            label: 'Event name',
-            controller: _nameController,
-            hint: 'e.g. Leadership Summit 2026',
-            textCapitalization: TextCapitalization.words,
-          ),
-          const SizedBox(height: 14),
-          if (!_isEditing) ...[
-            BrutDropdown<String>(
-              label: 'Category',
-              value: _selectedCategoryId,
-              hint: 'Select a category',
-              items: [
-                for (final c in categories)
-                  DropdownMenuItem(value: c.id, child: Text(c.name)),
-              ],
-              onChanged: (v) => setState(() => _selectedCategoryId = v),
-            ),
-            const SizedBox(height: 14),
-          ],
-          if (!_isEditing && app.mustChooseScope) ...[
-            ScopePicker(
-              departments: app.departments,
-              departmentId: _departmentId,
-              onDepartmentChanged: (id) => setState(() {
-                _departmentId = id;
-                _organizationId = null;
-              }),
-              organizations: app.organizationsIn(_departmentId),
-              organizationId: _organizationId,
-              onOrganizationChanged: (id) =>
-                  setState(() => _organizationId = id),
-              explanation:
-                  'Your account is not tied to a department, so '
-                  'choose where this event belongs.',
-            ),
-            const SizedBox(height: 14),
-          ],
-          // Required: these are what make the event reportable by
-          // year, semester and department, and the backend
-          // rejects a new event without them.
-          BrutDropdown<String>(
-            label: 'School year',
-            value: _schoolYear,
-            hint: 'Select a school year',
-            items: [
-              for (final year in _schoolYearOptions)
-                DropdownMenuItem(value: year, child: Text(year)),
-            ],
-            onChanged: (v) => setState(() => _schoolYear = v),
-          ),
-          const SizedBox(height: 14),
-          BrutDropdown<Semester>(
-            label: 'Semester',
-            value: _semester,
-            hint: 'Select a semester',
-            items: [
-              for (final s in Semester.values)
-                DropdownMenuItem(value: s, child: Text(s.label)),
-            ],
-            onChanged: (v) => setState(() => _semester = v),
-          ),
-          const SizedBox(height: 14),
-          BrutDropdown<EventScope>(
-            label: 'Event scope',
-            value: _eventScope,
-            hint: 'Departmental or organizational',
-            items: [
-              for (final scope in EventScope.values)
-                DropdownMenuItem(value: scope, child: Text(scope.label)),
-            ],
-            onChanged: (v) => setState(() => _eventScope = v),
-          ),
-          const SizedBox(height: 14),
-          GestureDetector(
-            onTap: _pickDate,
-            child: AbsorbPointer(
-              child: BrutTextField(
-                label: 'Date',
-                controller: _dateController,
-                hint: 'Tap to select a date',
-                suffix: const Icon(Icons.calendar_today_outlined, size: 16),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          BrutTextField(
-            label: 'Requested budget',
-            controller: _budgetController,
-            hint: '0.00',
-            prefixIcon: Icons.payments_outlined,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: 14),
-          BrutTextField(
-            label: 'Description',
-            controller: _descriptionController,
-            hint: 'Briefly describe the event…',
-            maxLines: 3,
-            textCapitalization: TextCapitalization.sentences,
-          ),
+          const BrutStep(label: 'Details'),
         ],
+        onBack: () => _step == 0
+            ? Navigator.of(context).maybePop()
+            : setState(() => _step = 0),
       ),
+      scrollable: _step == 1,
+      bottomPadding: 0,
+      footer: BrutFooter(
+        child: _step == 0
+            ? BrutButton(
+                label: 'Next — the details',
+                trailingIcon: Icons.arrow_forward,
+                size: BrutSize.large,
+                onPressed: () => setState(() => _step = 1),
+              )
+            : BrutButton(
+                label: _isEditing ? 'Save changes' : 'Submit for review',
+                size: BrutSize.large,
+                busy: _submitting,
+                busyLabel: _isEditing ? 'Saving…' : 'Submitting…',
+                onPressed: _submit,
+              ),
+      ),
+      child: _step == 0 ? _budgetStep(context) : _detailsStep(context, app),
+    );
+  }
+
+  Widget _budgetStep(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BrutTextField(
+          label: 'Event name',
+          controller: _nameController,
+          hint: 'e.g. Leadership Summit 2026',
+          textCapitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+        ),
+        const Spacer(),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const MonoLabel('Requested budget'),
+              const SizedBox(height: AppLayout.between),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        '₱',
+                        style: AppText.heroNumber.copyWith(
+                          fontSize: 34,
+                          color: context.palette.subtle,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(_amountDisplay, style: AppText.heroNumber),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppLayout.tight),
+              Text(
+                _nameController.text.trim().isEmpty
+                    ? 'Name it above, then set the budget'
+                    : 'for ${_nameController.text.trim()}',
+                style: AppText.caption,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        _Keypad(onPress: _press),
+        const SizedBox(height: AppLayout.between),
+      ],
+    );
+  }
+
+  Widget _detailsStep(BuildContext context, AppState app) {
+    final categories = app.categories;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BrutCard(
+          tone: BrutTone.brand,
+          tinted: true,
+          radius: AppRadius.rowAll,
+          padding: const EdgeInsets.all(12),
+          onTap: () => setState(() => _step = 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _nameController.text.trim().isEmpty
+                          ? 'Unnamed event'
+                          : _nameController.text.trim(),
+                      style: AppText.cardTitle.copyWith(fontSize: 15),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    const MonoLabel('Tap to change the budget'),
+                  ],
+                ),
+              ),
+              Text('₱$_amountDisplay', style: AppText.number),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppLayout.section),
+        if (!_isEditing) ...[
+          BrutDropdown<String>(
+            label: 'Category',
+            value: _selectedCategoryId,
+            hint: 'Select a category',
+            items: [
+              for (final c in categories)
+                DropdownMenuItem(value: c.id, child: Text(c.name)),
+            ],
+            onChanged: (v) => setState(() => _selectedCategoryId = v),
+          ),
+          const SizedBox(height: AppLayout.between),
+        ],
+        if (!_isEditing && app.mustChooseScope) ...[
+          ScopePicker(
+            departments: app.departments,
+            departmentId: _departmentId,
+            onDepartmentChanged: (id) => setState(() {
+              _departmentId = id;
+              _organizationId = null;
+            }),
+            organizations: app.organizationsIn(_departmentId),
+            organizationId: _organizationId,
+            onOrganizationChanged: (id) => setState(() => _organizationId = id),
+            explanation:
+                'Your account is not tied to a department, so '
+                'choose where this event belongs.',
+          ),
+          const SizedBox(height: AppLayout.between),
+        ],
+        // Required: these are what make the event reportable by year,
+        // semester and department, and the backend rejects a new event
+        // without them.
+        BrutDropdown<String>(
+          label: 'School year',
+          value: _schoolYear,
+          hint: 'Select a school year',
+          items: [
+            for (final year in _schoolYearOptions)
+              DropdownMenuItem(value: year, child: Text(year)),
+          ],
+          onChanged: (v) => setState(() => _schoolYear = v),
+        ),
+        const SizedBox(height: AppLayout.between),
+        BrutDropdown<Semester>(
+          label: 'Semester',
+          value: _semester,
+          hint: 'Select a semester',
+          items: [
+            for (final s in Semester.values)
+              DropdownMenuItem(value: s, child: Text(s.label)),
+          ],
+          onChanged: (v) => setState(() => _semester = v),
+        ),
+        const SizedBox(height: AppLayout.between),
+        BrutDropdown<EventScope>(
+          label: 'Event scope',
+          value: _eventScope,
+          hint: 'Departmental or organizational',
+          items: [
+            for (final scope in EventScope.values)
+              DropdownMenuItem(value: scope, child: Text(scope.label)),
+          ],
+          onChanged: (v) => setState(() => _eventScope = v),
+        ),
+        const SizedBox(height: AppLayout.between),
+        GestureDetector(
+          onTap: _pickDate,
+          child: AbsorbPointer(
+            child: BrutTextField(
+              label: 'Date',
+              controller: _dateController,
+              hint: 'Tap to select a date',
+              suffix: const Icon(Icons.calendar_today_outlined, size: 16),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppLayout.between),
+        BrutTextField(
+          label: 'Description',
+          controller: _descriptionController,
+          hint: 'Briefly describe the event…',
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+        ),
+      ],
+    );
+  }
+}
+
+/// The keypad from the amount screen: big targets, no shift, no cursor.
+class _Keypad extends StatelessWidget {
+  const _Keypad({required this.onPress});
+
+  final void Function(String key) onPress;
+
+  static const _keys = [
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+    ['7', '8', '9'],
+    ['.', '0', '<'],
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final row in _keys) ...[
+          Row(
+            children: [
+              for (final key in row) ...[
+                Expanded(
+                  child: _Key(label: key, onTap: () => onPress(key)),
+                ),
+                if (key != row.last) const SizedBox(width: AppLayout.tight),
+              ],
+            ],
+          ),
+          if (row != _keys.last) const SizedBox(height: AppLayout.tight),
+        ],
+      ],
+    );
+  }
+}
+
+class _Key extends StatelessWidget {
+  const _Key({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBackspace = label == '<';
+    return BrutSurface(
+      onTap: onTap,
+      semanticLabel: isBackspace ? 'Delete' : label,
+      radius: AppRadius.rowAll,
+      shadow: AppShadows.sm,
+      height: 56,
+      alignment: Alignment.center,
+      child: isBackspace
+          ? const Icon(Icons.backspace_outlined, size: 20)
+          : Text(label, style: AppText.moneyLarge.copyWith(fontSize: 22)),
     );
   }
 }

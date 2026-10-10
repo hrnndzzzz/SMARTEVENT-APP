@@ -3,33 +3,48 @@ import 'package:provider/provider.dart';
 
 import '../state/app_areas.dart';
 import '../state/app_state.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import 'notifications_screen.dart';
+import 'scanner_screen.dart';
 
-/// The home screen: who you are, what needs you, and where things live.
+/// The dashboard: where you stand, what needs you, and the one thing you
+/// are most likely to have opened the app to do.
 ///
-/// It used to be a wall — five charts, a reports block and a recent
-/// activity list, under a six-tab bar, beside a radial menu that repeated
-/// every tab and added five more. Everything was one tap away and nothing
-/// was findable.
-///
-/// Now it answers three questions in order: who am I signed in as, what
-/// needs doing right now, and where is everything else. The charts and
-/// the review queues did not go anywhere — they are the Dashboard area,
-/// one card away, which is where someone goes when they want to look at
-/// charts rather than be shown them on arrival.
+/// It carries four figures and nothing else. The charts and the review
+/// queues are a tap away at the bottom, because someone who wants to
+/// study a chart goes looking for it, and someone opening the app at a
+/// supplier's counter does not.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  static const _months = [
+    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+  ];
+  static const _days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+  static String _greeting(int hour) => switch (hour) {
+    < 12 => 'Good morning',
+    < 18 => 'Good afternoon',
+    _ => 'Good evening',
+  };
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final areas = areasFor(app.currentRole);
+    final now = DateTime.now();
     final name = app.currentAccount?.name.split(' ').first ?? 'there';
+    final canRecord = app.currentRole?.canRecordFinance ?? false;
+
+    final allocated = app.totalAllocated;
+    final remaining = app.remainingBalance;
+    final spent = app.totalExpended;
+    final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
 
     return BrutScreen(
       topBar: AppHeader(
@@ -37,38 +52,160 @@ class HomeScreen extends StatelessWidget {
           MaterialPageRoute(builder: (_) => const NotificationsScreen()),
         ),
       ),
-      // The dock floats over this, so the last row needs room to clear it.
-      bottomPadding: 96,
+      bottomPadding: AppLayout.section,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppLayout.section),
-          Text('Hello, $name.', style: AppText.display),
+          MonoLabel(
+            '${_days[now.weekday - 1]} / ${_months[now.month - 1]} ${now.day}',
+          ),
           const SizedBox(height: 6),
           Text(
-            app.currentRole?.responsibility ?? 'Signed in.',
-            style: AppText.caption,
+            '${_greeting(now.hour)},\n$name.',
+            style: AppText.display.copyWith(height: 1.1),
           ),
           const SizedBox(height: AppLayout.section),
-          const _UpNext(),
-          const SizedBox(height: AppLayout.section),
-          const BrutSectionTitle('Areas'),
-          const SizedBox(height: AppLayout.between),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const gap = AppLayout.between;
-              final width = (constraints.maxWidth - gap) / 2;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final area in areas)
-                    SizedBox(
-                      width: width,
-                      child: _AreaCard(area: area, app: app),
+
+          // The hero: what is left, beside the two numbers that explain it.
+          SizedBox(
+            height: 168,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: BrutCard(
+                    tone: BrutTone.dark,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '₱${remaining.toStringAsFixed(0)}',
+                            style: AppText.heroNumber.copyWith(
+                              fontSize: 40,
+                              color: context.palette.canvas,
+                            ),
+                          ),
+                        ),
+                        MonoLabel(
+                          'Remaining budget',
+                          color: context.palette.canvas,
+                        ),
+                      ],
                     ),
-                ],
-              );
+                  ),
+                ),
+                const SizedBox(width: AppLayout.between),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _Tile(
+                          value: '${app.pendingExpenses.length}',
+                          label: 'Awaiting review',
+                          tone: app.pendingExpenses.isEmpty
+                              ? BrutTone.neutral
+                              : BrutTone.orange,
+                        ),
+                      ),
+                      const SizedBox(height: AppLayout.between),
+                      Expanded(
+                        child: _Tile(
+                          value: '${(used * 100).round()}%',
+                          label: 'Of budget used',
+                          tone: used >= 1 ? BrutTone.coral : BrutTone.neutral,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppLayout.between),
+
+          Row(
+            children: [
+              Expanded(
+                child: _Stat(
+                  value: '₱${allocated.toStringAsFixed(0)}',
+                  label: 'Allocated',
+                ),
+              ),
+              const SizedBox(width: AppLayout.between),
+              Expanded(
+                child: _Stat(
+                  value: '₱${spent.toStringAsFixed(0)}',
+                  label: 'Approved spending',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppLayout.between),
+
+          BrutCard(
+            radius: AppRadius.rowAll,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(child: MonoLabel('Budget used')),
+                    Text(
+                      '${(used * 100).round()}%',
+                      style: AppText.number.copyWith(fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                BrutProgressBar(
+                  value: used,
+                  tone: used >= 1 ? BrutTone.coral : BrutTone.orange,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppLayout.section),
+
+          const AlertWidget(),
+          const SizedBox(height: AppLayout.section),
+
+          if (canRecord) ...[
+            BrutButton(
+              label: 'Record an expense',
+              icon: Icons.document_scanner_outlined,
+              tone: BrutTone.orange,
+              size: BrutSize.large,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ScannerScreen()),
+              ),
+            ),
+            const SizedBox(height: AppLayout.between),
+          ],
+
+          // Quiet on purpose. Charts are for looking at deliberately.
+          BrutListRow(
+            title: 'Charts and review queue',
+            meta: 'The full dashboard',
+            marker: const BrutIconTile(
+              icon: Icons.bar_chart_outlined,
+              size: 32,
+            ),
+            onTap: () {
+              final area = areaById('dashboard');
+              if (area != null) {
+                Navigator.of(context)
+                    .push(MaterialPageRoute(builder: area.builder));
+              }
             },
           ),
         ],
@@ -77,12 +214,73 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// The one to three things actually waiting on this account.
+class _Tile extends StatelessWidget {
+  const _Tile({
+    required this.value,
+    required this.label,
+    required this.tone,
+  });
+
+  final String value;
+  final String label;
+  final BrutTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutCard(
+      tone: tone,
+      radius: AppRadius.rowAll,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: AppText.moneyLarge.copyWith(fontSize: 24)),
+          ),
+          MonoLabel(label, fontSize: 9),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutCard(
+      radius: AppRadius.rowAll,
+      padding: const EdgeInsets.all(12),
+      shadow: AppShadows.sm,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: AppText.moneyLarge.copyWith(fontSize: 19)),
+          ),
+          const SizedBox(height: 4),
+          MonoLabel(label, fontSize: 9),
+        ],
+      ),
+    );
+  }
+}
+
+/// What is actually waiting on this account, and nothing else.
 ///
 /// Only things this role can act on, and only when there are any — an
-/// empty "up next" is noise, so it says the useful thing instead.
-class _UpNext extends StatelessWidget {
-  const _UpNext();
+/// empty alert is noise, so it says the useful thing instead.
+class AlertWidget extends StatelessWidget {
+  const AlertWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -130,25 +328,19 @@ class _UpNext extends StatelessWidget {
     if (items.isEmpty) {
       return BrutCard(
         tone: BrutTone.mint,
+        radius: AppRadius.rowAll,
+        padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            const Icon(Icons.check_circle_outline, size: 22),
+            const Icon(Icons.check_circle_outline, size: 20),
             const SizedBox(width: AppLayout.between),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Nothing waiting on you',
-                    style: AppText.cardTitle.copyWith(fontSize: 15),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'This is the normal state, not an empty database.',
-                    style: AppText.caption.copyWith(color: AppColorsOn.ink),
-                  ),
-                ],
+              child: Text(
+                'Nothing waiting on you.',
+                style: AppText.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
               ),
             ),
           ],
@@ -156,112 +348,34 @@ class _UpNext extends StatelessWidget {
       );
     }
 
-    return BrutCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const BrutSectionTitle('Up next'),
-          const SizedBox(height: AppLayout.between),
-          for (var i = 0; i < items.take(3).length; i++) ...[
-            BrutListRow(
-              title: items[i].label,
-              marker: BrutIconTile(
-                icon: Icons.arrow_forward,
-                tone: items[i].tone,
-                size: 30,
-              ),
-              onTap: () {
-                final area = areaById(items[i].where);
-                if (area != null) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: area.builder),
-                  );
-                }
-              },
-            ),
-            if (i != items.take(3).length - 1)
-              const SizedBox(height: AppLayout.tight),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// A folder card: a tab across the top, an icon tile, the count, the
-/// name. Holding one peeks at what it holds without leaving home.
-class _AreaCard extends StatelessWidget {
-  const _AreaCard({required this.area, required this.app});
-
-  final AppArea area;
-  final AppState app;
-
-  @override
-  Widget build(BuildContext context) {
-    final count = area.badge?.call(app);
-
+    final shown = items.take(3).toList();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The tab. It reads as a folder, which is what the card is.
-        Container(
-          margin: const EdgeInsets.only(left: 10),
-          width: 64,
-          height: 14,
-          decoration: BoxDecoration(
-            color: area.tone.fill(context),
-            border: context.borderAll,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(6),
-            ),
-          ),
+        BrutSectionTitle(
+          'Needs you',
+          aside: MonoLabel('${items.length}'),
         ),
-        Transform.translate(
-          offset: const Offset(0, -2),
-          child: BrutCard(
-            padding: const EdgeInsets.all(12),
-            onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: area.builder)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    BrutIconTile(icon: area.icon, tone: area.tone, size: 40),
-                    const Spacer(),
-                    if (count != null && count > 0)
-                      BrutBadge(
-                        label: '$count',
-                        tone: area.tone,
-                        mono: true,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  area.title,
-                  style: AppText.cardTitle.copyWith(fontSize: 15),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  area.blurb,
-                  style: AppText.caption.copyWith(fontSize: 11),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+        const SizedBox(height: AppLayout.between),
+        for (var i = 0; i < shown.length; i++) ...[
+          BrutListRow(
+            title: shown[i].label,
+            marker: BrutIconTile(
+              icon: Icons.priority_high,
+              tone: shown[i].tone,
+              size: 32,
             ),
+            onTap: () {
+              final area = areaById(shown[i].where);
+              if (area != null) {
+                Navigator.of(context)
+                    .push(MaterialPageRoute(builder: area.builder));
+              }
+            },
           ),
-        ),
+          if (i != shown.length - 1) const SizedBox(height: AppLayout.tight),
+        ],
       ],
     );
   }
-}
-
-/// Ink on a filled card, whatever the theme.
-abstract final class AppColorsOn {
-  static const Color ink = Color(0xFF1A1A1A);
 }

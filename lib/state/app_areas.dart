@@ -142,6 +142,16 @@ const List<AppArea> appAreas = [
 List<AppArea> areasFor(UserRole? role) =>
     [for (final area in appAreas) if (area.isVisibleTo(role)) area];
 
+/// What belongs on the menu panel.
+///
+/// Dashboard and Events are left out: they are the screens either side of
+/// the menu, and an entry that goes where a swipe already goes is the
+/// duplication that made the old navigation a pile.
+List<AppArea> menuAreasFor(UserRole? role) => [
+      for (final area in areasFor(role))
+        if (area.id != 'dashboard' && area.id != 'events') area,
+    ];
+
 AppArea? areaById(String id) =>
     appAreas.where((a) => a.id == id).firstOrNull;
 

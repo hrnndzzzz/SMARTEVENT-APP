@@ -10,7 +10,8 @@ import 'screens/welcome_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/proposal_letters_screen.dart';
-import 'widgets/app_dock.dart';
+import 'screens/events_hub_screen.dart';
+import 'screens/menu_panel.dart';
 
 void main() {
   runApp(const SmartEventApp());
@@ -120,13 +121,23 @@ class RootShell extends StatefulWidget {
   State<RootShell> createState() => _RootShellState();
 }
 
+/// Three screens side by side: the menu, the dashboard, events.
+///
+/// The dashboard is the one you land on, and the other two are a thumb
+/// flick away in either direction. There is no bar and no floating
+/// button, because a swipe between three screens does not need a map of
+/// itself drawn on top of it.
 class _RootShellState extends State<RootShell> {
+  static const _dashboardPage = 1;
+  final _pages = PageController(initialPage: _dashboardPage);
+  int _page = _dashboardPage;
+
   @override
   void initState() {
     super.initState();
-    // The home grid shows a count per area, so the counts have to be
-    // there before the grid is. Each of these fails independently and
-    // says so on its own screen.
+    // Every panel shows a count, so the counts have to arrive before the
+    // panels do. Each of these fails independently and says so on its
+    // own screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final app = context.read<AppState>();
@@ -138,13 +149,41 @@ class _RootShellState extends State<RootShell> {
   }
 
   @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _toDashboard() => _pages.animateToPage(
+    _dashboardPage,
+    duration: AppMotion.sheet,
+    curve: Curves.easeOutCubic,
+  );
+
+  @override
   Widget build(BuildContext context) {
     // SDS staff have exactly one thing to do, so they get it directly
-    // rather than a directory with one card in it.
+    // rather than three screens, two of which would be empty.
     if (widget.role.isLetterOnly) return const ProposalLettersScreen();
 
-    return Scaffold(
-      body: Stack(children: [const HomeScreen(), const AppDock()]),
+    return PopScope(
+      // Back returns to the dashboard before it leaves the app, the same
+      // way it closes a sheet first.
+      canPop: _page == _dashboardPage,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _toDashboard();
+      },
+      child: Scaffold(
+        body: PageView(
+          controller: _pages,
+          onPageChanged: (i) => setState(() => _page = i),
+          children: [
+            MenuPanel(onClose: _toDashboard),
+            const HomeScreen(),
+            const EventsHubScreen(),
+          ],
+        ),
+      ),
     );
   }
 }
