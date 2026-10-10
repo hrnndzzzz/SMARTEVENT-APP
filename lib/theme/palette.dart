@@ -29,6 +29,8 @@ class BrutPalette extends ThemeExtension<BrutPalette> {
     required this.sunTint,
     required this.mintTint,
     required this.coralTint,
+    required this.violetTint,
+    required this.tealTint,
   });
 
   final Color canvas;
@@ -46,6 +48,8 @@ class BrutPalette extends ThemeExtension<BrutPalette> {
   final Color sunTint;
   final Color mintTint;
   final Color coralTint;
+  final Color violetTint;
+  final Color tealTint;
 
   static const BrutPalette lightPalette = BrutPalette(
     canvas: AppColors.canvas,
@@ -61,6 +65,8 @@ class BrutPalette extends ThemeExtension<BrutPalette> {
     sunTint: AppColors.sunTint,
     mintTint: AppColors.mintTint,
     coralTint: AppColors.coralTint,
+    violetTint: AppColors.violetTint,
+    tealTint: AppColors.tealTint,
   );
 
   static const BrutPalette darkPalette = BrutPalette(
@@ -77,6 +83,8 @@ class BrutPalette extends ThemeExtension<BrutPalette> {
     sunTint: AppColors.sunTintDark,
     mintTint: AppColors.mintTintDark,
     coralTint: AppColors.coralTintDark,
+    violetTint: AppColors.violetTintDark,
+    tealTint: AppColors.tealTintDark,
   );
 
   @override
@@ -94,6 +102,8 @@ class BrutPalette extends ThemeExtension<BrutPalette> {
     Color? sunTint,
     Color? mintTint,
     Color? coralTint,
+    Color? violetTint,
+    Color? tealTint,
   }) {
     return BrutPalette(
       canvas: canvas ?? this.canvas,
@@ -109,6 +119,8 @@ class BrutPalette extends ThemeExtension<BrutPalette> {
       sunTint: sunTint ?? this.sunTint,
       mintTint: mintTint ?? this.mintTint,
       coralTint: coralTint ?? this.coralTint,
+      violetTint: violetTint ?? this.violetTint,
+      tealTint: tealTint ?? this.tealTint,
     );
   }
 
@@ -130,6 +142,8 @@ class BrutPalette extends ThemeExtension<BrutPalette> {
       sunTint: mix(sunTint, other.sunTint),
       mintTint: mix(mintTint, other.mintTint),
       coralTint: mix(coralTint, other.coralTint),
+      violetTint: mix(violetTint, other.violetTint),
+      tealTint: mix(tealTint, other.tealTint),
     );
   }
 }

@@ -61,6 +61,8 @@ class AppColors {
   static const Color mintTint = Color(0xFFD3EFD6);
   static const Color coralTint = Color(0xFFFFDADD);
   static const Color orangeTint = Color(0xFFFFE2CD);
+  static const Color violetTint = Color(0xFFEBDEFF);
+  static const Color tealTint = Color(0xFFC5EEEC);
 
   // ── Neutrals ──────────────────────────────────────────────────────────
   /// Disabled fills, progress tracks, hairline panels.
@@ -97,6 +99,8 @@ class AppColors {
   static const Color sunTintDark = Color(0xFF6D6330);
   static const Color mintTintDark = Color(0xFF365641);
   static const Color coralTintDark = Color(0xFF573038);
+  static const Color violetTintDark = Color(0xFF43395F);
+  static const Color tealTintDark = Color(0xFF295557);
 
   // ── Department accents ────────────────────────────────────────────────
   // SmartEvent needs six distinguishable department colours. These extend

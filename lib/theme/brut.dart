@@ -30,6 +30,13 @@ enum BrutTone {
   /// Urgent, rejected, over budget.
   coral,
 
+  // The three department accents. They carry no status meaning — they
+  // exist so an area can own a colour without borrowing one that already
+  // means something.
+  orange,
+  violet,
+  teal,
+
   /// Neutral emphasis: a selected segment, a confirmed destructive action.
   dark,
 }
@@ -43,6 +50,9 @@ extension BrutToneColors on BrutTone {
     BrutTone.sun => AppColors.sun,
     BrutTone.mint => AppColors.mint,
     BrutTone.coral => AppColors.coral,
+    BrutTone.orange => AppColors.orange,
+    BrutTone.violet => AppColors.violet,
+    BrutTone.teal => AppColors.teal,
     BrutTone.dark => context.palette.ink,
   };
 
@@ -53,6 +63,9 @@ extension BrutToneColors on BrutTone {
     BrutTone.sun => context.palette.sunTint,
     BrutTone.mint => context.palette.mintTint,
     BrutTone.coral => context.palette.coralTint,
+    BrutTone.orange => context.palette.orangeTint,
+    BrutTone.violet => context.palette.violetTint,
+    BrutTone.teal => context.palette.tealTint,
     BrutTone.dark => context.palette.line,
   };
 
