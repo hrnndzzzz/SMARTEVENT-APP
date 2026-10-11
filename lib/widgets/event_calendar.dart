@@ -6,31 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import 'event_status.dart';
-
-const List<String> _months = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-const List<String> _weekdays = [
-  'Mon',
-  'Tue',
-  'Wed',
-  'Thu',
-  'Fri',
-  'Sat',
-  'Sun',
-];
+import 'month_grid.dart';
 
 /// The events list, laid out as a month instead of a list.
 ///
@@ -97,11 +73,6 @@ class _EventCalendarState extends State<EventCalendar> {
     final today = DateTime(now.year, now.month, now.day);
     final isCurrentMonth = _month.year == now.year && _month.month == now.month;
 
-    final days = DateUtils.getDaysInMonth(_month.year, _month.month);
-    // Monday-first, to match the week as the school prints it. weekday is
-    // 1..7 with Monday first already, so the offset is simply one less.
-    final leading = DateTime(_month.year, _month.month).weekday - 1;
-
     final thisMonth = widget.events
         .where(
           (e) =>
@@ -129,7 +100,7 @@ class _EventCalendarState extends State<EventCalendar> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${_months[_month.month - 1]} ${_month.year}',
+                    '${monthNames[_month.month - 1]} ${_month.year}',
                     style: AppText.titleBig,
                   ),
                 ],
@@ -162,51 +133,13 @@ class _EventCalendarState extends State<EventCalendar> {
           ),
         ],
         const SizedBox(height: AppLayout.section),
-        Row(
-          children: [
-            for (final name in _weekdays)
-              Expanded(
-                child: Center(
-                  child: MonoLabel(
-                    name[0],
-                    color: context.palette.muted,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
+        MonthGrid(
+          month: _month,
+          selected: _selected,
+          onSelect: (day) => setState(() => _selected = day),
+          dotsFor: (day) => [
+            for (final e in _on(day)) eventStatusTone(e.status),
           ],
-        ),
-        const SizedBox(height: AppLayout.tight),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            mainAxisSpacing: 3,
-            crossAxisSpacing: 3,
-            // Slightly taller than wide, so the dots have their own line
-            // rather than crowding the number.
-            childAspectRatio: 0.88,
-          ),
-          itemCount: leading + days,
-          itemBuilder: (context, i) {
-            // The run-up to the 1st is blank rather than showing the
-            // previous month's tail: a grey 29 three rows above a black
-            // 29 is the one thing a month view must never do.
-            if (i < leading) return const SizedBox.shrink();
-            final day = DateTime(_month.year, _month.month, i - leading + 1);
-            final events = _on(day);
-            return _DayCell(
-              day: day.day,
-              isToday: DateUtils.isSameDay(day, today),
-              isSelected: DateUtils.isSameDay(day, _selected),
-              tones: [
-                for (final e in events.take(3)) eventStatusTone(e.status),
-              ],
-              more: events.length > 3,
-              onTap: () => setState(() => _selected = day),
-            );
-          },
         ),
         const SizedBox(height: AppLayout.section),
         BrutSectionTitle(
@@ -274,8 +207,8 @@ class _EventCalendarState extends State<EventCalendar> {
 /// `TODAY`, or `WED 15 OCTOBER` for any other day.
 String _heading(DateTime day, DateTime today) {
   if (DateUtils.isSameDay(day, today)) return 'Today';
-  final weekday = _weekdays[day.weekday - 1];
-  return '$weekday ${day.day} ${_months[day.month - 1]}';
+  final weekday = weekdayNames[day.weekday - 1];
+  return '$weekday ${day.day} ${monthNames[day.month - 1]}';
 }
 
 /// The long status labels name the desk a proposal is on, which is right
@@ -297,113 +230,3 @@ IconData _statusIcon(EventApprovalStatus s) => switch (s) {
   EventApprovalStatus.rejected => Icons.priority_high,
   EventApprovalStatus.completed => Icons.task_alt,
 };
-
-/// One day.
-///
-/// Borderless unless it is today or the selected day — forty-two outlined
-/// boxes would be forty-two buttons competing with the dots, which are
-/// the part carrying information.
-class _DayCell extends StatelessWidget {
-  const _DayCell({
-    required this.day,
-    required this.isToday,
-    required this.isSelected,
-    required this.tones,
-    required this.more,
-    required this.onTap,
-  });
-
-  final int day;
-  final bool isToday;
-  final bool isSelected;
-  final List<BrutTone> tones;
-  final bool more;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final fill = isSelected ? context.palette.ink : null;
-    final on = isSelected ? context.palette.canvas : context.palette.ink;
-
-    return Semantics(
-      selected: isSelected,
-      button: true,
-      label: tones.isEmpty
-          ? '$day'
-          : '$day, ${tones.length}${more ? ' or more' : ''} event'
-                '${tones.length == 1 && !more ? '' : 's'}',
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: AppRadius.controlAll,
-            // Today keeps its outline whether or not it is selected, so
-            // the month never loses its anchor.
-            border: isToday && !isSelected ? context.borderAll : null,
-          ),
-          // Scaled rather than clipped: the grid has seven columns at any
-          // text size, and a cell that overflowed would stripe the month.
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$day',
-                    style: AppText.number.copyWith(
-                      fontSize: 14,
-                      color: on,
-                      fontWeight: isToday || isSelected
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // A fixed-height strip, so a day with events and a day
-                  // without still line up across the row.
-                  SizedBox(
-                    height: 7,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (final tone in tones) ...[
-                          Container(
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: tone == BrutTone.neutral
-                                  // A draft's "colour" is white, which is
-                                  // invisible as a dot.
-                                  ? context.palette.muted
-                                  : tone.fill(context),
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                        ],
-                        if (more)
-                          Text(
-                            '+',
-                            style: AppText.number.copyWith(
-                              fontSize: 11,
-                              height: 1,
-                              fontWeight: FontWeight.w800,
-                              color: on,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

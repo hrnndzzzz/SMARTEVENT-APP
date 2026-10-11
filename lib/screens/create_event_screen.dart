@@ -5,6 +5,8 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
+import '../widgets/brut_date_picker.dart';
+import '../widgets/month_grid.dart';
 import '../widgets/scope_picker.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -18,7 +20,6 @@ class CreateEventScreen extends StatefulWidget {
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
   late final TextEditingController _nameController;
-  late final TextEditingController _dateController;
   late final TextEditingController _budgetController;
   final _descriptionController = TextEditingController();
 
@@ -55,6 +56,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   void initState() {
     super.initState();
     final e = widget.existingEvent;
+    _pickedDate = e?.on;
     _schoolYear = e?.schoolYear;
     _semester = e?.semester;
     _eventScope = e?.eventScope;
@@ -63,7 +65,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       if (mounted) context.read<AppState>().loadSchoolYears();
     });
     _nameController = TextEditingController(text: e?.title ?? '');
-    _dateController = TextEditingController(text: e?.date ?? '');
     _budgetController = TextEditingController(
       text: e?.budget.replaceAll('₱', '') ?? '',
     );
@@ -72,7 +73,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _dateController.dispose();
     _budgetController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -80,32 +80,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: DateTime(now.year + 2),
+    final picked = await BrutDatePicker.show(
+      context,
+      initial: _pickedDate,
+      // A proposal is for something that has not happened yet, and the
+      // backend says so too.
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 2, now.month, now.day),
+      title: 'When is it?',
     );
     if (picked != null) {
-      const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      setState(() {
-        _pickedDate = picked;
-        _dateController.text =
-            '${months[picked.month - 1]} ${picked.day}, ${picked.year}';
-      });
+      setState(() => _pickedDate = picked);
     }
   }
 
@@ -141,9 +126,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
 
     final title = _nameController.text.trim();
-    final date = _dateController.text.trim().isEmpty
+    final date = _pickedDate == null
         ? 'TBD'
-        : _dateController.text.trim();
+        : '${monthNames[_pickedDate!.month - 1].substring(0, 3)} '
+              '${_pickedDate!.day}, ${_pickedDate!.year}';
     final budgetValue = double.tryParse(_budgetController.text.trim()) ?? 0.0;
     final budget = '₱${budgetValue.toStringAsFixed(2)}';
 
@@ -298,6 +284,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   Widget _budgetStep(BuildContext context) {
+    final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -350,8 +338,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           ),
         ),
         const Spacer(),
-        _Keypad(onPress: _press),
-        const SizedBox(height: AppLayout.between),
+        // One keyboard at a time. While the name is being typed the
+        // system keyboard is already occupying this space, and leaving
+        // the keypad under it is what overflowed the screen.
+        if (!keyboardUp) ...[
+          _Keypad(onPress: _press),
+          const SizedBox(height: AppLayout.between),
+        ],
       ],
     );
   }
@@ -459,16 +452,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           onChanged: (v) => setState(() => _eventScope = v),
         ),
         const SizedBox(height: AppLayout.between),
-        GestureDetector(
+        BrutDateField(
+          label: 'Date',
+          value: _pickedDate,
+          hint: 'Tap to select a date',
           onTap: _pickDate,
-          child: AbsorbPointer(
-            child: BrutTextField(
-              label: 'Date',
-              controller: _dateController,
-              hint: 'Tap to select a date',
-              suffix: const Icon(Icons.calendar_today_outlined, size: 16),
-            ),
-          ),
         ),
         const SizedBox(height: AppLayout.between),
         BrutTextField(

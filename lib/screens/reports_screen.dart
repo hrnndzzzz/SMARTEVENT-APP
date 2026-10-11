@@ -8,6 +8,7 @@ import '../widgets/financial_overview.dart';
 import 'analytics_sheet.dart';
 import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
+import '../widgets/brut_date_picker.dart';
 import 'notifications_screen.dart';
 
 /// Consolidated financial reports.
@@ -227,11 +228,13 @@ class _Filters extends StatelessWidget {
               hint: 'Today',
               onTap: () async {
                 final now = DateTime.now();
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: app.reportReferenceDate ?? now,
+                final picked = await BrutDatePicker.show(
+                  context,
+                  initial: app.reportReferenceDate ?? now,
                   firstDate: DateTime(now.year - 5),
                   lastDate: DateTime(now.year + 1),
+                  title: 'Reference date',
+                  subtitle: 'The report is worked out as of this day.',
                 );
                 if (picked != null) {
                   app.setReportFilters(referenceDate: picked);

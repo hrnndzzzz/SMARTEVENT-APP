@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
+import '../widgets/brut_date_picker.dart';
 import 'notifications_screen.dart';
 
 /// Income recorded against events, by fund source.
@@ -329,11 +330,12 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _receivedOn,
+    final picked = await BrutDatePicker.show(
+      context,
+      initial: _receivedOn,
       firstDate: DateTime(now.year - 2),
       lastDate: now,
+      title: 'When did it come in?',
     );
     if (picked != null) setState(() => _receivedOn = picked);
   }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../widgets/brut_date_picker.dart';
 
 /// Record Payment and Delivery — the step that turns approved asset lines
 /// into stock.
@@ -70,12 +71,13 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
 
   Future<void> _pickDate({required bool paid}) async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: (paid ? _paidOn : _receivedOn) ?? now,
+    final picked = await BrutDatePicker.show(
+      context,
+      initial: (paid ? _paidOn : _receivedOn) ?? now,
       firstDate: DateTime(now.year - 3),
       // Neither date may be in the future, so the picker cannot offer one.
       lastDate: now,
+      title: paid ? 'When was it paid?' : 'When did it arrive?',
     );
     if (picked == null) return;
     setState(() {

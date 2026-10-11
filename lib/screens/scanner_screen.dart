@@ -10,6 +10,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/scope_picker.dart';
+import '../widgets/brut_date_picker.dart';
 import 'notifications_screen.dart';
 
 /// Capture a receipt, read it, correct it, then save it.
@@ -171,11 +172,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _expenseDate ?? now,
+    final picked = await BrutDatePicker.show(
+      context,
+      initial: _expenseDate ?? now,
       firstDate: DateTime(now.year - 2),
       lastDate: now,
+      title: 'When was this spent?',
     );
     if (picked != null) setState(() => _expenseDate = picked);
   }
