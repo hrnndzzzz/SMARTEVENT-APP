@@ -4,6 +4,8 @@ import '../state/app_state.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../widgets/financial_overview.dart';
+import 'analytics_sheet.dart';
 import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
 import 'notifications_screen.dart';
@@ -123,6 +125,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
             child: ListView(
               padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
               children: [
+                // The charts and the organization figures moved here from
+                // the role dashboards. Someone who wants to study a chart
+                // comes looking for it; the dashboard is for the four
+                // numbers you need on the way past.
+                BrutButton(
+                  label: 'Organization analytics',
+                  icon: Icons.bar_chart_outlined,
+                  tone: BrutTone.neutral,
+                  onPressed: () => BrutSheet.show<void>(
+                    context,
+                    builder: (_) => const AnalyticsSheet(),
+                  ),
+                ),
+                const SizedBox(height: AppLayout.between),
+                AllocationVsActualCard(
+                  budgets: app.categoryBudgets,
+                  spend: app.spendByCategory,
+                ),
+                const SizedBox(height: AppLayout.between),
+                ExpenseDistributionCard(spendByCategory: app.spendByCategory),
+                const SizedBox(height: AppLayout.section),
                 const _Filters(),
                 const SizedBox(height: 14),
                 if (load.isLoading)

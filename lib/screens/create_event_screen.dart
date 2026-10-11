@@ -280,7 +280,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       footer: BrutFooter(
         child: _step == 0
             ? BrutButton(
-                label: 'Next — the details',
+                label: 'Next',
                 trailingIcon: Icons.arrow_forward,
                 size: BrutSize.large,
                 onPressed: () => setState(() => _step = 1),

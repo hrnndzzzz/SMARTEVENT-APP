@@ -5,7 +5,7 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'create_event_screen.dart';
-import 'events_screen.dart' show eventStatusTone;
+import '../widgets/event_status.dart';
 
 class EventDetailScreen extends StatelessWidget {
   final EventItem event;

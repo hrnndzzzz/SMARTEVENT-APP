@@ -9,6 +9,8 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import '../widgets/app_header.dart';
+import 'event_approvals_screen.dart';
+import 'expenses_screen.dart';
 import 'notifications_screen.dart';
 import 'scanner_screen.dart';
 
@@ -75,6 +77,15 @@ class HomeScreen extends StatelessWidget {
             '${_greeting(now.hour)},\n$name.',
             style: AppText.display.copyWith(height: 1.1),
           ),
+          if (AppHeader.scopeLineFor(app) case final scope?) ...[
+            const SizedBox(height: 6),
+            MonoLabel(scope),
+          ],
+          const SizedBox(height: AppLayout.section),
+
+          // First thing under the greeting, because it is the first
+          // question anyone opening the app has.
+          const AlertWidget(),
           const SizedBox(height: AppLayout.section),
 
           // The hero: what is left, beside the two numbers that explain it.
@@ -189,9 +200,6 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppLayout.section),
 
-          const AlertWidget(),
-          const SizedBox(height: AppLayout.section),
-
           if (canRecord) ...[
             BrutButton(
               label: 'Record an expense',
@@ -202,26 +210,7 @@ class HomeScreen extends StatelessWidget {
                 context,
               ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
             ),
-            const SizedBox(height: AppLayout.between),
           ],
-
-          // Quiet on purpose. Charts are for looking at deliberately.
-          BrutListRow(
-            title: 'Charts and review queue',
-            meta: 'The full dashboard',
-            marker: const BrutIconTile(
-              icon: Icons.bar_chart_outlined,
-              size: 32,
-            ),
-            onTap: () {
-              final area = areaById('dashboard');
-              if (area != null) {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: area.builder));
-              }
-            },
-          ),
         ],
       ),
     );
@@ -292,6 +281,22 @@ class _Stat extends StatelessWidget {
   }
 }
 
+/// Where an alert row goes when tapped.
+///
+/// Most rows name an area, but the two review queues are screens inside
+/// one — Money owns expenses, Events owns approvals — so they are named
+/// directly rather than being given an area each.
+void _open(BuildContext context, String where) {
+  final WidgetBuilder? builder = switch (where) {
+    'expenses' => (_) => const ExpensesScreen(),
+    'events' => (_) => const EventApprovalsScreen(),
+    _ => areaById(where)?.builder,
+  };
+  if (builder != null) {
+    Navigator.of(context).push(MaterialPageRoute(builder: builder));
+  }
+}
+
 /// What is actually waiting on this account, and nothing else.
 ///
 /// Only things this role can act on, and only when there are any — an
@@ -318,7 +323,7 @@ class AlertWidget extends StatelessWidget {
       if (expenses > 0) {
         items.add((
           label: '$expenses expense${expenses == 1 ? '' : 's'} to review',
-          where: 'money',
+          where: 'expenses',
           tone: BrutTone.sun,
         ));
       }
@@ -379,14 +384,7 @@ class AlertWidget extends StatelessWidget {
               tone: shown[i].tone,
               size: 32,
             ),
-            onTap: () {
-              final area = areaById(shown[i].where);
-              if (area != null) {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: area.builder));
-              }
-            },
+            onTap: () => _open(context, shown[i].where),
           ),
           if (i != shown.length - 1) const SizedBox(height: AppLayout.tight),
         ],

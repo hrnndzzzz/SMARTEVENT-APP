@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
+import '../widgets/event_calendar.dart';
+import '../widgets/event_status.dart';
 import 'notifications_screen.dart';
 import 'create_event_screen.dart';
 import 'event_detail_screen.dart';
 
-/// One mapping from approval status to meaning, used for the badge and
-/// the stripe alike so the two can never disagree.
+/// Every proposal, as a list or as a month.
 ///
-/// Draft is deliberately the quietest: it is nobody's queue yet. Completed
-/// reads like approved, since it is the settled end state. Both pending
-/// stages are yellow — they mean the same thing to the person looking at
-/// the list, and the label says which desk it is on.
-BrutTone eventStatusTone(EventApprovalStatus s) => switch (s) {
-  EventApprovalStatus.draft => BrutTone.neutral,
-  EventApprovalStatus.approved ||
-  EventApprovalStatus.completed => BrutTone.mint,
-  EventApprovalStatus.rejected => BrutTone.coral,
-  EventApprovalStatus.pendingAdmin ||
-  EventApprovalStatus.pendingAdviser => BrutTone.sun,
-};
-
-class EventsScreen extends StatelessWidget {
+/// The two views read the same filtered list — the school-year filter is
+/// the server's, so switching views never changes which events are in
+/// play, only how they are arranged.
+class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
+
+  @override
+  State<EventsScreen> createState() => _EventsScreenState();
+}
+
+class _EventsScreenState extends State<EventsScreen> {
+  /// The list is the default: it is the whole filtered set in one
+  /// scroll, and it is what every role already knows.
+  bool _calendar = false;
+
+  void _open(EventItem event) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +52,11 @@ class EventsScreen extends StatelessWidget {
           Row(
             children: [
               const Expanded(child: Text('Events', style: AppText.screenTitle)),
+              _ViewToggle(
+                calendar: _calendar,
+                onChanged: (v) => setState(() => _calendar = v),
+              ),
+              const SizedBox(width: AppLayout.tight),
               // Officers are read-only and SDS has no event access, so
               // only roles that may actually propose get this.
               if (context.watch<AppState>().currentRole?.canProposeEvents ??
@@ -108,6 +120,9 @@ class EventsScreen extends StatelessWidget {
                     ),
                   );
                 }
+                if (_calendar) {
+                  return EventCalendar(events: app.events, onOpen: _open);
+                }
                 return ListView(
                   padding: const EdgeInsets.only(bottom: 8),
                   children: [
@@ -122,6 +137,40 @@ class EventsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// List or month. Two states, so a segmented pair rather than a menu —
+/// and the selected one is filled rather than merely outlined, because an
+/// outline is what every other control on this screen already wears.
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({required this.calendar, required this.onChanged});
+
+  final bool calendar;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        BrutIconButton(
+          icon: Icons.view_agenda_outlined,
+          label: 'List view',
+          tone: calendar ? BrutTone.neutral : BrutTone.dark,
+          size: 36,
+          onPressed: () => onChanged(false),
+        ),
+        const SizedBox(width: 6),
+        BrutIconButton(
+          icon: Icons.calendar_month_outlined,
+          label: 'Calendar view',
+          tone: calendar ? BrutTone.dark : BrutTone.neutral,
+          size: 36,
+          onPressed: () => onChanged(true),
+        ),
+      ],
     );
   }
 }
@@ -141,59 +190,64 @@ class _EventCard extends StatelessWidget {
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // The status as a stripe down the edge, so a long list can be
-          // read by colour before any of it is read by word.
-          Container(
-            width: 8,
-            decoration: BoxDecoration(
-              color: tone.fill(context),
-              border: Border(right: context.side),
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(AppRadius.row - AppBorders.width),
+      // The stripe stretches, so the row needs a height before it is laid
+      // out — inside a list it has none, and `stretch` alone asks for an
+      // infinite one.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // The status as a stripe down the edge, so a long list can be
+            // read by colour before any of it is read by word.
+            Container(
+              width: 8,
+              decoration: BoxDecoration(
+                color: tone.fill(context),
+                border: Border(right: context.side),
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(AppRadius.row - AppBorders.width),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      BrutBadge(label: event.statusLabel, tone: tone),
-                      const Spacer(),
-                      Text(event.date, style: AppText.moneySmall),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(event.title, style: AppText.cardTitle),
-                  const SizedBox(height: 3),
-                  Text(
-                    event.org.isEmpty ? 'No organization' : event.org,
-                    style: AppText.caption,
-                  ),
-                  const SizedBox(height: 6),
-                  // School year / semester / scope. A legacy row missing
-                  // them says so rather than showing a blank line, since
-                  // an administrator has to repair it before it appears in
-                  // academic reports.
-                  if (event.hasIncompleteAcademicMetadata)
-                    BrutBadge(
-                      label: event.academicLabel,
-                      tone: BrutTone.sun,
-                      mono: true,
-                    )
-                  else
-                    MonoLabel(event.academicLabel),
-                ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        BrutBadge(label: event.statusLabel, tone: tone),
+                        const Spacer(),
+                        Text(event.date, style: AppText.moneySmall),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(event.title, style: AppText.cardTitle),
+                    const SizedBox(height: 3),
+                    Text(
+                      event.org.isEmpty ? 'No organization' : event.org,
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 6),
+                    // School year / semester / scope. A legacy row missing
+                    // them says so rather than showing a blank line, since
+                    // an administrator has to repair it before it appears in
+                    // academic reports.
+                    if (event.hasIncompleteAcademicMetadata)
+                      BrutBadge(
+                        label: event.academicLabel,
+                        tone: BrutTone.sun,
+                        mono: true,
+                      )
+                    else
+                      MonoLabel(event.academicLabel),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../screens/admin_dashboard_screen.dart';
 import '../screens/admin_screen.dart';
-import '../screens/adviser_dashboard_screen.dart';
-import '../screens/dashboard_screen.dart';
 import '../screens/events_screen.dart';
 import '../screens/inventory_screen.dart';
 import '../screens/money_screen.dart';
@@ -59,14 +55,6 @@ class AppArea {
 
 /// Every area, in the order they appear on the home grid.
 const List<AppArea> appAreas = [
-  AppArea(
-    id: 'dashboard',
-    title: 'Dashboard',
-    blurb: 'Balances, charts and your review queue',
-    icon: Icons.grid_view_outlined,
-    tone: BrutTone.brand,
-    builder: _dashboard,
-  ),
   AppArea(
     id: 'events',
     title: 'Events',
@@ -139,8 +127,10 @@ const List<AppArea> appAreas = [
   ),
 ];
 
-List<AppArea> areasFor(UserRole? role) =>
-    [for (final area in appAreas) if (area.isVisibleTo(role)) area];
+List<AppArea> areasFor(UserRole? role) => [
+  for (final area in appAreas)
+    if (area.isVisibleTo(role)) area,
+];
 
 /// What belongs on the menu panel.
 ///
@@ -148,12 +138,11 @@ List<AppArea> areasFor(UserRole? role) =>
 /// the menu, and an entry that goes where a swipe already goes is the
 /// duplication that made the old navigation a pile.
 List<AppArea> menuAreasFor(UserRole? role) => [
-      for (final area in areasFor(role))
-        if (area.id != 'dashboard' && area.id != 'events') area,
-    ];
+  for (final area in areasFor(role))
+    if (area.id != 'events') area,
+];
 
-AppArea? areaById(String id) =>
-    appAreas.where((a) => a.id == id).firstOrNull;
+AppArea? areaById(String id) => appAreas.where((a) => a.id == id).firstOrNull;
 
 // Top-level functions, because a const list cannot hold a closure.
 int _pendingEvents(AppState app) =>
@@ -164,16 +153,6 @@ int _flagged(AppState app) => app.flaggedExpenses.length;
 int _letters(AppState app) => app.letters.length;
 
 bool _canAdminister(UserRole role) => role.canManageMembers;
-
-/// The role's own dashboard. Home is a directory; this is the view.
-Widget _dashboard(BuildContext context) {
-  final role = context.read<AppState>().currentRole;
-  return switch (role) {
-    UserRole.admin || UserRole.superAdmin => const AdminDashboardScreen(),
-    UserRole.adviser => const AdviserDashboardScreen(),
-    _ => const DashboardScreen(),
-  };
-}
 
 Widget _events(BuildContext _) => const EventsScreen();
 Widget _money(BuildContext _) => const MoneyScreen();

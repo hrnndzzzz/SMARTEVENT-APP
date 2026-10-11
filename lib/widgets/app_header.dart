@@ -17,9 +17,9 @@ import 'notification_peek.dart';
 /// against the canvas, which is why the wordmark lives inside a pill
 /// rather than being coloured directly.
 class AppHeader extends StatelessWidget {
-  /// Who you are signed in as. Left out, it is derived from the account —
-  /// which is almost always what you want, since a hardcoded string here
-  /// goes stale the moment someone else signs in.
+  /// Kept for callers that still pass it; the header no longer draws it.
+  /// The dashboard says who you are under the greeting, where there is
+  /// room for it, and the account menu says it in full.
   final String? subtitle;
   final VoidCallback? onBellTap;
 
@@ -53,7 +53,7 @@ class AppHeader extends StatelessWidget {
 
   /// `CITE · TREASURER`. Falls back to whichever half is known rather than
   /// printing a placeholder for the other.
-  static String? _scopeLineFor(AppState app) {
+  static String? scopeLineFor(AppState app) {
     final role = app.currentRole?.label;
     final department = app.currentAccount?.departmentId == null
         ? null
@@ -69,7 +69,6 @@ class AppHeader extends StatelessWidget {
     // main.dart puts it there, so every identity surface reads one value.
     final accent = Theme.of(context).colorScheme.secondary;
     final initials = _initialsFor(app.currentAccount?.name ?? 'Guest');
-    final scopeLine = subtitle ?? _scopeLineFor(app);
 
     return Row(
       children: [
@@ -81,37 +80,24 @@ class AppHeader extends StatelessWidget {
           ),
           const SizedBox(width: 10),
         ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        // One row, three things, all on the same baseline. The role used
+        // to sit under the wordmark, which pushed the pill half a line
+        // above the two buttons it is supposed to line up with.
+        BrutSurface(
+          fill: accent,
+          radius: AppRadius.pill,
+          shadow: AppShadows.sm,
+          padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // The brand pill. One accent block, ink on top.
-              BrutSurface(
-                fill: accent,
-                radius: AppRadius.pill,
-                shadow: AppShadows.sm,
-                padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bolt, size: 15, color: context.palette.ink),
-                    const SizedBox(width: 5),
-                    Text('SmartEvent', style: AppText.wordmark),
-                  ],
-                ),
-              ),
-              if (scopeLine != null) ...[
-                const SizedBox(height: 5),
-                Padding(
-                  padding: const EdgeInsets.only(left: 2),
-                  child: MonoLabel(scopeLine),
-                ),
-              ],
+              const Icon(Icons.bolt, size: 15, color: AppColors.ink),
+              const SizedBox(width: 5),
+              Text('SmartEvent', style: AppText.wordmark),
             ],
           ),
         ),
-        const SizedBox(width: 10),
+        const Spacer(),
         _BellWithBadge(onTap: onBellTap),
         const SizedBox(width: 8),
         _Avatar(

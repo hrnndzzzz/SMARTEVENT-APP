@@ -67,7 +67,7 @@ class EventsHubScreen extends StatelessWidget {
                     child: _Band(
                       index: 2,
                       title: 'All events',
-                      blurb: 'Every proposal, filtered by school year',
+                      blurb: 'Every proposal, as a list or a month',
                       icon: Icons.list_alt_outlined,
                       // Not brand: band one is brand before anything has
                       // been proposed, and two blue bands touching read

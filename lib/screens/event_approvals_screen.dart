@@ -7,7 +7,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import 'event_detail_screen.dart';
-import 'events_screen.dart' show eventStatusTone;
+import '../widgets/event_status.dart';
 
 /// Where every proposal got to.
 ///

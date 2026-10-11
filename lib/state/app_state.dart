@@ -133,6 +133,14 @@ class EventItem {
   String title;
   String org;
   String date;
+
+  /// The same day as [date], unformatted, when the backend has one.
+  ///
+  /// [date] is for reading; this is for bucketing — the calendar groups by
+  /// it, and an event without a date simply never lands on the grid
+  /// rather than being guessed onto today.
+  DateTime? on;
+
   String budget;
 
   EventApprovalStatus status;
@@ -181,6 +189,7 @@ class EventItem {
     required this.title,
     required this.org,
     required this.date,
+    this.on,
     required this.budget,
     this.status = EventApprovalStatus.pendingAdviser,
     this.rejectedBy,
@@ -1407,6 +1416,7 @@ class AppState extends ChangeNotifier {
       date: remote.eventDate == null
           ? 'No date set'
           : '${remote.eventDate!.month}/${remote.eventDate!.day}/${remote.eventDate!.year}',
+      on: remote.eventDate,
       budget: '₱${remote.allocatedBudget.toStringAsFixed(2)}',
       status: _eventStatusFromString(remote.status),
       schoolYear: remote.schoolYear,

@@ -8,6 +8,7 @@ import '../theme/brut.dart';
 import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import 'categories_screen.dart';
+import 'expenses_screen.dart';
 import 'notifications_screen.dart';
 import 'income_screen.dart';
 import 'receipts_screen.dart';
@@ -45,6 +46,17 @@ class MoneyScreen extends StatelessWidget {
           const SizedBox(height: AppLayout.section),
           const BrutSectionTitle('What do you need?'),
           const SizedBox(height: AppLayout.between),
+          _Tile(
+            icon: Icons.fact_check_outlined,
+            title: 'Expenses',
+            blurb: app.pendingExpenses.isEmpty
+                ? 'Everything recorded, and where each one got to.'
+                : 'Some are waiting on a decision.',
+            tone: app.pendingExpenses.isEmpty ? BrutTone.brand : BrutTone.sun,
+            count: app.pendingExpenses.length,
+            onTap: () => _go(context, const ExpensesScreen()),
+          ),
+          const SizedBox(height: AppLayout.tight),
           _Tile(
             icon: Icons.document_scanner_outlined,
             title: 'Record an expense',
