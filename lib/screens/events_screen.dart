@@ -32,6 +32,7 @@ class EventsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BrutScreen(
       topBar: AppHeader(
+        onBack: () => Navigator.of(context).maybePop(),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

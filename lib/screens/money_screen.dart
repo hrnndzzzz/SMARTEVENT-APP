@@ -6,7 +6,9 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
+import '../widgets/app_header.dart';
 import 'categories_screen.dart';
+import 'notifications_screen.dart';
 import 'income_screen.dart';
 import 'receipts_screen.dart';
 import 'scanner_screen.dart';
@@ -27,15 +29,18 @@ class MoneyScreen extends StatelessWidget {
     final canRecord = app.currentRole?.canRecordFinance ?? false;
 
     return BrutScreen(
-      header: BrutHeader(
-        eyebrow: 'Area',
-        title: 'Money',
-        tone: BrutTone.orange,
+      topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const SizedBox(height: AppLayout.section),
+          const Text('Money', style: AppText.display),
+          const SizedBox(height: AppLayout.section),
           _Strip(app: app),
           const SizedBox(height: AppLayout.section),
           const BrutSectionTitle('What do you need?'),
@@ -81,8 +86,8 @@ class MoneyScreen extends StatelessWidget {
     );
   }
 
-  void _go(BuildContext context, Widget screen) => Navigator.of(context)
-      .push(MaterialPageRoute(builder: (_) => screen));
+  void _go(BuildContext context, Widget screen) =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 }
 
 /// Four figures, split by rules, the way a summary card reads.
@@ -167,7 +172,9 @@ class _Tile extends StatelessWidget {
               ],
             ),
           ),
-          if (count != null) ...[
+          // A zero here would mean "nothing yet", which the row already
+          // says. It would also look identical to "not loaded".
+          if (count != null && count! > 0) ...[
             const SizedBox(width: AppLayout.tight),
             BrutBadge(label: '$count', tone: tone, mono: true),
           ],

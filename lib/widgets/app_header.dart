@@ -27,7 +27,18 @@ class AppHeader extends StatelessWidget {
   /// default, which is what every screen wanted.
   final VoidCallback? onAvatarTap;
 
-  const AppHeader({super.key, this.subtitle, this.onBellTap, this.onAvatarTap});
+  /// Shown when this screen was pushed rather than swiped to. Screens
+  /// that used to be tabs did not need one; the same screens opened from
+  /// the menu very much do.
+  final VoidCallback? onBack;
+
+  const AppHeader({
+    super.key,
+    this.subtitle,
+    this.onBellTap,
+    this.onAvatarTap,
+    this.onBack,
+  });
 
   static String _initialsFor(String name) {
     final parts = name
@@ -62,6 +73,14 @@ class AppHeader extends StatelessWidget {
 
     return Row(
       children: [
+        if (onBack != null) ...[
+          BrutIconButton(
+            icon: Icons.arrow_back,
+            label: 'Back',
+            onPressed: onBack,
+          ),
+          const SizedBox(width: 10),
+        ],
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -298,6 +298,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     return BrutScreen(
       topBar: AppHeader(
+        onBack: () => Navigator.of(context).maybePop(),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

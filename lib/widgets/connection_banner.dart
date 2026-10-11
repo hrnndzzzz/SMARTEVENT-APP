@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../state/reachability.dart';
 import '../theme/app_colors.dart';
@@ -5,13 +7,15 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 
-/// A pill that drops in when the backend stops answering, and again when
-/// it comes back.
+/// A short word when the connection changes, and then it goes away.
 ///
-/// It appears on a *change*, not on a state, so a working app never
-/// carries a permanent banner. Going offline it stays until the backend
-/// returns, because that is a condition you need to keep knowing about;
-/// coming back it says so for a few seconds and leaves.
+/// It says the state and nothing else. It appears on a *change*, holds
+/// for a few seconds, and can be pushed aside with a finger — because
+/// the thing you want when the server drops is to be told once, not to
+/// have a bar sitting on your screen for as long as the problem lasts.
+///
+/// The persistent signal is the dot on the avatar. That is always there
+/// to be checked; this is only the interruption.
 class ConnectionBanner extends StatefulWidget {
   const ConnectionBanner({super.key, required this.child});
 
@@ -22,42 +26,87 @@ class ConnectionBanner extends StatefulWidget {
 }
 
 class _ConnectionBannerState extends State<ConnectionBanner> {
+  static const _hold = Duration(seconds: 3);
+
   Reachable? _lastSeen;
-  bool _showRecovered = false;
+  String? _message;
+  bool _offline = false;
+  Timer? _timer;
+  double _slide = 0;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _show(String message, {required bool offline}) {
+    _timer?.cancel();
+    setState(() {
+      _message = message;
+      _offline = offline;
+      _slide = 0;
+    });
+    _timer = Timer(_hold, () {
+      if (mounted) setState(() => _message = null);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.reachable ?? Reachable.online;
 
     if (state != _lastSeen) {
-      final cameBack =
-          _lastSeen != null &&
-          _lastSeen != Reachable.online &&
-          state == Reachable.online;
+      final previous = _lastSeen;
       _lastSeen = state;
-      if (cameBack) {
-        _showRecovered = true;
-        Future.delayed(const Duration(milliseconds: 2600), () {
-          if (mounted) setState(() => _showRecovered = false);
-        });
+      // Nothing on the first build: the app opening online is not news.
+      if (previous != null) {
+        if (state == Reachable.offline) {
+          _show('No connection to the server', offline: true);
+        } else if (state == Reachable.online && previous != Reachable.online) {
+          _show('Back online', offline: false);
+        }
       }
     }
 
-    final offline = state != Reachable.online;
-    final visible = offline || _showRecovered;
+    final message = _message;
 
     return Stack(
       children: [
         widget.child,
-        if (visible)
+        if (message != null)
           Positioned(
             top: MediaQuery.viewPaddingOf(context).top + 6,
             left: 0,
             right: 0,
             child: Center(
-              child: _Pill(
-                reconnecting: state == Reachable.reconnecting,
-                offline: offline,
+              child: GestureDetector(
+                // Swipe it aside. Either direction, because a dismissal
+                // gesture that only works one way is a gesture people
+                // learn once and then get wrong.
+                onHorizontalDragUpdate: (d) =>
+                    setState(() => _slide += d.delta.dx),
+                onHorizontalDragEnd: (_) {
+                  if (_slide.abs() > 60) {
+                    _timer?.cancel();
+                    setState(() => _message = null);
+                  } else {
+                    setState(() => _slide = 0);
+                  }
+                },
+                onTap: () {
+                  _timer?.cancel();
+                  setState(() => _message = null);
+                },
+                child: Transform.translate(
+                  offset: Offset(_slide, 0),
+                  child: Opacity(
+                    opacity: (1 - (_slide.abs() / 160))
+                        .clamp(0.0, 1.0)
+                        .toDouble(),
+                    child: _Pill(message: message, offline: _offline),
+                  ),
+                ),
               ),
             ),
           ),
@@ -67,22 +116,13 @@ class _ConnectionBannerState extends State<ConnectionBanner> {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.reconnecting, required this.offline});
+  const _Pill({required this.message, required this.offline});
 
-  final bool reconnecting;
+  final String message;
   final bool offline;
 
   @override
   Widget build(BuildContext context) {
-    final label = !offline
-        ? 'Back online'
-        : reconnecting
-        ? 'Reconnecting'
-        : 'No connection to the server';
-    final detail = !offline
-        ? 'The server is answering again'
-        : 'Changes will not save until it answers';
-
     return BrutSurface(
       fill: offline ? AppColors.coral : AppColors.mint,
       radius: AppRadius.pill,
@@ -91,18 +131,16 @@ class _Pill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ConnectionDot(size: 10, ringColor: null),
-          const SizedBox(width: 8),
-          Text(label, style: AppText.buttonLabel.copyWith(fontSize: 12.5)),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              detail,
-              style: AppText.caption.copyWith(color: AppColors.ink),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.ink,
+              shape: BoxShape.circle,
             ),
           ),
+          const SizedBox(width: 8),
+          Text(message, style: AppText.buttonLabel.copyWith(fontSize: 12.5)),
         ],
       ),
     );

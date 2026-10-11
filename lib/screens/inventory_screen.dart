@@ -45,6 +45,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             )
           : null,
       topBar: AppHeader(
+        onBack: () => Navigator.of(context).maybePop(),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),

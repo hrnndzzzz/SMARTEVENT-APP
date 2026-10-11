@@ -61,10 +61,7 @@ class EventsHubScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    child: _CreateBand(
-                      canPropose: canPropose,
-                      latest: latest,
-                    ),
+                    child: _CreateBand(canPropose: canPropose, latest: latest),
                   ),
                   Expanded(
                     child: _Band(
@@ -78,9 +75,7 @@ class EventsHubScreen extends StatelessWidget {
                       tone: BrutTone.violet,
                       count: app.events.length,
                       onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const EventsScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const EventsScreen()),
                       ),
                     ),
                   ),
@@ -133,36 +128,35 @@ class _CreateBand extends StatelessWidget {
     }
     return switch (event.status) {
       EventApprovalStatus.draft => (
-          BrutTone.neutral,
-          'Draft — not submitted',
-          event.title,
-        ),
+        BrutTone.neutral,
+        'Draft — not submitted',
+        event.title,
+      ),
       EventApprovalStatus.pendingAdviser => (
-          BrutTone.sun,
-          'With the adviser',
-          event.title,
-        ),
+        BrutTone.sun,
+        'With the adviser',
+        event.title,
+      ),
       EventApprovalStatus.pendingAdmin => (
-          BrutTone.sun,
-          'With the admin',
-          event.title,
-        ),
+        BrutTone.sun,
+        'With the admin',
+        event.title,
+      ),
       EventApprovalStatus.rejected => (
-          BrutTone.coral,
-          'Came back — needs changes',
-          event.title,
-        ),
+        BrutTone.coral,
+        'Came back — needs changes',
+        event.title,
+      ),
       EventApprovalStatus.approved ||
-      EventApprovalStatus.completed =>
-        (BrutTone.mint, 'Approved', event.title),
+      EventApprovalStatus.completed => (BrutTone.mint, 'Approved', event.title),
     };
   }
 
   void _open(BuildContext context) {
     if (!canPropose) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CreateEventScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CreateEventScreen()));
   }
 
   @override

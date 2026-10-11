@@ -12,6 +12,7 @@ import 'screens/home_screen.dart';
 import 'screens/proposal_letters_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
+import 'widgets/page_indicator.dart';
 
 void main() {
   runApp(const SmartEventApp());
@@ -174,13 +175,28 @@ class _RootShellState extends State<RootShell> {
         if (!didPop) _toDashboard();
       },
       child: Scaffold(
-        body: PageView(
-          controller: _pages,
-          onPageChanged: (i) => setState(() => _page = i),
+        body: Column(
           children: [
-            MenuPanel(onClose: _toDashboard),
-            const HomeScreen(),
-            const EventsHubScreen(),
+            Expanded(
+              child: PageView(
+                controller: _pages,
+                onPageChanged: (i) => setState(() => _page = i),
+                children: [
+                  MenuPanel(onClose: _toDashboard),
+                  const HomeScreen(),
+                  const EventsHubScreen(),
+                ],
+              ),
+            ),
+            PageIndicator(
+              current: _page,
+              labels: const ['Menu', 'Dashboard', 'Events'],
+              onGo: (i) => _pages.animateToPage(
+                i,
+                duration: AppMotion.sheet,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
           ],
         ),
       ),

@@ -68,15 +68,13 @@ class MenuPanel extends StatelessWidget {
             Expanded(
               child: ListView.builder(
                 padding: EdgeInsets.only(
-                  bottom: MediaQuery.viewPaddingOf(context).bottom +
+                  bottom:
+                      MediaQuery.viewPaddingOf(context).bottom +
                       AppLayout.section,
                 ),
                 itemCount: areas.length,
-                itemBuilder: (context, i) => _Band(
-                  area: areas[i],
-                  index: i + 1,
-                  app: app,
-                ),
+                itemBuilder: (context, i) =>
+                    _Band(area: areas[i], index: i + 1, app: app),
               ),
             ),
           ],
@@ -100,8 +98,8 @@ class _Band extends StatelessWidget {
     final on = context.foregroundOn(fill);
 
     return GestureDetector(
-      onTap: () => Navigator.of(context)
-          .push(MaterialPageRoute(builder: area.builder)),
+      onTap: () =>
+          Navigator.of(context).push(MaterialPageRoute(builder: area.builder)),
       behavior: HitTestBehavior.opaque,
       child: Semantics(
         label: area.title,

@@ -23,8 +23,18 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   static const _months = [
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
   ];
   static const _days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -48,9 +58,9 @@ class HomeScreen extends StatelessWidget {
 
     return BrutScreen(
       topBar: AppHeader(
-        onBellTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-        ),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       bottomPadding: AppLayout.section,
       child: Column(
@@ -68,8 +78,13 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: AppLayout.section),
 
           // The hero: what is left, beside the two numbers that explain it.
-          SizedBox(
-            height: 168,
+          //
+          // No fixed height. It used to be pinned at 168, which fitted at
+          // 100% text and overflowed by three pixels on a phone with
+          // larger system type — a bug nobody sees until it is on someone
+          // else's device. IntrinsicHeight lets the tiles size themselves
+          // and the card match them.
+          IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -93,6 +108,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(height: AppLayout.section),
                         MonoLabel(
                           'Remaining budget',
                           color: context.palette.canvas,
@@ -106,23 +122,20 @@ class HomeScreen extends StatelessWidget {
                   flex: 2,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: _Tile(
-                          value: '${app.pendingExpenses.length}',
-                          label: 'Awaiting review',
-                          tone: app.pendingExpenses.isEmpty
-                              ? BrutTone.neutral
-                              : BrutTone.orange,
-                        ),
+                      _Tile(
+                        value: '${app.pendingExpenses.length}',
+                        label: 'Awaiting review',
+                        tone: app.pendingExpenses.isEmpty
+                            ? BrutTone.neutral
+                            : BrutTone.orange,
                       ),
                       const SizedBox(height: AppLayout.between),
-                      Expanded(
-                        child: _Tile(
-                          value: '${(used * 100).round()}%',
-                          label: 'Of budget used',
-                          tone: used >= 1 ? BrutTone.coral : BrutTone.neutral,
-                        ),
+                      _Tile(
+                        value: '${(used * 100).round()}%',
+                        label: 'Of budget used',
+                        tone: used >= 1 ? BrutTone.coral : BrutTone.neutral,
                       ),
                     ],
                   ),
@@ -185,9 +198,9 @@ class HomeScreen extends StatelessWidget {
               icon: Icons.document_scanner_outlined,
               tone: BrutTone.orange,
               size: BrutSize.large,
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ScannerScreen()),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
             ),
             const SizedBox(height: AppLayout.between),
           ],
@@ -203,8 +216,9 @@ class HomeScreen extends StatelessWidget {
             onTap: () {
               final area = areaById('dashboard');
               if (area != null) {
-                Navigator.of(context)
-                    .push(MaterialPageRoute(builder: area.builder));
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: area.builder));
               }
             },
           ),
@@ -215,11 +229,7 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({
-    required this.value,
-    required this.label,
-    required this.tone,
-  });
+  const _Tile({required this.value, required this.label, required this.tone});
 
   final String value;
   final String label;
@@ -233,13 +243,17 @@ class _Tile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         children: [
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(value, style: AppText.moneyLarge.copyWith(fontSize: 24)),
+            child: Text(
+              value,
+              style: AppText.moneyLarge.copyWith(fontSize: 24),
+            ),
           ),
+          const SizedBox(height: 6),
           MonoLabel(label, fontSize: 9),
         ],
       ),
@@ -265,7 +279,10 @@ class _Stat extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(value, style: AppText.moneyLarge.copyWith(fontSize: 19)),
+            child: Text(
+              value,
+              style: AppText.moneyLarge.copyWith(fontSize: 19),
+            ),
           ),
           const SizedBox(height: 4),
           MonoLabel(label, fontSize: 9),
@@ -352,10 +369,7 @@ class AlertWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        BrutSectionTitle(
-          'Needs you',
-          aside: MonoLabel('${items.length}'),
-        ),
+        BrutSectionTitle('Needs you', aside: MonoLabel('${items.length}')),
         const SizedBox(height: AppLayout.between),
         for (var i = 0; i < shown.length; i++) ...[
           BrutListRow(
@@ -368,8 +382,9 @@ class AlertWidget extends StatelessWidget {
             onTap: () {
               final area = areaById(shown[i].where);
               if (area != null) {
-                Navigator.of(context)
-                    .push(MaterialPageRoute(builder: area.builder));
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: area.builder));
               }
             },
           ),

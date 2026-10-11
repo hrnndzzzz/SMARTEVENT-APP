@@ -4,6 +4,8 @@ import '../state/app_state.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../widgets/app_header.dart';
+import 'notifications_screen.dart';
 import '../widgets/scope_picker.dart';
 
 /// Roster, accounts and audit.
@@ -47,15 +49,20 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     return BrutScreen(
-      header: BrutHeader(
-        title: 'Administration',
+      topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const SizedBox(height: AppLayout.contentPadding),
+          const Text('Administration', style: AppText.titleBig),
+          const SizedBox(height: AppLayout.between),
           Row(
             children: [
               for (final (i, label) in const [

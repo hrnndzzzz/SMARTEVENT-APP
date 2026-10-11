@@ -31,51 +31,55 @@ class EventApprovalsScreen extends StatelessWidget {
     List<EventItem> of(EventApprovalStatus status) =>
         events.where((e) => e.status == status).toList();
 
-    final groups = <({
-      String title,
-      String blurb,
-      EventApprovalStatus status,
-      List<EventItem> items,
-    })>[
-      (
-        title: 'With the adviser',
-        blurb: 'Stage one of two. Only an adviser can move these.',
-        status: EventApprovalStatus.pendingAdviser,
-        items: of(EventApprovalStatus.pendingAdviser),
-      ),
-      (
-        title: 'With the admin',
-        blurb: 'Stage two. The adviser has already said yes.',
-        status: EventApprovalStatus.pendingAdmin,
-        items: of(EventApprovalStatus.pendingAdmin),
-      ),
-      (
-        title: 'Came back',
-        blurb: 'Rejected, with remarks. Editable and resubmittable.',
-        status: EventApprovalStatus.rejected,
-        items: of(EventApprovalStatus.rejected),
-      ),
-      (
-        title: 'Approved',
-        blurb: 'Through both stages.',
-        status: EventApprovalStatus.approved,
-        items: of(EventApprovalStatus.approved),
-      ),
-      (
-        title: 'Completed',
-        blurb: 'The settled end state. The backend sets this, not the app.',
-        status: EventApprovalStatus.completed,
-        items: of(EventApprovalStatus.completed),
-      ),
-      (
-        title: 'Not submitted',
-        blurb: 'Drafts. Nobody is waiting on these yet.',
-        status: EventApprovalStatus.draft,
-        items: of(EventApprovalStatus.draft),
-      ),
-    ];
+    final groups =
+        <
+          ({
+            String title,
+            String blurb,
+            EventApprovalStatus status,
+            List<EventItem> items,
+          })
+        >[
+          (
+            title: 'With the adviser',
+            blurb: 'Stage one of two. Only an adviser can move these.',
+            status: EventApprovalStatus.pendingAdviser,
+            items: of(EventApprovalStatus.pendingAdviser),
+          ),
+          (
+            title: 'With the admin',
+            blurb: 'Stage two. The adviser has already said yes.',
+            status: EventApprovalStatus.pendingAdmin,
+            items: of(EventApprovalStatus.pendingAdmin),
+          ),
+          (
+            title: 'Came back',
+            blurb: 'Rejected, with remarks. Editable and resubmittable.',
+            status: EventApprovalStatus.rejected,
+            items: of(EventApprovalStatus.rejected),
+          ),
+          (
+            title: 'Approved',
+            blurb: 'Through both stages.',
+            status: EventApprovalStatus.approved,
+            items: of(EventApprovalStatus.approved),
+          ),
+          (
+            title: 'Completed',
+            blurb: 'The settled end state. The backend sets this, not the app.',
+            status: EventApprovalStatus.completed,
+            items: of(EventApprovalStatus.completed),
+          ),
+          (
+            title: 'Not submitted',
+            blurb: 'Drafts. Nobody is waiting on these yet.',
+            status: EventApprovalStatus.draft,
+            items: of(EventApprovalStatus.draft),
+          ),
+        ];
 
-    final waiting = of(EventApprovalStatus.pendingAdviser).length +
+    final waiting =
+        of(EventApprovalStatus.pendingAdviser).length +
         of(EventApprovalStatus.pendingAdmin).length;
 
     return BrutScreen(
@@ -88,9 +92,11 @@ class EventApprovalsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Summary(waiting: waiting, total: events.length, groups: {
-            for (final g in groups) g.status: g.items.length,
-          }),
+          _Summary(
+            waiting: waiting,
+            total: events.length,
+            groups: {for (final g in groups) g.status: g.items.length},
+          ),
           const SizedBox(height: AppLayout.section),
           if (events.isEmpty)
             const Center(
@@ -216,8 +222,7 @@ class _Group extends StatelessWidget {
               icon: switch (status) {
                 EventApprovalStatus.rejected => Icons.undo,
                 EventApprovalStatus.approved ||
-                EventApprovalStatus.completed =>
-                  Icons.check,
+                EventApprovalStatus.completed => Icons.check,
                 EventApprovalStatus.draft => Icons.edit_outlined,
                 _ => Icons.hourglass_top,
               },

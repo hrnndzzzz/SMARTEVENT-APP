@@ -50,6 +50,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
             )
           : null,
       topBar: AppHeader(
+        onBack: () => Navigator.of(context).maybePop(),
         onBellTap: () => Navigator.of(
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
