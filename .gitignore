@@ -1,17 +1,14 @@
 .env
-.env.*
-!.env.example
+__pycache__/
+*.pyc
 .venv/
 venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.ruff_cache/
-.coverage
-htmlcov/
 .vscode/
 .idea/
-*.log
-tmp/
-supabase/.temp/
+*.egg-info/
+
+# Generated local artifacts
+/tmp/
+node_modules/
+.pytest_cache/
+/supabase/.temp/
