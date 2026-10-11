@@ -57,17 +57,20 @@ class ReceiptService {
     DateTime? issuedOn,
     String? amount,
   }) async {
-    final response = await _client.post('/receipts', body: {
-      if (expenseId != null) 'expense_id': expenseId,
-      if (incomeId != null) 'income_id': incomeId,
-      'receipt_url': receiptUrl,
-      'purpose': purpose,
-      if (merchant != null) 'merchant': merchant,
-      if (receiptNumber != null) 'receipt_number': receiptNumber,
-      if (issuedOn != null)
-        'issued_on': issuedOn.toIso8601String().split('T').first,
-      if (amount != null) 'amount': amount,
-    });
+    final response = await _client.post(
+      '/receipts',
+      body: {
+        if (expenseId != null) 'expense_id': expenseId,
+        if (incomeId != null) 'income_id': incomeId,
+        'receipt_url': receiptUrl,
+        'purpose': purpose,
+        if (merchant != null) 'merchant': merchant,
+        if (receiptNumber != null) 'receipt_number': receiptNumber,
+        if (issuedOn != null)
+          'issued_on': issuedOn.toIso8601String().split('T').first,
+        if (amount != null) 'amount': amount,
+      },
+    );
     return Receipt.fromJson(response as Map<String, dynamic>);
   }
 
@@ -105,10 +108,10 @@ class ReceiptService {
     required ReceiptDecision decision,
     required String reason,
   }) async {
-    final response = await _client.post('/receipts/$receiptId/review', body: {
-      'decision': decision.wireName,
-      'reason': reason,
-    });
+    final response = await _client.post(
+      '/receipts/$receiptId/review',
+      body: {'decision': decision.wireName, 'reason': reason},
+    );
     return Receipt.fromJson(response as Map<String, dynamic>);
   }
 

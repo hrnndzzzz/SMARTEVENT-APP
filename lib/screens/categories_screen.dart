@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'notifications_screen.dart';
+import '../theme/peso.dart';
 
 /// Categories — full CRUD, which `FRONTEND_README.md` §4 makes mandatory:
 /// a list-only screen does not count as complete for a module that also
@@ -231,7 +232,7 @@ class _Figure extends StatelessWidget {
           MonoLabel(label),
           const SizedBox(height: 4),
           Text(
-            '₱${value.toStringAsFixed(2)}',
+            '${peso(value)}',
             style: AppText.number,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

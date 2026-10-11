@@ -30,6 +30,7 @@ import '../api/models/remote_expense.dart';
 import '../api/models/registration_result.dart';
 import '../api/models/user_profile.dart';
 import 'user_role.dart';
+import '../theme/peso.dart';
 
 // Semester, EventScope and SchoolYear are part of the event vocabulary the
 // screens work in, so they are re-exported alongside UserRole rather than
@@ -106,7 +107,14 @@ export 'user_role.dart';
 ///
 /// There is no route that sets `completed` — the backend does it. Never
 /// offer a Complete button or PATCH the status to fake one.
-enum EventApprovalStatus { draft, pendingAdviser, pendingAdmin, approved, rejected, completed }
+enum EventApprovalStatus {
+  draft,
+  pendingAdviser,
+  pendingAdmin,
+  approved,
+  rejected,
+  completed,
+}
 
 extension EventApprovalStatusInfo on EventApprovalStatus {
   /// Still being written — not yet in anyone's review queue.
@@ -129,7 +137,8 @@ extension EventApprovalStatusInfo on EventApprovalStatus {
 }
 
 class EventItem {
-  String? remoteId; // real backend UUID, null for locally-created-not-yet-synced events
+  String?
+  remoteId; // real backend UUID, null for locally-created-not-yet-synced events
   String title;
   String org;
   String date;
@@ -218,7 +227,8 @@ enum Department { systemWide, cite, cithm, cbea, camp, case_ }
 /// Maps a real department code (as the backend stores it) onto the theme
 /// palette. Unknown codes fall back to the neutral system colour rather
 /// than borrowing another college's.
-Department themeDepartmentForCode(String? code) => switch (code?.toUpperCase()) {
+Department themeDepartmentForCode(String? code) =>
+    switch (code?.toUpperCase()) {
       'CITE' => Department.cite,
       'CITHM' => Department.cithm,
       'CBEA' => Department.cbea,
@@ -389,7 +399,7 @@ class AppState extends ChangeNotifier {
   /// [reachability], when given, is told whether the backend answered
   /// after every request. Optional so a test can build a plain AppState.
   AppState({Reachability? reachability})
-      : _apiClient = ApiClient(onReachability: reachability?.report);
+    : _apiClient = ApiClient(onReachability: reachability?.report);
 
   /// Turns anything thrown by the API layer into one user-facing message,
   /// keeping the three cases distinct on purpose:
@@ -431,8 +441,9 @@ class AppState extends ChangeNotifier {
 
   // ---- Notifications -----------------------------------------------------
 
-  late final NotificationService _noticeService =
-      NotificationService(_apiClient);
+  late final NotificationService _noticeService = NotificationService(
+    _apiClient,
+  );
 
   /// The signed-in user's inbox, from the backend.
   List<AppNotice> notices = [];
@@ -444,9 +455,9 @@ class AppState extends ChangeNotifier {
   int unreadNoticeCount = 0;
 
   Future<void> loadNotices() => _runLoad(noticesLoad, () async {
-        notices = await _noticeService.list();
-        unreadNoticeCount = notices.where((n) => n.isUnread).length;
-      });
+    notices = await _noticeService.list();
+    unreadNoticeCount = notices.where((n) => n.isUnread).length;
+  });
 
   /// Refreshes just the badge. Safe to call often; failures are ignored
   /// because a stale badge must never block a screen.
@@ -464,7 +475,8 @@ class AppState extends ChangeNotifier {
     try {
       final updated = await _noticeService.markRead(notice.id);
       notices = [
-        for (final n in notices) if (n.id == updated.id) updated else n,
+        for (final n in notices)
+          if (n.id == updated.id) updated else n,
       ];
       unreadNoticeCount = notices.where((n) => n.isUnread).length;
       notifyListeners();
@@ -488,16 +500,16 @@ class AppState extends ChangeNotifier {
   final LoadState auditLoad = LoadState();
 
   Future<void> loadRoster() => _runLoad(rosterLoad, () async {
-        roster = await _adminService.roster();
-      });
+    roster = await _adminService.roster();
+  });
 
   Future<void> loadManagedUsers() => _runLoad(usersLoad, () async {
-        managedUsers = await _adminService.users();
-      });
+    managedUsers = await _adminService.users();
+  });
 
   Future<void> loadAuditLog() => _runLoad(auditLoad, () async {
-        auditLog = await _adminService.auditLog();
-      });
+    auditLog = await _adminService.auditLog();
+  });
 
   /// Roster entries nobody has registered against yet — the only ones that
   /// can still be edited freely or removed.
@@ -543,7 +555,8 @@ class AppState extends ChangeNotifier {
         organizationId: organizationId,
       );
       roster = [
-        for (final r in roster) if (r.id == updated.id) updated else r,
+        for (final r in roster)
+          if (r.id == updated.id) updated else r,
       ];
       notifyListeners();
       return null;
@@ -574,8 +587,10 @@ class AppState extends ChangeNotifier {
       return 'You cannot change your own access.';
     }
     try {
-      final updated =
-          await _adminService.updateAccess(user.id, isSuspended: suspended);
+      final updated = await _adminService.updateAccess(
+        user.id,
+        isSuspended: suspended,
+      );
       _replaceUser(updated);
       return null;
     } catch (error) {
@@ -682,7 +697,8 @@ class AppState extends ChangeNotifier {
 
   void _replaceUser(ManagedUser updated) {
     managedUsers = [
-      for (final u in managedUsers) if (u.id == updated.id) updated else u,
+      for (final u in managedUsers)
+        if (u.id == updated.id) updated else u,
     ];
     notifyListeners();
   }
@@ -705,13 +721,13 @@ class AppState extends ChangeNotifier {
   final LoadState flaggedLoad = LoadState();
 
   Future<void> loadDashboard() => _runLoad(dashboardLoad, () async {
-        dashboard = await _reportsService.dashboard();
-        spendingTrends = await _reportsService.spendingTrends();
-      });
+    dashboard = await _reportsService.dashboard();
+    spendingTrends = await _reportsService.spendingTrends();
+  });
 
   Future<void> loadFlaggedExpenses() => _runLoad(flaggedLoad, () async {
-        flaggedExpenses = await _reportsService.flagged();
-      });
+    flaggedExpenses = await _reportsService.flagged();
+  });
 
   /// The consolidated report currently on screen, and the filters that
   /// produced it — kept together so an export cannot be built from
@@ -727,10 +743,10 @@ class AppState extends ChangeNotifier {
 
   /// Returns a message when the current filters are incomplete, or null.
   String? get reportFilterProblem => ReportsService.validateFinancialRequest(
-        period: reportPeriod,
-        schoolYear: reportSchoolYear,
-        semester: reportSemester,
-      );
+    period: reportPeriod,
+    schoolYear: reportSchoolYear,
+    semester: reportSemester,
+  );
 
   void setReportFilters({
     ReportPeriod? period,
@@ -812,15 +828,16 @@ class AppState extends ChangeNotifier {
 
   // ---- Proposal letters --------------------------------------------------
 
-  late final ProposalLetterService _letterService =
-      ProposalLetterService(_apiClient);
+  late final ProposalLetterService _letterService = ProposalLetterService(
+    _apiClient,
+  );
 
   List<ProposalLetter> letters = [];
   final LoadState lettersLoad = LoadState();
 
   Future<void> loadLetters() => _runLoad(lettersLoad, () async {
-        letters = await _letterService.list();
-      });
+    letters = await _letterService.list();
+  });
 
   /// Uploads a letter. [bytes] rather than a path so this works on web too.
   Future<String?> uploadLetter({
@@ -874,12 +891,12 @@ class AppState extends ChangeNotifier {
   bool catalogMissingEventOnly = false;
 
   Future<void> loadCatalog() => _runLoad(catalogLoad, () async {
-        catalog = await _inventoryService.list(
-          isDraft: catalogDraftFilter,
-          eventId: catalogEventFilter,
-          missingEvent: catalogMissingEventOnly,
-        );
-      });
+    catalog = await _inventoryService.list(
+      isDraft: catalogDraftFilter,
+      eventId: catalogEventFilter,
+      missingEvent: catalogMissingEventOnly,
+    );
+  });
 
   Future<void> applyCatalogFilter({
     bool? isDraft,
@@ -1044,7 +1061,8 @@ class AppState extends ChangeNotifier {
 
   void _replaceCatalogItem(RemoteInventoryItem updated) {
     catalog = [
-      for (final i in catalog) if (i.id == updated.id) updated else i,
+      for (final i in catalog)
+        if (i.id == updated.id) updated else i,
     ];
     notifyListeners();
   }
@@ -1060,8 +1078,8 @@ class AppState extends ChangeNotifier {
   String? incomeEventFilter;
 
   Future<void> loadIncomes() => _runLoad(incomesLoad, () async {
-        incomes = await _incomeService.list(eventId: incomeEventFilter);
-      });
+    incomes = await _incomeService.list(eventId: incomeEventFilter);
+  });
 
   Future<void> applyIncomeFilter({String? eventId}) async {
     incomeEventFilter = eventId;
@@ -1071,9 +1089,8 @@ class AppState extends ChangeNotifier {
 
   /// Income that counts toward totals — everything whose receipt is not
   /// pending or rejected.
-  double get countedIncomeTotal => incomes
-      .where((i) => !i.isWithheld)
-      .fold(0.0, (sum, i) => sum + i.amount);
+  double get countedIncomeTotal =>
+      incomes.where((i) => !i.isWithheld).fold(0.0, (sum, i) => sum + i.amount);
 
   /// Recorded but excluded, pending a receipt decision. Shown separately
   /// rather than folded into the total or hidden.
@@ -1084,7 +1101,8 @@ class AppState extends ChangeNotifier {
   Map<FundSource, double> get incomeBySource {
     final totals = <FundSource, double>{};
     for (final income in incomes.where((i) => !i.isWithheld)) {
-      totals[income.sourceType] = (totals[income.sourceType] ?? 0) + income.amount;
+      totals[income.sourceType] =
+          (totals[income.sourceType] ?? 0) + income.amount;
     }
     return totals;
   }
@@ -1131,12 +1149,12 @@ class AppState extends ChangeNotifier {
   bool receiptFlaggedOnly = false;
 
   Future<void> loadReceipts() => _runLoad(receiptsLoad, () async {
-        receipts = await _receiptService.list(
-          eventId: receiptEventFilter,
-          flaggedOnly: receiptFlaggedOnly,
-          reviewStatus: receiptStatusFilter,
-        );
-      });
+    receipts = await _receiptService.list(
+      eventId: receiptEventFilter,
+      flaggedOnly: receiptFlaggedOnly,
+      reviewStatus: receiptStatusFilter,
+    );
+  });
 
   Future<void> applyReceiptFilter({
     String? eventId,
@@ -1227,7 +1245,8 @@ class AppState extends ChangeNotifier {
         reason: reason.trim(),
       );
       receipts = [
-        for (final r in receipts) if (r.id == reviewed.id) reviewed else r,
+        for (final r in receipts)
+          if (r.id == reviewed.id) reviewed else r,
       ];
       notifyListeners();
       return null;
@@ -1270,7 +1289,8 @@ class AppState extends ChangeNotifier {
 
   /// Organizations belonging to [departmentId], since an organization is
   /// only valid within its own department.
-  List<RemoteOrganization> organizationsIn(String? departmentId) => departmentId == null
+  List<RemoteOrganization> organizationsIn(String? departmentId) =>
+      departmentId == null
       ? const []
       : organizations.where((o) => o.departmentId == departmentId).toList();
 
@@ -1278,14 +1298,21 @@ class AppState extends ChangeNotifier {
   final LoadState eventsLoad = LoadState();
   final LoadState expensesLoad = LoadState();
 
-  List<LoadState> get _moduleLoads => [categoriesLoad, eventsLoad, expensesLoad];
+  List<LoadState> get _moduleLoads => [
+    categoriesLoad,
+    eventsLoad,
+    expensesLoad,
+  ];
 
   bool get isLoadingAnyModule => _moduleLoads.any((s) => s.isLoading);
 
   /// Distinct failure messages across every module, for a single summary
   /// banner or snackbar. Empty when everything loaded.
-  List<String> get loadFailures =>
-      _moduleLoads.where((s) => s.hasFailed).map((s) => s.error!).toSet().toList();
+  List<String> get loadFailures => _moduleLoads
+      .where((s) => s.hasFailed)
+      .map((s) => s.error!)
+      .toSet()
+      .toList();
 
   /// Any module failed because the session is no longer valid.
   bool get sessionExpired => _moduleLoads.any((s) => s.sessionExpired);
@@ -1296,21 +1323,27 @@ class AppState extends ChangeNotifier {
   /// 4-category mock. Populated after a successful real Sign In.
   List<Category> categories = [];
 
-  Map<String, double> get categoryBudgets => {for (final c in categories) c.name: c.allocatedBudget};
+  Map<String, double> get categoryBudgets => {
+    for (final c in categories) c.name: c.allocatedBudget,
+  };
 
   /// Server-authoritative — comes straight from the database trigger
   /// (fn_deduct_category_balance), not computed locally.
-  Map<String, double> get categoryRemainingBudgets => {for (final c in categories) c.name: c.remainingBudget};
+  Map<String, double> get categoryRemainingBudgets => {
+    for (final c in categories) c.name: c.remainingBudget,
+  };
 
   List<String> get expenseCategories => categories.map((c) => c.name).toList();
 
-  double get totalAllocated => categoryBudgets.values.fold(0.0, (a, b) => a + b);
-  double get remainingBalance => categoryRemainingBudgets.values.fold(0.0, (a, b) => a + b);
+  double get totalAllocated =>
+      categoryBudgets.values.fold(0.0, (a, b) => a + b);
+  double get remainingBalance =>
+      categoryRemainingBudgets.values.fold(0.0, (a, b) => a + b);
   double get totalExpended => totalAllocated - remainingBalance;
 
   Future<void> loadCategories() => _runLoad(categoriesLoad, () async {
-        categories = await _categoryService.list();
-      });
+    categories = await _categoryService.list();
+  });
 
   /// Admin/Super Admin. Returns null on success, or a message to show.
   Future<String?> createCategory({
@@ -1352,7 +1385,8 @@ class AppState extends ChangeNotifier {
         lowBalanceThreshold: lowBalanceThreshold,
       );
       categories = [
-        for (final c in categories) if (c.id == updated.id) updated else c,
+        for (final c in categories)
+          if (c.id == updated.id) updated else c,
       ];
       notifyListeners();
       return null;
@@ -1417,7 +1451,7 @@ class AppState extends ChangeNotifier {
           ? 'No date set'
           : '${remote.eventDate!.month}/${remote.eventDate!.day}/${remote.eventDate!.year}',
       on: remote.eventDate,
-      budget: '₱${remote.allocatedBudget.toStringAsFixed(2)}',
+      budget: '${peso(remote.allocatedBudget)}',
       status: _eventStatusFromString(remote.status),
       schoolYear: remote.schoolYear,
       semester: remote.semester,
@@ -1461,14 +1495,14 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadEvents() => _runLoad(eventsLoad, () async {
-        final remoteEvents = await _eventService.list(
-          schoolYear: schoolYearFilter,
-          missingSchoolYear: showOnlyMissingSchoolYear,
-        );
-        events
-          ..clear()
-          ..addAll(remoteEvents.map(_mapRemoteEvent));
-      });
+    final remoteEvents = await _eventService.list(
+      schoolYear: schoolYearFilter,
+      missingSchoolYear: showOnlyMissingSchoolYear,
+    );
+    events
+      ..clear()
+      ..addAll(remoteEvents.map(_mapRemoteEvent));
+  });
 
   /// Review timeline for one event: who decided what, when, and why.
   ///
@@ -1483,7 +1517,10 @@ class AppState extends ChangeNotifier {
       return (records: null, error: 'This event has no backend record yet.');
     }
     try {
-      return (records: await _eventService.listApprovals(remoteId), error: null);
+      return (
+        records: await _eventService.listApprovals(remoteId),
+        error: null,
+      );
     } catch (error) {
       return (records: null, error: _messageForFailure(error));
     }
@@ -1529,7 +1566,9 @@ class AppState extends ChangeNotifier {
   /// Category name isn't on RemoteExpense directly (only category_id) —
   /// resolve it via the already-loaded categories list.
   ExpenseEntry _mapRemoteExpense(RemoteExpense remote) {
-    final categoryName = categories.where((c) => c.id == remote.categoryId).firstOrNull?.name ?? 'Unknown';
+    final categoryName =
+        categories.where((c) => c.id == remote.categoryId).firstOrNull?.name ??
+        'Unknown';
     return ExpenseEntry(
       remoteId: remote.id,
       vendor: remote.description,
@@ -1541,23 +1580,32 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadExpenses() => _runLoad(expensesLoad, () async {
-        final remoteExpenses = await _expenseService.list();
-        expenses
-          ..clear()
-          ..addAll(remoteExpenses.map(_mapRemoteExpense));
-      });
+    final remoteExpenses = await _expenseService.list();
+    expenses
+      ..clear()
+      ..addAll(remoteExpenses.map(_mapRemoteExpense));
+  });
+
   /// Admin-only. Creates the category if it doesn't exist yet by name,
   /// otherwise updates its allocated budget. Returns null on success,
   /// or an error message.
   Future<String?> setCategoryBudget(String categoryName, double amount) async {
     try {
-      final existing = categories.where((c) => c.name == categoryName).firstOrNull;
+      final existing = categories
+          .where((c) => c.name == categoryName)
+          .firstOrNull;
       if (existing != null) {
-        final updated = await _categoryService.update(existing.id, allocatedBudget: amount);
+        final updated = await _categoryService.update(
+          existing.id,
+          allocatedBudget: amount,
+        );
         final index = categories.indexWhere((c) => c.id == existing.id);
         categories[index] = updated;
       } else {
-        final created = await _categoryService.create(name: categoryName, allocatedBudget: amount);
+        final created = await _categoryService.create(
+          name: categoryName,
+          allocatedBudget: amount,
+        );
         categories.add(created);
       }
       notifyListeners();
@@ -1567,12 +1615,12 @@ class AppState extends ChangeNotifier {
     }
   }
 
-    /// Filled from the backend by loadExpenses. Empty until then, so a
+  /// Filled from the backend by loadExpenses. Empty until then, so a
   /// screen never shows invented rows that look like real spending.
   final List<ExpenseEntry> expenses = [];
 
   List<String> get expenseLog =>
-      expenses.map((e) => '${e.vendor} · -₱${e.amount.toStringAsFixed(2)}').toList();
+      expenses.map((e) => '${e.vendor} · -${peso(e.amount)}').toList();
 
   /// Returns null on success, or an error message. [categoryName]
   /// must match a real category's name — resolved to its real ID here.
@@ -1710,8 +1758,14 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<String?> logExpense(String vendor, double amount, {required String categoryName}) async {
-    final category = categories.where((c) => c.name == categoryName).firstOrNull;
+  Future<String?> logExpense(
+    String vendor,
+    double amount, {
+    required String categoryName,
+  }) async {
+    final category = categories
+        .where((c) => c.name == categoryName)
+        .firstOrNull;
     if (category == null) return 'Please select a valid category.';
 
     try {
@@ -1746,8 +1800,13 @@ class AppState extends ChangeNotifier {
   /// Returns null on success, or an error message — including the
   /// real budget-guard block, now enforced server-side (and checked
   /// against BOTH the category and the linked event's budget, if any).
-  Future<String?> approveExpense(ExpenseEntry expense, {required String reviewerRole, String? note}) async {
-    if (expense.remoteId == null) return 'This expense has no real backend record yet.';
+  Future<String?> approveExpense(
+    ExpenseEntry expense, {
+    required String reviewerRole,
+    String? note,
+  }) async {
+    if (expense.remoteId == null)
+      return 'This expense has no real backend record yet.';
     try {
       // The reviewer's note is part of the decision record, so it goes to
       // the backend rather than only being kept on the local object.
@@ -1771,8 +1830,13 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<String?> rejectExpense(ExpenseEntry expense, {required String reviewerRole, String? note}) async {
-    if (expense.remoteId == null) return 'This expense has no real backend record yet.';
+  Future<String?> rejectExpense(
+    ExpenseEntry expense, {
+    required String reviewerRole,
+    String? note,
+  }) async {
+    if (expense.remoteId == null)
+      return 'This expense has no real backend record yet.';
     try {
       final updated = await _expenseService.reject(
         expense.remoteId!,
@@ -1788,7 +1852,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-    /// Filled from the backend by loadEvents.
+  /// Filled from the backend by loadEvents.
   final List<EventItem> events = [];
 
   /// Returns null on success, or an error message. Creates a real
@@ -1831,8 +1895,9 @@ class AppState extends ChangeNotifier {
         departmentId: departmentId,
         organizationId: organizationId,
       );
-      final submitted =
-          submitNow ? await _eventService.submit(created.id) : created;
+      final submitted = submitNow
+          ? await _eventService.submit(created.id)
+          : created;
 
       final mapped = _mapRemoteEvent(submitted);
       events.insert(0, mapped);
@@ -1868,17 +1933,18 @@ class AppState extends ChangeNotifier {
   /// backend's real Edit Proposal flow: PATCH the edited fields, then
   /// submit() to actually transition the status server-side.
   Future<String?> resubmitEvent(
-      EventItem event, {
-        required String title,
-        String? description,
-        DateTime? eventDate,
-        double? estimatedCost,
-        double? allocatedBudget,
-        String? schoolYear,
-        Semester? semester,
-        EventScope? eventScope,
-      }) async {
-    if (event.remoteId == null) return 'This event has no real backend record yet.';
+    EventItem event, {
+    required String title,
+    String? description,
+    DateTime? eventDate,
+    double? estimatedCost,
+    double? allocatedBudget,
+    String? schoolYear,
+    Semester? semester,
+    EventScope? eventScope,
+  }) async {
+    if (event.remoteId == null)
+      return 'This event has no real backend record yet.';
     try {
       await _eventService.update(
         event.remoteId!,
@@ -1906,29 +1972,42 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  List<EventItem> get pendingAdviserEvents =>
-      events.where((e) => e.status == EventApprovalStatus.pendingAdviser).toList();
+  List<EventItem> get pendingAdviserEvents => events
+      .where((e) => e.status == EventApprovalStatus.pendingAdviser)
+      .toList();
 
-  List<EventItem> get pendingAdminEvents =>
-      events.where((e) => e.status == EventApprovalStatus.pendingAdmin).toList();
+  List<EventItem> get pendingAdminEvents => events
+      .where((e) => e.status == EventApprovalStatus.pendingAdmin)
+      .toList();
 
   List<EventItem> get adviserHandledEvents => events
-      .where((e) =>
-  e.adviserApprovalNote != null ||
-      e.status == EventApprovalStatus.pendingAdmin ||
-      e.status == EventApprovalStatus.approved ||
-      (e.status == EventApprovalStatus.rejected && e.rejectedBy == 'Adviser'))
+      .where(
+        (e) =>
+            e.adviserApprovalNote != null ||
+            e.status == EventApprovalStatus.pendingAdmin ||
+            e.status == EventApprovalStatus.approved ||
+            (e.status == EventApprovalStatus.rejected &&
+                e.rejectedBy == 'Adviser'),
+      )
       .toList();
 
   List<EventItem> get adminHandledEvents => events
-      .where((e) =>
-  e.status == EventApprovalStatus.approved ||
-      (e.status == EventApprovalStatus.rejected && e.rejectedBy == 'Admin'))
+      .where(
+        (e) =>
+            e.status == EventApprovalStatus.approved ||
+            (e.status == EventApprovalStatus.rejected &&
+                e.rejectedBy == 'Admin'),
+      )
       .toList();
 
   /// Returns null on success, or an error message.
-  Future<String?> adviserDecision(EventItem event, {required bool approved, String? note}) async {
-    if (event.remoteId == null) return 'This event has no real backend record yet.';
+  Future<String?> adviserDecision(
+    EventItem event, {
+    required bool approved,
+    String? note,
+  }) async {
+    if (event.remoteId == null)
+      return 'This event has no real backend record yet.';
     try {
       final RemoteEvent updated = approved
           ? await _eventService.approve(event.remoteId!, remarks: note)
@@ -1946,8 +2025,13 @@ class AppState extends ChangeNotifier {
   }
 
   /// Returns null on success, or an error message.
-  Future<String?> adminDecision(EventItem event, {required bool approved, String? note}) async {
-    if (event.remoteId == null) return 'This event has no real backend record yet.';
+  Future<String?> adminDecision(
+    EventItem event, {
+    required bool approved,
+    String? note,
+  }) async {
+    if (event.remoteId == null)
+      return 'This event has no real backend record yet.';
     try {
       final RemoteEvent updated = approved
           ? await _eventService.approve(event.remoteId!, remarks: note)
@@ -2010,7 +2094,10 @@ class AppState extends ChangeNotifier {
     required String otpCode,
   }) async {
     try {
-      final result = await _authService.verifyOtp(email: email, otpCode: otpCode);
+      final result = await _authService.verifyOtp(
+        email: email,
+        otpCode: otpCode,
+      );
       return (result: result, error: null);
     } catch (error) {
       return (result: null, error: _messageForFailure(error));
@@ -2227,7 +2314,10 @@ class AppState extends ChangeNotifier {
   /// are deliberately not allowed to fail the sign-in: being signed in and
   /// having the dashboard's data are separate things, and their outcome is
   /// reported through [loadFailures] instead.
-  Future<String?> signIn({required String email, required String password}) async {
+  Future<String?> signIn({
+    required String email,
+    required String password,
+  }) async {
     try {
       await _authService.login(email: email, password: password);
 
@@ -2262,6 +2352,7 @@ class AppState extends ChangeNotifier {
       return _messageForFailure(error);
     }
   }
+
   /// pang shortcut sa login kasi tinatamad na ko mag type all the time
   void devQuickLogin(UserRole role) {
     final testEmail = 'test.${role.name}@dev.local';

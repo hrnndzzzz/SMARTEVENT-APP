@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/brut_date_picker.dart';
+import '../theme/peso.dart';
 
 /// Record Payment and Delivery — the step that turns approved asset lines
 /// into stock.
@@ -200,7 +201,7 @@ class _CompletePurchaseScreenState extends State<CompletePurchaseScreen> {
           const SizedBox(height: 6),
           Text(
             'Must equal the expense total of '
-            '₱${widget.expense.amount.toStringAsFixed(2)}.',
+            '${peso(widget.expense.amount)}.',
             style: AppText.caption,
           ),
           const SizedBox(height: 14),
@@ -288,7 +289,7 @@ class _LineConfirmation extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text('₱${line.amount.toStringAsFixed(2)}', style: AppText.number),
+              Text('${peso(line.amount)}', style: AppText.number),
             ],
           ),
           const SizedBox(height: 12),

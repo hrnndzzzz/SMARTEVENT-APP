@@ -8,6 +8,7 @@ import '../theme/palette.dart';
 import '../widgets/brut_date_picker.dart';
 import '../widgets/month_grid.dart';
 import '../widgets/scope_picker.dart';
+import '../theme/peso.dart';
 
 class CreateEventScreen extends StatefulWidget {
   final EventItem? existingEvent;
@@ -66,7 +67,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     });
     _nameController = TextEditingController(text: e?.title ?? '');
     _budgetController = TextEditingController(
-      text: e?.budget.replaceAll('₱', '') ?? '',
+      text: e?.budget == null
+          ? ''
+          : (parsePeso(e!.budget)?.toStringAsFixed(2) ?? ''),
     );
   }
 
@@ -131,7 +134,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         : '${monthNames[_pickedDate!.month - 1].substring(0, 3)} '
               '${_pickedDate!.day}, ${_pickedDate!.year}';
     final budgetValue = double.tryParse(_budgetController.text.trim()) ?? 0.0;
-    final budget = '₱${budgetValue.toStringAsFixed(2)}';
+    final budget = '${peso(budgetValue)}';
 
     if (_isEditing) {
       setState(() => _submitting = true);
@@ -381,7 +384,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ],
                 ),
               ),
-              Text('₱$_amountDisplay', style: AppText.number),
+              // Grouped here, unlike the hero on the previous step: the
+              // typing is finished by the time this card is read.
+              Text(
+                peso(double.tryParse(_budgetController.text) ?? 0),
+                style: AppText.number,
+              ),
             ],
           ),
         ),

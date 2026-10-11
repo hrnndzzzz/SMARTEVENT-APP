@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'complete_purchase_screen.dart';
+import '../theme/peso.dart';
 
 /// One expense in full: amounts, the OCR reading, any flag, the itemized
 /// lines, the review decision, and the entry point to purchase completion.
@@ -84,7 +85,7 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
 
     return BrutScreen(
       header: BrutHeader(
-        eyebrow: '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
+        eyebrow: '${expense.category} · ${peso(expense.amount)}',
         title: expense.vendor,
         tone: expenseStatusTone(expense.status),
         onBack: () => Navigator.of(context).maybePop(),
@@ -245,7 +246,7 @@ class _OcrCard extends StatelessWidget {
             'Amount',
             expense.ocrAmount == null
                 ? 'Not read'
-                : '₱${expense.ocrAmount!.toStringAsFixed(2)}',
+                : '${peso(expense.ocrAmount!)}',
             mono: expense.ocrAmount != null,
           ),
           if (expense.ocrAmountDiffers) ...[
@@ -255,7 +256,7 @@ class _OcrCard extends StatelessWidget {
               icon: Icons.priority_high,
               text:
                   'This differs from the recorded total of '
-                  '₱${expense.amount.toStringAsFixed(2)}.',
+                  '${peso(expense.amount)}.',
             ),
           ],
           if (expense.hasReceipt) ...[
@@ -373,7 +374,7 @@ class _LineRow extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         // The line total, already multiplied out — not a unit price.
-        Text('₱${line.amount.toStringAsFixed(2)}', style: AppText.number),
+        Text('${peso(line.amount)}', style: AppText.number),
       ],
     );
   }
@@ -398,9 +399,7 @@ class _PurchaseCard extends StatelessWidget {
           const SizedBox(height: 8),
           BrutDetailRow(
             'Paid',
-            expense.paidAmount == null
-                ? '—'
-                : '₱${expense.paidAmount!.toStringAsFixed(2)}',
+            expense.paidAmount == null ? '—' : '${peso(expense.paidAmount!)}',
             mono: expense.paidAmount != null,
           ),
           const SizedBox(height: 8),

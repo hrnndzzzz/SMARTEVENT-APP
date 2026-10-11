@@ -24,8 +24,8 @@ class ApiClient {
     http.Client? httpClient,
     this.onReachability,
     this.timeout = const Duration(seconds: 20),
-  })  : _tokenStore = tokenStore ?? TokenStore(),
-        _httpClient = httpClient ?? http.Client();
+  }) : _tokenStore = tokenStore ?? TokenStore(),
+       _httpClient = httpClient ?? http.Client();
 
   /// Told whether the backend answered, after every request. An error
   /// status still counts as reachable: the server is there, it just said
@@ -73,7 +73,9 @@ class ApiClient {
   }
 
   Future<dynamic> get(String path, {Map<String, String>? query}) {
-    return _send(() => _httpClient.get(_uri(path, query), headers: _authHeaders));
+    return _send(
+      () => _httpClient.get(_uri(path, query), headers: _authHeaders),
+    );
   }
 
   Future<dynamic> post(String path, {Object? body, bool isForm = false}) {
@@ -166,13 +168,19 @@ class ApiClient {
           .get(_uri(path, query), headers: _authHeaders)
           .timeout(timeout);
     } on TimeoutException {
-      throw NetworkException('The backend at $baseUrl did not respond in time.');
+      throw NetworkException(
+        'The backend at $baseUrl did not respond in time.',
+      );
     } on http.ClientException catch (error) {
-      throw NetworkException('Could not reach the backend at $baseUrl.',
-          cause: error.message);
+      throw NetworkException(
+        'Could not reach the backend at $baseUrl.',
+        cause: error.message,
+      );
     } catch (error) {
-      throw NetworkException('Could not reach the backend at $baseUrl.',
-          cause: error.toString());
+      throw NetworkException(
+        'Could not reach the backend at $baseUrl.',
+        cause: error.toString(),
+      );
     }
 
     // An error body is JSON even when a PDF was requested, so the normal
@@ -193,7 +201,8 @@ class ApiClient {
     return DownloadedFile(
       bytes: response.bodyBytes,
       contentType: actual,
-      filename: _filenameFrom(response.headers['content-disposition']) ??
+      filename:
+          _filenameFrom(response.headers['content-disposition']) ??
           fallbackFilename,
     );
   }
@@ -202,8 +211,10 @@ class ApiClient {
   /// export is named by the server rather than guessed at.
   static String? _filenameFrom(String? disposition) {
     if (disposition == null) return null;
-    final match = RegExp(r'filename\*?=(?:UTF-8'')?"?([^";]+)"?')
-        .firstMatch(disposition);
+    final match = RegExp(
+      r'filename\*?=(?:UTF-8'
+      ')?"?([^";]+)"?',
+    ).firstMatch(disposition);
     final name = match?.group(1)?.trim();
     return (name == null || name.isEmpty) ? null : Uri.decodeFull(name);
   }
@@ -280,8 +291,10 @@ class ApiClient {
       final location = entry['loc'];
       final field = location is List
           ? location
-              .where((part) => part != 'body' && part != 'query' && part != 'path')
-              .join('.')
+                .where(
+                  (part) => part != 'body' && part != 'query' && part != 'path',
+                )
+                .join('.')
           : '';
       errors[field.isEmpty ? _generalFieldKey : field] = message;
     }
@@ -299,7 +312,9 @@ class ApiClient {
     final fieldErrors = _fieldErrorsFor(detail);
     if (fieldErrors.isNotEmpty) {
       return fieldErrors.entries
-          .map((e) => e.key == _generalFieldKey ? e.value : '${e.key}: ${e.value}')
+          .map(
+            (e) => e.key == _generalFieldKey ? e.value : '${e.key}: ${e.value}',
+          )
           .join('\n');
     }
 
@@ -313,9 +328,10 @@ class ApiClient {
       502 || 503 =>
         'A service the backend depends on (storage, OCR or email) is '
             'unavailable. Your input was kept — try again shortly.',
-      _ => status >= 500
-          ? 'The backend ran into a problem ($status). Nothing was saved.'
-          : 'Request failed ($status).',
+      _ =>
+        status >= 500
+            ? 'The backend ran into a problem ($status). Nothing was saved.'
+            : 'Request failed ($status).',
     };
   }
 }

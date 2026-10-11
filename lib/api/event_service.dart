@@ -41,12 +41,14 @@ class EventService {
     if (response is! List) return const [];
 
     return response
-        .map((entry) => switch (entry) {
-              String value => value,
-              Map entry when entry['school_year'] is String =>
-                entry['school_year'] as String,
-              _ => null,
-            })
+        .map(
+          (entry) => switch (entry) {
+            String value => value,
+            Map entry when entry['school_year'] is String =>
+              entry['school_year'] as String,
+            _ => null,
+          },
+        )
         .whereType<String>()
         .where(SchoolYear.isValid)
         .toList();
@@ -88,20 +90,23 @@ class EventService {
     String? departmentId,
     String? organizationId,
   }) async {
-    final response = await _client.post('/events', body: {
-      if (categoryId != null) 'category_id': categoryId,
-      'title': title,
-      if (description != null) 'description': description,
-      if (eventDate != null) 'event_date': _asDate(eventDate),
-      'estimated_cost': estimatedCost,
-      'allocated_budget': allocatedBudget,
-      'status': status,
-      if (schoolYear != null) 'school_year': schoolYear,
-      if (semester != null) 'semester': semester.wireName,
-      if (eventScope != null) 'event_scope': eventScope.wireName,
-      if (departmentId != null) 'department_id': departmentId,
-      if (organizationId != null) 'organization_id': organizationId,
-    });
+    final response = await _client.post(
+      '/events',
+      body: {
+        if (categoryId != null) 'category_id': categoryId,
+        'title': title,
+        if (description != null) 'description': description,
+        if (eventDate != null) 'event_date': _asDate(eventDate),
+        'estimated_cost': estimatedCost,
+        'allocated_budget': allocatedBudget,
+        'status': status,
+        if (schoolYear != null) 'school_year': schoolYear,
+        if (semester != null) 'semester': semester.wireName,
+        if (eventScope != null) 'event_scope': eventScope.wireName,
+        if (departmentId != null) 'department_id': departmentId,
+        if (organizationId != null) 'organization_id': organizationId,
+      },
+    );
     return RemoteEvent.fromJson(response as Map<String, dynamic>);
   }
 
@@ -167,16 +172,18 @@ class EventService {
   }
 
   Future<RemoteEvent> approve(String eventId, {String? remarks}) async {
-    final response = await _client.post('/events/$eventId/approve', body: {
-      if (remarks != null) 'remarks': remarks,
-    });
+    final response = await _client.post(
+      '/events/$eventId/approve',
+      body: {if (remarks != null) 'remarks': remarks},
+    );
     return RemoteEvent.fromJson(response as Map<String, dynamic>);
   }
 
   Future<RemoteEvent> reject(String eventId, {String? remarks}) async {
-    final response = await _client.post('/events/$eventId/reject', body: {
-      if (remarks != null) 'remarks': remarks,
-    });
+    final response = await _client.post(
+      '/events/$eventId/reject',
+      body: {if (remarks != null) 'remarks': remarks},
+    );
     return RemoteEvent.fromJson(response as Map<String, dynamic>);
   }
 

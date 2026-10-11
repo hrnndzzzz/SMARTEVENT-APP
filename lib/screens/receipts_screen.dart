@@ -6,6 +6,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'notifications_screen.dart';
 import 'receipt_review_screen.dart';
+import '../theme/peso.dart';
 
 /// Receipts and the duplicate-review queue.
 ///
@@ -153,7 +154,7 @@ class _ReceiptCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '₱${receipt.amount.toStringAsFixed(2)}',
+                '${peso(receipt.amount)}',
                 style: AppText.moneyLarge.copyWith(fontSize: 16),
               ),
             ],

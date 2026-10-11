@@ -41,8 +41,11 @@ class DashboardSummary {
       keys.fold(0, (sum, key) => sum + (counts[key] ?? 0));
 
   /// Events awaiting a decision at either stage.
-  int get pendingEventCount =>
-      statusCount(eventsByStatus, ['pending', 'pending_adviser', 'pending_admin']);
+  int get pendingEventCount => statusCount(eventsByStatus, [
+    'pending',
+    'pending_adviser',
+    'pending_admin',
+  ]);
 
   int get pendingExpenseCount => expensesByStatus['pending'] ?? 0;
 
@@ -63,7 +66,8 @@ class DashboardSummary {
           (json['total_remaining_budget'] as num?)?.toDouble() ?? 0,
       eventsByStatus: _counts(json['events_by_status']),
       expensesByStatus: _counts(json['expenses_by_status']),
-      flaggedExpenseCount: (json['flagged_expense_count'] as num?)?.toInt() ?? 0,
+      flaggedExpenseCount:
+          (json['flagged_expense_count'] as num?)?.toInt() ?? 0,
       lowStockItemCount: (json['low_stock_item_count'] as num?)?.toInt() ?? 0,
       draftInventoryCount:
           (json['draft_inventory_count'] as num?)?.toInt() ?? 0,
@@ -128,7 +132,8 @@ class CategoryReport {
       totalSpent: (json['total_spent'] as num?)?.toDouble() ?? 0,
       approvedExpenseCount:
           (json['approved_expense_count'] as num?)?.toInt() ?? 0,
-      pendingExpenseCount: (json['pending_expense_count'] as num?)?.toInt() ?? 0,
+      pendingExpenseCount:
+          (json['pending_expense_count'] as num?)?.toInt() ?? 0,
       rejectedExpenseCount:
           (json['rejected_expense_count'] as num?)?.toInt() ?? 0,
     );
@@ -376,18 +381,18 @@ enum ReportPeriod { weekly, monthly, schoolYear, semester }
 
 extension ReportPeriodInfo on ReportPeriod {
   String get wireName => switch (this) {
-        ReportPeriod.weekly => 'weekly',
-        ReportPeriod.monthly => 'monthly',
-        ReportPeriod.schoolYear => 'school_year',
-        ReportPeriod.semester => 'semester',
-      };
+    ReportPeriod.weekly => 'weekly',
+    ReportPeriod.monthly => 'monthly',
+    ReportPeriod.schoolYear => 'school_year',
+    ReportPeriod.semester => 'semester',
+  };
 
   String get label => switch (this) {
-        ReportPeriod.weekly => 'Weekly',
-        ReportPeriod.monthly => 'Monthly',
-        ReportPeriod.schoolYear => 'School year',
-        ReportPeriod.semester => 'Semester',
-      };
+    ReportPeriod.weekly => 'Weekly',
+    ReportPeriod.monthly => 'Monthly',
+    ReportPeriod.schoolYear => 'School year',
+    ReportPeriod.semester => 'Semester',
+  };
 
   /// Calendar periods filter on income received dates and expense dates —
   /// not on when the event happened.
@@ -403,26 +408,26 @@ extension ReportPeriodInfo on ReportPeriod {
   bool get usesReferenceDate => isCalendar;
 
   String get explanation => switch (this) {
-        ReportPeriod.weekly =>
-          'The Monday to Sunday week containing the reference date, by when '
-              'money moved.',
-        ReportPeriod.monthly =>
-          'The calendar month containing the reference date, by when money '
-              'moved.',
-        ReportPeriod.schoolYear =>
-          'Everything labelled with that school year on its event.',
-        ReportPeriod.semester =>
-          'Everything labelled with that school year and semester.',
-      };
+    ReportPeriod.weekly =>
+      'The Monday to Sunday week containing the reference date, by when '
+          'money moved.',
+    ReportPeriod.monthly =>
+      'The calendar month containing the reference date, by when money '
+          'moved.',
+    ReportPeriod.schoolYear =>
+      'Everything labelled with that school year on its event.',
+    ReportPeriod.semester =>
+      'Everything labelled with that school year and semester.',
+  };
 }
 
 ReportPeriod reportPeriodFromWire(String? value) => switch (value) {
-      'weekly' => ReportPeriod.weekly,
-      'monthly' => ReportPeriod.monthly,
-      'school_year' => ReportPeriod.schoolYear,
-      'semester' => ReportPeriod.semester,
-      _ => ReportPeriod.monthly,
-    };
+  'weekly' => ReportPeriod.weekly,
+  'monthly' => ReportPeriod.monthly,
+  'school_year' => ReportPeriod.schoolYear,
+  'semester' => ReportPeriod.semester,
+  _ => ReportPeriod.monthly,
+};
 
 /// A suggested budget from past events — `BudgetRecommendation`.
 ///
@@ -466,17 +471,17 @@ extension ExportFormatInfo on ExportFormat {
   String get wireName => name;
 
   String get label => switch (this) {
-        ExportFormat.pdf => 'PDF',
-        ExportFormat.csv => 'CSV',
-        ExportFormat.html => 'Print-ready HTML',
-      };
+    ExportFormat.pdf => 'PDF',
+    ExportFormat.csv => 'CSV',
+    ExportFormat.html => 'Print-ready HTML',
+  };
 
   /// What the response should actually carry. A body of any other type —
   /// a JSON error, most likely — must never be saved under this format's
   /// extension.
   String get expectedContentType => switch (this) {
-        ExportFormat.pdf => 'application/pdf',
-        ExportFormat.csv => 'text/csv',
-        ExportFormat.html => 'text/html',
-      };
+    ExportFormat.pdf => 'application/pdf',
+    ExportFormat.csv => 'text/csv',
+    ExportFormat.html => 'text/html',
+  };
 }

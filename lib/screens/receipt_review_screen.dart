@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../theme/peso.dart';
 
 /// One receipt, what it resembles, and the decision.
 ///
@@ -284,11 +285,7 @@ class _DetailsCard extends StatelessWidget {
           const SizedBox(height: 12),
           BrutDetailRow('Merchant', receipt.merchant ?? 'Not recorded'),
           const SizedBox(height: 8),
-          BrutDetailRow(
-            'Amount',
-            '₱${receipt.amount.toStringAsFixed(2)}',
-            mono: true,
-          ),
+          BrutDetailRow('Amount', '${peso(receipt.amount)}', mono: true),
           const SizedBox(height: 8),
           BrutDetailRow(
             'Issued',

@@ -72,7 +72,9 @@ class RemoteEvent {
       description: json['description'] as String?,
       proposedBy: json['proposed_by'] as String,
       status: json['status'] as String,
-      eventDate: json['event_date'] == null ? null : DateTime.parse(json['event_date'] as String),
+      eventDate: json['event_date'] == null
+          ? null
+          : DateTime.parse(json['event_date'] as String),
       estimatedCost: (json['estimated_cost'] as num).toDouble(),
       allocatedBudget: (json['allocated_budget'] as num).toDouble(),
       remainingBudget: (json['remaining_budget'] as num).toDouble(),
@@ -119,7 +121,9 @@ class ApprovalRecord {
       reviewerId: json['reviewer_id'] as String?,
       decision: json['decision'] as String,
       remarks: json['remarks'] as String?,
-      decidedAt: json['decided_at'] == null ? null : DateTime.parse(json['decided_at'] as String),
+      decidedAt: json['decided_at'] == null
+          ? null
+          : DateTime.parse(json['decided_at'] as String),
     );
   }
 }

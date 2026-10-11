@@ -33,8 +33,6 @@ class ApiConfig {
 
   static String get baseUrl {
     final value = isConfigured ? _configured : _localDevFallback;
-    return value.endsWith('/')
-        ? value.substring(0, value.length - 1)
-        : value;
+    return value.endsWith('/') ? value.substring(0, value.length - 1) : value;
   }
 }

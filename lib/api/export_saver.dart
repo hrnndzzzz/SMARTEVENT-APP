@@ -20,10 +20,7 @@ abstract final class ExportSaver {
   /// Returns null when the sheet was shown, or a message when it could not
   /// be. A dismissed sheet is not an error — the user changed their mind —
   /// so that also returns null.
-  static Future<String?> share(
-    DownloadedFile file, {
-    String? subject,
-  }) async {
+  static Future<String?> share(DownloadedFile file, {String? subject}) async {
     try {
       final result = await SharePlus.instance.share(
         ShareParams(

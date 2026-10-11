@@ -7,6 +7,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'notifications_screen.dart';
 import 'event_detail_screen.dart';
+import '../theme/peso.dart';
 
 enum _ResultType { event, transaction }
 
@@ -71,7 +72,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ExpenseStatus.approved => 'Approved',
             ExpenseStatus.rejected => 'Rejected',
           },
-          amount: '-₱${ex.amount.toStringAsFixed(2)}',
+          amount: '-${peso(ex.amount)}',
           category: ex.category,
         ),
     ];

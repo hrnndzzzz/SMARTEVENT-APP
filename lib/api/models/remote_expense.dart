@@ -1,4 +1,5 @@
 import 'money.dart';
+import '../../theme/peso.dart';
 
 /// Matches the backend's `ExpenseOut` (see
 /// `smartevent-backend/app/schemas.py`).
@@ -135,21 +136,21 @@ extension ItemCategoryNaming on ItemCategory {
   String get wireName => name;
 
   String get label => switch (this) {
-        ItemCategory.asset => 'Asset',
-        ItemCategory.consumable => 'Consumable',
-      };
+    ItemCategory.asset => 'Asset',
+    ItemCategory.consumable => 'Consumable',
+  };
 
   String get description => switch (this) {
-        ItemCategory.asset => 'Becomes stock once the purchase is completed.',
-        ItemCategory.consumable => 'Used up — never enters stock.',
-      };
+    ItemCategory.asset => 'Becomes stock once the purchase is completed.',
+    ItemCategory.consumable => 'Used up — never enters stock.',
+  };
 }
 
 ItemCategory? itemCategoryFromWire(String? value) => switch (value) {
-      'asset' => ItemCategory.asset,
-      'consumable' => ItemCategory.consumable,
-      _ => null,
-    };
+  'asset' => ItemCategory.asset,
+  'consumable' => ItemCategory.consumable,
+  _ => null,
+};
 
 /// One saved line on an expense — `ExpenseItemOut`.
 ///
@@ -223,12 +224,12 @@ class ExpenseLineInput {
   final String unit;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'amount': amount,
-        'category': category.wireName,
-        'quantity': quantity,
-        'unit': unit,
-      };
+    'name': name,
+    'amount': amount,
+    'category': category.wireName,
+    'quantity': quantity,
+    'unit': unit,
+  };
 }
 
 /// Receipt metadata submitted alongside an expense — `ReceiptDetails`.
@@ -253,14 +254,14 @@ class ReceiptDetailsInput {
   final String? amount;
 
   Map<String, dynamic> toJson() => {
-        'receipt_url': receiptUrl,
-        'purpose': purpose,
-        if (merchant != null) 'merchant': merchant,
-        if (receiptNumber != null) 'receipt_number': receiptNumber,
-        if (issuedOn != null)
-          'issued_on': issuedOn!.toIso8601String().split('T').first,
-        if (amount != null) 'amount': amount,
-      };
+    'receipt_url': receiptUrl,
+    'purpose': purpose,
+    if (merchant != null) 'merchant': merchant,
+    if (receiptNumber != null) 'receipt_number': receiptNumber,
+    if (issuedOn != null)
+      'issued_on': issuedOn!.toIso8601String().split('T').first,
+    if (amount != null) 'amount': amount,
+  };
 }
 
 /// Result of `POST /expenses/scan-receipt` — `ScanReceiptResponse`.
@@ -287,7 +288,9 @@ class ScannedReceipt {
     return ScannedReceipt(
       receiptUrl: json['receipt_url'] as String,
       merchant: json['merchant'] as String?,
-      date: json['date'] == null ? null : DateTime.tryParse(json['date'] as String),
+      date: json['date'] == null
+          ? null
+          : DateTime.tryParse(json['date'] as String),
       amount: (json['amount'] as num?)?.toDouble(),
       items: [
         for (final item in (json['items'] as List? ?? const []))
@@ -298,13 +301,13 @@ class ScannedReceipt {
 
   /// Turns the reviewed scan into lines for `POST /expenses`.
   List<ExpenseLineInput> toLineInputs() => [
-        for (final item in items)
-          ExpenseLineInput(
-            name: item.name,
-            amount: MoneyInput.fromDouble(item.amount),
-            category: item.category ?? ItemCategory.consumable,
-          ),
-      ];
+    for (final item in items)
+      ExpenseLineInput(
+        name: item.name,
+        amount: MoneyInput.fromDouble(item.amount),
+        category: item.category ?? ItemCategory.consumable,
+      ),
+  ];
 }
 
 class ScannedReceiptLine {
@@ -332,18 +335,18 @@ enum PaymentMethod { cash, bankTransfer, card, other }
 
 extension PaymentMethodNaming on PaymentMethod {
   String get wireName => switch (this) {
-        PaymentMethod.cash => 'cash',
-        PaymentMethod.bankTransfer => 'bank_transfer',
-        PaymentMethod.card => 'card',
-        PaymentMethod.other => 'other',
-      };
+    PaymentMethod.cash => 'cash',
+    PaymentMethod.bankTransfer => 'bank_transfer',
+    PaymentMethod.card => 'card',
+    PaymentMethod.other => 'other',
+  };
 
   String get label => switch (this) {
-        PaymentMethod.cash => 'Cash',
-        PaymentMethod.bankTransfer => 'Bank transfer',
-        PaymentMethod.card => 'Card',
-        PaymentMethod.other => 'Other',
-      };
+    PaymentMethod.cash => 'Cash',
+    PaymentMethod.bankTransfer => 'Bank transfer',
+    PaymentMethod.card => 'Card',
+    PaymentMethod.other => 'Other',
+  };
 }
 
 /// Body for `POST /expenses/{id}/complete-purchase`.
@@ -378,14 +381,14 @@ class PurchaseCompletionInput {
       value.toIso8601String().split('T').first;
 
   Map<String, dynamic> toJson() => {
-        'paid_on': _date(paidOn),
-        'received_on': _date(receivedOn),
-        'paid_amount': paidAmount,
-        'payment_method': paymentMethod.wireName,
-        'payment_reference': paymentReference,
-        'vendor': vendor,
-        'items': [for (final item in items) item.toJson()],
-      };
+    'paid_on': _date(paidOn),
+    'received_on': _date(receivedOn),
+    'paid_amount': paidAmount,
+    'payment_method': paymentMethod.wireName,
+    'payment_reference': paymentReference,
+    'vendor': vendor,
+    'items': [for (final item in items) item.toJson()],
+  };
 }
 
 /// Image types the receipt endpoints accept, mapped from file extension to
@@ -448,7 +451,7 @@ String? purchaseCompletionProblem({
   final paid = double.parse(rawPaidAmount.trim());
   if ((paid - expenseTotal).abs() >= 0.01) {
     return 'The paid amount must equal the expense total of '
-        '₱${expenseTotal.toStringAsFixed(2)}.';
+        '${peso(expenseTotal)}.';
   }
 
   if (reference.trim().isEmpty) return 'Enter a payment reference.';
@@ -483,8 +486,8 @@ class PurchaseLineConfirmation {
   final String unit;
 
   Map<String, dynamic> toJson() => {
-        'expense_item_id': expenseItemId,
-        'quantity': quantity,
-        'unit': unit,
-      };
+    'expense_item_id': expenseItemId,
+    'quantity': quantity,
+    'unit': unit,
+  };
 }

@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import '../theme/peso.dart';
 
 /// Opens the Approve/Reject dialog for a pending expense. [reviewerRole]
 /// should be 'Adviser' or 'Admin' — either can resolve an expense
@@ -38,7 +39,7 @@ Future<void> showExpenseDecisionDialog(
           ),
           const SizedBox(height: 2),
           Text(
-            '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
+            '${expense.category} · ${peso(expense.amount)}',
             style: AppText.caption,
           ),
           const SizedBox(height: 10),
@@ -48,8 +49,8 @@ Future<void> showExpenseDecisionDialog(
                 ? Icons.warning_amber_rounded
                 : Icons.check_circle_outline,
             text: wouldExceed
-                ? '${expense.category} only has ₱${remaining.toStringAsFixed(2)} left — approving this would exceed it.'
-                : '${expense.category} has ₱${remaining.toStringAsFixed(2)} remaining. This fits.',
+                ? '${expense.category} only has ${peso(remaining)} left — approving this would exceed it.'
+                : '${expense.category} has ${peso(remaining)} remaining. This fits.',
           ),
           const SizedBox(height: 14),
           BrutTextField(
@@ -161,7 +162,7 @@ class ExpensePendingCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                '₱${expense.amount.toStringAsFixed(2)}',
+                '${peso(expense.amount)}',
                 style: AppText.moneyLarge.copyWith(fontSize: 17),
               ),
               const Spacer(),

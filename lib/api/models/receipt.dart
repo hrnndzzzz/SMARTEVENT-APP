@@ -99,7 +99,9 @@ class Receipt {
         for (final id in (json['similar_receipt_ids'] as List? ?? const []))
           id as String,
       ],
-      reviewStatus: receiptReviewStatusFromWire(json['review_status'] as String?),
+      reviewStatus: receiptReviewStatusFromWire(
+        json['review_status'] as String?,
+      ),
       reviewReason: json['review_reason'] as String?,
       reviewedBy: json['reviewed_by'] as String?,
       reviewedAt: json['reviewed_at'] == null
@@ -120,24 +122,24 @@ extension ReceiptReviewStatusNaming on ReceiptReviewStatus {
   String get wireName => name;
 
   String get label => switch (this) {
-        ReceiptReviewStatus.clear => 'No similar receipts',
-        ReceiptReviewStatus.pending => 'Awaiting review',
-        ReceiptReviewStatus.cleared => 'Reviewed — cleared',
-        ReceiptReviewStatus.rejected => 'Reviewed — rejected',
-      };
+    ReceiptReviewStatus.clear => 'No similar receipts',
+    ReceiptReviewStatus.pending => 'Awaiting review',
+    ReceiptReviewStatus.cleared => 'Reviewed — cleared',
+    ReceiptReviewStatus.rejected => 'Reviewed — rejected',
+  };
 
   /// What this status means for the transaction it belongs to.
   String get consequence => switch (this) {
-        ReceiptReviewStatus.clear => 'Counts toward totals as normal.',
-        ReceiptReviewStatus.pending =>
-          'Blocks approval of its expense, and its income is withheld from '
-              'totals until reviewed.',
-        ReceiptReviewStatus.cleared =>
-          'A reviewer confirmed it is not a duplicate.',
-        ReceiptReviewStatus.rejected =>
-          'A reviewer rejected it. Its income stays withheld and its expense '
-              'cannot be approved.',
-      };
+    ReceiptReviewStatus.clear => 'Counts toward totals as normal.',
+    ReceiptReviewStatus.pending =>
+      'Blocks approval of its expense, and its income is withheld from '
+          'totals until reviewed.',
+    ReceiptReviewStatus.cleared =>
+      'A reviewer confirmed it is not a duplicate.',
+    ReceiptReviewStatus.rejected =>
+      'A reviewer rejected it. Its income stays withheld and its expense '
+          'cannot be approved.',
+  };
 }
 
 /// Unknown values read as [ReceiptReviewStatus.pending] rather than
@@ -160,7 +162,7 @@ extension ReceiptDecisionNaming on ReceiptDecision {
   String get wireName => name;
 
   String get label => switch (this) {
-        ReceiptDecision.cleared => 'Clear it',
-        ReceiptDecision.rejected => 'Reject it',
-      };
+    ReceiptDecision.cleared => 'Clear it',
+    ReceiptDecision.rejected => 'Reject it',
+  };
 }

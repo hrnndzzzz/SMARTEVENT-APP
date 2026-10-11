@@ -18,11 +18,19 @@ class AuthService {
   final ApiClient _client;
   AuthService(this._client);
 
-  Future<String> login({required String email, required String password}) async {
-    final formBody = 'username=${Uri.encodeQueryComponent(email)}'
+  Future<String> login({
+    required String email,
+    required String password,
+  }) async {
+    final formBody =
+        'username=${Uri.encodeQueryComponent(email)}'
         '&password=${Uri.encodeQueryComponent(password)}';
 
-    final response = await _client.post('/auth/login', body: formBody, isForm: true);
+    final response = await _client.post(
+      '/auth/login',
+      body: formBody,
+      isForm: true,
+    );
     final token = response['access_token'] as String;
     await _client.setToken(token);
     return token;
@@ -50,10 +58,10 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final response = await _client.post('/auth/register', body: {
-      'email': email,
-      'password': password,
-    });
+    final response = await _client.post(
+      '/auth/register',
+      body: {'email': email, 'password': password},
+    );
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
@@ -66,11 +74,13 @@ class AuthService {
     required String email,
     required String otpCode,
   }) async {
-    final response = await _client.post('/auth/verify-otp', body: {
-      'email': email,
-      'otp_code': otpCode,
-    });
-    return RegistrationResult.fromJson((response as Map).cast<String, dynamic>());
+    final response = await _client.post(
+      '/auth/verify-otp',
+      body: {'email': email, 'otp_code': otpCode},
+    );
+    return RegistrationResult.fromJson(
+      (response as Map).cast<String, dynamic>(),
+    );
   }
 
   /// `POST /auth/resend-otp`. An invalid or expired code must not destroy
@@ -85,10 +95,10 @@ class AuthService {
     required String currentPassword,
     required String newPassword,
   }) async {
-    final response = await _client.post('/auth/change-password', body: {
-      'current_password': currentPassword,
-      'new_password': newPassword,
-    });
+    final response = await _client.post(
+      '/auth/change-password',
+      body: {'current_password': currentPassword, 'new_password': newPassword},
+    );
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
@@ -106,13 +116,11 @@ class AuthService {
     required String otpCode,
     required String newPassword,
   }) async {
-    await _client.post('/auth/reset-password', body: {
-      'email': email,
-      'otp_code': otpCode,
-      'new_password': newPassword,
-    });
+    await _client.post(
+      '/auth/reset-password',
+      body: {'email': email, 'otp_code': otpCode, 'new_password': newPassword},
+    );
   }
-
 
   /// Clears the token in memory and in secure storage. There is no backend
   /// logout endpoint — the JWT stays valid until it expires, so the only

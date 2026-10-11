@@ -63,20 +63,23 @@ class ExpenseService {
     String? departmentId,
     String? organizationId,
   }) async {
-    final response = await _client.post('/expenses', body: {
-      'category_id': categoryId,
-      if (eventId != null) 'event_id': eventId,
-      'description': description,
-      'amount': amount,
-      if (expenseDate != null) 'expense_date': _asDate(expenseDate),
-      if (receiptUrl != null) 'receipt_url': receiptUrl,
-      if (receipt != null) 'receipt': receipt.toJson(),
-      if (items.isNotEmpty) 'items': [for (final i in items) i.toJson()],
-      // Scoped accounts get these applied server-side from their own
-      // profile; a Super Admin has no scope and must supply them.
-      if (departmentId != null) 'department_id': departmentId,
-      if (organizationId != null) 'organization_id': organizationId,
-    });
+    final response = await _client.post(
+      '/expenses',
+      body: {
+        'category_id': categoryId,
+        if (eventId != null) 'event_id': eventId,
+        'description': description,
+        'amount': amount,
+        if (expenseDate != null) 'expense_date': _asDate(expenseDate),
+        if (receiptUrl != null) 'receipt_url': receiptUrl,
+        if (receipt != null) 'receipt': receipt.toJson(),
+        if (items.isNotEmpty) 'items': [for (final i in items) i.toJson()],
+        // Scoped accounts get these applied server-side from their own
+        // profile; a Super Admin has no scope and must supply them.
+        if (departmentId != null) 'department_id': departmentId,
+        if (organizationId != null) 'organization_id': organizationId,
+      },
+    );
     return RemoteExpense.fromJson(response as Map<String, dynamic>);
   }
 
@@ -96,28 +99,33 @@ class ExpenseService {
     DateTime? expenseDate,
     String? receiptUrl,
   }) async {
-    final response = await _client.patch('/expenses/$expenseId', body: {
-      if (eventId != null) 'event_id': eventId,
-      if (categoryId != null) 'category_id': categoryId,
-      if (description != null) 'description': description,
-      if (amount != null) 'amount': amount,
-      if (expenseDate != null) 'expense_date': _asDate(expenseDate),
-      if (receiptUrl != null) 'receipt_url': receiptUrl,
-    });
+    final response = await _client.patch(
+      '/expenses/$expenseId',
+      body: {
+        if (eventId != null) 'event_id': eventId,
+        if (categoryId != null) 'category_id': categoryId,
+        if (description != null) 'description': description,
+        if (amount != null) 'amount': amount,
+        if (expenseDate != null) 'expense_date': _asDate(expenseDate),
+        if (receiptUrl != null) 'receipt_url': receiptUrl,
+      },
+    );
     return RemoteExpense.fromJson(response as Map<String, dynamic>);
   }
 
   Future<RemoteExpense> approve(String expenseId, {String? remarks}) async {
-    final response = await _client.post('/expenses/$expenseId/approve', body: {
-      if (remarks != null) 'remarks': remarks,
-    });
+    final response = await _client.post(
+      '/expenses/$expenseId/approve',
+      body: {if (remarks != null) 'remarks': remarks},
+    );
     return RemoteExpense.fromJson(response as Map<String, dynamic>);
   }
 
   Future<RemoteExpense> reject(String expenseId, {String? remarks}) async {
-    final response = await _client.post('/expenses/$expenseId/reject', body: {
-      if (remarks != null) 'remarks': remarks,
-    });
+    final response = await _client.post(
+      '/expenses/$expenseId/reject',
+      body: {if (remarks != null) 'remarks': remarks},
+    );
     return RemoteExpense.fromJson(response as Map<String, dynamic>);
   }
 

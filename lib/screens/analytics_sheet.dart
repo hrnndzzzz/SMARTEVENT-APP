@@ -6,6 +6,7 @@ import '../state/app_state.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../theme/peso.dart';
 
 /// The server's own dashboard figures.
 ///
@@ -79,21 +80,13 @@ class _Figures extends StatelessWidget {
             children: [
               const BrutSectionTitle('Budget'),
               const SizedBox(height: 12),
-              BrutDetailRow(
-                'Allocated',
-                '₱${allocated.toStringAsFixed(2)}',
-                mono: true,
-              ),
+              BrutDetailRow('Allocated', '${peso(allocated)}', mono: true),
               const SizedBox(height: 8),
-              BrutDetailRow(
-                'Spent (approved)',
-                '₱${spent.toStringAsFixed(2)}',
-                mono: true,
-              ),
+              BrutDetailRow('Spent (approved)', '${peso(spent)}', mono: true),
               const SizedBox(height: 8),
               BrutDetailRow(
                 'Remaining',
-                '₱${data.totalRemainingBudget.toStringAsFixed(2)}',
+                '${peso(data.totalRemainingBudget)}',
                 mono: true,
               ),
               const SizedBox(height: 12),

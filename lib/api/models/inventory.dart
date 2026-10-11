@@ -154,73 +154,69 @@ enum InventoryMovementType {
 
 extension InventoryMovementTypeInfo on InventoryMovementType {
   String get wireName => switch (this) {
-        InventoryMovementType.openingBalance => 'opening_balance',
-        InventoryMovementType.acquisition => 'acquisition',
-        InventoryMovementType.donation => 'donation',
-        InventoryMovementType.purchase => 'purchase',
-        InventoryMovementType.issue => 'issue',
-        // 'return' is a Dart keyword, hence the enum name.
-        InventoryMovementType.returned => 'return',
-        InventoryMovementType.disposal => 'disposal',
-        InventoryMovementType.adjustment => 'adjustment',
-        InventoryMovementType.legacy => 'legacy',
-      };
+    InventoryMovementType.openingBalance => 'opening_balance',
+    InventoryMovementType.acquisition => 'acquisition',
+    InventoryMovementType.donation => 'donation',
+    InventoryMovementType.purchase => 'purchase',
+    InventoryMovementType.issue => 'issue',
+    // 'return' is a Dart keyword, hence the enum name.
+    InventoryMovementType.returned => 'return',
+    InventoryMovementType.disposal => 'disposal',
+    InventoryMovementType.adjustment => 'adjustment',
+    InventoryMovementType.legacy => 'legacy',
+  };
 
   /// What a person would call it.
   String get label => switch (this) {
-        InventoryMovementType.openingBalance => 'Opening balance',
-        InventoryMovementType.acquisition => 'Acquired',
-        InventoryMovementType.donation => 'Donated',
-        InventoryMovementType.purchase => 'Purchased',
-        InventoryMovementType.issue => 'Issued for an event',
-        InventoryMovementType.returned => 'Returned from an event',
-        InventoryMovementType.disposal => 'Disposed',
-        InventoryMovementType.adjustment => 'Adjustment',
-        InventoryMovementType.legacy => 'Legacy record',
-      };
+    InventoryMovementType.openingBalance => 'Opening balance',
+    InventoryMovementType.acquisition => 'Acquired',
+    InventoryMovementType.donation => 'Donated',
+    InventoryMovementType.purchase => 'Purchased',
+    InventoryMovementType.issue => 'Issued for an event',
+    InventoryMovementType.returned => 'Returned from an event',
+    InventoryMovementType.disposal => 'Disposed',
+    InventoryMovementType.adjustment => 'Adjustment',
+    InventoryMovementType.legacy => 'Legacy record',
+  };
 
   /// The direction the backend enforces. Null means either is allowed.
   bool? get mustBePositive => switch (this) {
-        InventoryMovementType.acquisition ||
-        InventoryMovementType.donation ||
-        InventoryMovementType.purchase ||
-        InventoryMovementType.returned =>
-          true,
-        InventoryMovementType.issue || InventoryMovementType.disposal => false,
-        _ => null,
-      };
+    InventoryMovementType.acquisition ||
+    InventoryMovementType.donation ||
+    InventoryMovementType.purchase ||
+    InventoryMovementType.returned => true,
+    InventoryMovementType.issue || InventoryMovementType.disposal => false,
+    _ => null,
+  };
 
   /// Whether a user may choose this when recording a movement.
   ///
   /// Purchases come from completing an expense, an opening balance is set
   /// once at creation, and `legacy` is a state rather than an action.
   bool get isUserSelectable => switch (this) {
-        InventoryMovementType.acquisition ||
-        InventoryMovementType.donation ||
-        InventoryMovementType.issue ||
-        InventoryMovementType.returned ||
-        InventoryMovementType.disposal ||
-        InventoryMovementType.adjustment =>
-          true,
-        _ => false,
-      };
+    InventoryMovementType.acquisition ||
+    InventoryMovementType.donation ||
+    InventoryMovementType.issue ||
+    InventoryMovementType.returned ||
+    InventoryMovementType.disposal ||
+    InventoryMovementType.adjustment => true,
+    _ => false,
+  };
 
   String get hint => switch (this) {
-        InventoryMovementType.acquisition =>
-          'Obtained without a purchase record.',
-        InventoryMovementType.donation => 'Given to the organization.',
-        InventoryMovementType.issue => 'Taken out for use at an event.',
-        InventoryMovementType.returned =>
-          'Brought back. Cannot exceed what is still out for that event.',
-        InventoryMovementType.disposal => 'Damaged, lost or written off.',
-        InventoryMovementType.adjustment =>
-          'A documented correction, up or down.',
-        InventoryMovementType.purchase =>
-          'Recorded by completing the paying expense, not by hand.',
-        InventoryMovementType.openingBalance =>
-          'Set once, when the item is created.',
-        InventoryMovementType.legacy => 'An unclassified historical record.',
-      };
+    InventoryMovementType.acquisition => 'Obtained without a purchase record.',
+    InventoryMovementType.donation => 'Given to the organization.',
+    InventoryMovementType.issue => 'Taken out for use at an event.',
+    InventoryMovementType.returned =>
+      'Brought back. Cannot exceed what is still out for that event.',
+    InventoryMovementType.disposal => 'Damaged, lost or written off.',
+    InventoryMovementType.adjustment => 'A documented correction, up or down.',
+    InventoryMovementType.purchase =>
+      'Recorded by completing the paying expense, not by hand.',
+    InventoryMovementType.openingBalance =>
+      'Set once, when the item is created.',
+    InventoryMovementType.legacy => 'An unclassified historical record.',
+  };
 }
 
 /// Types a user may pick in the movement form.
@@ -248,16 +244,16 @@ enum InitialStockType { openingBalance, acquisition, donation }
 
 extension InitialStockTypeNaming on InitialStockType {
   String get wireName => switch (this) {
-        InitialStockType.openingBalance => 'opening_balance',
-        InitialStockType.acquisition => 'acquisition',
-        InitialStockType.donation => 'donation',
-      };
+    InitialStockType.openingBalance => 'opening_balance',
+    InitialStockType.acquisition => 'acquisition',
+    InitialStockType.donation => 'donation',
+  };
 
   String get label => switch (this) {
-        InitialStockType.openingBalance => 'Opening balance',
-        InitialStockType.acquisition => 'Acquired',
-        InitialStockType.donation => 'Donated',
-      };
+    InitialStockType.openingBalance => 'Opening balance',
+    InitialStockType.acquisition => 'Acquired',
+    InitialStockType.donation => 'Donated',
+  };
 }
 
 /// Turns the count a user types into the signed change the API expects.

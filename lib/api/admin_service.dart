@@ -48,14 +48,17 @@ class AdminService {
     String? departmentId,
     String? organizationId,
   }) async {
-    final response = await _client.post('/cite-members', body: {
-      'full_name': fullName,
-      'email': email,
-      'role': role.wireName,
-      if (position != null) 'position': position,
-      if (departmentId != null) 'department_id': departmentId,
-      if (organizationId != null) 'organization_id': organizationId,
-    });
+    final response = await _client.post(
+      '/cite-members',
+      body: {
+        'full_name': fullName,
+        'email': email,
+        'role': role.wireName,
+        if (position != null) 'position': position,
+        if (departmentId != null) 'department_id': departmentId,
+        if (organizationId != null) 'organization_id': organizationId,
+      },
+    );
     return RosterEntry.fromJson(response as Map<String, dynamic>);
   }
 
@@ -68,11 +71,14 @@ class AdminService {
     String? position,
     String? organizationId,
   }) async {
-    final response = await _client.patch('/cite-members/$memberId', body: {
-      if (role != null) 'role': role.wireName,
-      if (position != null) 'position': position,
-      if (organizationId != null) 'organization_id': organizationId,
-    });
+    final response = await _client.patch(
+      '/cite-members/$memberId',
+      body: {
+        if (role != null) 'role': role.wireName,
+        if (position != null) 'position': position,
+        if (organizationId != null) 'organization_id': organizationId,
+      },
+    );
     return RosterEntry.fromJson(response as Map<String, dynamic>);
   }
 
@@ -121,12 +127,15 @@ class AdminService {
     bool? isSuspended,
     String? organizationId,
   }) async {
-    final response = await _client.patch('/users/$userId/access', body: {
-      if (role != null) 'role': role.wireName,
-      if (position != null) 'position': position,
-      if (isSuspended != null) 'is_suspended': isSuspended,
-      if (organizationId != null) 'organization_id': organizationId,
-    });
+    final response = await _client.patch(
+      '/users/$userId/access',
+      body: {
+        if (role != null) 'role': role.wireName,
+        if (position != null) 'position': position,
+        if (isSuspended != null) 'is_suspended': isSuspended,
+        if (organizationId != null) 'organization_id': organizationId,
+      },
+    );
     return ManagedUser.fromJson(response as Map<String, dynamic>);
   }
 
@@ -137,11 +146,14 @@ class AdminService {
     required String name,
     String? description,
   }) async {
-    final response = await _client.post('/departments', body: {
-      'code': code,
-      'name': name,
-      if (description != null) 'description': description,
-    });
+    final response = await _client.post(
+      '/departments',
+      body: {
+        'code': code,
+        'name': name,
+        if (description != null) 'description': description,
+      },
+    );
     return RemoteDepartment.fromJson(response as Map<String, dynamic>);
   }
 
@@ -150,11 +162,10 @@ class AdminService {
     required String name,
     required String departmentId,
   }) async {
-    final response = await _client.post('/organizations', body: {
-      'code': code,
-      'name': name,
-      'department_id': departmentId,
-    });
+    final response = await _client.post(
+      '/organizations',
+      body: {'code': code, 'name': name, 'department_id': departmentId},
+    );
     return RemoteOrganization.fromJson(response as Map<String, dynamic>);
   }
 
@@ -168,13 +179,16 @@ class AdminService {
     required String departmentId,
     String? position,
   }) async {
-    final response = await _client.post('/auth/register/admin', body: {
-      'full_name': fullName,
-      'email': email,
-      'organization_id': organizationId,
-      'department_id': departmentId,
-      if (position != null) 'position': position,
-    });
+    final response = await _client.post(
+      '/auth/register/admin',
+      body: {
+        'full_name': fullName,
+        'email': email,
+        'organization_id': organizationId,
+        'department_id': departmentId,
+        if (position != null) 'position': position,
+      },
+    );
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
@@ -183,11 +197,14 @@ class AdminService {
     required String email,
     String? position,
   }) async {
-    final response = await _client.post('/auth/register/sds', body: {
-      'full_name': fullName,
-      'email': email,
-      if (position != null) 'position': position,
-    });
+    final response = await _client.post(
+      '/auth/register/sds',
+      body: {
+        'full_name': fullName,
+        'email': email,
+        if (position != null) 'position': position,
+      },
+    );
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
@@ -195,10 +212,10 @@ class AdminService {
 
   /// Read-only history. Admin sees its own scope, Super Admin everything.
   Future<List<AuditEntry>> auditLog({int limit = 50, int offset = 0}) async {
-    final response = await _client.get('/audit-logs', query: {
-      'limit': limit.toString(),
-      'offset': offset.toString(),
-    });
+    final response = await _client.get(
+      '/audit-logs',
+      query: {'limit': limit.toString(), 'offset': offset.toString()},
+    );
     return (response as List)
         .map((json) => AuditEntry.fromJson(json as Map<String, dynamic>))
         .toList();

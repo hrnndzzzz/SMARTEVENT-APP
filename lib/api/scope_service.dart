@@ -21,7 +21,9 @@ class ScopeService {
   Future<List<RemoteOrganization>> organizations() async {
     final response = await _client.get('/organizations');
     return (response as List)
-        .map((json) => RemoteOrganization.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => RemoteOrganization.fromJson(json as Map<String, dynamic>),
+        )
         .toList();
   }
 }

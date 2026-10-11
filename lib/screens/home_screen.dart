@@ -13,6 +13,7 @@ import 'event_approvals_screen.dart';
 import 'expenses_screen.dart';
 import 'notifications_screen.dart';
 import 'scanner_screen.dart';
+import '../theme/peso.dart';
 
 /// The dashboard: where you stand, what needs you, and the one thing you
 /// are most likely to have opened the app to do.
@@ -112,7 +113,7 @@ class HomeScreen extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            '₱${remaining.toStringAsFixed(0)}',
+                            '${peso(remaining, decimals: 0)}',
                             style: AppText.heroNumber.copyWith(
                               fontSize: 40,
                               color: context.palette.canvas,
@@ -160,14 +161,14 @@ class HomeScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: _Stat(
-                  value: '₱${allocated.toStringAsFixed(0)}',
+                  value: '${peso(allocated, decimals: 0)}',
                   label: 'Allocated',
                 ),
               ),
               const SizedBox(width: AppLayout.between),
               Expanded(
                 child: _Stat(
-                  value: '₱${spent.toStringAsFixed(0)}',
+                  value: '${peso(spent, decimals: 0)}',
                   label: 'Approved spending',
                 ),
               ),

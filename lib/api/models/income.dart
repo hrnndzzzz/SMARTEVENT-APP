@@ -50,12 +50,12 @@ class Income {
       receiptReviewStatus == ReceiptReviewStatus.rejected;
 
   String get withheldReason => switch (receiptReviewStatus) {
-        ReceiptReviewStatus.pending =>
-          'Held out of totals until its receipt is reviewed.',
-        ReceiptReviewStatus.rejected =>
-          'Held out of totals: its receipt was rejected.',
-        _ => '',
-      };
+    ReceiptReviewStatus.pending =>
+      'Held out of totals until its receipt is reviewed.',
+    ReceiptReviewStatus.rejected =>
+      'Held out of totals: its receipt was rejected.',
+    _ => '',
+  };
 
   factory Income.fromJson(Map<String, dynamic> json) {
     return Income(
@@ -66,8 +66,9 @@ class Income {
       purpose: json['purpose'] as String,
       amount: (json['amount'] as num).toDouble(),
       receivedOn: DateTime.parse(json['received_on'] as String),
-      receiptReviewStatus:
-          receiptReviewStatusFromWire(json['receipt_review_status'] as String?),
+      receiptReviewStatus: receiptReviewStatusFromWire(
+        json['receipt_review_status'] as String?,
+      ),
       recordedBy: json['recorded_by'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -80,32 +81,32 @@ enum FundSource { registrationFees, sponsorship, donation, other }
 
 extension FundSourceNaming on FundSource {
   String get wireName => switch (this) {
-        FundSource.registrationFees => 'registration_fees',
-        FundSource.sponsorship => 'sponsorship',
-        FundSource.donation => 'donation',
-        FundSource.other => 'other',
-      };
+    FundSource.registrationFees => 'registration_fees',
+    FundSource.sponsorship => 'sponsorship',
+    FundSource.donation => 'donation',
+    FundSource.other => 'other',
+  };
 
   String get label => switch (this) {
-        FundSource.registrationFees => 'Registration fees',
-        FundSource.sponsorship => 'Sponsorship',
-        FundSource.donation => 'Donation',
-        FundSource.other => 'Other',
-      };
+    FundSource.registrationFees => 'Registration fees',
+    FundSource.sponsorship => 'Sponsorship',
+    FundSource.donation => 'Donation',
+    FundSource.other => 'Other',
+  };
 
   String get hint => switch (this) {
-        FundSource.registrationFees => 'Collected from participants',
-        FundSource.sponsorship => 'From a sponsoring company or body',
-        FundSource.donation => 'Given without expectation of return',
-        FundSource.other => 'Anything that fits none of the above',
-      };
+    FundSource.registrationFees => 'Collected from participants',
+    FundSource.sponsorship => 'From a sponsoring company or body',
+    FundSource.donation => 'Given without expectation of return',
+    FundSource.other => 'Anything that fits none of the above',
+  };
 }
 
 /// Unknown values read as [FundSource.other], which is also the backend's
 /// own default — an unrecognized source is untyped, not a new category.
 FundSource fundSourceFromWire(String? value) => switch (value) {
-      'registration_fees' => FundSource.registrationFees,
-      'sponsorship' => FundSource.sponsorship,
-      'donation' => FundSource.donation,
-      _ => FundSource.other,
-    };
+  'registration_fees' => FundSource.registrationFees,
+  'sponsorship' => FundSource.sponsorship,
+  'donation' => FundSource.donation,
+  _ => FundSource.other,
+};

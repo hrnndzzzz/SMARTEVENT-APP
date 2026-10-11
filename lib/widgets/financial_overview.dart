@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import '../theme/peso.dart';
 
 /// Shared financial-overview widgets used across all three role
 /// dashboards (Officer, Adviser, Admin) so their base financial view
@@ -87,10 +88,7 @@ class ExpendedCard extends StatelessWidget {
                   children: [
                     const MonoLabel('Total expended'),
                     const SizedBox(height: 4),
-                    Text(
-                      '₱${expended.toStringAsFixed(2)}',
-                      style: AppText.moneyLarge,
-                    ),
+                    Text('${peso(expended)}', style: AppText.moneyLarge),
                   ],
                 ),
               ),
@@ -135,7 +133,7 @@ class RemainingBalanceCard extends StatelessWidget {
                 MonoLabel('Remaining balance', color: tone.foreground(context)),
                 const SizedBox(height: 4),
                 Text(
-                  '₱${balance.toStringAsFixed(2)}',
+                  '${peso(balance)}',
                   style: AppText.moneyLarge.copyWith(
                     color: tone.foreground(context),
                   ),
@@ -409,7 +407,7 @@ class ExpenseDistributionCard extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      '₱${total.toStringAsFixed(0)}',
+                      '${peso(total, decimals: 0)}',
                       style: AppText.number.copyWith(fontSize: 12),
                     ),
                   ),

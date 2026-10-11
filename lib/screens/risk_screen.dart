@@ -6,6 +6,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'notifications_screen.dart';
+import '../theme/peso.dart';
 
 /// Expenses the backend has flagged for a closer look.
 ///
@@ -128,7 +129,7 @@ class _FlaggedCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '₱${expense.amount.toStringAsFixed(2)}',
+                '${peso(expense.amount)}',
                 style: AppText.moneyLarge.copyWith(fontSize: 16),
               ),
             ],
@@ -147,8 +148,8 @@ class _FlaggedCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'The receipt was read as '
-              '₱${expense.ocrAmount!.toStringAsFixed(2)}, which differs from '
-              'the ₱${expense.amount.toStringAsFixed(2)} recorded.',
+              '${peso(expense.ocrAmount!)}, which differs from '
+              'the ${peso(expense.amount)} recorded.',
               style: AppText.caption,
             ),
           ],

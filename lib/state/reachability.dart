@@ -31,8 +31,10 @@ enum Reachable {
 /// without the user having to go and tap something. `/health` needs no
 /// token, so the probe can never be the thing that logs anyone out.
 class Reachability extends ChangeNotifier {
-  Reachability({http.Client? httpClient, this.probeEvery = const Duration(seconds: 30)})
-      : _httpClient = httpClient ?? http.Client();
+  Reachability({
+    http.Client? httpClient,
+    this.probeEvery = const Duration(seconds: 30),
+  }) : _httpClient = httpClient ?? http.Client();
 
   final http.Client _httpClient;
   final Duration probeEvery;

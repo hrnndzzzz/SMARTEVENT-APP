@@ -14,34 +14,36 @@ enum UserRole { officer, treasurer, adviser, sdsStaff, admin, superAdmin }
 extension UserRoleNaming on UserRole {
   /// The exact string the API sends and expects.
   String get wireName => switch (this) {
-        UserRole.officer => 'officer',
-        UserRole.treasurer => 'treasurer',
-        UserRole.adviser => 'adviser',
-        UserRole.sdsStaff => 'sds_staff',
-        UserRole.admin => 'admin',
-        UserRole.superAdmin => 'super_admin',
-      };
+    UserRole.officer => 'officer',
+    UserRole.treasurer => 'treasurer',
+    UserRole.adviser => 'adviser',
+    UserRole.sdsStaff => 'sds_staff',
+    UserRole.admin => 'admin',
+    UserRole.superAdmin => 'super_admin',
+  };
 
   String get label => switch (this) {
-        UserRole.officer => 'Officer',
-        UserRole.treasurer => 'Treasurer',
-        UserRole.adviser => 'Adviser',
-        UserRole.sdsStaff => 'SDS Staff',
-        UserRole.admin => 'Admin',
-        UserRole.superAdmin => 'Super Admin',
-      };
+    UserRole.officer => 'Officer',
+    UserRole.treasurer => 'Treasurer',
+    UserRole.adviser => 'Adviser',
+    UserRole.sdsStaff => 'SDS Staff',
+    UserRole.admin => 'Admin',
+    UserRole.superAdmin => 'Super Admin',
+  };
 
   /// One-line description of what the role is for, matching the backend's
   /// own `ROLE_POLICY` responsibilities.
   String get responsibility => switch (this) {
-        UserRole.officer => 'View organization records for monitoring.',
-        UserRole.treasurer => 'Record financial activity and inventory movements.',
-        UserRole.adviser => 'Review event proposals and expense submissions.',
-        UserRole.sdsStaff => 'View submitted proposal letters for school oversight.',
-        UserRole.admin => 'Organization administrator appointed by the Super Admin.',
-        UserRole.superAdmin =>
-          'Designated school IT administrator, appointed by the institution.',
-      };
+    UserRole.officer => 'View organization records for monitoring.',
+    UserRole.treasurer => 'Record financial activity and inventory movements.',
+    UserRole.adviser => 'Review event proposals and expense submissions.',
+    UserRole.sdsStaff =>
+      'View submitted proposal letters for school oversight.',
+    UserRole.admin =>
+      'Organization administrator appointed by the Super Admin.',
+    UserRole.superAdmin =>
+      'Designated school IT administrator, appointed by the institution.',
+  };
 }
 
 /// Roles an ordinary member account can hold.
@@ -63,14 +65,14 @@ const List<UserRole> memberRoles = [
 /// guessed permission set to an account the app doesn't actually
 /// understand — better to refuse the sign-in and say so.
 UserRole? userRoleFromWire(String value) => switch (value) {
-      'officer' => UserRole.officer,
-      'treasurer' => UserRole.treasurer,
-      'adviser' => UserRole.adviser,
-      'sds_staff' => UserRole.sdsStaff,
-      'admin' => UserRole.admin,
-      'super_admin' => UserRole.superAdmin,
-      _ => null,
-    };
+  'officer' => UserRole.officer,
+  'treasurer' => UserRole.treasurer,
+  'adviser' => UserRole.adviser,
+  'sds_staff' => UserRole.sdsStaff,
+  'admin' => UserRole.admin,
+  'super_admin' => UserRole.superAdmin,
+  _ => null,
+};
 
 /// What each role may do.
 ///
@@ -81,7 +83,8 @@ UserRole? userRoleFromWire(String value) => switch (value) {
 extension UserRoleCapabilities on UserRole {
   /// Admin or Super Admin. Super Admin inherits Admin's route privileges
   /// and adds school-wide setup on top.
-  bool get isAdministrator => this == UserRole.admin || this == UserRole.superAdmin;
+  bool get isAdministrator =>
+      this == UserRole.admin || this == UserRole.superAdmin;
 
   /// Officers read everything operational and write nothing. Their own
   /// password change and marking their own notifications read still work.

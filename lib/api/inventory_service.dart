@@ -30,7 +30,9 @@ class InventoryService {
       query: query.isEmpty ? null : query,
     );
     return (response as List)
-        .map((json) => RemoteInventoryItem.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => RemoteInventoryItem.fromJson(json as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -38,7 +40,9 @@ class InventoryService {
   Future<List<RemoteInventoryItem>> lowStock() async {
     final response = await _client.get('/inventory/low-stock');
     return (response as List)
-        .map((json) => RemoteInventoryItem.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => RemoteInventoryItem.fromJson(json as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -66,19 +70,22 @@ class InventoryService {
     String? departmentId,
     String? organizationId,
   }) async {
-    final response = await _client.post('/inventory', body: {
-      'event_id': eventId,
-      'item_name': itemName,
-      if (description != null) 'description': description,
-      'quantity': quantity,
-      'unit': unit,
-      'low_stock_threshold': lowStockThreshold,
-      if (location != null) 'location': location,
-      'initial_transaction_type': initialTransactionType.wireName,
-      'reason': reason,
-      if (departmentId != null) 'department_id': departmentId,
-      if (organizationId != null) 'organization_id': organizationId,
-    });
+    final response = await _client.post(
+      '/inventory',
+      body: {
+        'event_id': eventId,
+        'item_name': itemName,
+        if (description != null) 'description': description,
+        'quantity': quantity,
+        'unit': unit,
+        'low_stock_threshold': lowStockThreshold,
+        if (location != null) 'location': location,
+        'initial_transaction_type': initialTransactionType.wireName,
+        'reason': reason,
+        if (departmentId != null) 'department_id': departmentId,
+        if (organizationId != null) 'organization_id': organizationId,
+      },
+    );
     return RemoteInventoryItem.fromJson(response as Map<String, dynamic>);
   }
 
@@ -97,14 +104,17 @@ class InventoryService {
     String? location,
     String? eventId,
   }) async {
-    final response = await _client.patch('/inventory/$inventoryId', body: {
-      if (itemName != null) 'item_name': itemName,
-      if (description != null) 'description': description,
-      if (unit != null) 'unit': unit,
-      if (lowStockThreshold != null) 'low_stock_threshold': lowStockThreshold,
-      if (location != null) 'location': location,
-      if (eventId != null) 'event_id': eventId,
-    });
+    final response = await _client.patch(
+      '/inventory/$inventoryId',
+      body: {
+        if (itemName != null) 'item_name': itemName,
+        if (description != null) 'description': description,
+        if (unit != null) 'unit': unit,
+        if (lowStockThreshold != null) 'low_stock_threshold': lowStockThreshold,
+        if (location != null) 'location': location,
+        if (eventId != null) 'event_id': eventId,
+      },
+    );
     return RemoteInventoryItem.fromJson(response as Map<String, dynamic>);
   }
 
@@ -121,7 +131,9 @@ class InventoryService {
   /// the purchase was completed; confirming only makes the record usable
   /// for manual movements.
   Future<RemoteInventoryItem> confirmDraft(String inventoryId) async {
-    final response = await _client.post('/inventory/$inventoryId/confirm-draft');
+    final response = await _client.post(
+      '/inventory/$inventoryId/confirm-draft',
+    );
     return RemoteInventoryItem.fromJson(response as Map<String, dynamic>);
   }
 

@@ -13,6 +13,7 @@ import 'notifications_screen.dart';
 import 'income_screen.dart';
 import 'receipts_screen.dart';
 import 'scanner_screen.dart';
+import '../theme/peso.dart';
 
 /// Everything about money, in one place.
 ///
@@ -111,9 +112,9 @@ class _Strip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final figures = [
-      ('Allocated', '₱${app.totalAllocated.toStringAsFixed(0)}'),
-      ('Spent', '₱${app.totalExpended.toStringAsFixed(0)}'),
-      ('Left', '₱${app.remainingBalance.toStringAsFixed(0)}'),
+      ('Allocated', '${peso(app.totalAllocated, decimals: 0)}'),
+      ('Spent', '${peso(app.totalExpended, decimals: 0)}'),
+      ('Left', '${peso(app.remainingBalance, decimals: 0)}'),
       ('Pending', '${app.pendingExpenses.length}'),
     ];
 

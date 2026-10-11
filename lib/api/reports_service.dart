@@ -27,7 +27,9 @@ class ReportsService {
       query: {'months': months.toString()},
     );
     return (response as List)
-        .map((json) => SpendingTrendPoint.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => SpendingTrendPoint.fromJson(json as Map<String, dynamic>),
+        )
         .toList();
   }
 
@@ -76,7 +78,8 @@ class ReportsService {
       ),
     );
     return ConsolidatedFinancialReport.fromJson(
-        response as Map<String, dynamic>);
+      response as Map<String, dynamic>,
+    );
   }
 
   Future<BudgetRecommendation> budgetRecommendation(String categoryId) async {
@@ -107,7 +110,10 @@ class ReportsService {
     );
   }
 
-  Future<DownloadedFile> exportCategory(String categoryId, ExportFormat format) {
+  Future<DownloadedFile> exportCategory(
+    String categoryId,
+    ExportFormat format,
+  ) {
     return _client.download(
       '/reports/category/$categoryId/export',
       query: {'format': format.wireName},

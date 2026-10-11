@@ -39,16 +39,19 @@ class IncomeService {
     DateTime? receivedOn,
     ReceiptDetailsInput? receipt,
   }) async {
-    final response = await _client.post('/incomes', body: {
-      'event_id': eventId,
-      'source': source,
-      'source_type': sourceType.wireName,
-      'purpose': purpose,
-      'amount': amount,
-      if (receivedOn != null)
-        'received_on': receivedOn.toIso8601String().split('T').first,
-      if (receipt != null) 'receipt': receipt.toJson(),
-    });
+    final response = await _client.post(
+      '/incomes',
+      body: {
+        'event_id': eventId,
+        'source': source,
+        'source_type': sourceType.wireName,
+        'purpose': purpose,
+        'amount': amount,
+        if (receivedOn != null)
+          'received_on': receivedOn.toIso8601String().split('T').first,
+        if (receipt != null) 'receipt': receipt.toJson(),
+      },
+    );
     return Income.fromJson(response as Map<String, dynamic>);
   }
 }

@@ -9,6 +9,7 @@ import '../widgets/app_header.dart';
 import '../widgets/expense_review.dart';
 import 'expense_detail_screen.dart';
 import 'notifications_screen.dart';
+import '../theme/peso.dart';
 
 /// Expenses, with the ones waiting on a decision at the top.
 ///
@@ -148,7 +149,7 @@ class _Row extends StatelessWidget {
 
     return BrutListRow(
       title: expense.vendor,
-      meta: '${expense.category} · ₱${expense.amount.toStringAsFixed(2)}',
+      meta: '${expense.category} · ${peso(expense.amount)}',
       marker: BrutIconTile(
         icon: expense.isFlagged ? Icons.flag_outlined : Icons.receipt_outlined,
         tone: expense.isFlagged ? BrutTone.sun : tone,

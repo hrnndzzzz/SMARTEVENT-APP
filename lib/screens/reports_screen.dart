@@ -10,6 +10,7 @@ import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import 'notifications_screen.dart';
+import '../theme/peso.dart';
 
 /// Consolidated financial reports.
 ///
@@ -370,7 +371,7 @@ class _TotalsCard extends StatelessWidget {
               tone: BrutTone.sun,
               icon: Icons.pause_circle_outline,
               text:
-                  '₱${report.withheldIncomeTotal.toStringAsFixed(2)} of '
+                  '${peso(report.withheldIncomeTotal)} of '
                   'income (${report.withheldIncomeCount} '
                   '${report.withheldIncomeCount == 1 ? 'entry' : 'entries'}) '
                   'is held out of these totals pending a receipt decision.',
@@ -382,7 +383,7 @@ class _TotalsCard extends StatelessWidget {
               tone: BrutTone.sun,
               icon: Icons.link_off,
               text:
-                  '₱${report.unassignedExpenseTotal.toStringAsFixed(2)} of '
+                  '${peso(report.unassignedExpenseTotal)} of '
                   'spending is not linked to any event, so it is in the '
                   'total above but in none of the events below.',
             ),
@@ -397,13 +398,9 @@ class _TotalsCard extends StatelessWidget {
       children: [
         Expanded(child: MonoLabel(label)),
         if (tone != null)
-          BrutBadge(
-            label: '₱${value.toStringAsFixed(2)}',
-            tone: tone,
-            mono: true,
-          )
+          BrutBadge(label: '${peso(value)}', tone: tone, mono: true)
         else
-          Text('₱${value.toStringAsFixed(2)}', style: AppText.number),
+          Text('${peso(value)}', style: AppText.number),
       ],
     );
   }
@@ -446,10 +443,7 @@ class _SourcesCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  '₱${source.totalIncome.toStringAsFixed(2)}',
-                  style: AppText.number,
-                ),
+                Text('${peso(source.totalIncome)}', style: AppText.number),
               ],
             ),
             if (source != report.incomeBySource.last) const Divider(height: 20),
@@ -518,8 +512,7 @@ class _EventsCard extends StatelessWidget {
                       if (event.withheldIncomeCount > 0) ...[
                         const SizedBox(height: 6),
                         BrutBadge(
-                          label:
-                              '₱${event.withheldIncomeTotal.toStringAsFixed(2)} withheld',
+                          label: '${peso(event.withheldIncomeTotal)} withheld',
                           tone: BrutTone.sun,
                           mono: true,
                         ),
@@ -531,13 +524,10 @@ class _EventsCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '+₱${event.totalIncome.toStringAsFixed(2)}',
-                      style: AppText.number,
-                    ),
+                    Text('+${peso(event.totalIncome)}', style: AppText.number),
                     const SizedBox(height: 2),
                     Text(
-                      '−₱${event.totalExpenses.toStringAsFixed(2)}',
+                      '−${peso(event.totalExpenses)}',
                       style: AppText.moneySmall,
                     ),
                   ],

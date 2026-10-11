@@ -14,11 +14,14 @@ class NotificationService {
     int limit = 50,
     int offset = 0,
   }) async {
-    final response = await _client.get('/notifications', query: {
-      if (unreadOnly) 'unread_only': 'true',
-      'limit': limit.toString(),
-      'offset': offset.toString(),
-    });
+    final response = await _client.get(
+      '/notifications',
+      query: {
+        if (unreadOnly) 'unread_only': 'true',
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      },
+    );
     return (response as List)
         .map((json) => AppNotice.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -33,8 +36,7 @@ class NotificationService {
   /// Marks one of the caller's own notifications read. No payload needed —
   /// and there is no way to mark someone else's.
   Future<AppNotice> markRead(String notificationId) async {
-    final response =
-        await _client.patch('/notifications/$notificationId/read');
+    final response = await _client.patch('/notifications/$notificationId/read');
     return AppNotice.fromJson(response as Map<String, dynamic>);
   }
 }

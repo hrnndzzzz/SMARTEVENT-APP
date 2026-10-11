@@ -12,6 +12,7 @@ import '../widgets/app_header.dart';
 import '../widgets/scope_picker.dart';
 import '../widgets/brut_date_picker.dart';
 import 'notifications_screen.dart';
+import '../theme/peso.dart';
 
 /// Capture a receipt, read it, correct it, then save it.
 ///
@@ -208,8 +209,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
     // The backend enforces this too; catching it here explains which way
     // round the problem is.
     if (lineSum - total > 0.001) {
-      return 'The line items add up to ₱${lineSum.toStringAsFixed(2)}, more '
-          'than the ₱${total.toStringAsFixed(2)} total.';
+      return 'The line items add up to ${peso(lineSum)}, more '
+          'than the ${peso(total)} total.';
     }
 
     // A receipt's purpose is required and must not be blank.

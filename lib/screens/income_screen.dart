@@ -7,6 +7,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import 'notifications_screen.dart';
+import '../theme/peso.dart';
 
 /// Income recorded against events, by fund source.
 ///
@@ -122,7 +123,7 @@ class _Totals extends StatelessWidget {
                     const MonoLabel('Counted'),
                     const SizedBox(height: 4),
                     Text(
-                      '₱${app.countedIncomeTotal.toStringAsFixed(2)}',
+                      '${peso(app.countedIncomeTotal)}',
                       style: AppText.moneyLarge,
                     ),
                   ],
@@ -138,7 +139,7 @@ class _Totals extends StatelessWidget {
                       const MonoLabel('Withheld'),
                       const SizedBox(height: 4),
                       Text(
-                        '₱${withheld.toStringAsFixed(2)}',
+                        '${peso(withheld)}',
                         style: AppText.moneyLarge.copyWith(
                           fontSize: 16,
                           color: context.palette.subtle,
@@ -157,10 +158,7 @@ class _Totals extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(child: MonoLabel(entry.key.label)),
-                    Text(
-                      '₱${entry.value.toStringAsFixed(2)}',
-                      style: AppText.number,
-                    ),
+                    Text('${peso(entry.value)}', style: AppText.number),
                   ],
                 ),
               ),
@@ -190,7 +188,7 @@ class _IncomeCard extends StatelessWidget {
               Expanded(child: Text(income.source, style: AppText.cardTitle)),
               const SizedBox(width: 10),
               Text(
-                '₱${income.amount.toStringAsFixed(2)}',
+                '${peso(income.amount)}',
                 style: AppText.moneyLarge.copyWith(
                   fontSize: 16,
                   color: income.isWithheld

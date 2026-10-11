@@ -15,33 +15,33 @@ enum Semester { first, second, summer }
 
 extension SemesterNaming on Semester {
   String get wireName => switch (this) {
-        Semester.first => '1st',
-        Semester.second => '2nd',
-        Semester.summer => 'summer',
-      };
+    Semester.first => '1st',
+    Semester.second => '2nd',
+    Semester.summer => 'summer',
+  };
 
   String get label => switch (this) {
-        Semester.first => 'First semester',
-        Semester.second => 'Second semester',
-        Semester.summer => 'Summer',
-      };
+    Semester.first => 'First semester',
+    Semester.second => 'Second semester',
+    Semester.summer => 'Summer',
+  };
 
   /// Compact form for list rows and chips.
   String get shortLabel => switch (this) {
-        Semester.first => '1st sem',
-        Semester.second => '2nd sem',
-        Semester.summer => 'Summer',
-      };
+    Semester.first => '1st sem',
+    Semester.second => '2nd sem',
+    Semester.summer => 'Summer',
+  };
 }
 
 /// Null for anything unrecognized, so an unexpected value shows as
 /// "not set" rather than being silently coerced to a real semester.
 Semester? semesterFromWire(String? value) => switch (value) {
-      '1st' => Semester.first,
-      '2nd' => Semester.second,
-      'summer' => Semester.summer,
-      _ => null,
-    };
+  '1st' => Semester.first,
+  '2nd' => Semester.second,
+  'summer' => Semester.summer,
+  _ => null,
+};
 
 /// Whether an event belongs to one department or to the organization as a
 /// whole. Reports can be filtered either way, so this is not cosmetic.
@@ -52,23 +52,21 @@ extension EventScopeNaming on EventScope {
   String get wireName => name;
 
   String get label => switch (this) {
-        EventScope.departmental => 'Departmental',
-        EventScope.organizational => 'Organizational',
-      };
+    EventScope.departmental => 'Departmental',
+    EventScope.organizational => 'Organizational',
+  };
 
   String get description => switch (this) {
-        EventScope.departmental =>
-          'Run by one department. Requires a department.',
-        EventScope.organizational =>
-          'Run by the organization as a whole.',
-      };
+    EventScope.departmental => 'Run by one department. Requires a department.',
+    EventScope.organizational => 'Run by the organization as a whole.',
+  };
 }
 
 EventScope? eventScopeFromWire(String? value) => switch (value) {
-      'departmental' => EventScope.departmental,
-      'organizational' => EventScope.organizational,
-      _ => null,
-    };
+  'departmental' => EventScope.departmental,
+  'organizational' => EventScope.organizational,
+  _ => null,
+};
 
 /// School-year parsing and validation.
 abstract final class SchoolYear {
@@ -106,7 +104,11 @@ abstract final class SchoolYear {
   }) {
     final currentStart = now.month >= 6 ? now.year : now.year - 1;
     return [
-      for (var year = currentStart + forward; year >= currentStart - back; year--)
+      for (
+        var year = currentStart + forward;
+        year >= currentStart - back;
+        year--
+      )
         format(year),
     ];
   }
@@ -114,14 +116,8 @@ abstract final class SchoolYear {
   /// Merges the years the backend already knows about with local
   /// suggestions, newest first and without duplicates, so a picker shows
   /// real data first but is never empty.
-  static List<String> mergeOptions(
-    Iterable<String> known,
-    DateTime now,
-  ) {
-    final valid = {
-      ...known.where(isValid),
-      ...suggestions(now),
-    }.toList();
+  static List<String> mergeOptions(Iterable<String> known, DateTime now) {
+    final valid = {...known.where(isValid), ...suggestions(now)}.toList();
     valid.sort((a, b) => startYearOf(b)!.compareTo(startYearOf(a)!));
     return valid;
   }
