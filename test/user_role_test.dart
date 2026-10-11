@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:smartevent/state/app_areas.dart';
 import 'package:smartevent/state/user_role.dart';
 
 /// Locks the client-side capability matrix to the backend's own policy in
@@ -13,8 +14,11 @@ void main() {
   group('wire format', () {
     test('every role round-trips through its wire name', () {
       for (final role in UserRole.values) {
-        expect(userRoleFromWire(role.wireName), role,
-            reason: '${role.name} did not round-trip');
+        expect(
+          userRoleFromWire(role.wireName),
+          role,
+          reason: '${role.name} did not round-trip',
+        );
       }
     });
 
@@ -144,14 +148,46 @@ void main() {
 
   group('assignable member roles', () {
     test('covers exactly the roles a roster entry can hold', () {
-      expect(memberRoles,
-          containsAll([UserRole.officer, UserRole.treasurer, UserRole.adviser]));
+      expect(
+        memberRoles,
+        containsAll([UserRole.officer, UserRole.treasurer, UserRole.adviser]),
+      );
     });
 
     test('excludes admin and sds, which have their own endpoints', () {
       expect(memberRoles, isNot(contains(UserRole.admin)));
       expect(memberRoles, isNot(contains(UserRole.superAdmin)));
       expect(memberRoles, isNot(contains(UserRole.sdsStaff)));
+    });
+  });
+
+  group('what each role is offered', () {
+    test('an officer is not offered letters it can never read', () {
+      final ids = areasFor(UserRole.officer).map((a) => a.id);
+      expect(ids, isNot(contains('letters')));
+      expect(ids, isNot(contains('admin')));
+      // Officers do read operational records, so these stay.
+      expect(ids, containsAll(['events', 'money', 'inventory', 'reports']));
+    });
+
+    test('only administrators are offered administration', () {
+      for (final role in UserRole.values) {
+        final offered = areasFor(role).map((a) => a.id).contains('admin');
+        expect(offered, role.canManageMembers, reason: role.name);
+      }
+    });
+
+    test('every area offered to a role is one that role may read', () {
+      for (final role in UserRole.values) {
+        for (final area in areasFor(role)) {
+          if (area.id == 'letters') {
+            expect(role.canAccessProposalLetters, isTrue, reason: role.name);
+          }
+          if (area.id == 'admin') {
+            expect(role.canManageMembers, isTrue, reason: role.name);
+          }
+        }
+      }
     });
   });
 }

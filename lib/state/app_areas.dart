@@ -106,6 +106,10 @@ const List<AppArea> appAreas = [
     icon: Icons.description_outlined,
     tone: BrutTone.teal,
     badge: _letters,
+    // Officers reach none of it, and sign-in does not even load the
+    // list for them — so the card would open on an empty screen that
+    // will never fill.
+    visibleTo: _canReadLetters,
     builder: _lettersScreen,
   ),
   AppArea(
@@ -153,6 +157,8 @@ int _flagged(AppState app) => app.flaggedExpenses.length;
 int _letters(AppState app) => app.letters.length;
 
 bool _canAdminister(UserRole role) => role.canManageMembers;
+
+bool _canReadLetters(UserRole role) => role.canAccessProposalLetters;
 
 Widget _events(BuildContext _) => const EventsScreen();
 Widget _money(BuildContext _) => const MoneyScreen();
