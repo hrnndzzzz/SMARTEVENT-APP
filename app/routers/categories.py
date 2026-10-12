@@ -1,21 +1,5 @@
-"""
-CRUD for budget categories (e.g. "Supplies", "Venue", "Food") — the
-department-wide budget pool that expenses draw down against.
-
-Access rules:
-    - Super Admin sees all categories; admins, advisers, treasurers, and
-        officers see only categories in their own department.
-  - Only admins can CREATE, UPDATE, or DELETE categories, since these
-    define the department's actual budget structure.
-
-Note on remaining_budget: it is never set directly through this router.
-It only changes via the database trigger (fn_deduct_category_balance)
-that fires when an expense's status flips to 'approved'. That's why
-CategoryUpdate in schemas.py has no remaining_budget field — there's
-nothing here for a client to send that would bypass the trigger.
-"""
-
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
@@ -23,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import (
-    assert_department_scope,
     assert_record_scope,
     require_operational_read,
     require_role,
@@ -31,7 +14,7 @@ from app.dependencies import (
     resolve_organization_id,
     scope_query_by_department,
 )
-from app.models import Category, User
+from app.models import Category, Event, Expense, User
 from app.schemas import CategoryCreate, CategoryOut, CategoryUpdate
 
 router = APIRouter(prefix="/categories", tags=["categories"])
@@ -64,8 +47,6 @@ def create_category(
         organization_id=organization_id,
         name=payload.name,
         allocated_budget=payload.allocated_budget,
-        # A brand-new category starts with its full allocation available —
-        # remaining_budget only ever decreases from here via the trigger.
         remaining_budget=payload.allocated_budget,
         low_balance_threshold=payload.low_balance_threshold,
         created_by=current_user.id,
@@ -105,13 +86,18 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    category = db.query(Category).filter(Category.id == category_id).first()
+    category = db.query(Category).filter(Category.id == category_id).with_for_update().first()
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
     assert_record_scope(current_user, category)
 
     updates = payload.model_dump(exclude_unset=True)
+    if "allocated_budget" in updates:
+        remaining = Decimal(str(category.remaining_budget)) + Decimal(str(updates["allocated_budget"])) - Decimal(str(category.allocated_budget))
+        if remaining < 0:
+            raise HTTPException(409, "Allocated budget cannot be less than the amount already spent")
+        updates["remaining_budget"] = remaining
 
     if "department_id" in updates:
         if updates["department_id"] != category.department_id:
@@ -152,18 +138,11 @@ def delete_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    category = db.query(Category).filter(Category.id == category_id).first()
+    category = db.query(Category).filter(Category.id == category_id).with_for_update().first()
     if category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
     assert_record_scope(current_user, category)
-
-    # Categories are referenced by events and expenses (category_id FK).
-    # Deleting one that's already in use would either fail on the FK
-    # constraint or, worse, orphan those records depending on your DB
-    # settings. Block deletion if anything still references it, and
-    # point the admin toward the safer alternative.
-    from app.models import Event, Expense  # local import avoids a circular import at module load
 
     in_use = (
         db.query(Event).filter(Event.category_id == category_id).first()

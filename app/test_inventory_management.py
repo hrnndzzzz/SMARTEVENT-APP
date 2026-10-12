@@ -176,6 +176,7 @@ def test_legacy_item_and_movement_repair_is_audited_without_replaying_quantity(s
     history = InventoryTransaction(inventory_id=item.id, change_qty=2, performed_by=users["treasurer"].id)
     db.add(history)
     db.commit()
+    original_quantity = item.quantity
     login("treasurer")
     assert move(system, "donation", 1).status_code == 409
     login("admin")
@@ -184,7 +185,7 @@ def test_legacy_item_and_movement_repair_is_audited_without_replaying_quantity(s
     path = f"/inventory/{item.id}/transactions/{history.id}/metadata"
     payload = {"event_id": str(resources[0]["events"].id), "transaction_type": "donation", "reason": "Verified historical donation"}
     assert client.patch(path, json=payload).status_code == 200
-    assert item.quantity == 10 and history.change_qty == 2
+    assert item.quantity == original_quantity and history.change_qty == 2
     assert client.patch(path, json=payload).status_code == 409
     assert db.query(AuditLog).filter(AuditLog.action == "inventory.legacy_movement_repaired").count() == 1
 

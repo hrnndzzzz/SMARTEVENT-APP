@@ -1,8 +1,4 @@
-"""
-Department-admin-managed roster of pre-approved officers, advisers,
-and treasurers. Super_Admin can manage the roster across departments;
-POST /auth/register validates against it and auto-assigns the role.
-"""
+"""Administrator-managed eligibility roster."""
 
 import uuid
 
@@ -10,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import assert_record_scope, assert_department_scope, require_role, resolve_department_id, resolve_organization_id
+from app.dependencies import assert_record_scope, require_role, resolve_department_id, resolve_organization_id
 from app.models import CiteMember, Organization, User
 from app.schemas import CiteMemberCreate, CiteMemberOut, CiteMemberUpdate
 from app.services.access_audit import record_access_change
@@ -24,7 +20,6 @@ def add_cite_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    """Add an approved roster member; the member completes account setup through OTP registration."""
     department_id = resolve_department_id(
         current_user,
         payload.department_id,
@@ -68,7 +63,6 @@ def list_cite_members(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    """List approved roster members in the caller's authorized department scope."""
     query = db.query(CiteMember)
     if current_user.role == "super_admin":
         if department_id is not None:
@@ -131,7 +125,7 @@ def remove_cite_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    member = db.query(CiteMember).filter(CiteMember.id == member_id).first()
+    member = db.query(CiteMember).filter(CiteMember.id == member_id).with_for_update().first()
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CITE member not found")
 

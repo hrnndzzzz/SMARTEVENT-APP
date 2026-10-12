@@ -1,4 +1,4 @@
-"""Regression coverage for the rebased two-stage event approval workflow."""
+"""Existing event review stages followed by assigned institutional approval."""
 
 import pytest
 
@@ -7,13 +7,15 @@ from app.test_access_management import system
 
 
 @pytest.mark.parametrize("legacy_status", ["pending", "pending_adviser"])
-def test_two_stage_approval_and_history(system, legacy_status):
+def test_adviser_admin_and_institutional_approval_history(system, legacy_status):
     client, db, users, orgs, resources, login = system
     event = resources[0]["events"]
     event.status = legacy_status
     db.commit()
     endpoint = f"/events/{event.id}"
     login("admin")
+    routing = client.put(endpoint + "/routing", json={"signatory_ids": [str(users["signatory"].id)]})
+    assert routing.status_code == 200, routing.text
     assert client.post(endpoint + "/approve", json={}).status_code == 409
     login("adviser")
     first = client.post(endpoint + "/approve", json={"remarks": "Adviser review"})
@@ -21,12 +23,17 @@ def test_two_stage_approval_and_history(system, legacy_status):
     assert first.json()["status"] == "pending_admin"
     assert client.post(endpoint + "/approve", json={}).status_code == 409
     login("admin")
-    final = client.post(endpoint + "/approve", json={"remarks": "Final review"})
+    admin_review = client.post(endpoint + "/approve", json={"remarks": "Admin review"})
+    assert admin_review.status_code == 200, admin_review.text
+    assert admin_review.json()["status"] == "pending_institutional_review"
+    login("signatory")
+    final = client.post(endpoint + "/approve", json={"remarks": "Institutional review"})
     assert final.status_code == 200, final.text
     assert final.json()["status"] == "approved"
+    login("admin")
     history = client.get(endpoint + "/approvals").json()
-    assert [row["step_order"] for row in history] == [1, 2]
-    assert [row["reviewer_id"] for row in history] == [str(users["adviser"].id), str(users["admin"].id)]
+    assert [row["step_order"] for row in history] == [1, 2, 3]
+    assert [row["reviewer_id"] for row in history] == [str(users[role].id) for role in ("adviser", "admin", "signatory")]
 
 
 @pytest.mark.parametrize("role,expected", [

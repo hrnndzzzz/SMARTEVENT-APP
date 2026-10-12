@@ -1,6 +1,7 @@
 """Approved expenses enter stock only after documented payment and delivery."""
 from datetime import datetime, timezone
 from decimal import Decimal
+from collections import defaultdict
 from fastapi import HTTPException
 from sqlalchemy import func
 from app.dependencies import assert_owner_or_admin, assert_record_scope
@@ -42,7 +43,6 @@ def complete_purchase(db, expense, payload, user):
     if any(row.converted_inventory_id is not None for row in items):
         raise HTTPException(409, "Legacy asset items were already converted; reconcile them instead of adding stock again")
     db.query(Organization).filter(Organization.id == expense.organization_id).with_for_update().first()
-    # Validate every target before changing any balances or stock.
     targets = {}
     for row in items:
         confirmation = confirmations[row.id]
@@ -64,6 +64,11 @@ def complete_purchase(db, expense, payload, user):
                 description=f"Received from completed purchase {expense.id}",
                 unit=confirmation.unit, low_stock_threshold=5, is_draft=True)
         targets[key] = item
+    quantities = defaultdict(int)
+    for row in items:
+        quantities[row.name.strip().casefold()] += confirmations[row.id].quantity
+    if any((item.quantity or 0) + quantities[key] > 2**31 - 1 for key, item in targets.items()):
+        raise HTTPException(409, "Stock quantity exceeds the database limit")
     expense.paid_on = payload.paid_on
     expense.received_on = payload.received_on
     expense.paid_amount = payload.paid_amount
@@ -80,12 +85,14 @@ def complete_purchase(db, expense, payload, user):
         row.quantity = confirmation.quantity
         row.unit = confirmation.unit
         row.converted_inventory_id = item.id
-        item.quantity += confirmation.quantity
         movements.append(InventoryTransaction(inventory_id=item.id, event_id=event.id,
             expense_item_id=row.id, transaction_type="purchase", change_qty=confirmation.quantity,
             reason=f"Completed purchase {expense.id}", performed_by=user.id))
     db.flush()
     db.add_all(movements)
+    db.flush()
+    for item in targets.values():
+        db.refresh(item)
     record_access_change(db, user, "purchase.completed", expense,
         {"payment_reference": payload.payment_reference, "asset_items": len(items)})
     db.commit()

@@ -9,7 +9,7 @@ from app.config import settings
 
 
 class EmailError(Exception):
-    """Raised when sending an email fails for any reason."""
+    pass
 
 
 def send_email(to_email: str, subject: str, body_text: str, *, idempotency_key: str | None = None) -> None:
@@ -42,15 +42,11 @@ def send_email(to_email: str, subject: str, body_text: str, *, idempotency_key: 
             resend.Emails.send(params, {"idempotency_key": idempotency_key})
         else:
             resend.Emails.send(params)
-    except ResendError as exc:
-        raise EmailError(f"Failed to send email to {to_email}: {exc}") from exc
+    except ResendError:
+        raise EmailError("Email delivery is temporarily unavailable") from None
 
 
 def send_otp_email(to_email: str, full_name: str, otp_code: str, purpose: str) -> None:
-    """
-    purpose: 'initial_setup' | 'password_reset' — only changes the
-    wording, both send the same 6-digit code.
-    """
     if purpose == "registration":
         subject = "Your SMARTEVENT registration verification code"
         body = (

@@ -9,8 +9,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=100)
     args = parser.parse_args()
-    if args.limit < 1:
-        parser.error("--limit must be positive")
+    if not 1 <= args.limit <= 1000:
+        parser.error("--limit must be between 1 and 1000")
     with SessionLocal() as db:
         ids = [row.id for row in db.query(Notification).filter(
             Notification.email_status.in_(["pending", "failed"])

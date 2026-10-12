@@ -1,8 +1,4 @@
--- SMARTEVENT schema migration 001
--- Apply this file to the existing Supabase/Postgres database before
--- deploying the department-scoped API. It is intentionally idempotent.
--- Existing rows are left with NULL department_id because their department
--- cannot be inferred safely; backfill those rows before enabling scoped use.
+-- Apply before deploying scoped access. Repair NULL department IDs from real records.
 
 CREATE TABLE IF NOT EXISTS departments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

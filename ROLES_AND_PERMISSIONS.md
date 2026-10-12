@@ -10,7 +10,8 @@ credentials should belong to that appointed staff member. The software cannot
 select the person who holds this responsibility.
 
 Super Admin -> Organization Admin -> Adviser / Treasurer / Officer.
-SDS Staff has a separate oversight role for proposal letters.
+SDS Staff has a separate oversight role for proposal letters. Signatories have
+a separate institutional review role, not general operational access.
 
 Each organization belongs to one department. Each Admin, Adviser, Treasurer,
 and Officer account belongs to one organization and that organization's department.
@@ -21,12 +22,12 @@ Super Admin is the only role with global operational access. SDS Staff can read
 proposal letters across the school, but cannot read events, finances, inventory,
 reports, user accounts, rosters, or administrative audit history.
 
-## Duties and permissions
+## Operational and SDS duties
 
 | Action | Super Admin | Organization Admin | Adviser | Treasurer | Officer | SDS Staff |
 |---|---|---|---|---|---|---|
 | Create departments and organizations | Yes | No | No | No | No | No |
-| Create Admin and SDS accounts | Yes | No | No | No | No | No |
+| Create Admin, SDS and Signatory accounts | Yes | No | No | No | No | No |
 | Manage unclaimed member roster | All | Own organization | No | No | No | No |
 | List/manage registered member access | All | Own organization's Adviser/Treasurer/Officer accounts | No | No | No | No |
 | Transfer accounts to another organization | Yes | No | No | No | No | No |
@@ -34,7 +35,8 @@ reports, user accounts, rosters, or administrative audit history.
 | Create/update/delete budget categories | All | Own organization | No | No | No | No |
 | Create event proposals | All | Own organization | Own organization | Own organization | No | No |
 | Edit/submit/delete draft events | All | Own organization | Own drafts | Own drafts | No | No |
-| Approve/reject events and expenses | Others' submissions | Others' organization submissions | Others' organization submissions | No | No | No |
+| Approve/reject events and expenses | Others' submissions at authorized operational stage | Others' organization submissions at authorized operational stage | Others' organization submissions at authorized adviser stage | No | No | No |
+| Configure institutional event routing | All eligible events | Own organization | No | No | No | No |
 | Record income and expenses | All | Own organization | No | Own organization | No | No |
 | Edit/delete pending expenses and attach receipts | All | Own organization | No | Own pending expenses | No | No |
 | Create/edit/delete inventory catalog and confirm drafts | All | Own organization | No | No | No | No |
@@ -47,6 +49,25 @@ The officer role is read-only regardless of position (President, Secretary, etc.
 A Treasurer needs the separate treasurer role to record finances. Officer
 password changes and password recovery remain allowed as account self-service.
 The shared write restriction runs on every protected operational router.
+
+## Signatory duties and institutional review
+
+The `signatory` role is provisioned only by Super Admin through
+`POST /auth/register/signatory`. It has no organization/department assignment.
+After mandatory password setup, an Admin/Super Admin may assign it to an event's
+ordered route. See [Phase 1 implementation](PHASE_1_IMPLEMENTATION.md) for the
+complete workflow, migration and frontend contract.
+
+- Read only assigned current-round events, approval/routing history and their
+  proposal letters while the event is `pending_institutional_review`.
+- Approve/reject only the next assigned institutional step. All steps must approve
+  in sequence before the event becomes `approved`; a rejection starts revision.
+- No event editing, proposal uploads, finances, inventory, reports, roster or
+  general administration. Personal account/password/inbox actions remain available.
+- No institution-review bypass for Admin or Super Admin. Their event approval
+  advances `pending_admin` to `pending_institutional_review`, not `approved`.
+- Resubmission retains history and opens a new review round. Signatory access ends
+  when the event leaves institutional review. Routes cannot change mid-review.
 
 No role, including Super Admin, can approve or reject its own submissions.
 Record ownership is stored on the record; transferring an account does not
@@ -61,7 +82,7 @@ transfer historical events, expenses, categories, or inventory.
    (POST /organizations), or uses existing migration organizations.
 3. Super Admin creates an organization administrator with
    POST /auth/register/admin, providing both department_id and
-   organization_id. Admins cannot create other Admin or SDS accounts.
+   organization_id. Admins cannot create other Admin, SDS or Signatory accounts.
 4. Admin adds Adviser, Treasurer, and Officer roster entries with
    POST /cite-members. Its organization and department are used by default.
    Super Admin must specify both. Users register with their roster email and
@@ -81,7 +102,7 @@ transfer historical events, expenses, categories, or inventory.
    requires both organization and department IDs.
 
 Accounts on the member roster retain one of its three member roles.
-Administrative and SDS accounts use separate provisioning routes. Users cannot
+Administrative, SDS and Signatory accounts use separate provisioning routes. Users cannot
 alter their own role, scope, or suspension through administrative endpoints.
 Super Admin account access cannot be changed through these endpoints; bootstrap
 and recovery remain institution-controlled maintenance operations.
@@ -95,7 +116,9 @@ GET /auth/permissions describes the authenticated user's role and duties.
 
 Apply migrations 001 through 003 if needed, then apply
 [004_roles_and_organizations.sql](scripts/004_roles_and_organizations.sql) in the
-Supabase SQL Editor before starting this backend version.
+Supabase SQL Editor as part of the historical setup. Also apply remaining
+unapplied scripts 005–008, then the [Phase 1 migration](supabase/migrations/20261004005904_phase1_institutional_routing_compliance.sql)
+before starting the current backend. Do not blindly repeat already-applied SQL.
 
 Migration 004 adds organization ownership, suspension, scope indexes, and role
 constraints. It creates a clearly named migration organization for each existing
@@ -113,6 +136,24 @@ repaired, but it checks new inserts and updates immediately.
 The backend authenticates application JWTs and enforces this policy for API
 requests. This migration does not replace existing Supabase RLS policies or
 authorize direct client access to database tables.
+
+## Phase 2/3 attendance and closeout permissions
+
+| Action | Authorized role and stage |
+|---|---|
+| Maintain the participating roster | Scoped Admin/Super Admin; draft/rejected only. No student accounts. |
+| Assign or correct parallel activities | Scoped Admin/Super Admin/Adviser; draft/rejected or completed. Requires equivalent objectives, instructions and reason. |
+| Generate/print attendance | Scoped Admin/Super Admin/Adviser; approved/completed; active attending roster only. |
+| Upload/verify signed attendance | Scoped Admin/Super Admin/Adviser; approved/completed. |
+| Mark the activity completed | Scoped Admin/Super Admin/Adviser; approved only, actual date not before the activity or in the future. |
+| Add/upload/verify post-activity student work and reports | Scoped Admin/Super Admin/Adviser; completed only. |
+| Upload/verify alternative work | Scoped Admin/Super Admin/Adviser; approved/completed. |
+
+Treasurer, Officer, SDS Staff and Signatory do not receive these student/closeout
+permissions. Treasurer retains own pre-activity logistics uploads. Officer remains
+read-only; Signatory reviews only the next assigned institutional step. Printing
+does not change attendance or approvals. `completed` records the end of an event;
+derived closeout `CLOSED` requires verified evidence and can reopen on replacement.
 
 ## Verification
 

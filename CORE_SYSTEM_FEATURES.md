@@ -71,7 +71,7 @@ not require login. Never put JWTs in download URLs.
    {"email":"approved.member@example.com","password":"ChosenPassword123!"}
    ```
 
-   Returns 201 with `UserOut`, `is_active=false`, and the assigned roster role.
+   Returns 201 with `detail` and `is_active=false`; roster profile fields are available only after verification and login.
    Show the verification screen; do not open the dashboard yet. Unknown roster
    email/invalid assignment returns 403; reused roster/email returns 400;
    unavailable OTP delivery returns 503. Roles and organization cannot be chosen
@@ -95,9 +95,10 @@ not require login. Never put JWTs in download URLs.
    ```
 
    The email status may instead be `failed` or `pending`; approval is still
-   successful. Already active accounts return approved status without generating
-   a second notification, with notification/email fields null. Incorrect/expired
-   OTP returns 400; revoked eligibility or suspension returns 403.
+   successful. Already active accounts return approved status only when the submitted
+   code matches their latest unexpired registration code; no second notification
+   is generated. Unknown/suspended accounts and incorrect/expired codes return 400.
+   Codes allow five failed attempts; resends have a 60-second account cooldown.
 
 3. `POST /auth/resend-otp` with `{"email":"approved.member@example.com"}`.
    Successfully issued codes invalidate older registration codes. The generic

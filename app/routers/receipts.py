@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import assert_not_self_review, assert_owner_or_admin, assert_record_scope, require_financial_access, require_operational_read, require_role, scope_query_by_department
-from app.models import Event, Expense, IncomeRecord, Receipt, User
+from app.models import Expense, IncomeRecord, Organization, Receipt, User
 from app.schemas import ReceiptCreate, ReceiptDetails, ReceiptOut, ReceiptReview
 from app.services.access_audit import record_access_change
 from app.services.receipt_validation import save_receipt
-from app.services.storage import prepare_image_for_upload, upload_receipt_image, StorageError
+from app.services.storage import MAX_UPLOAD_BYTES, prepare_image_for_upload, upload_receipt_image, StorageError
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
@@ -89,10 +89,16 @@ async def upload_receipt_file(receipt_id: uuid.UUID, file: UploadFile = File(...
     receipt = get_receipt(db, receipt_id, current_user)
     transaction = get_transaction(db, receipt.expense_id, receipt.income_id)
     assert_owner_or_admin(transaction.recorded_by, current_user, "upload receipts", owner_roles={"treasurer"})
+    db.query(Organization).filter(Organization.id == receipt.organization_id).with_for_update().first()
+    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).populate_existing().with_for_update().one()
+    if receipt.review_status in {"cleared", "rejected"}:
+        raise HTTPException(409, "Reviewed receipt evidence is immutable")
+    if isinstance(transaction, Expense) and transaction.status != "pending":
+        raise HTTPException(409, "Only pending expenses can have receipt data changed")
     if file.content_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}:
         raise HTTPException(400, "Upload a supported receipt image")
-    raw = await file.read(10 * 1024 * 1024 + 1)
-    if not raw or len(raw) > 10 * 1024 * 1024:
+    raw = await file.read(MAX_UPLOAD_BYTES + 1)
+    if not raw or len(raw) > MAX_UPLOAD_BYTES:
         raise HTTPException(400, "Receipt image must be between 1 byte and 10MB")
     digest = hashlib.sha256(raw).hexdigest()
     # Reject a known file before writing another storage object.
@@ -104,9 +110,9 @@ async def upload_receipt_file(receipt_id: uuid.UUID, file: UploadFile = File(...
     except Exception:
         raise HTTPException(400, "Could not process receipt image")
     try:
-        url = upload_receipt_image(processed, content_type)
-    except RuntimeError as exc:
-        raise HTTPException(503, str(exc))
+        url = upload_receipt_image(processed, content_type, current_user.id, receipt.organization_id)
+    except RuntimeError:
+        raise HTTPException(503, "Receipt storage is not configured") from None
     except StorageError:
         raise HTTPException(502, "Receipt storage upload failed")
     details = ReceiptDetails(receipt_url=url, purpose=receipt.purpose, merchant=receipt.merchant,

@@ -1,16 +1,7 @@
-"""Shared authentication and authorization dependencies.
-
-The six values in :data:`VALID_ROLES` are the only application roles. The
-helpers in this module keep routers from re-implementing authorization with
-slightly different rules.
-
-Department scope is fail-closed. A scoped route must pass the department id
-of the record it loaded to :func:`assert_department_scope`; ``None`` is not
-treated as a match. This prevents records with missing ownership data from
-becoming accidentally visible to non-admin users.
-"""
+"""Shared authentication and fail-closed authorization."""
 
 import uuid
+from datetime import timezone
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -31,32 +22,31 @@ VALID_ROLES = {
     "treasurer",
     "officer",
     "sds_staff",
+    "signatory",
 }
 ADMIN_ROLES = {"admin", "super_admin"}
 SCOPED_OPERATIONAL_ROLES = {"adviser", "treasurer"}
 SCOPED_READ_ROLES = SCOPED_OPERATIONAL_ROLES | {"officer"}
 FINANCIAL_ROLES = ADMIN_ROLES | {"treasurer"}
-APPROVER_ROLES = ADMIN_ROLES | {"adviser"}
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    """Decode the bearer token and load an active user."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    user_id = decode_access_token(token)
-    if user_id is None:
+    claims = decode_access_token(token)
+    if claims is None:
         raise credentials_exception
 
     try:
-        user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
-    except ValueError:
+        user = db.query(User).filter(User.id == uuid.UUID(claims["sub"])).first()
+    except (ValueError, TypeError, AttributeError):
         raise credentials_exception
 
     if user is None or not user.is_active or user.is_suspended:
@@ -65,11 +55,17 @@ def get_current_user(
     if user.role not in VALID_ROLES:
         raise credentials_exception
 
+    updated_at = user.updated_at
+    if updated_at is not None:
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        if claims["iat"] < updated_at.timestamp():
+            raise credentials_exception
+
     return user
 
 
 def require_active_account(user: User = Depends(get_current_user)) -> User:
-    """Reject temporary-password accounts outside password change flow."""
     if user.must_change_password:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -79,7 +75,6 @@ def require_active_account(user: User = Depends(get_current_user)) -> User:
 
 
 def ensure_account_ready_for_app(user: User) -> User:
-    """Guard against temporary-password accounts even when a caller bypasses the auth dependency override."""
     if getattr(user, "is_suspended", False):
         raise HTTPException(status_code=403, detail="This account is suspended")
     if getattr(user, "must_change_password", False):
@@ -91,7 +86,6 @@ def ensure_account_ready_for_app(user: User) -> User:
 
 
 def require_role(*allowed_roles: str):
-    """Build a role dependency; ``admin`` always includes ``super_admin``."""
     unknown_roles = set(allowed_roles) - VALID_ROLES
     if unknown_roles:
         raise ValueError(f"Unknown application role(s): {', '.join(sorted(unknown_roles))}")
@@ -117,7 +111,6 @@ def enforce_read_only(
     request: Request,
     user: User = Depends(require_active_account),
 ) -> User:
-    """Allow officers only safe HTTP methods when this dependency is used."""
     user = ensure_account_ready_for_app(user)
     if user.role == "officer" and request.method not in ("GET", "HEAD", "OPTIONS"):
         raise HTTPException(
@@ -130,7 +123,6 @@ def enforce_read_only(
 def require_financial_access(
     user: User = Depends(require_active_account),
 ) -> User:
-    """Permit financial execution only for Treasurer/Admin/Super Admin."""
     user = ensure_account_ready_for_app(user)
     ensure_operational_assignment(user)
     if user.role not in FINANCIAL_ROLES:
@@ -144,7 +136,6 @@ def require_financial_access(
 def require_operational_read(
     user: User = Depends(require_active_account),
 ) -> User:
-    """Allow operational reads, excluding SDS staff."""
     user = ensure_account_ready_for_app(user)
     ensure_operational_assignment(user)
     if user.role not in ADMIN_ROLES | SCOPED_READ_ROLES:
@@ -161,13 +152,6 @@ def assert_department_scope(
     *,
     allow_officer_read: bool = False,
 ) -> None:
-    """Check access to a loaded record's department scope.
-
-    Super Admin is global. Admin, Adviser, and Treasurer can access their
-    own department. Officer can access their own department only when the
-    caller explicitly enables read-only scope. SDS staff never receives
-    operational access. Missing scope data is denied for every non-Super-Admin.
-    """
     if user.role == "super_admin":
         return
 
@@ -197,22 +181,6 @@ def assert_department_scope(
         )
 
 
-def enforce_department_scope(
-    record_department_id: uuid.UUID | None,
-    *,
-    allow_officer_read: bool = False,
-):
-    """FastAPI dependency wrapper for routes with a pre-resolved scope."""
-    def checker(user: User = Depends(require_active_account)) -> None:
-        assert_department_scope(
-            user,
-            record_department_id,
-            allow_officer_read=allow_officer_read,
-        )
-
-    return checker
-
-
 def assert_owner_or_admin(
     owner_id: uuid.UUID,
     current_user: User,
@@ -220,7 +188,6 @@ def assert_owner_or_admin(
     *,
     owner_roles: set[str] = SCOPED_OPERATIONAL_ROLES,
 ) -> None:
-    """Enforce owner-only work for scoped operational roles."""
     if current_user.role in ADMIN_ROLES:
         return
     if current_user.role not in owner_roles:
@@ -236,7 +203,6 @@ def assert_owner_or_admin(
 
 
 def assert_not_self_review(submitter_id: uuid.UUID, current_user: User) -> None:
-    """Prevent the submitter of an event/expense from approving or rejecting it."""
     if submitter_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -251,14 +217,6 @@ def scope_query_by_department(
     *,
     allow_officer_read: bool = True,
 ):
-    """Restrict a query using explicit department and organization FKs.
-
-    Super Admins retain global visibility. Admins and other operational
-    readers must have both assignments, and the query is narrowed to
-    that organization within its department. This helper is for models such as ``Event`` and
-    ``Expense`` that carry their own ``department_id`` rather than only an
-    owner FK.
-    """
     current_user = ensure_account_ready_for_app(current_user)
     if current_user.role == "super_admin":
         return query
@@ -286,7 +244,6 @@ def scope_query_by_department(
 
 
 def assert_record_scope(user: User, record, *, allow_officer_read: bool = False) -> None:
-    """Authorize both department and organization; missing ownership denies access."""
     user = ensure_account_ready_for_app(user)
     assert_department_scope(user, record.department_id, allow_officer_read=allow_officer_read)
     if user.role == "super_admin":
@@ -297,7 +254,6 @@ def assert_record_scope(user: User, record, *, allow_officer_read: bool = False)
 
 
 def ensure_operational_assignment(user: User) -> None:
-    """Even operations without a loaded record require a complete assignment."""
     if user.role in {"admin", "adviser", "treasurer", "officer"} and (
         getattr(user, "department_id", None) is None
         or getattr(user, "organization_id", None) is None
@@ -308,7 +264,6 @@ def ensure_operational_assignment(user: User) -> None:
 def resolve_organization_id(
     db: Session, user: User, requested_id: uuid.UUID | None, department_id: uuid.UUID | None,
 ) -> uuid.UUID:
-    """Resolve an existing organization and verify its parent department."""
     if user.role != "super_admin":
         assigned_id = getattr(user, "organization_id", None)
         if assigned_id is None or (requested_id is not None and requested_id != assigned_id):
@@ -328,12 +283,6 @@ def resolve_department_id(
     *,
     require_for_admin: bool = False,
 ) -> uuid.UUID | None:
-    """Resolve and validate a department id for a newly-created record.
-
-    Scoped users and Admins can only create records in their own department.
-    Super Admins may choose a department, and optionally may create an
-    intentionally global record when ``require_for_admin`` is false.
-    """
     current_user = ensure_account_ready_for_app(current_user)
     if current_user.role == "super_admin":
         if require_for_admin and requested_department_id is None:

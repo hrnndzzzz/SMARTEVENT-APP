@@ -1,17 +1,8 @@
-"""
-SQLAlchemy ORM models mapping to the tables already created in Supabase
-via smartevent_schema.sql. These do NOT create tables (no
-Base.metadata.create_all() is called anywhere) — the SQL file is the
-source of truth for schema; these classes just let FastAPI query it.
-
-Operational records carry explicit department and organization ownership.
-Apply the SQL migrations in scripts/ before deploying model changes.
-"""
 
 import uuid
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func,
+    Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, declared_attr
@@ -20,17 +11,11 @@ from app.database import Base
 
 
 class Department(Base):
-    """
-    School departments — seeded once via scripts/seed_initial_data.py,
-    managed by Super Admin through the API. Used to scope operational access
-    to their own department's records (see enforce_department_scope in
-    dependencies.py), and to tag CiteMember roster entries and Users.
-    """
     __tablename__ = "departments"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    code = Column(String(20), nullable=False, unique=True)   # e.g. 'SDS', 'CBA', 'CEA', 'SCS'
-    name = Column(String(150), nullable=False)               # e.g. 'Student Development Services'
+    code = Column(String(20), nullable=False, unique=True)
+    name = Column(String(150), nullable=False)
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -58,24 +43,28 @@ class User(OrganizationScoped, Base):
     full_name = Column(String(150), nullable=False)
     email = Column(String(150), nullable=False, unique=True)
     password_hash = Column(Text, nullable=False)
-    role = Column(String(20), nullable=False)  # 'super_admin' | 'admin' | 'adviser' | 'officer' | 'treasurer' | 'sds_staff'
+    login_failed_attempts = Column(Integer, nullable=False, default=0, server_default="0")
+    login_locked_until = Column(DateTime(timezone=True), nullable=True)
+    role = Column(String(20), nullable=False)
     position = Column(String(50), nullable=True)
-    # Nullable for Super Admin and SDS; other roles require both assignments.
-    # Set automatically from the CiteMember roster entry at registration.
-    # Used by enforce_department_scope in dependencies.py.
+
+
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     is_suspended = Column(Boolean, nullable=False, default=False)
-    # True immediately after account creation (the password_hash above
-    # is an OTP emailed to the user, not a real password they chose).
-    # Flipped to False by POST /auth/change-password. See
-    # app/services/account_provisioning.py for the creation flow.
+
+
     must_change_password = Column(Boolean, nullable=False, default=False)
     fcm_token = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
     department = relationship("Department")
+    organization = relationship("Organization")
+
+    @property
+    def organization_name(self):
+        return self.organization.name if self.organization is not None else None
 
 
 class Notification(Base):
@@ -110,21 +99,24 @@ class Category(OrganizationScoped, Base):
 
 class Event(OrganizationScoped, Base):
     __tablename__ = "events"
+    __table_args__ = (CheckConstraint("review_round > 0", name="event_review_round_positive"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
-    # These are nullable during the transition so existing events can be
-    # migrated safely. New events are required to provide all three values
-    # by EventCreate; a later hardening migration can make them NOT NULL
-    # after existing rows have been backfilled.
-    school_year = Column(String(9), nullable=True)  # e.g. "2025-2026"
-    semester = Column(String(10), nullable=True)  # "1st" | "2nd" | "summer"
-    event_scope = Column(String(20), nullable=True)  # "departmental" | "organizational"
+
+
+    school_year = Column(String(9), nullable=True)
+    semester = Column(String(10), nullable=True)
+    event_scope = Column(String(20), nullable=True)
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     proposed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    status = Column(String(20), nullable=False, default="draft")
+    status = Column(String(40), nullable=False, default="draft")
+    review_round = Column(Integer, nullable=False, default=1, server_default="1")
+    completed_on = Column(Date, nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    completed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     event_date = Column(Date, nullable=True)
     estimated_cost = Column(Numeric(12, 2), default=0)
     allocated_budget = Column(Numeric(12, 2), nullable=False, default=0)
@@ -135,11 +127,120 @@ class Event(OrganizationScoped, Base):
     category = relationship("Category")
 
 
+class DocumentRouting(Base):
+    __tablename__ = "document_routing"
+    __table_args__ = (
+        UniqueConstraint("event_id", "review_round", "step_order", name="uq_routing_event_round_step"),
+        UniqueConstraint("event_id", "review_round", "signatory_id", name="uq_routing_event_round_signatory"),
+        CheckConstraint("review_round > 0 AND step_order > 0", name="routing_positive_order"),
+        CheckConstraint("status IN ('pending', 'approved', 'rejected')", name="routing_status_check"),
+        CheckConstraint("(status = 'pending' AND decided_at IS NULL) OR (status <> 'pending' AND decided_at IS NOT NULL)", name="routing_decision_check"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
+    review_round = Column(Integer, nullable=False, default=1, server_default="1")
+    step_order = Column(Integer, nullable=False)
+    signatory_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="pending", server_default="pending")
+    remarks = Column(Text, nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class RequirementPreset(Base):
+    __tablename__ = "requirement_presets"
+    __table_args__ = (
+        CheckConstraint("phase IN ('pre_activity', 'post_activity')", name="preset_phase_check"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String(50), nullable=False, unique=True)
+    name = Column(String(150), nullable=False)
+    description = Column(Text, nullable=True)
+    phase = Column(String(20), nullable=False)
+    requires_notarization = Column(Boolean, nullable=False, default=False, server_default="false")
+    is_sensitive = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class EventParticipant(Base):
+    __tablename__ = "event_participants"
+    __table_args__ = (
+        UniqueConstraint("event_id", "student_number", name="uq_participant_event_student"),
+        UniqueConstraint("id", "event_id", name="uq_participant_id_event"),
+        CheckConstraint("length(trim(student_number)) > 0 AND length(trim(full_name)) > 0", name="participant_identity_check"),
+        CheckConstraint("participation_mode IN ('attending', 'parallel')", name="participant_mode_check"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
+    student_number = Column(String(50), nullable=False)
+    full_name = Column(String(150), nullable=False)
+    email = Column(String(150), nullable=True)
+    participation_mode = Column(String(20), nullable=False, default="attending", server_default="attending")
+    is_active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class EventRequirement(Base):
+    __tablename__ = "event_requirements"
+    __table_args__ = (
+        UniqueConstraint("id", "event_id", name="uq_requirement_id_event"),
+        UniqueConstraint("event_id", "preset_id", name="uq_requirement_event_preset"),
+        CheckConstraint("phase IN ('pre_activity', 'post_activity')", name="requirement_phase_check"),
+        CheckConstraint("length(trim(name)) > 0", name="requirement_name_check"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False, index=True)
+    preset_id = Column(UUID(as_uuid=True), ForeignKey("requirement_presets.id"), nullable=True, index=True)
+    name = Column(String(150), nullable=False)
+    description = Column(Text, nullable=True)
+    phase = Column(String(20), nullable=False)
+    is_required = Column(Boolean, nullable=False, default=True, server_default="true")
+    requires_notarization = Column(Boolean, nullable=False, default=False, server_default="false")
+    is_sensitive = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class StudentComplianceRecord(Base):
+    __tablename__ = "student_compliance_records"
+    __table_args__ = (
+        UniqueConstraint("participant_id", "requirement_id", name="uq_compliance_participant_requirement"),
+        ForeignKeyConstraint(["participant_id", "event_id"], ["event_participants.id", "event_participants.event_id"], name="compliance_participant_event_fk"),
+        ForeignKeyConstraint(["requirement_id", "event_id"], ["event_requirements.id", "event_requirements.event_id"], name="compliance_requirement_event_fk"),
+        CheckConstraint("status IN ('MISSING', 'SUBMITTED', 'VERIFIED', 'REJECTED')", name="compliance_status_check"),
+        CheckConstraint("status NOT IN ('VERIFIED', 'REJECTED') OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)", name="compliance_review_check"),
+        CheckConstraint("version > 0", name="compliance_version_check"),
+        CheckConstraint("evidence_mode IS NULL OR evidence_mode IN ('digital', 'physical')", name="compliance_evidence_mode_check"),
+        Index("ix_compliance_participant_event", "participant_id", "event_id"),
+        Index("ix_compliance_requirement_event", "requirement_id", "event_id"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False, index=True)
+    participant_id = Column(UUID(as_uuid=True), nullable=False)
+    requirement_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="MISSING", server_default="MISSING")
+    document_url = Column(Text, nullable=True)
+    submitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    evidence_mode = Column(String(20), nullable=True)
+    notarization_confirmed = Column(Boolean, nullable=False, default=False, server_default="false")
+    version = Column(Integer, nullable=False, default=1, server_default="1")
+    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
 class Approval(Base):
     __tablename__ = "approvals"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    entity_type = Column(String(20), nullable=False)  # 'event' | 'expense'
+    entity_type = Column(String(20), nullable=False)
     entity_id = Column(UUID(as_uuid=True), nullable=False)
     step_order = Column(Numeric, nullable=False)
     reviewer_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
@@ -243,10 +344,8 @@ class Inventory(OrganizationScoped, Base):
     unit = Column(String(30), default="pcs")
     low_stock_threshold = Column(Numeric, nullable=False, default=5)
     location = Column(String(100), nullable=True)
-    # True for new catalog items received by complete-purchase from an
-    # asset line — stock exists, but the catalog still needs admin review.
-    # False for everything created directly through POST /inventory,
-    # and flipped to False by POST /inventory/{id}/confirm-draft.
+
+
     is_draft = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -259,11 +358,11 @@ class ExpenseItem(Base):
     expense_id = Column(UUID(as_uuid=True), ForeignKey("expenses.id"), nullable=False)
     name = Column(String(150), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
-    category = Column(String(20), nullable=False)  # 'asset' | 'consumable'
+    category = Column(String(20), nullable=False)
     quantity = Column(Integer, nullable=False, default=1, server_default="1")
     unit = Column(String(30), nullable=False, default="pcs", server_default="pcs")
-    # Set on documented purchase completion, for 'asset' items only — traces this
-    # line item to the exact Inventory row it was converted into.
+
+
     converted_inventory_id = Column(UUID(as_uuid=True), ForeignKey("inventory.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -297,28 +396,16 @@ class AuditLog(Base):
 
 
 class CiteMember(OrganizationScoped, Base):
-    """
-    Pre-approved roster of CITE Department officers/advisers/treasurers.
-    Managed by admin/super_admin via routers/cite_members.py.
-    POST /auth/register validates a self-registering user's email against
-    this table and auto-assigns the role/position recorded here — nobody
-    can choose their own role at self-registration, only claim the one
-    already assigned to their email on this list.
-
-    department_id optionally links the roster entry to a school department
-    (see the Department model above) — useful for advisers tagged to the
-    specific department they advise from.
-    """
     __tablename__ = "cite_members"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     full_name = Column(String(150), nullable=False)
     email = Column(String(150), nullable=False, unique=True)
-    role = Column(String(20), nullable=False)  # 'officer' | 'adviser' | 'treasurer'
+    role = Column(String(20), nullable=False)
     position = Column(String(50), nullable=True)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
-    # Set once this entry is used to create an account — prevents the
-    # same roster entry being claimed twice.
+
+
     claimed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -326,40 +413,19 @@ class CiteMember(OrganizationScoped, Base):
 
 
 class OtpToken(Base):
-    """
-    Tracks the validity window of a one-time code — either the
-    temporary password emailed at account creation ('initial_setup')
-    or a password-reset verification code ('password_reset').
-
-    For 'initial_setup': the OTP is ALSO the user's actual
-    password_hash (so it works through the normal login endpoint) —
-    this row's job is purely to say whether that temp password's
-    window has expired, since users.password_hash alone carries no
-    expiry information.
-
-    For 'password_reset': code_hash IS the verification secret,
-    checked directly and separately from users.password_hash — the
-    user's real password isn't touched until the code is verified.
-    """
     __tablename__ = "otp_tokens"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    purpose = Column(String(20), nullable=False)  # 'registration' | 'initial_setup' | 'password_reset'
+    purpose = Column(String(20), nullable=False)
     code_hash = Column(Text, nullable=False)
+    failed_attempts = Column(Integer, nullable=False, default=0, server_default="0")
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class EventProposalLetter(Base):
-    """
-    A formal proposal-letter document submitted for an event —
-    deliberately separate from the Event record itself
-    (title/description/status/budget). This is the entire reason the
-    sds_staff role exists: SDS's only permission in this system is
-    reading these letters.
-    """
     __tablename__ = "event_proposal_letters"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

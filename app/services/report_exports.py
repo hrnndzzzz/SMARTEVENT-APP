@@ -9,6 +9,25 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
+def summary_section(report, excluded=()):
+    values = report.model_dump(mode="json")
+    return ("Summary", ["Field", "Value"], [
+        [key.replace("_", " ").title(), value] for key, value in values.items()
+        if key not in excluded and not isinstance(value, (dict, list))])
+
+
+def income_source_section(report):
+    return ("Income by source (excludes pending/rejected receipt reviews)",
+            ["Type", "Source", "Count", "Income (PHP)"],
+            [[s.source_type, s.source, s.income_count, s.total_income] for s in report.income_by_source])
+
+
+def financial_sections(report):
+    return [summary_section(report),
+            ("Events", ["Event", "School year", "Semester", "Scope", "Income (PHP)", "Expenses (PHP)", "Balance (PHP)"],
+             [[e.title, e.school_year, e.semester, e.event_scope, e.total_income, e.total_expenses, e.net_balance] for e in report.events]),
+            income_source_section(report)]
+
 def _text(value):
     return "" if value is None else str(value)
 
@@ -21,15 +40,14 @@ def render_export(title, sections, format, filename):
         writer = csv.writer(output)
         def safe(value):
             text = _text(value)
-            # Excel/Sheets may execute formula-looking strings, even inside CSV quotes.
             if isinstance(value, str) and (text.lstrip().startswith(("=", "+", "-", "@")) or text.startswith(("\t", "\r", "\n"))):
                 return "'" + text
             return text
-        writer.writerow([title])
+        writer.writerow([safe(title)])
         for heading, columns, rows in sections:
             writer.writerow([])
-            writer.writerow([heading])
-            writer.writerow(columns)
+            writer.writerow([safe(heading)])
+            writer.writerow([safe(column) for column in columns])
             for row in rows:
                 writer.writerow([safe(value) for value in row])
         content = ("\ufeff" + output.getvalue()).encode("utf-8")

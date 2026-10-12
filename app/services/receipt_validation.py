@@ -8,9 +8,11 @@ from urllib.parse import urlsplit, urlunsplit
 from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
+from app.config import settings
 from app.dependencies import assert_record_scope
 from app.models import Event, Expense, IncomeRecord, Organization, Receipt
 from app.schemas import ReceiptDetails
+from app.services.storage import canonical_file_url, storage_object
 
 
 def normalized(value):
@@ -22,8 +24,18 @@ def fingerprint(value):
 
 
 def url_key(url):
-    parts = urlsplit(str(url))
+    parts = urlsplit(canonical_file_url(str(url), settings.supabase_receipts_bucket))
     return fingerprint(urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path, "", "")))
+
+
+def _url_fingerprints(url):
+    parts = urlsplit(url)
+    paths = {parts.path}
+    if storage_object(url, settings.supabase_receipts_bucket):
+        prefix, object_path = parts.path.split("/storage/v1/object/", 1)
+        paths.update(prefix + "/storage/v1/object/" + access + "/" + object_path
+                     for access in ("public", "authenticated", "sign"))
+    return [fingerprint(urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, "", ""))) for path in paths]
 
 
 def receipt_for_transaction(db, transaction):
@@ -49,17 +61,29 @@ def save_receipt(db, transaction, details, current_user, *, file_sha256=None, al
         raise HTTPException(409, "Historical import cannot replace an existing receipt")
     if existing and existing.review_status in {"cleared", "rejected"}:
         raise HTTPException(409, "Reviewed receipt evidence is immutable")
+    try:
+        receipt_url = canonical_file_url(str(details.receipt_url), settings.supabase_receipts_bucket)
+        obj = storage_object(receipt_url, settings.supabase_receipts_bucket)
+        old_url = existing.receipt_url if existing else None
+        existing_link = old_url and canonical_file_url(old_url, settings.supabase_receipts_bucket) == receipt_url
+    except ValueError:
+        raise HTTPException(422, "Invalid receipt storage reference") from None
+    if obj and not existing_link and not (allow_historical and current_user.role == "super_admin"):
+        path = obj[1].split("/")
+        if len(path) != 3 or path[:2] != [str(event.organization_id), str(current_user.id)]:
+            raise HTTPException(403, "Only your own files uploaded for this organization can be attached")
     amount = details.amount if details.amount is not None else Decimal(str(transaction.amount))
     if amount != Decimal(str(transaction.amount)):
         raise HTTPException(422, "Receipt amount must match the linked transaction amount")
     merchant = normalized(details.merchant)
     number = normalized(details.receipt_number)
     reference_key = fingerprint(merchant + "\n" + number) if merchant and number else None
-    url_fingerprint = url_key(details.receipt_url)
+    url_fingerprint = url_key(receipt_url)
     query = db.query(Receipt).filter(Receipt.organization_id == event.organization_id)
     if existing:
         query = query.filter(Receipt.id != existing.id)
-    exact = [Receipt.url_fingerprint == url_fingerprint]
+    # Recognize fingerprints stored before public URLs became canonical references.
+    exact = [Receipt.url_fingerprint.in_(_url_fingerprints(receipt_url))]
     if file_sha256:
         exact.append(Receipt.file_sha256 == file_sha256)
     if reference_key:
@@ -67,8 +91,7 @@ def save_receipt(db, transaction, details, current_user, *, file_sha256=None, al
     match = query.filter(or_(*exact)).first()
     if match:
         raise HTTPException(409, {"code": "duplicate_receipt", "detail": "Receipt URL, file, or merchant/reference is already recorded", "receipt_id": str(match.id)})
-    # Migration compatibility: a legacy receipt URL must not be reusable just
-    # because its expense has not been imported into the new receipt table yet.
+    # Legacy expense URLs also reserve their evidence before receipt import.
     legacy = db.query(Expense).filter(Expense.organization_id == event.organization_id,
         Expense.receipt_url.is_not(None))
     if isinstance(transaction, Expense):
@@ -91,7 +114,7 @@ def save_receipt(db, transaction, details, current_user, *, file_sha256=None, al
     receipt.expense_id = transaction.id if isinstance(transaction, Expense) else None
     receipt.income_id = transaction.id if isinstance(transaction, IncomeRecord) else None
     receipt.purpose = details.purpose
-    receipt.receipt_url = str(details.receipt_url)
+    receipt.receipt_url = receipt_url
     receipt.merchant = details.merchant
     receipt.receipt_number = details.receipt_number
     receipt.issued_on = issued_on
@@ -132,7 +155,7 @@ def sync_expense_receipt(db, expense, user, details=None, file_sha256=None):
         except ValidationError:
             raise HTTPException(409, "Correct invalid legacy receipt URL, purpose, or transaction amount first")
     return save_receipt(db, expense, details, user,
-                        file_sha256=file_sha256 or (old.file_sha256 if old and old.receipt_url == str(details.receipt_url) else None))
+                        file_sha256=file_sha256 or (old.file_sha256 if old and url_key(old.receipt_url) == url_key(details.receipt_url) else None))
 
 
 def assert_receipt_review_complete(db, expense):

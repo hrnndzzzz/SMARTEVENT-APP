@@ -13,12 +13,16 @@ mean its Create/Edit/Delete or other action is already available in the app.
 
 | Document | Purpose |
 |---|---|
-| [Frontend README](FRONTEND_README.md) | Screens, buttons, forms, permissions and acceptance tests covering all 89 currently registered API operations. |
+| [Phase 1 implementation](PHASE_1_IMPLEMENTATION.md) | Sequential institutional routing, Signatory role, compliance schema, migration and release boundaries. |
+| [Phase 2 implementation](PHASE_2_IMPLEMENTATION.md) | Existing Flutter app integration, participant paper trail, verification and off-campus readiness gates. |
+| [Phase 3 implementation](PHASE_3_IMPLEMENTATION.md) | Printable attendance, completion, learning journals, closeout reports and parallel activities; migration approval pending. |
+| [Frontend README](FRONTEND_README.md) | Screens, buttons, forms, permissions and acceptance tests for registered API operations. |
 | [Roles and permissions](ROLES_AND_PERMISSIONS.md) | Hierarchy, scope, officer read-only policy and account administration. |
 | [Core features](CORE_SYSTEM_FEATURES.md) | Registration, notifications, academic metadata and exports. |
 | [Financial management](FINANCIAL_MANAGEMENT.md) | Fund sources, receipt duplication/review, reports and historical import. |
 | [Inventory management](INVENTORY_MANAGEMENT.md) | Event links, typed movements, purchase completion and legacy repairs. |
 | [Setup notes](SETUP.md) | Additional environment examples. Current policies here and in the handoffs override older workflow examples. |
+| [Security review](SECURITY_REVIEW.md) | Findings, required database hardening, production configuration and client changes. |
 
 Use the deployed /docs and /openapi.json for exact request/response contracts.
 Implementation does not certify live migration, external-service or frontend readiness.
@@ -52,7 +56,7 @@ app/
                       storage/OCR, receipts, purchases and report rendering
   test_*.py           Authorization and workflow regression tests
 scripts/
-  001_...sql through 007_...sql   Database migrations
+  001_...sql through 008_...sql   Database deployment scripts
   create_super_admin.py          Institutional account bootstrap
   deliver_notifications.py       Confirmation-email retry worker
   backfill_receipts.py           Historical receipt import
@@ -67,9 +71,7 @@ Run from smartevent-backend, using Python 3.11+ and access to the intended datab
 
 ~~~powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-# EmailStr validation and the test runner must also be installed.
-.\.venv\Scripts\python.exe -m pip install email-validator pytest
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ~~~
 
 On macOS/Linux use .venv/bin/python. Create a private .env next to app/:
@@ -79,9 +81,9 @@ On macOS/Linux use .venv/bin/python. Create a private .env next to app/:
 DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
 JWT_SECRET_KEY=<long-private-signing-secret>
 JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=1440
+JWT_EXPIRE_MINUTES=60
 
-# Configure actual frontend origins; wildcard is the local default
+# Local default; production requires explicit HTTPS origins
 ALLOWED_ORIGINS=http://localhost:3000
 
 SUPABASE_URL=https://<project>.supabase.co
@@ -100,8 +102,9 @@ OTP_EXPIRY_MINUTES=15
 
 Never commit real secrets or include database/service-role/email/OCR/JWT signing
 keys in Flutter. Only DATABASE_URL and JWT_SECRET_KEY are mandatory at startup;
-unconfigured storage/OCR/email features return service errors. Legacy Gmail
-variables are accepted for compatibility but are not used by the email service.
+unconfigured storage/OCR/email features return service errors. Unused environment
+variables are ignored. Production requires APP_ENV=production, a strong signing
+secret, explicit HTTPS origins and sslmode=verify-full with a trusted database CA.
 
 ~~~powershell
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
@@ -130,6 +133,10 @@ schema and budget-deduction triggers must be present.
 | 005_core_system_features.sql | Notification inbox and academic-metadata checks. |
 | 006_financial_management.sql | Receipts, duplicate controls, financial/linkage constraints. |
 | 007_inventory_management.sql | Typed event-linked stock, purchase evidence and provenance guards. |
+| 008_security_hardening.sql | Auth attempt counters, private buckets, server-only table access and hardened database functions. |
+| supabase/migrations/20261004005904_phase1_institutional_routing_compliance.sql | Apply after 008: Signatories, institutional review, participants, requirement presets and compliance tables. |
+| supabase/migrations/20261004073859_phase2_pre_activity_compliance.sql | Apply after Phase 1, with approval: logistics, personnel, vehicles and staff-managed evidence. |
+| supabase/migrations/20261004124658_phase3_execution_and_closure.sql | Apply after Phase 2, with approval: completion metadata, participation mode and parallel activities. |
 
 Some constraints use NOT VALID to preserve historical rows while checking new
 inserts/updates. Review actual ownership, academic labels, event links, receipts
@@ -147,7 +154,7 @@ This creates an account and sends a temporary password: it is not a read-only
 test. There is no public Create Super Admin API.
 
 1. Super Admin logs in and changes the temporary password.
-2. Super Admin creates departments/organizations and Admin/SDS accounts.
+2. Super Admin creates departments/organizations and Admin/SDS/Signatory accounts.
 3. Organization Admin adds approved Adviser/Treasurer/Officer roster entries.
 4. Members register with roster email and chosen password, then verify OTP.
 5. Eligible verified members activate automatically; role/name/scope come from
@@ -163,6 +170,7 @@ test. There is no public Create Super Admin API.
 | treasurer | Scoped reading, own proposals, income/expenses, own pending-expense receipts, purchase completion, movements and letters. |
 | officer | Scoped operational read-only access, reports and exports; own password changes and notification read actions remain allowed. |
 | sds_staff | School-wide proposal-letter reading and personal account/inbox; no operational events, finances, inventory or reports. |
+| signatory | Assigned events and their proposal letters during institutional review only; approves/rejects the next assigned step, plus personal account/inbox. |
 
 Sharing a department does not grant cross-organization access. Account transfers
 do not transfer historical records. Suspension blocks existing tokens on
@@ -205,7 +213,7 @@ top up/recalculate remaining budget. Referenced categories cannot be deleted.
 
 The frontend must expose category CRUD, not just a dropdown.
 
-### Events: two-stage approval
+### Events: operational and sequential institutional approval
 
 Treasurer/Adviser/Admin/Super Admin can propose events; Officers cannot.
 New events require consecutive school year (e.g. 2026-2027), semester
@@ -213,16 +221,18 @@ New events require consecutive school year (e.g. 2026-2027), semester
 lookup and administrator legacy-metadata repair exist. Metadata cannot be cleared.
 
 ~~~text
-Treasurer/Admin/Super Admin: draft -> pending_adviser -> pending_admin -> approved
-Adviser:                   draft -> pending_admin -> approved
+Treasurer/Admin/Super Admin: draft -> pending_adviser -> pending_admin -> pending_institutional_review -> approved
+Adviser:                   draft -> pending_admin -> pending_institutional_review -> approved
 Pending stage -> rejected -> edit -> resubmit (history retained)
 ~~~
 
 Legacy pending means awaiting adviser review. Adviser approves the first stage;
-Admin/Super Admin approves the final stage and may independently reject either
-pending stage. Resubmission uses the original proposer's role. No proposal is
-auto-approved: Admin proposals need an independent adviser and another
-Admin/Super Admin for final approval.
+Admin/Super Admin approves the admin stage and may independently reject either
+operational pending stage. Admin approval requires a configured, ready Signatory
+route and advances to institutional review. Assigned Signatories approve in
+sequence; only the final signature makes the event approved. No role can bypass
+institutional review. Resubmission uses the original proposer's role and opens a
+fresh routing round while preserving prior decisions. See [Phase 1](PHASE_1_IMPLEMENTATION.md).
 
 Owner/scoped administrator can edit drafts/rejected events, submit/resubmit and
 delete drafts subject to references. Dedicated actions change status, not generic
@@ -343,7 +353,7 @@ Before release:
    ownership/metadata/evidence/stock repairs and deferred constraint validation.
 2. Verify email sender, storage buckets/privacy, OCR credentials, web origins,
    HTTPS and server-only secrets in the real environment.
-3. Test all six roles, organization isolation, suspension, password setup and
+3. Test all seven roles, organization isolation, suspension, password setup and
    blocked self-review.
 4. Exercise live reviews, receipts, complete purchases, movements, income,
    reports and authenticated downloads in a test deployment.
@@ -355,7 +365,8 @@ Before release:
 Implemented backend features are not a claim of complete production readiness:
 
 - No income Edit/Delete, saved expense-line editing or rejected-expense resubmit.
-- No event-completion transition or arbitrary submitted-history editing.
+- No arbitrary submitted-history editing. Approved events can be marked completed
+  by scoped Admin/Adviser staff; post-activity closeout is tracked separately.
 - No letter Edit/Delete, Delete User or department/organization Edit/Delete APIs.
 - No standalone file-only income-receipt creation; metadata creation needs an
   existing HTTP(S) evidence URL before receipt-ID upload.

@@ -1,42 +1,5 @@
-"""
-CRUD + approval workflow for event proposals.
-
-Status flow (two-stage, matching the Flutter app's existing UX):
-    draft --submit--> pending_adviser --approve--> pending_admin --approve--> approved
-                            --reject--> rejected         --reject--> rejected
-    ("completed" exists as a status value for later — once an approved
-    event has actually happened — but nothing transitions an event to
-    it yet. Add a POST /events/{id}/complete route when you get there,
-    same shape as submit/approve.)
-
-The original proposer's role determines the starting review stage:
-    - treasurer proposes -> starts at pending_adviser (needs both stages)
-    - adviser proposes  -> starts at pending_admin (adviser stage skipped)
-    - admin/super administrator proposes -> starts at pending_adviser
-No proposal is auto-approved. The proposer cannot approve or reject it.
-
-Access rules:
-  - Operational readers see only their assigned organization/department;
-    Super Admin has global access. Officers have view-only access.
-  - The treasurer/adviser who proposed an event, or an administrator, can edit it while it's
-    still a draft OR rejected (editing a rejected event and resubmitting
-    is how an officer fixes and retries a proposal — this restarts the
-    approval chain via _initial_pending_status, same rule as above).
-  - Only advisers can approve/reject events at the pending_adviser stage.
-  - Only admins can approve/reject events at the pending_admin stage.
-  - Every approve/reject writes a row to `approvals` instead of just
-    flipping the status, so GET /events/{id}/approvals gives a full
-    review timeline (who decided what, and when) rather than only the
-    final outcome. Resubmission doesn't erase this history — a new
-    submission just adds new approval rows with the next step_order,
-    so the full back-and-forth (reject, edit, resubmit, approve) stays
-    visible in the timeline.
-  - Record-level organization and department scope is checked on reads
-    and approval actions.
-"""
-
 import uuid
-from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -52,7 +15,9 @@ from app.dependencies import (
     resolve_organization_id,
     scope_query_by_department,
 )
-from app.models import Approval, Category, Event, User
+from app.models import Approval, Category, DocumentRouting, Event, EventParticipant, EventRequirement, RequirementPreset, User
+from app.models_compliance import EventLogistics, EventPersonnel, EventVehicle, EventComplianceDocument
+from app.services.compliance import invalidate_clearance
 from app.schemas import (
     ApprovalDecision,
     ApprovalOut,
@@ -60,9 +25,18 @@ from app.schemas import (
     EventOut,
     EventUpdate,
     EventAcademicMetadata,
+    DocumentRoutingOut,
+    DocumentRoutingUpdate,
+    RequirementPresetOut,
 )
 from app.services.academic_year import validate_school_year
 from app.services.access_audit import record_access_change
+from app.services.approvals import record_decision
+from app.services.event_routing import (
+    assert_event_read, begin_institutional_review, require_event_reader,
+    restart_routing, review_institutional_step, routing_steps,
+    scope_event_query, validate_signatories,
+)
 
 router = APIRouter(prefix="/events", tags=["events"])
 ADVISER_PENDING_STATUSES = {"pending", "pending_adviser"}
@@ -77,54 +51,22 @@ def _require_academic_metadata(event):
         raise HTTPException(409, f"Complete the event's academic metadata first: {exc}")
 
 
-def _get_event_or_404(db: Session, event_id: uuid.UUID) -> Event:
-    event = db.query(Event).filter(Event.id == event_id).first()
+def _get_event_or_404(db: Session, event_id: uuid.UUID, *, lock: bool = False) -> Event:
+    query = db.query(Event).filter(Event.id == event_id)
+    if lock:
+        query = query.with_for_update()
+    event = query.first()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
     return event
 
 
-def _assert_event_owner_scope(event: Event, db: Session, current_user: User, action: str) -> None:
+def _assert_event_owner_scope(event: Event, current_user: User, action: str) -> None:
     assert_owner_or_admin(event.proposed_by, current_user, action)
     assert_record_scope(current_user, event)
 
 
-def _next_step_order(db: Session, event_id: uuid.UUID) -> int:
-    # Approval rows accumulate per event (across resubmissions too), so
-    # each new approve/reject gets the next step number in that event's
-    # full review timeline.
-    count = (
-        db.query(Approval)
-        .filter(Approval.entity_type == "event", Approval.entity_id == event_id)
-        .count()
-    )
-    return count + 1
-
-
-def _record_decision(
-    db: Session,
-    event: Event,
-    decision: str,
-    reviewer: User,
-    remarks: str | None,
-) -> None:
-    approval = Approval(
-        entity_type="event",
-        entity_id=event.id,
-        step_order=_next_step_order(db, event.id),
-        reviewer_id=reviewer.id,
-        decision=decision,
-        remarks=remarks,
-        decided_at=datetime.now(timezone.utc),
-    )
-    db.add(approval)
-
-
 def _initial_pending_status(proposer_role: str) -> str:
-    """
-    Maps whoever is proposing/resubmitting an event to the correct
-    starting stage, skipping their own review step.
-    """
     if proposer_role == "adviser":
         return "pending_admin"
     return "pending_adviser"
@@ -136,9 +78,6 @@ def create_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
 ):
-    # If the client is creating straight into review (not saving a
-    # draft first), route it through the same creator-skip logic as
-    # submit_event rather than a bare "pending".
     initial_status = payload.status
     if initial_status == "pending":
         initial_status = _initial_pending_status(current_user.role)
@@ -198,9 +137,6 @@ def create_event(
         event_date=payload.event_date,
         estimated_cost=payload.estimated_cost,
         allocated_budget=payload.allocated_budget,
-        # A brand-new event starts with its full allocation available —
-        # remaining_budget only ever decreases from here via the
-        # fn_deduct_event_budget trigger, same pattern as categories.
         remaining_budget=payload.allocated_budget,
     )
     db.add(event)
@@ -215,9 +151,9 @@ def list_events(
     school_year: str | None = None,
     missing_school_year: bool = False,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_operational_read),
+    current_user: User = Depends(require_event_reader),
 ):
-    query = scope_query_by_department(db.query(Event), Event.department_id, current_user)
+    query = scope_event_query(db.query(Event), db, current_user)
     if school_year is not None:
         try:
             validate_school_year(school_year)
@@ -227,6 +163,11 @@ def list_events(
     if missing_school_year:
         query = query.filter(Event.school_year.is_(None))
     return query.order_by(Event.created_at.desc()).all()
+
+
+@router.get("/requirement-presets", response_model=list[RequirementPresetOut])
+def list_requirement_presets(db: Session = Depends(get_db), current_user: User = Depends(require_operational_read)):
+    return db.query(RequirementPreset).order_by(RequirementPreset.phase, RequirementPreset.name).all()
 
 
 @router.get("/school-years", response_model=list[str])
@@ -240,9 +181,8 @@ def list_school_years(db: Session = Depends(get_db), current_user: User = Depend
 def repair_academic_metadata(event_id: uuid.UUID, payload: EventAcademicMetadata,
                              db: Session = Depends(get_db),
                              current_user: User = Depends(require_role("admin"))):
-    event = _get_event_or_404(db, event_id)
+    event = _get_event_or_404(db, event_id, lock=True)
     assert_record_scope(current_user, event)
-    # This is a migration repair, not a way to rewrite submitted event history.
     if event.school_year is not None and event.semester is not None and event.event_scope is not None:
         raise HTTPException(409, "Academic metadata is already recorded; use draft editing for changes")
     updates = payload.model_dump()
@@ -262,10 +202,10 @@ def repair_academic_metadata(event_id: uuid.UUID, payload: EventAcademicMetadata
 def get_event(
     event_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_operational_read),
+    current_user: User = Depends(require_event_reader),
 ):
     event = _get_event_or_404(db, event_id)
-    assert_record_scope(current_user, event, allow_officer_read=True)
+    assert_event_read(db, event, current_user)
     return event
 
 
@@ -273,16 +213,53 @@ def get_event(
 def list_event_approvals(
     event_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_operational_read),
+    current_user: User = Depends(require_event_reader),
 ):
     event = _get_event_or_404(db, event_id)
-    assert_record_scope(current_user, event, allow_officer_read=True)
+    assert_event_read(db, event, current_user)
     return (
         db.query(Approval)
         .filter(Approval.entity_type == "event", Approval.entity_id == event_id)
         .order_by(Approval.step_order)
         .all()
     )
+
+
+@router.get("/{event_id}/routing", response_model=list[DocumentRoutingOut])
+def list_document_routing(event_id: uuid.UUID, db: Session = Depends(get_db),
+                          current_user: User = Depends(require_event_reader)):
+    event = _get_event_or_404(db, event_id)
+    assert_event_read(db, event, current_user)
+    return db.query(DocumentRouting).filter(DocumentRouting.event_id == event.id).order_by(
+        DocumentRouting.review_round, DocumentRouting.step_order).all()
+
+
+@router.put("/{event_id}/routing", response_model=list[DocumentRoutingOut])
+def configure_document_routing(event_id: uuid.UUID, payload: DocumentRoutingUpdate,
+                                db: Session = Depends(get_db),
+                                current_user: User = Depends(require_role("admin"))):
+    event = _get_event_or_404(db, event_id, lock=True)
+    assert_record_scope(current_user, event)
+    if event.status not in {"draft", "pending", "pending_adviser", "pending_admin"}:
+        raise HTTPException(409, "Configure routing before institutional review; resubmit rejected events first")
+    previous = routing_steps(db, event)
+    if any(step.status != "pending" for step in previous):
+        raise HTTPException(409, "Routing decisions cannot be overwritten")
+    validate_signatories(db, event, payload.signatory_ids)
+    before = [str(step.signatory_id) for step in previous]
+    for step in previous:
+        db.delete(step)
+    db.flush()
+    steps = [DocumentRouting(event_id=event.id, review_round=event.review_round,
+        step_order=index, signatory_id=signatory_id)
+        for index, signatory_id in enumerate(payload.signatory_ids, 1)]
+    db.add_all(steps)
+    record_access_change(db, current_user, "event.routing_configured", event, {
+        "review_round": event.review_round, "before": before,
+        "after": [str(value) for value in payload.signatory_ids],
+    })
+    db.commit()
+    return routing_steps(db, event)
 
 
 @router.patch("/{event_id}", response_model=EventOut)
@@ -292,8 +269,8 @@ def update_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
 ):
-    event = _get_event_or_404(db, event_id)
-    _assert_event_owner_scope(event, db, current_user, "edit")
+    event = _get_event_or_404(db, event_id, lock=True)
+    _assert_event_owner_scope(event, current_user, "edit")
 
     if event.status not in ("draft", "rejected"):
         raise HTTPException(
@@ -302,6 +279,11 @@ def update_event(
         )
 
     updates = payload.model_dump(exclude_unset=True)
+    if "allocated_budget" in updates:
+        remaining = Decimal(str(event.remaining_budget)) + Decimal(str(updates["allocated_budget"])) - Decimal(str(event.allocated_budget))
+        if remaining < 0:
+            raise HTTPException(409, "Allocated budget cannot be less than the amount already spent")
+        updates["remaining_budget"] = remaining
     if "department_id" in updates and updates["department_id"] != event.department_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can change an event's department scope")
     category_id = updates.get("category_id", event.category_id)
@@ -331,6 +313,12 @@ def update_event(
             detail="Departmental events require department_id",
         )
 
+    if "event_date" in updates and updates["event_date"] != event.event_date:
+        invalidate_clearance(db, event)
+        record_access_change(db, current_user, "compliance.date_changed", event, {
+            "previous_date": str(event.event_date), "new_date": str(updates["event_date"]),
+            "clearance_invalidated": True,
+        })
     for field, value in updates.items():
         setattr(event, field, value)
 
@@ -346,16 +334,8 @@ def submit_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
 ):
-    """
-    Moves a draft into review, OR resubmits a previously rejected event
-    (the Flutter app's "Edit Proposal" -> "Save Changes" flow on a
-    rejected event calls PATCH then this, in that order). Either way,
-    the starting stage is chosen from the original proposer's role.
-    An administrator resubmitting another user's proposal cannot bypass
-    independent review. Existing approval history is retained.
-    """
-    event = _get_event_or_404(db, event_id)
-    _assert_event_owner_scope(event, db, current_user, "submit")
+    event = _get_event_or_404(db, event_id, lock=True)
+    _assert_event_owner_scope(event, current_user, "submit")
 
     if event.status not in ("draft", "rejected"):
         raise HTTPException(
@@ -369,8 +349,9 @@ def submit_event(
     event.status = _initial_pending_status(proposer.role if proposer else "treasurer")
 
     if was_resubmission:
-        _record_decision(
-            db, event, "resubmitted", current_user,
+        restart_routing(db, event)
+        record_decision(
+            db, "event", event.id, "resubmitted", current_user,
             "Event revised and resubmitted for review.",
         )
 
@@ -384,31 +365,33 @@ def approve_event(
     event_id: uuid.UUID,
     payload: ApprovalDecision = ApprovalDecision(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("adviser", "admin")),
+    current_user: User = Depends(require_role("adviser", "admin", "signatory")),
 ):
-    event = _get_event_or_404(db, event_id)
+    event = _get_event_or_404(db, event_id, lock=True)
 
-    assert_record_scope(current_user, event)
+    assert_event_read(db, event, current_user)
     assert_not_self_review(event.proposed_by, current_user)
     _require_academic_metadata(event)
 
-    if current_user.role == "adviser":
+    if current_user.role == "signatory":
+        review_institutional_step(db, event, current_user, "approved", payload.remarks)
+    elif current_user.role == "adviser":
         if event.status not in ADVISER_PENDING_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Event is '{event.status}' — advisers can only act while it's pending adviser review",
             )
-        _record_decision(db, event, "approved", current_user, payload.remarks)
+        record_decision(db, "event", event.id, "approved", current_user, payload.remarks)
         event.status = "pending_admin"
 
-    else:  # admin
+    else:
         if event.status != "pending_admin":
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Event is '{event.status}' — admins can only give final approval while it's pending admin approval",
+                detail=f"Event is '{event.status}' — admins can only review while it is pending admin approval",
             )
-        _record_decision(db, event, "approved", current_user, payload.remarks)
-        event.status = "approved"
+        begin_institutional_review(db, event)
+        record_decision(db, "event", event.id, "approved", current_user, payload.remarks)
 
     db.commit()
     db.refresh(event)
@@ -420,11 +403,11 @@ def reject_event(
     event_id: uuid.UUID,
     payload: ApprovalDecision = ApprovalDecision(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("adviser", "admin")),
+    current_user: User = Depends(require_role("adviser", "admin", "signatory")),
 ):
-    event = _get_event_or_404(db, event_id)
+    event = _get_event_or_404(db, event_id, lock=True)
 
-    assert_record_scope(current_user, event)
+    assert_event_read(db, event, current_user)
     assert_not_self_review(event.proposed_by, current_user)
 
     if current_user.role == "adviser" and event.status not in ADVISER_PENDING_STATUSES:
@@ -438,8 +421,11 @@ def reject_event(
             detail=f"Event is '{event.status}' — nothing pending to reject",
         )
 
-    _record_decision(db, event, "rejected", current_user, payload.remarks)
-    event.status = "rejected"
+    if current_user.role == "signatory":
+        review_institutional_step(db, event, current_user, "rejected", payload.remarks)
+    else:
+        record_decision(db, "event", event.id, "rejected", current_user, payload.remarks)
+        event.status = "rejected"
 
     db.commit()
     db.refresh(event)
@@ -452,8 +438,8 @@ def delete_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
 ):
-    event = _get_event_or_404(db, event_id)
-    _assert_event_owner_scope(event, db, current_user, "delete")
+    event = _get_event_or_404(db, event_id, lock=True)
+    _assert_event_owner_scope(event, current_user, "delete")
 
     if event.status != "draft":
         raise HTTPException(
@@ -464,6 +450,15 @@ def delete_event(
             ),
         )
 
+    if any(db.query(model).filter_by(event_id=event.id).first() for model in
+           (EventParticipant, EventRequirement, EventPersonnel, EventVehicle, EventComplianceDocument)):
+        raise HTTPException(409, "This draft has compliance records; retain it to preserve the paper trail")
+    logistics = db.get(EventLogistics, event.id)
+    if logistics:
+        db.delete(logistics)
+    for step in routing_steps(db, event):
+        db.delete(step)
+    db.flush()
     db.delete(event)
     db.commit()
     return None

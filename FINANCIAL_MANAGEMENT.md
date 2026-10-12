@@ -253,10 +253,11 @@ instructions in `CORE_SYSTEM_FEATURES.md`.
    changing already approved money requires a separately designed correction flow.
 6. After data repair, run the constraint validation statements at the end of
    migration 006. Keep original documents and an audit trail for manual corrections.
-7. Reuse the existing Supabase image-storage configuration. The existing storage
-   service returns public URLs; protected API access does not by itself make an
-   already public storage object private. Private buckets/signed file delivery
-   require a separate storage-access change before handling confidential receipts.
+7. Apply `008_security_hardening.sql` and coordinate the frontend private-file
+   flow in [Security review](SECURITY_REVIEW.md). Storage references remain stable;
+   authenticated `GET /files?reference=<receipt_url>` issues five-minute access
+   links after checking role, scope and recorded evidence. External legacy URLs
+   retain the external host's access policy.
 
 ## Acceptance tests
 

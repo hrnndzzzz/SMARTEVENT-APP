@@ -1,17 +1,3 @@
-"""
-GET /recommendations/event-budget — a data-driven starting point for
-how much to allocate to a new event, based on past events sharing the
-same budget category. This is the "Smart Recommendations engine" from
-the capstone scope, at the level actually committed to for this
-version: historical-average heuristics, not predictive ML — matching
-the scope document's own note that AI-driven recommendations are a
-future-iteration enhancement, not required for the current system.
-
-Uses category_id (not a separate event_type field) — decided over
-adding a new schema concept, since category_id already exists and is
-set on every event.
-"""
-
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import (
-    assert_department_scope,
     assert_record_scope,
     require_operational_read,
     scope_query_by_department,
@@ -30,9 +15,6 @@ from app.schemas import BudgetRecommendation
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
-# Below this many past events in the category, an average is more
-# misleading than useful — one wildly expensive or wildly cheap past
-# event would completely dominate the "average."
 _MIN_SAMPLE_SIZE = 2
 
 
@@ -47,10 +29,6 @@ def recommend_event_budget(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
     assert_record_scope(current_user, category, allow_officer_read=True)
 
-    # Only look at events that actually went somewhere (approved or
-    # completed) — a draft or rejected event's allocated_budget was
-    # never real money, so including it would skew the average toward
-    # numbers that were proposed but never actually happened.
     past_events = (
         scope_query_by_department(db.query(Event), Event.department_id, current_user)
         .filter(Event.category_id == category_id, Event.status.in_(["approved", "completed"]))
@@ -85,9 +63,6 @@ def recommend_event_budget(
         .all()
     )
     spend_by_event = {event_id: float(total) for event_id, total in per_event_spend}
-    # Events with zero approved expenses aren't in spend_by_event at
-    # all (no rows to group) — treat them as 0 spend, not "missing
-    # data", so they still count toward the average.
     avg_actual_spend = (
         sum(spend_by_event.get(e.id, 0.0) for e in past_events) / sample_size
     )

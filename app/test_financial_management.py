@@ -1,5 +1,5 @@
 """Financial recommendations tested using isolated records, not live services."""
-from datetime import date, timedelta
+from datetime import date
 import pytest
 from app.test_access_management import system
 from app.models import AuditLog, Expense, IncomeRecord, Receipt
