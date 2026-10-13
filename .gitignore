@@ -1,3 +1,4 @@
+
 # Miscellaneous
 *.class
 *.log
@@ -43,3 +44,18 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+.env
+# Backups too: a timestamped copy is still the whole file.
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+*.egg-info/
+
+# Local-only credential notes for the demo accounts.
+.local-*.txt
