@@ -177,6 +177,14 @@ void main() {
       }
     });
 
+    test('roles without operational access are offered no areas', () {
+      // The backend refuses both of these operational data outright, so
+      // a menu entry could only ever open on a 403.
+      expect(areasFor(UserRole.sdsStaff), isEmpty);
+      expect(areasFor(UserRole.signatory), isEmpty);
+      expect(areasFor(UserRole.officer), isNotEmpty);
+    });
+
     test('every area offered to a role is one that role may read', () {
       for (final role in UserRole.values) {
         for (final area in areasFor(role)) {

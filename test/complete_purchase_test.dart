@@ -142,10 +142,7 @@ void main() {
     });
 
     test('each line needs a positive received quantity', () {
-      expect(
-        check(quantities: {'line-1': '0'}),
-        contains('quantity received'),
-      );
+      expect(check(quantities: {'line-1': '0'}), contains('quantity received'));
       expect(
         check(quantities: {'line-1': '-2'}),
         contains('quantity received'),
@@ -163,10 +160,7 @@ void main() {
     test('a second line is checked too, not just the first', () {
       final lines = [_assetLine(), _assetLine(id: 'line-2', name: 'Tables')];
       expect(
-        check(
-          assetLines: lines,
-          quantities: {'line-1': '4', 'line-2': '0'},
-        ),
+        check(assetLines: lines, quantities: {'line-1': '4', 'line-2': '0'}),
         contains('Tables'),
       );
     });
@@ -192,15 +186,17 @@ void main() {
       );
     }
 
-    testWidgets('prefills the paid amount with the expense total',
-        (tester) async {
+    testWidgets('prefills the paid amount with the expense total', (
+      tester,
+    ) async {
       await tester.pumpWidget(host(lines: [_assetLine()]));
       // It must match exactly, so making the user retype invites error.
       expect(find.text('1200.00'), findsOneWidget);
     });
 
-    testWidgets('prefills each line with its ordered quantity and unit',
-        (tester) async {
+    testWidgets('prefills each line with its ordered quantity and unit', (
+      tester,
+    ) async {
       await tester.pumpWidget(host(lines: [_assetLine(quantity: 4)]));
 
       expect(find.text('Folding chairs'), findsOneWidget);
@@ -210,8 +206,10 @@ void main() {
 
     testWidgets('says plainly when there are no asset lines', (tester) async {
       await tester.pumpWidget(host(lines: const []));
-      expect(find.textContaining('No asset lines on this expense'),
-          findsOneWidget);
+      expect(
+        find.textContaining('No asset lines on this expense'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('states that the step runs only once', (tester) async {

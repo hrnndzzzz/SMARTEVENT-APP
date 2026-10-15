@@ -114,6 +114,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     UserRole.treasurer => Icons.account_balance_wallet_outlined,
                     UserRole.adviser => Icons.fact_check_outlined,
                     UserRole.sdsStaff => Icons.description_outlined,
+                    UserRole.signatory => Icons.draw_outlined,
                     UserRole.admin => Icons.admin_panel_settings_outlined,
                     UserRole.superAdmin => Icons.shield_outlined,
                   },

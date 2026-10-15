@@ -111,6 +111,12 @@ enum EventApprovalStatus {
   draft,
   pendingAdviser,
   pendingAdmin,
+
+  /// With the institutional signatories, who approve in sequence after
+  /// the admin. Added by the October backend; a build that did not know
+  /// it showed such an event as a draft.
+  pendingInstitutional,
+
   approved,
   rejected,
   completed,
@@ -123,7 +129,8 @@ extension EventApprovalStatusInfo on EventApprovalStatus {
   /// Awaiting a decision at either stage.
   bool get isPending =>
       this == EventApprovalStatus.pendingAdviser ||
-      this == EventApprovalStatus.pendingAdmin;
+      this == EventApprovalStatus.pendingAdmin ||
+      this == EventApprovalStatus.pendingInstitutional;
 
   /// Editable and resubmittable by its proposer.
   bool get isEditable =>
@@ -188,6 +195,7 @@ class EventItem {
     EventApprovalStatus.draft => 'Draft',
     EventApprovalStatus.pendingAdviser => 'Pending Adviser Review',
     EventApprovalStatus.pendingAdmin => 'Pending Admin Approval',
+    EventApprovalStatus.pendingInstitutional => 'With the signatories',
     EventApprovalStatus.approved => 'Approved',
     EventApprovalStatus.rejected => 'Rejected by ${rejectedBy ?? 'Reviewer'}',
     EventApprovalStatus.completed => 'Completed',
@@ -1416,6 +1424,7 @@ class AppState extends ChangeNotifier {
     // Legacy 'pending' means awaiting adviser review.
     'pending' || 'pending_adviser' => EventApprovalStatus.pendingAdviser,
     'pending_admin' => EventApprovalStatus.pendingAdmin,
+    'pending_institutional_review' => EventApprovalStatus.pendingInstitutional,
     'approved' => EventApprovalStatus.approved,
     'rejected' => EventApprovalStatus.rejected,
     'completed' => EventApprovalStatus.completed,
@@ -1912,6 +1921,7 @@ class AppState extends ChangeNotifier {
         // Admin/Super Admin. So none of the remaining statuses is a
         // just-submitted outcome worth announcing here.
         case EventApprovalStatus.draft:
+        case EventApprovalStatus.pendingInstitutional:
         case EventApprovalStatus.approved:
         case EventApprovalStatus.rejected:
         case EventApprovalStatus.completed:

@@ -142,6 +142,11 @@ class _CreateBand extends StatelessWidget {
         'With the admin',
         event.title,
       ),
+      EventApprovalStatus.pendingInstitutional => (
+        BrutTone.sun,
+        'With the signatories',
+        event.title,
+      ),
       EventApprovalStatus.rejected => (
         BrutTone.coral,
         'Came back — needs changes',

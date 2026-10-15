@@ -113,8 +113,10 @@ void main() {
 
     test('makes the action readable', () {
       expect(entry(action: 'suspend_user').readableAction, 'Suspend user');
-      expect(entry(action: 'create_department').readableAction,
-          'Create department');
+      expect(
+        entry(action: 'create_department').readableAction,
+        'Create department',
+      );
     });
 
     test('copes with a missing action', () {

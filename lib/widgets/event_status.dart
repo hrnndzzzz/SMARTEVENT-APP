@@ -14,5 +14,6 @@ BrutTone eventStatusTone(EventApprovalStatus s) => switch (s) {
   EventApprovalStatus.completed => BrutTone.mint,
   EventApprovalStatus.rejected => BrutTone.coral,
   EventApprovalStatus.pendingAdmin ||
-  EventApprovalStatus.pendingAdviser => BrutTone.sun,
+  EventApprovalStatus.pendingAdviser ||
+  EventApprovalStatus.pendingInstitutional => BrutTone.sun,
 };

@@ -65,8 +65,11 @@ void main() {
         expect(signedChangeFor(type, '0'), isNull, reason: type.name);
         expect(signedChangeFor(type, ''), isNull, reason: type.name);
         expect(signedChangeFor(type, 'five'), isNull, reason: type.name);
-        expect(signedChangeFor(type, '2.5'), isNull,
-            reason: 'stock is whole units');
+        expect(
+          signedChangeFor(type, '2.5'),
+          isNull,
+          reason: 'stock is whole units',
+        );
       }
     });
 
@@ -76,29 +79,40 @@ void main() {
   });
 
   group('which types a user may pick', () {
-    test('purchase is not selectable — it comes from completing an expense',
-        () {
-      expect(selectableMovementTypes,
-          isNot(contains(InventoryMovementType.purchase)));
-      expect(InventoryMovementType.purchase.isUserSelectable, isFalse);
-    });
+    test(
+      'purchase is not selectable — it comes from completing an expense',
+      () {
+        expect(
+          selectableMovementTypes,
+          isNot(contains(InventoryMovementType.purchase)),
+        );
+        expect(InventoryMovementType.purchase.isUserSelectable, isFalse);
+      },
+    );
 
     test('opening balance and legacy are states, not actions', () {
-      expect(selectableMovementTypes,
-          isNot(contains(InventoryMovementType.openingBalance)));
-      expect(selectableMovementTypes,
-          isNot(contains(InventoryMovementType.legacy)));
+      expect(
+        selectableMovementTypes,
+        isNot(contains(InventoryMovementType.openingBalance)),
+      );
+      expect(
+        selectableMovementTypes,
+        isNot(contains(InventoryMovementType.legacy)),
+      );
     });
 
     test('the six real actions are offered', () {
-      expect(selectableMovementTypes, containsAll([
-        InventoryMovementType.acquisition,
-        InventoryMovementType.donation,
-        InventoryMovementType.issue,
-        InventoryMovementType.returned,
-        InventoryMovementType.disposal,
-        InventoryMovementType.adjustment,
-      ]));
+      expect(
+        selectableMovementTypes,
+        containsAll([
+          InventoryMovementType.acquisition,
+          InventoryMovementType.donation,
+          InventoryMovementType.issue,
+          InventoryMovementType.returned,
+          InventoryMovementType.disposal,
+          InventoryMovementType.adjustment,
+        ]),
+      );
       expect(selectableMovementTypes.length, 6);
     });
   });
@@ -117,8 +131,10 @@ void main() {
     });
 
     test('an unknown type reads as legacy', () {
-      expect(inventoryMovementTypeFromWire('transferred'),
-          InventoryMovementType.legacy);
+      expect(
+        inventoryMovementTypeFromWire('transferred'),
+        InventoryMovementType.legacy,
+      );
       expect(inventoryMovementTypeFromWire(null), InventoryMovementType.legacy);
     });
   });

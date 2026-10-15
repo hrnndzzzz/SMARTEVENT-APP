@@ -10,6 +10,7 @@ import 'screens/welcome_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/proposal_letters_screen.dart';
+import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
 import 'widgets/page_indicator.dart';
@@ -166,6 +167,9 @@ class _RootShellState extends State<RootShell> {
     // SDS staff have exactly one thing to do, so they get it directly
     // rather than three screens, two of which would be empty.
     if (widget.role.isLetterOnly) return const ProposalLettersScreen();
+    // Signatories are kept out of operational data by the backend, so
+    // the three-page shell would be three empty screens.
+    if (widget.role.isInstitutionalReviewer) return const SignatoryScreen();
 
     return PopScope(
       // Back returns to the dashboard before it leaves the app, the same

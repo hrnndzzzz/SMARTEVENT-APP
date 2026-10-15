@@ -80,6 +80,7 @@ class _AccountMenu extends StatelessWidget {
     UserRole.treasurer => 'Treasurer',
     UserRole.adviser => 'Faculty Adviser',
     UserRole.sdsStaff => 'SDS Staff',
+    UserRole.signatory => 'Institutional Signatory',
     UserRole.admin => 'Organization Administrator',
     UserRole.superAdmin => 'Super Administrator',
     null => 'Guest',

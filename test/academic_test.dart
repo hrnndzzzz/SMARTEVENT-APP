@@ -54,18 +54,25 @@ void main() {
     });
 
     test('a year starting in September belongs to that year', () {
-      expect(SchoolYear.suggestions(DateTime(2026, 9, 1)), contains('2026-2027'));
+      expect(
+        SchoolYear.suggestions(DateTime(2026, 9, 1)),
+        contains('2026-2027'),
+      );
     });
 
     test('a date in January still belongs to the previous start year', () {
-      expect(SchoolYear.suggestions(DateTime(2026, 1, 15)), contains('2025-2026'));
+      expect(
+        SchoolYear.suggestions(DateTime(2026, 1, 15)),
+        contains('2025-2026'),
+      );
     });
 
     test('merging keeps backend years and drops invalid ones', () {
-      final merged = SchoolYear.mergeOptions(
-        ['2019-2020', '2026-2028', 'nonsense'],
-        DateTime(2026, 9, 29),
-      );
+      final merged = SchoolYear.mergeOptions([
+        '2019-2020',
+        '2026-2028',
+        'nonsense',
+      ], DateTime(2026, 9, 29));
 
       expect(merged, contains('2019-2020'));
       expect(merged, isNot(contains('2026-2028')));
@@ -75,10 +82,9 @@ void main() {
     });
 
     test('merging does not duplicate a year the backend already knows', () {
-      final merged = SchoolYear.mergeOptions(
-        ['2026-2027'],
-        DateTime(2026, 9, 29),
-      );
+      final merged = SchoolYear.mergeOptions([
+        '2026-2027',
+      ], DateTime(2026, 9, 29));
       expect(merged.where((y) => y == '2026-2027').length, 1);
     });
   });

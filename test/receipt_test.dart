@@ -44,8 +44,10 @@ void main() {
     test('an unknown status reads as pending, not clear', () {
       // Erring toward "someone should look" is the safer mistake: reading
       // an unknown state as clear would let it through silently.
-      expect(receiptReviewStatusFromWire('quarantined'),
-          ReceiptReviewStatus.pending);
+      expect(
+        receiptReviewStatusFromWire('quarantined'),
+        ReceiptReviewStatus.pending,
+      );
       expect(receiptReviewStatusFromWire(null), ReceiptReviewStatus.pending);
     });
   });
@@ -54,16 +56,22 @@ void main() {
     test('only pending is awaiting review', () {
       expect(_receipt(status: 'pending').isAwaitingReview, isTrue);
       for (final other in ['clear', 'cleared', 'rejected']) {
-        expect(_receipt(status: other).isAwaitingReview, isFalse,
-            reason: other);
+        expect(
+          _receipt(status: other).isAwaitingReview,
+          isFalse,
+          reason: other,
+        );
       }
     });
 
     test('clear means nothing resembled it, not that it was approved', () {
       final receipt = _receipt(status: 'clear');
       expect(receipt.isAwaitingReview, isFalse);
-      expect(receipt.isReviewSettled, isFalse,
-          reason: 'no decision was ever made');
+      expect(
+        receipt.isReviewSettled,
+        isFalse,
+        reason: 'no decision was ever made',
+      );
     });
 
     test('cleared and rejected are both settled', () {
@@ -106,8 +114,10 @@ void main() {
   group('decisions', () {
     test('only cleared and rejected are submittable', () {
       // clear and pending are states the backend sets, not choices.
-      expect(ReceiptDecision.values.map((d) => d.wireName),
-          ['cleared', 'rejected']);
+      expect(ReceiptDecision.values.map((d) => d.wireName), [
+        'cleared',
+        'rejected',
+      ]);
     });
   });
 }

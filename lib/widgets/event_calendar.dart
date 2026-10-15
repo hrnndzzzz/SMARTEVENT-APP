@@ -217,6 +217,7 @@ String _shortStatus(EventApprovalStatus s) => switch (s) {
   EventApprovalStatus.draft => 'Draft',
   EventApprovalStatus.pendingAdviser => 'With adviser',
   EventApprovalStatus.pendingAdmin => 'With admin',
+  EventApprovalStatus.pendingInstitutional => 'With signatories',
   EventApprovalStatus.approved => 'Approved',
   EventApprovalStatus.rejected => 'Returned',
   EventApprovalStatus.completed => 'Completed',
@@ -225,7 +226,8 @@ String _shortStatus(EventApprovalStatus s) => switch (s) {
 IconData _statusIcon(EventApprovalStatus s) => switch (s) {
   EventApprovalStatus.draft => Icons.edit_outlined,
   EventApprovalStatus.pendingAdviser ||
-  EventApprovalStatus.pendingAdmin => Icons.hourglass_empty,
+  EventApprovalStatus.pendingAdmin ||
+  EventApprovalStatus.pendingInstitutional => Icons.hourglass_empty,
   EventApprovalStatus.approved => Icons.check,
   EventApprovalStatus.rejected => Icons.priority_high,
   EventApprovalStatus.completed => Icons.task_alt,

@@ -48,8 +48,11 @@ void main() {
       1,
       reason: 'the shell must stay on the page it was on',
     );
-    expect(find.byKey(const Key('chips')), findsOneWidget,
-        reason: 'and the pushed screen must still be up');
+    expect(
+      find.byKey(const Key('chips')),
+      findsOneWidget,
+      reason: 'and the pushed screen must still be up',
+    );
   });
 }
 

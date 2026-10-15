@@ -58,8 +58,9 @@ void main() {
     expect(find.text('New category'), findsOneWidget);
   });
 
-  testWidgets('an empty list explains itself differently per role',
-      (tester) async {
+  testWidgets('an empty list explains itself differently per role', (
+    tester,
+  ) async {
     final adminState = AppState()..devQuickLogin(UserRole.admin);
     await tester.pumpWidget(_host(adminState));
     await tester.pump();
@@ -73,7 +74,9 @@ void main() {
 
     // An Officer cannot act on it, so pointing them at a button they do
     // not have would be useless.
-    expect(find.textContaining('has not set up budget categories'),
-        findsOneWidget);
+    expect(
+      find.textContaining('has not set up budget categories'),
+      findsOneWidget,
+    );
   });
 }

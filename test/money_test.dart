@@ -74,8 +74,11 @@ void main() {
     test('output is accepted by validate, so it can be sent straight back', () {
       // Guards the round trip: read a double from the API, send it again.
       for (final value in [0.1, 1.005, 1200.0, 99.99]) {
-        expect(MoneyInput.validate(MoneyInput.fromDouble(value)), isNull,
-            reason: '$value');
+        expect(
+          MoneyInput.validate(MoneyInput.fromDouble(value)),
+          isNull,
+          reason: '$value',
+        );
       }
     });
   });

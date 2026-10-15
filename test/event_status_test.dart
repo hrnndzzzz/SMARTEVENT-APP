@@ -60,16 +60,15 @@ void main() {
       String? schoolYear,
       Semester? semester,
       EventScope? scope,
-    }) =>
-        EventItem(
-          title: 't',
-          org: 'o',
-          date: 'd',
-          budget: 'b',
-          schoolYear: schoolYear,
-          semester: semester,
-          eventScope: scope,
-        );
+    }) => EventItem(
+      title: 't',
+      org: 'o',
+      date: 'd',
+      budget: 'b',
+      schoolYear: schoolYear,
+      semester: semester,
+      eventScope: scope,
+    );
 
     test('a fully set event reads as year, semester and scope', () {
       final item = event(
@@ -89,12 +88,14 @@ void main() {
       expect(item.academicLabel, 'No school year set');
     });
 
-    test('a partially set row shows what is known and still reads incomplete',
-        () {
-      final item = event(schoolYear: '2026-2027');
+    test(
+      'a partially set row shows what is known and still reads incomplete',
+      () {
+        final item = event(schoolYear: '2026-2027');
 
-      expect(item.hasIncompleteAcademicMetadata, isTrue);
-      expect(item.academicLabel, '2026-2027');
-    });
+        expect(item.hasIncompleteAcademicMetadata, isTrue);
+        expect(item.academicLabel, '2026-2027');
+      },
+    );
   });
 }

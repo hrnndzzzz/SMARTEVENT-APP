@@ -5,7 +5,20 @@
 /// Listed from least to most authority. The app previously knew only
 /// officer/adviser/admin and mapped `super_admin` onto admin, which meant
 /// Treasurer and SDS Staff accounts had nowhere to land at all.
-enum UserRole { officer, treasurer, adviser, sdsStaff, admin, superAdmin }
+enum UserRole {
+  officer,
+  treasurer,
+  adviser,
+  sdsStaff,
+
+  /// Institutional signatory. Added by the October backend: an unscoped
+  /// school account that reviews assigned proposals in its configured
+  /// order, and may read nothing else operational.
+  signatory,
+
+  admin,
+  superAdmin,
+}
 
 /// Wire format and display text.
 ///
@@ -18,6 +31,7 @@ extension UserRoleNaming on UserRole {
     UserRole.treasurer => 'treasurer',
     UserRole.adviser => 'adviser',
     UserRole.sdsStaff => 'sds_staff',
+    UserRole.signatory => 'signatory',
     UserRole.admin => 'admin',
     UserRole.superAdmin => 'super_admin',
   };
@@ -27,6 +41,7 @@ extension UserRoleNaming on UserRole {
     UserRole.treasurer => 'Treasurer',
     UserRole.adviser => 'Adviser',
     UserRole.sdsStaff => 'SDS Staff',
+    UserRole.signatory => 'Signatory',
     UserRole.admin => 'Admin',
     UserRole.superAdmin => 'Super Admin',
   };
@@ -39,6 +54,8 @@ extension UserRoleNaming on UserRole {
     UserRole.adviser => 'Review event proposals and expense submissions.',
     UserRole.sdsStaff =>
       'View submitted proposal letters for school oversight.',
+    UserRole.signatory =>
+      'Review assigned institutional proposals in their configured order.',
     UserRole.admin =>
       'Organization administrator appointed by the Super Admin.',
     UserRole.superAdmin =>
@@ -69,6 +86,7 @@ UserRole? userRoleFromWire(String value) => switch (value) {
   'treasurer' => UserRole.treasurer,
   'adviser' => UserRole.adviser,
   'sds_staff' => UserRole.sdsStaff,
+  'signatory' => UserRole.signatory,
   'admin' => UserRole.admin,
   'super_admin' => UserRole.superAdmin,
   _ => null,
@@ -94,8 +112,13 @@ extension UserRoleCapabilities on UserRole {
   /// finance, inventory, reports or administrative screens.
   bool get isLetterOnly => this == UserRole.sdsStaff;
 
+  /// Institutional signatories read only the proposals routed to them.
+  /// The backend keeps them out of operational data exactly as it does
+  /// SDS Staff, so the app must not offer it either.
+  bool get isInstitutionalReviewer => this == UserRole.signatory;
+
   /// Reaches the operational app at all.
-  bool get hasOperationalAccess => !isLetterOnly;
+  bool get hasOperationalAccess => !isLetterOnly && !isInstitutionalReviewer;
 
   /// Create, edit and delete categories and the inventory catalog.
   bool get canManageCatalog => isAdministrator;
@@ -118,7 +141,8 @@ extension UserRoleCapabilities on UserRole {
       this == UserRole.treasurer || this == UserRole.adviser || isAdministrator;
 
   /// Read and upload proposal letters. Officers have no access at all.
-  bool get canAccessProposalLetters => this != UserRole.officer;
+  bool get canAccessProposalLetters =>
+      this != UserRole.officer && !isInstitutionalReviewer;
 
   /// Manage the approved roster and member account access, within scope.
   bool get canManageMembers => isAdministrator;

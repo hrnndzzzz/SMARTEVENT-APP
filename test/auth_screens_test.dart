@@ -33,8 +33,9 @@ void main() {
     expect(find.text('Adviser'), findsNothing);
   });
 
-  testWidgets('register screen rejects a short password before calling out',
-      (tester) async {
+  testWidgets('register screen rejects a short password before calling out', (
+    tester,
+  ) async {
     await tester.pumpWidget(_host(const RegisterScreen()));
 
     await tester.enterText(find.byType(TextField).at(0), 'someone@lcup.edu.ph');
@@ -62,16 +63,21 @@ void main() {
     expect(find.textContaining('do not match'), findsOneWidget);
   });
 
-  testWidgets('verify screen shows the address and offers a resend',
-      (tester) async {
-    await tester.pumpWidget(_host(const VerifyOtpScreen(email: 'a@lcup.edu.ph')));
+  testWidgets('verify screen shows the address and offers a resend', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(const VerifyOtpScreen(email: 'a@lcup.edu.ph')),
+    );
 
     expect(find.textContaining('a@lcup.edu.ph'), findsOneWidget);
     expect(find.text('Resend code'), findsOneWidget);
   });
 
   testWidgets('verify screen requires a six-character code', (tester) async {
-    await tester.pumpWidget(_host(const VerifyOtpScreen(email: 'a@lcup.edu.ph')));
+    await tester.pumpWidget(
+      _host(const VerifyOtpScreen(email: 'a@lcup.edu.ph')),
+    );
 
     await tester.enterText(find.byType(TextField).first, 'ABC');
     await tester.tap(find.text('Verify'));
@@ -109,8 +115,9 @@ void main() {
     expect(find.text('Reset code'), findsNothing);
   });
 
-  testWidgets('proposal letters screen describes SDS scope as school-wide',
-      (tester) async {
+  testWidgets('proposal letters screen describes SDS scope as school-wide', (
+    tester,
+  ) async {
     final state = AppState()..devQuickLogin(UserRole.sdsStaff);
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
@@ -126,8 +133,9 @@ void main() {
     expect(find.text('Upload letter'), findsNothing);
   });
 
-  testWidgets('an adviser sees an upload control and its own scope',
-      (tester) async {
+  testWidgets('an adviser sees an upload control and its own scope', (
+    tester,
+  ) async {
     final state = AppState()..devQuickLogin(UserRole.adviser);
     await tester.pumpWidget(
       ChangeNotifierProvider.value(

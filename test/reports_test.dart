@@ -23,7 +23,9 @@ void main() {
 
     test('a school-year report requires a school year', () {
       expect(
-        ReportsService.validateFinancialRequest(period: ReportPeriod.schoolYear),
+        ReportsService.validateFinancialRequest(
+          period: ReportPeriod.schoolYear,
+        ),
         contains('school year'),
       );
       expect(
@@ -154,12 +156,14 @@ void main() {
             'net_balance': 250,
             'withheld_income_total': 0,
             'withheld_income_count': 0,
-          }
+          },
         ],
       );
 
-      final rowSum =
-          r.events.fold<double>(0, (sum, e) => sum + e.totalExpenses);
+      final rowSum = r.events.fold<double>(
+        0,
+        (sum, e) => sum + e.totalExpenses,
+      );
       expect(rowSum, 250);
       expect(r.totalExpenses, 400);
       // The difference is the unassigned spending, which belongs to no
@@ -169,7 +173,11 @@ void main() {
   });
 
   group('budget recommendation', () {
-    BudgetRecommendation rec({int sample = 3, double? allocated, double? spend}) {
+    BudgetRecommendation rec({
+      int sample = 3,
+      double? allocated,
+      double? spend,
+    }) {
       return BudgetRecommendation.fromJson({
         'category_id': 'c1',
         'sample_size': sample,
@@ -181,8 +189,11 @@ void main() {
 
     test('knows when there is nothing to base a suggestion on', () {
       expect(rec(sample: 0).hasEnoughData, isFalse);
-      expect(rec(sample: 3).hasEnoughData, isFalse,
-          reason: 'a sample with no averages is still nothing to go on');
+      expect(
+        rec(sample: 3).hasEnoughData,
+        isFalse,
+        reason: 'a sample with no averages is still nothing to go on',
+      );
       expect(rec(sample: 3, allocated: 5000).hasEnoughData, isTrue);
     });
 
@@ -215,7 +226,11 @@ void main() {
         'total_categories': 4,
         'total_allocated_budget': 10000,
         'total_remaining_budget': 6500,
-        'events_by_status': {'pending_adviser': 2, 'pending_admin': 1, 'approved': 5},
+        'events_by_status': {
+          'pending_adviser': 2,
+          'pending_admin': 1,
+          'approved': 5,
+        },
         'expenses_by_status': {'pending': 3, 'approved': 7},
         'flagged_expense_count': 1,
         'low_stock_item_count': 2,

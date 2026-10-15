@@ -132,8 +132,12 @@ const List<AppArea> appAreas = [
 ];
 
 List<AppArea> areasFor(UserRole? role) => [
-  for (final area in appAreas)
-    if (area.isVisibleTo(role)) area,
+  // Every area is operational, so a role the backend keeps out of
+  // operational data — SDS Staff, a signatory — is offered none of them
+  // rather than a grid of screens that would all come back 403.
+  if (role?.hasOperationalAccess ?? false)
+    for (final area in appAreas)
+      if (area.isVisibleTo(role)) area,
 ];
 
 /// What belongs on the menu panel.
