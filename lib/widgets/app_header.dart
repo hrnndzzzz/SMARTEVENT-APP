@@ -55,10 +55,7 @@ class AppHeader extends StatelessWidget {
   /// printing a placeholder for the other.
   static String? scopeLineFor(AppState app) {
     final role = app.currentRole?.label;
-    final department = app.currentAccount?.departmentId == null
-        ? null
-        : app.themeDepartment.label;
-    final parts = [department, role].whereType<String>().toList();
+    final parts = [app.departmentLabel, role].whereType<String>().toList();
     return parts.isEmpty ? null : parts.join(' · ');
   }
 

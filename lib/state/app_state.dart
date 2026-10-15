@@ -2396,6 +2396,24 @@ class AppState extends ChangeNotifier {
   /// Falls back to the neutral system colour rather than to whatever the
   /// local [Department] default happens to be — a Super Admin belongs to no
   /// department, and an Officer cannot read the department list at all.
+  /// The account's department as a name, or null when this client cannot
+  /// know it.
+  ///
+  /// `GET /departments` is admin-only, so for a treasurer, adviser or
+  /// officer the list is empty and the id cannot be resolved to a code.
+  /// Printing "All Departments" there states the opposite of the truth —
+  /// the account does have one, this build just cannot read it — so the
+  /// line simply omits it.
+  String? get departmentLabel {
+    final id = currentAccount?.departmentId;
+    if (id == null) return null;
+    final code = departments
+        .where((d) => d.id == id)
+        .map((d) => d.code)
+        .firstOrNull;
+    return code == null ? null : themeDepartmentForCode(code).label;
+  }
+
   Department get themeDepartment {
     final code = departments
         .where((d) => d.id == currentAccount?.departmentId)

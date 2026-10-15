@@ -149,7 +149,9 @@ class _Row extends StatelessWidget {
 
     return BrutListRow(
       title: expense.vendor,
-      meta: '${expense.category} · ${peso(expense.amount)}',
+      // Amount first: the row is narrow next to the status badge, and
+      // the figure is the part worth reading if only one survives.
+      meta: '${peso(expense.amount)} · ${expense.category}',
       marker: BrutIconTile(
         icon: expense.isFlagged ? Icons.flag_outlined : Icons.receipt_outlined,
         tone: expense.isFlagged ? BrutTone.sun : tone,

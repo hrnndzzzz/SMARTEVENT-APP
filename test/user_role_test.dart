@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/state/app_areas.dart';
+import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/user_role.dart';
 
 /// Locks the client-side capability matrix to the backend's own policy in
@@ -196,6 +197,29 @@ void main() {
           }
         }
       }
+    });
+  });
+
+  group('the scope line', () {
+    test('omits a department this client cannot resolve', () {
+      // A treasurer's account has a department, but GET /departments is
+      // admin-only, so the list is empty and the id resolves to nothing.
+      // "All Departments" would state the opposite of the truth.
+      final app = AppState()..devQuickLogin(UserRole.treasurer);
+      app.currentAccount = Account(
+        name: 'Demo Treasurer',
+        email: 'demo.treasurer@lcup.edu.ph',
+        role: UserRole.treasurer,
+        departmentId: 'a-real-uuid-the-client-cannot-resolve',
+      );
+      expect(app.departments, isEmpty);
+      expect(app.departmentLabel, isNull);
+    });
+
+    test('says nothing when the account genuinely has no department', () {
+      final app = AppState()..devQuickLogin(UserRole.superAdmin);
+      expect(app.currentAccount!.departmentId, isNull);
+      expect(app.departmentLabel, isNull);
     });
   });
 }
