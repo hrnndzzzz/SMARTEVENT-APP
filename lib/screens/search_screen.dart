@@ -1,331 +1,393 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
+import '../theme/brut.dart';
+import '../widgets/app_header.dart';
+import 'notifications_screen.dart';
+import 'event_detail_screen.dart';
+import '../theme/peso.dart';
 
-class SearchScreen extends StatelessWidget {
+enum _ResultType { event, transaction }
+
+class _SearchResult {
+  final _ResultType type;
+  final String title;
+  final String subtitle;
+  final String timestamp;
+  final String? amount;
+  final String? category;
+  final List<String> tags;
+  final EventItem? event;
+
+  _SearchResult({
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.timestamp,
+    this.amount,
+    this.category,
+    this.tags = const [],
+    this.event,
+  });
+}
+
+class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          children: const [
-            _SearchHeader(),
-            SizedBox(height: 16),
-            _SearchBar(query: 'Hackathon'),
-            SizedBox(height: 12),
-            _FilterChips(),
-            SizedBox(height: 12),
-            _QuickFilters(),
-            SizedBox(height: 16),
-            Text('Results for "Hackathon"', style: AppText.cardTitle),
-            SizedBox(height: 10),
-            _EventResultCard(),
-            SizedBox(height: 10),
-            _TransactionResultCard(),
-          ],
-        ),
-      ),
-    );
-  }
+  State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchHeader extends StatelessWidget {
-  const _SearchHeader();
+class _SearchScreenState extends State<SearchScreen> {
+  final TextEditingController _controller = TextEditingController();
+  String _filter = 'All';
+  String _category = 'All Categories';
+
+  List<String> get _categoryOptions => [
+    'All Categories',
+    ...context.read<AppState>().expenseCategories,
+  ];
+  List<_SearchResult> _buildResults(AppState app) {
+    final results = <_SearchResult>[
+      for (final e in app.events)
+        _SearchResult(
+          type: _ResultType.event,
+          title: e.title,
+          // Organization plus academic period — both real fields, unlike
+          // the venue this used to show, which never round-tripped.
+          subtitle: [if (e.org.isNotEmpty) e.org, e.academicLabel].join(' · '),
+          timestamp: e.date,
+          tags: [e.statusLabel],
+          event: e,
+        ),
+      for (final ex in app.expenses)
+        _SearchResult(
+          type: _ResultType.transaction,
+          title: ex.vendor,
+          subtitle: ex.category,
+          timestamp: switch (ex.status) {
+            ExpenseStatus.pending => 'Pending',
+            ExpenseStatus.approved => 'Approved',
+            ExpenseStatus.rejected => 'Rejected',
+          },
+          amount: '-${peso(ex.amount)}',
+          category: ex.category,
+        ),
+    ];
+
+    final query = _controller.text.trim().toLowerCase();
+
+    return results.where((r) {
+      final matchesType = switch (_filter) {
+        'Events' => r.type == _ResultType.event,
+        'Transactions' => r.type == _ResultType.transaction,
+        _ => true,
+      };
+      // Category filter only narrows transactions — events don't carry
+      // a category dimension in this app's data model.
+      final matchesCategory =
+          _category == 'All Categories' ||
+          r.type == _ResultType.event ||
+          r.category == _category;
+      if (!matchesType || !matchesCategory) return false;
+      if (query.isEmpty) return true;
+      return r.title.toLowerCase().contains(query) ||
+          r.subtitle.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: const [
-        Text('SmartEvent', style: AppText.wordmark),
-        CircleAvatar(
-          radius: 15,
-          backgroundColor: AppColors.indigo,
-          child: Text(
-            'SO',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              fontFamily: AppText.bodyFamily,
+    return BrutScreen(
+      topBar: AppHeader(
+        onBack: () => Navigator.of(context).maybePop(),
+        onBellTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+      ),
+      scrollable: false,
+      bottomPadding: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SearchBar(
+            controller: _controller,
+            onChanged: (_) => setState(() {}),
+            onClear: () => setState(() => _controller.clear()),
+          ),
+          const SizedBox(height: 12),
+          _FilterChips(
+            selected: _filter,
+            onSelect: (f) => setState(() => _filter = f),
+          ),
+          const SizedBox(height: 12),
+          _DropdownChip(
+            value: _category,
+            options: _categoryOptions,
+            onSelected: (v) => setState(() => _category = v),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Consumer<AppState>(
+              builder: (context, app, _) {
+                final results = _buildResults(app);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    BrutSectionTitle(
+                      _controller.text.trim().isEmpty
+                          ? 'All results'
+                          : 'Results for "${_controller.text.trim()}"',
+                      aside: MonoLabel('${results.length} found'),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: results.isEmpty
+                          ? const _EmptyResults()
+                          : ListView(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              children: [
+                                for (final r in results) ...[
+                                  _ResultCard(
+                                    result: r,
+                                    onTap: r.event == null
+                                        ? null
+                                        : () => Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => EventDetailScreen(
+                                                event: r.event!,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+                              ],
+                            ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _SearchBar extends StatelessWidget {
-  final String query;
-  const _SearchBar({required this.query});
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  const _SearchBar({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search, size: 18, color: AppColors.inkMuted),
-          const SizedBox(width: 8),
-          Expanded(child: Text(query, style: AppText.body)),
-          const Icon(Icons.close, size: 16, color: AppColors.inkMuted),
-        ],
-      ),
+    return BrutTextField(
+      controller: controller,
+      onChanged: onChanged,
+      hint: 'Search events or transactions…',
+      prefixIcon: Icons.search,
+      suffix: controller.text.isEmpty
+          ? null
+          : IconButton(
+              onPressed: onClear,
+              icon: const Icon(Icons.close, size: 18),
+            ),
     );
   }
 }
 
 class _FilterChips extends StatelessWidget {
-  const _FilterChips();
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  const _FilterChips({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _chip('All', selected: true),
-          const SizedBox(width: 8),
-          _chip('Events'),
-          const SizedBox(width: 8),
-          _chip('Transactions'),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip(String label, {bool selected = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.indigo : AppColors.surface,
-        border: selected ? null : Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-          color: selected ? Colors.white : AppColors.ink,
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickFilters extends StatelessWidget {
-  const _QuickFilters();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+    return BrutChipBar(
       children: [
-        Expanded(child: _dropdown('Quarter 1')),
-        const SizedBox(width: 8),
-        Expanded(child: _dropdown('All Depts')),
+        for (final label in const ['All', 'Events', 'Transactions'])
+          BrutChip(
+            label: label,
+            selected: selected == label,
+            onTap: () => onSelect(label),
+          ),
       ],
     );
   }
-
-  Widget _dropdown(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: AppText.body.copyWith(fontSize: 12)),
-          const Icon(Icons.keyboard_arrow_down, size: 15, color: AppColors.inkMuted),
-        ],
-      ),
-    );
-  }
 }
 
-class _EventResultCard extends StatelessWidget {
-  const _EventResultCard();
+class _DropdownChip extends StatelessWidget {
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onSelected;
 
-  @override
-  Widget build(BuildContext context) {
-    return _ResultCardShell(
-      tagColor: AppColors.sageTeal,
-      icon: Icons.event_outlined,
-      label: 'EVENT',
-      labelColor: AppColors.sageTeal,
-      timestamp: 'Feb 19 - 20',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Annual Fall Hackathon 2024', style: AppText.cardTitle),
-          const SizedBox(height: 4),
-          Text(
-            'Ung nag hack ng ig ni arian',
-            style: AppText.caption,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _pill('Approved', bg: AppColors.sageTealTint, fg: AppColors.sageTealText),
-              const SizedBox(width: 6),
-              _pill('Engineering Soc.', bg: const Color(0xFFF4F2EC), fg: AppColors.inkMuted),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _pill(String text, {required Color bg, required Color fg}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: AppText.bodyFamily,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: fg,
-        ),
-      ),
-    );
-  }
-}
-
-class _TransactionResultCard extends StatelessWidget {
-  const _TransactionResultCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _ResultCardShell(
-      tagColor: AppColors.marigold,
-      icon: Icons.receipt_long_outlined,
-      label: 'TRANSACTION',
-      labelColor: AppColors.marigoldText,
-      timestamp: '2 hrs ago',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Catering Deposit — Hackathon', style: AppText.cardTitle),
-                SizedBox(height: 4),
-                Text('Vendor: Fresh Campus Catering', style: AppText.caption),
-              ],
-            ),
-          ),
-          const Text(
-            '-₱2,500.00',
-            style: TextStyle(
-              fontFamily: AppText.monoFamily,
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-              color: AppColors.brick,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResultCardShell extends StatelessWidget {
-  final Color tagColor;
-  final IconData icon;
-  final String label;
-  final Color labelColor;
-  final String timestamp;
-  final Widget child;
-
-  const _ResultCardShell({
-    required this.tagColor,
-    required this.icon,
-    required this.label,
-    required this.labelColor,
-    required this.timestamp,
-    required this.child,
+  const _DropdownChip({
+    required this.value,
+    required this.options,
+    required this.onSelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Container(
-          margin: const EdgeInsets.only(left: 4),
-          padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border.all(color: AppColors.border, width: 0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final isDefault = value == options.first;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: PopupMenuButton<String>(
+        onSelected: onSelected,
+        itemBuilder: (context) => [
+          for (final o in options) PopupMenuItem(value: o, child: Text(o)),
+        ],
+        child: BrutSurface(
+          fill: isDefault
+              ? context.palette.surface
+              : Theme.of(context).colorScheme.primary,
+          radius: AppRadius.controlAll,
+          shadow: isDefault ? AppShadows.none : AppShadows.sm,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(icon, size: 13, color: labelColor),
-                      const SizedBox(width: 6),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontFamily: AppText.bodyFamily,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: labelColor,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ],
+              Flexible(
+                child: Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.buttonLabel.copyWith(
+                    fontSize: 12,
+                    color: isDefault
+                        ? context.palette.subtle
+                        : context.palette.ink,
                   ),
-                  Text(
-                    timestamp,
-                    style: const TextStyle(
-                      fontFamily: AppText.monoFamily,
-                      fontSize: 11,
-                      color: AppColors.inkMuted,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 6),
-              child,
+              const SizedBox(width: 6),
+              const Icon(Icons.expand_more, size: 18),
             ],
           ),
         ),
-        Positioned(
-          left: 0,
-          top: 12,
-          bottom: 12,
-          child: Container(
-            width: 4,
+      ),
+    );
+  }
+}
+
+class _EmptyResults extends StatelessWidget {
+  const _EmptyResults();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: BrutEmptyState(
+        icon: Icons.search_off,
+        title: 'No results',
+        hint: 'Try a shorter search, or clear the filters.',
+      ),
+    );
+  }
+}
+
+class _ResultCard extends StatelessWidget {
+  final _SearchResult result;
+  final VoidCallback? onTap;
+  const _ResultCard({required this.result, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isEvent = result.type == _ResultType.event;
+    final tone = isEvent ? BrutTone.mint : BrutTone.sun;
+
+    return BrutCard(
+      onTap: onTap,
+      radius: AppRadius.rowAll,
+      padding: EdgeInsets.zero,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The kind of record as a stripe, so a mixed list can be read by
+          // colour before it is read by word.
+          Container(
+            width: 8,
             decoration: BoxDecoration(
-              color: tagColor,
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(2)),
+              color: tone.fill(context),
+              border: Border(right: context.side),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(AppRadius.row - AppBorders.width),
+              ),
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      BrutBadge(
+                        label: isEvent ? 'Event' : 'Transaction',
+                        tone: tone,
+                        mono: true,
+                      ),
+                      const Spacer(),
+                      Text(result.timestamp, style: AppText.moneySmall),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(result.title, style: AppText.cardTitle),
+                            const SizedBox(height: 3),
+                            Text(result.subtitle, style: AppText.caption),
+                          ],
+                        ),
+                      ),
+                      if (!isEvent && result.amount != null) ...[
+                        const SizedBox(width: 10),
+                        Text(
+                          result.amount!,
+                          style: AppText.moneyLarge.copyWith(fontSize: 15),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (isEvent && result.tags.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tag in result.tags)
+                          BrutBadge(label: tag, tone: BrutTone.mint),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

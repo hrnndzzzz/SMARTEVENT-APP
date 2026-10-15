@@ -1,5 +1,5 @@
 name: smartevent
-description: "smartevent kineme"
+description: "SMARTEVENT — campus event, finance and inventory management for LCUP student organizations."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -35,7 +35,13 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.3
-  supabase_flutter: ^2.17.2
+  provider: ^6.1.5+1
+  http: ^1.6.0
+  flutter_secure_storage: ^11.2.0
+  http_parser: ^4.1.2
+  share_plus: ^13.3.0
+  shared_preferences: ^2.5.5
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -55,11 +61,20 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   fonts:
+    # The UI asks for w700/w800 headings. Only 400 and 500 ship here, so
+    # Flutter falls back to the nearest weight it has. Drop
+    # Lexend-Bold.ttf and Lexend-ExtraBold.ttf into fonts/, uncomment the
+    # two lines below, and every heading gets its real weight with no code
+    # change. Same for IBMPlexMono-SemiBold/-Bold.
     - family: Lexend
       fonts:
         - asset: fonts/Lexend-Regular.ttf
         - asset: fonts/Lexend-Medium.ttf
           weight: 500
+        # - asset: fonts/Lexend-Bold.ttf
+        #   weight: 700
+        # - asset: fonts/Lexend-ExtraBold.ttf
+        #   weight: 800
     - family: IBMPlexMono
       fonts:
         - asset: fonts/IBMPlexMono-Regular.ttf
