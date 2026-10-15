@@ -11,12 +11,23 @@ import 'package:image/image.dart' as img;
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
-/// What the camera hands back: a cropped JPEG and a name for it.
-class CapturedReceipt {
+/// What the camera screen came back with.
+sealed class CaptureResult {
+  const CaptureResult();
+}
+
+/// A photo, cropped to the guide.
+class CapturedReceipt extends CaptureResult {
   const CapturedReceipt({required this.bytes, required this.filename});
 
   final Uint8List bytes;
   final String filename;
+}
+
+/// The person wants a photo they already have. The camera cannot reframe
+/// one of those, so it hands the job back rather than pretending to.
+class GalleryRequested extends CaptureResult {
+  const GalleryRequested();
 }
 
 /// The shape of the thing being photographed.
@@ -267,7 +278,7 @@ class _CaptureScreenState extends State<CaptureScreen>
       final bytes = await shot.readAsBytes();
       final cropped = await _cropToGuide(bytes, _shape.ratio);
       if (!mounted) return;
-      Navigator.of(context).pop(
+      Navigator.of(context).pop<CaptureResult>(
         CapturedReceipt(
           bytes: cropped,
           filename: 'receipt-${DateTime.now().millisecondsSinceEpoch}.jpg',
@@ -373,7 +384,9 @@ class _CaptureScreenState extends State<CaptureScreen>
                       enabled: !_busy,
                       onTap: () {
                         _teardown();
-                        Navigator.of(context).pop();
+                        Navigator.of(
+                          context,
+                        ).pop<CaptureResult>(const GalleryRequested());
                       },
                       semantic: 'Pick a photo instead',
                     ),

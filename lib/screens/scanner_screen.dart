@@ -68,6 +68,23 @@ class _ScannerScreenState extends State<ScannerScreen> {
   /// here, so this and what gets sent cannot drift apart.
   static const int _maxBytes = 10 * 1024 * 1024;
 
+  /// Guards the one automatic open, so backing out of the camera leaves
+  /// you here rather than bouncing straight back into it.
+  bool _offeredCamera = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Scanning starts with a photo, so the camera is the screen rather
+    // than something to go and find once you have arrived.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_offeredCamera) {
+        _offeredCamera = true;
+        _shoot();
+      }
+    });
+  }
+
   @override
   void dispose() {
     _vendorController.dispose();
@@ -84,15 +101,24 @@ class _ScannerScreenState extends State<ScannerScreen> {
       (_scan != null || _manualEntry) && _categoryId != null && !_saving;
 
   /// The in-app camera, which crops to the frame before anything is
-  /// uploaded. The gallery still goes through the system picker, since a
-  /// photo taken earlier cannot be reframed.
+  /// uploaded.
+  ///
+  /// It is also where the gallery lives now: offering both on this screen
+  /// put a choice in front of someone who had already decided to scan a
+  /// receipt. The camera opens, and an older photo is one tap inside it.
   Future<void> _shoot() async {
-    final shot = await Navigator.of(context).push<CapturedReceipt>(
+    final result = await Navigator.of(context).push<CaptureResult>(
       MaterialPageRoute(builder: (_) => const CaptureScreen()),
     );
-    if (shot == null) return;
     if (!mounted) return;
-    _accept(shot.bytes, shot.filename, path: null);
+    switch (result) {
+      case CapturedReceipt(:final bytes, :final filename):
+        await _accept(bytes, filename, path: null);
+      case GalleryRequested():
+        await _pick(ImageSource.gallery);
+      case null:
+        break;
+    }
   }
 
   Future<void> _pick(ImageSource source) async {
@@ -349,7 +375,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
             image: _capturedImage,
             busy: _scanning,
             onCamera: _shoot,
-            onGallery: () => _pick(ImageSource.gallery),
           ),
 
           if (_scanning) ...[
@@ -448,13 +473,11 @@ class _CapturePreview extends StatelessWidget {
     required this.image,
     required this.busy,
     required this.onCamera,
-    required this.onGallery,
   });
 
   final File? image;
   final bool busy;
   final VoidCallback onCamera;
-  final VoidCallback onGallery;
 
   @override
   Widget build(BuildContext context) {
@@ -487,26 +510,13 @@ class _CapturePreview extends StatelessWidget {
               : Image.file(image!, fit: BoxFit.cover, width: double.infinity),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: BrutButton(
-                label: 'Camera',
-                icon: Icons.photo_camera_outlined,
-                tone: BrutTone.neutral,
-                onPressed: busy ? null : onCamera,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: BrutButton(
-                label: 'Gallery',
-                icon: Icons.photo_library_outlined,
-                tone: BrutTone.neutral,
-                onPressed: busy ? null : onGallery,
-              ),
-            ),
-          ],
+        // One way on. The gallery is inside the camera, a tap away, so
+        // the only decision here is whether this photo is the one.
+        BrutButton(
+          label: image == null ? 'Open the camera' : 'Take another',
+          icon: Icons.photo_camera_outlined,
+          tone: image == null ? BrutTone.orange : BrutTone.neutral,
+          onPressed: busy ? null : onCamera,
         ),
       ],
     );
