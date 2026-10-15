@@ -11,6 +11,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/scope_picker.dart';
 import '../widgets/brut_date_picker.dart';
+import 'capture_screen.dart';
 import 'notifications_screen.dart';
 import '../theme/peso.dart';
 
@@ -82,6 +83,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool get _canSave =>
       (_scan != null || _manualEntry) && _categoryId != null && !_saving;
 
+  /// The in-app camera, which crops to the frame before anything is
+  /// uploaded. The gallery still goes through the system picker, since a
+  /// photo taken earlier cannot be reframed.
+  Future<void> _shoot() async {
+    final shot = await Navigator.of(context).push<CapturedReceipt>(
+      MaterialPageRoute(builder: (_) => const CaptureScreen()),
+    );
+    if (shot == null) return;
+    if (!mounted) return;
+    _accept(shot.bytes, shot.filename, path: null);
+  }
+
   Future<void> _pick(ImageSource source) async {
     final XFile? photo = await _picker.pickImage(source: source);
     if (photo == null) return;
@@ -106,10 +119,24 @@ class _ScannerScreenState extends State<ScannerScreen> {
       return;
     }
 
+    _accept(bytes, photo.name, path: photo.path);
+  }
+
+  /// One way in for both routes: check it, hold it, then read it.
+  Future<void> _accept(
+    Uint8List bytes,
+    String filename, {
+    required String? path,
+  }) async {
+    if (bytes.length > _maxBytes) {
+      final mb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
+      setState(() => _error = 'That image is ${mb}MB. The limit is 10MB.');
+      return;
+    }
     setState(() {
-      _capturedImage = File(photo.path);
+      _capturedImage = path == null ? null : File(path);
       _capturedBytes = bytes;
-      _capturedFilename = photo.name;
+      _capturedFilename = filename;
       _scan = null;
       _manualEntry = false;
       _error = null;
@@ -321,7 +348,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           _CapturePreview(
             image: _capturedImage,
             busy: _scanning,
-            onCamera: () => _pick(ImageSource.camera),
+            onCamera: _shoot,
             onGallery: () => _pick(ImageSource.gallery),
           ),
 
