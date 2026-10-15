@@ -2364,6 +2364,12 @@ class AppState extends ChangeNotifier {
   }
 
   /// pang shortcut sa login kasi tinatamad na ko mag type all the time
+  /// Fills in a role locally, without signing in.
+  ///
+  /// There is no token behind it, so every request this account makes is
+  /// unauthenticated and comes back 401 — the app looks signed in and
+  /// nothing loads. It exists to open a screen while building it, and
+  /// the control that reaches it is debug-only for that reason.
   void devQuickLogin(UserRole role) {
     final testEmail = 'test.${role.name}@dev.local';
     var account = _accounts.where((a) => a.email == testEmail).firstOrNull;

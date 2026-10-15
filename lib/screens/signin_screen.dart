@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -94,42 +95,78 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
+  /// The demo accounts, by the address they sign in with.
+  ///
+  /// Addresses are not secrets and belong here; the password does not.
+  /// It is supplied at build time instead, so a shortcut that signs in
+  /// for real never puts a credential in the repository:
+  ///
+  /// ```
+  /// flutter run --dart-define=SMARTEVENT_DEMO_PASSWORD=...
+  /// ```
+  ///
+  /// Without that define the sheet still opens and says what is missing,
+  /// rather than failing at the first tap.
+  static const _demoAccounts = [
+    (
+      'demo.treasurer@lcup.edu.ph',
+      'Treasurer',
+      Icons.account_balance_wallet_outlined,
+    ),
+    ('demo.admin@lcup.edu.ph', 'Admin', Icons.admin_panel_settings_outlined),
+    ('demo.sds@lcup.edu.ph', 'SDS Staff', Icons.description_outlined),
+  ];
+
+  static const _demoPassword = String.fromEnvironment(
+    'SMARTEVENT_DEMO_PASSWORD',
+  );
+
+  /// Signs in properly, as if the fields had been typed.
+  ///
+  /// The old shortcut set a role locally and asked the backend for
+  /// nothing, so the app came up looking signed in while holding no
+  /// token and every request it made returned 401. This one goes through
+  /// the same sign-in the form does, which means a real token, a real
+  /// profile, and the same handling of a temporary password or a failed
+  /// load afterwards.
+  Future<void> _signInAs(BuildContext sheetContext, String email) async {
+    Navigator.of(sheetContext).pop();
+    _emailController.text = email;
+    _passwordController.text = _demoPassword;
+    await _signIn();
+  }
+
   void _showQuickLoginSheet(BuildContext context) {
     BrutSheet.show<void>(
       context,
       builder: (sheetContext) => BrutSheet(
-        title: 'Dev quick login',
-        subtitle: 'Testing shortcut — not part of the real sign-in flow.',
+        title: 'Sign in as a demo account',
+        subtitle: _demoPassword.isEmpty
+            ? 'No demo password in this build.'
+            : 'Signs in for real — same token, same data.',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final role in UserRole.values) ...[
-              BrutListRow(
-                title: 'Sign in as ${role.label}',
-                marker: BrutIconTile(
-                  size: 32,
-                  icon: switch (role) {
-                    UserRole.officer => Icons.person_outline,
-                    UserRole.treasurer => Icons.account_balance_wallet_outlined,
-                    UserRole.adviser => Icons.fact_check_outlined,
-                    UserRole.sdsStaff => Icons.description_outlined,
-                    UserRole.signatory => Icons.draw_outlined,
-                    UserRole.admin => Icons.admin_panel_settings_outlined,
-                    UserRole.superAdmin => Icons.shield_outlined,
-                  },
+            if (_demoPassword.isEmpty)
+              const BrutInlineMessage(
+                text:
+                    'Rebuild with '
+                    '--dart-define=SMARTEVENT_DEMO_PASSWORD=… to use this. '
+                    'The password is kept out of the repository on purpose.',
+                icon: Icons.key_off_outlined,
+              )
+            else
+              for (final (email, label, icon) in _demoAccounts) ...[
+                BrutListRow(
+                  title: label,
+                  meta: email,
+                  marker: BrutIconTile(size: 32, icon: icon),
+                  onTap: () => _signInAs(sheetContext, email),
                 ),
-                onTap: () {
-                  context.read<AppState>().devQuickLogin(role);
-                  Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => RootShell(role: role)),
-                  );
-                },
-              ),
-              if (role != UserRole.values.last)
-                const SizedBox(height: AppLayout.tight),
-            ],
+                if (email != _demoAccounts.last.$1)
+                  const SizedBox(height: AppLayout.tight),
+              ],
           ],
         ),
       ),
@@ -152,7 +189,15 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               const SizedBox(height: 20),
               GestureDetector(
-                onLongPress: () => _showQuickLoginSheet(context),
+                // Debug builds only. The shortcut fills in a role without
+                // asking the backend for anything, so the app comes up
+                // looking signed in while holding no token and every call
+                // it makes comes back 401. That is a useful thing to have
+                // while building a screen and a terrible thing to hand to
+                // someone holding a phone in front of a panel.
+                onLongPress: kDebugMode
+                    ? () => _showQuickLoginSheet(context)
+                    : null,
                 child: const Text('Welcome back', style: AppText.display),
               ),
               const SizedBox(height: 6),
