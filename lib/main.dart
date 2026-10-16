@@ -106,7 +106,7 @@ class _StartupGate extends StatelessWidget {
     final app = context.watch<AppState>();
 
     if (!app.sessionChecked) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: BrutSpinner()));
     }
 
     // Checked before the role, not after: an account that still owes a

@@ -120,10 +120,7 @@ class _EventReadinessScreenState extends State<EventReadinessScreen> {
           const SizedBox(height: AppLayout.section),
           if (_loading)
             const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ),
+              child: Padding(padding: EdgeInsets.all(32), child: BrutSpinner()),
             )
           else if (_unavailable)
             const BrutInlineMessage(

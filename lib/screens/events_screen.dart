@@ -85,7 +85,7 @@ class _EventsScreenState extends State<EventsScreen> {
             child: Consumer<AppState>(
               builder: (context, app, _) {
                 if (app.eventsLoad.isLoading && app.events.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Center(child: BrutSpinner());
                 }
                 if (app.eventsLoad.hasFailed && app.events.isEmpty) {
                   return Center(

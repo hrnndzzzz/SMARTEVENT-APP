@@ -508,11 +508,7 @@ class _Busy extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        const SizedBox(width: 14, height: 14, child: BrutSpinner(size: 14)),
         const SizedBox(width: 10),
         Text(label, style: AppText.caption),
       ],

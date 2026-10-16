@@ -60,7 +60,7 @@ class _RiskScreenState extends State<RiskScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && flagged.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && flagged.isEmpty => BrutRetry(
                 title: 'Could not load flagged expenses',

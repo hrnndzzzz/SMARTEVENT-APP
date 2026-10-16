@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_settings.dart';
 import 'app_colors.dart';
 import 'app_layout.dart';
 import 'app_theme.dart';
@@ -262,7 +266,7 @@ class BrutButton extends StatelessWidget {
           SizedBox(
             width: _iconSize,
             height: _iconSize,
-            child: CircularProgressIndicator(strokeWidth: 2, color: foreground),
+            child: BrutSpinner(size: _iconSize, color: foreground),
           )
         else if (icon != null)
           Icon(icon, size: _iconSize, color: foreground),
@@ -855,6 +859,90 @@ class _BrutFoldableState extends State<BrutFoldable> {
           ...widget.children,
         ],
       ],
+    );
+  }
+}
+
+/// The app's own spinner.
+///
+/// A square with a 2px outline and a hard shadow, turning in steps
+/// rather than sweeping — the kit has no soft edges or easing anywhere
+/// else, and a smooth Material ring in the middle of it looked borrowed.
+/// Eight stops a second reads as deliberate rather than stuttering.
+///
+/// Reduce motion stops the rotation and leaves the mark, because the
+/// point is "this is working", not the spinning.
+class BrutSpinner extends StatefulWidget {
+  const BrutSpinner({
+    super.key,
+    this.size = 34,
+    this.tone = BrutTone.brand,
+    this.color,
+  });
+
+  final double size;
+  final BrutTone tone;
+
+  /// Overrides the tone, for a spinner sitting on a coloured fill that
+  /// already decided what its ink is — a busy button, say.
+  final Color? color;
+
+  @override
+  State<BrutSpinner> createState() => _BrutSpinnerState();
+}
+
+class _BrutSpinnerState extends State<BrutSpinner>
+    with SingleTickerProviderStateMixin {
+  static const _stops = 8;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = widget.color ?? widget.tone.fill(context);
+    final still =
+        MediaQuery.disableAnimationsOf(context) ||
+        context.watch<AppSettings>().reduceMotion;
+
+    // A small one lives inside a button or beside a heading, where a
+    // shadow and a 2px rule would outweigh what they sit next to.
+    final small = widget.size < 22;
+    final mark = Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: small ? BorderRadius.circular(3) : AppRadius.controlAll,
+        border: small
+            ? Border.all(color: context.palette.ink, width: 1)
+            : Border.fromBorderSide(context.side),
+        boxShadow: small ? const [] : context.shadows(AppShadows.sm),
+      ),
+    );
+
+    if (still) return Semantics(label: 'Loading', child: mark);
+
+    return Semantics(
+      label: 'Loading',
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          // Quantised: the square lands on each eighth rather than
+          // sliding between them.
+          final step = (_controller.value * _stops).floor() / _stops;
+          return Transform.rotate(angle: step * 2 * math.pi, child: child);
+        },
+        child: mark,
+      ),
     );
   }
 }

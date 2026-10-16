@@ -82,7 +82,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.catalog.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.catalog.isEmpty => BrutRetry(
                 title: 'Could not load inventory',

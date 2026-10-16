@@ -79,7 +79,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.letters.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.letters.isEmpty => BrutRetry(
                 title: 'Could not load letters',

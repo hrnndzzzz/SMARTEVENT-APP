@@ -120,7 +120,7 @@ class _RosterTab extends StatelessWidget {
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
+                  child: BrutSpinner(),
                 ),
               )
             else if (load.hasFailed && app.roster.isEmpty)
@@ -259,10 +259,7 @@ class _AccountsTab extends StatelessWidget {
         const SizedBox(height: 14),
         if (load.isLoading && app.managedUsers.isEmpty)
           const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
+            child: Padding(padding: EdgeInsets.all(24), child: BrutSpinner()),
           )
         else if (load.hasFailed && app.managedUsers.isEmpty)
           BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
@@ -430,10 +427,7 @@ class _AuditTab extends StatelessWidget {
         const SizedBox(height: 14),
         if (load.isLoading && app.auditLog.isEmpty)
           const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
+            child: Padding(padding: EdgeInsets.all(24), child: BrutSpinner()),
           )
         else if (load.hasFailed && app.auditLog.isEmpty)
           BrutInlineMessage(text: load.error!, tone: BrutTone.coral)

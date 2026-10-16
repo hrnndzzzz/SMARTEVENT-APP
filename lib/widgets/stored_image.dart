@@ -69,14 +69,14 @@ class _StoredImageState extends State<StoredImage> {
               height: widget.height,
               width: double.infinity,
               child: url == null
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: BrutSpinner())
                   : Image.network(
                       url,
                       fit: BoxFit.cover,
                       loadingBuilder: (context, child, progress) =>
                           progress == null
                           ? child
-                          : const Center(child: CircularProgressIndicator()),
+                          : Center(child: BrutSpinner()),
                       // A stored file that will not load is worth saying
                       // plainly: the record is fine, the image is not.
                       errorBuilder: (context, _, __) => Center(

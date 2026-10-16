@@ -76,7 +76,7 @@ class _Body extends StatelessWidget {
     final load = app.categoriesLoad;
 
     if (load.isLoading && app.categories.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: BrutSpinner());
     }
 
     if (load.hasFailed && app.categories.isEmpty) {

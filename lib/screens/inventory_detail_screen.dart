@@ -144,7 +144,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: BrutSpinner(size: 14),
                   )
                 : BrutIconButton(
                     icon: Icons.refresh,

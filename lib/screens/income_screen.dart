@@ -74,7 +74,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.incomes.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
                 title: 'Could not load income',

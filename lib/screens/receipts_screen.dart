@@ -57,7 +57,7 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.receipts.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
                 title: 'Could not load receipts',

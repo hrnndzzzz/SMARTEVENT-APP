@@ -72,7 +72,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
             )
           else if (app.expensesLoad.hasFailed && app.expenses.isEmpty)
