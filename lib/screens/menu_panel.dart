@@ -208,7 +208,7 @@ class _Band extends StatelessWidget {
                     Text(
                       area.blurb,
                       style: AppText.caption.copyWith(color: on),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -216,20 +216,27 @@ class _Band extends StatelessWidget {
               ),
               const SizedBox(width: AppLayout.tight),
               if (count != null && count > 0) ...[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$count',
-                      style: AppText.moneyLarge.copyWith(
-                        fontSize: 22,
-                        color: on,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 74),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$count',
+                        style: AppText.moneyLarge.copyWith(
+                          fontSize: 22,
+                          color: on,
+                        ),
                       ),
-                    ),
-                    if (area.badgeLabel != null)
-                      MonoLabel(area.badgeLabel!, fontSize: 9),
-                  ],
+                      if (area.badgeLabel != null)
+                        Text(
+                          area.badgeLabel!.toUpperCase(),
+                          textAlign: TextAlign.right,
+                          style: AppText.monoLabel.copyWith(fontSize: 8.5),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(width: AppLayout.between),
               ],

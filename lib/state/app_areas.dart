@@ -101,7 +101,7 @@ const List<AppArea> appAreas = [
     icon: Icons.inventory_2_outlined,
     tone: BrutTone.brand,
     badge: _lowStock,
-    badgeLabel: 'low on stock',
+    badgeLabel: 'low stock',
     builder: _inventory,
   ),
   AppArea(
