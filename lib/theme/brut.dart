@@ -44,17 +44,24 @@ enum BrutTone {
 extension BrutToneColors on BrutTone {
   /// The solid fill. The accents are fixed; the neutral and dark ones
   /// follow the theme.
-  Color fill(BuildContext context) => switch (this) {
-    BrutTone.neutral => context.palette.surface,
-    BrutTone.brand => Theme.of(context).colorScheme.primary,
-    BrutTone.sun => AppColors.sun,
-    BrutTone.mint => AppColors.mint,
-    BrutTone.coral => AppColors.coral,
-    BrutTone.orange => AppColors.orange,
-    BrutTone.violet => AppColors.violet,
-    BrutTone.teal => AppColors.teal,
-    BrutTone.dark => context.palette.ink,
-  };
+  Color fill(BuildContext context) {
+    // The accents are held down on a dark canvas. At full strength they
+    // are light sources rather than surfaces, and a screen carrying
+    // three of them has nothing else left to look at.
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return switch (this) {
+      BrutTone.neutral => context.palette.surface,
+      BrutTone.brand =>
+        dark ? AppColors.brandDark : Theme.of(context).colorScheme.primary,
+      BrutTone.sun => dark ? AppColors.sunDark : AppColors.sun,
+      BrutTone.mint => dark ? AppColors.mintDark : AppColors.mint,
+      BrutTone.coral => dark ? AppColors.coralDark : AppColors.coral,
+      BrutTone.orange => dark ? AppColors.orangeDark : AppColors.orange,
+      BrutTone.violet => dark ? AppColors.violetDark : AppColors.violet,
+      BrutTone.teal => dark ? AppColors.tealDark : AppColors.teal,
+      BrutTone.dark => context.palette.ink,
+    };
+  }
 
   /// The soft version, for a background sitting behind a paragraph.
   Color tint(BuildContext context) => switch (this) {

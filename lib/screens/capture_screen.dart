@@ -71,7 +71,12 @@ class _CaptureScreenState extends State<CaptureScreen>
   static const _wellFill = Color(0xFF2B2B2B);
 
   /// How much of the viewfinder the guide may occupy.
-  static const _guideFraction = 0.84;
+  ///
+  /// Nearly all of it. The guide and the viewfinder were two frames an
+  /// inch apart, which read as a mistake rather than as a margin — so
+  /// the corners now sit just inside the well's own edge and the shape
+  /// toggle is what changes, not the size.
+  static const _guideFraction = 0.96;
 
   CameraController? _controller;
   List<CameraDescription> _cameras = const [];
@@ -424,9 +429,10 @@ Future<Uint8List> _cropToGuide(Uint8List bytes, double ratio) async {
 
     // The preview is cover-fitted, so the guide maps onto the same
     // fraction of the photo's shorter dimension.
+    const fraction = 0.96;
     final guideW = math.min(
-      decoded.width * 0.84,
-      decoded.height * 0.84 * ratio,
+      decoded.width * fraction,
+      decoded.height * fraction * ratio,
     );
     final guideH = guideW / ratio;
     final rect = img.copyCrop(
@@ -839,8 +845,9 @@ class _GuidePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..color = AppColors.orange;
     const arm = 32.0;
-    // Slightly outside the outline, so the two do not sit on each other.
-    const out = 3.0;
+    // On the outline now rather than outside it: at this size there is
+    // no room beyond the frame to put them.
+    const out = 0.0;
     for (final (dx, dy, sx, sy) in [
       (0.0, 0.0, 1.0, 1.0),
       (size.width, 0.0, -1.0, 1.0),

@@ -205,14 +205,10 @@ class _ReadinessCard extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return BrutFoldable(
+      title: 'Still in the way',
+      count: readiness.blockers.length,
       children: [
-        BrutSectionTitle(
-          'Still in the way',
-          aside: MonoLabel('${readiness.blockers.length}'),
-        ),
-        const SizedBox(height: AppLayout.between),
         for (final blocker in readiness.blockers) ...[
           BrutListRow(
             // The backend's own wording. Rephrasing it here would mean

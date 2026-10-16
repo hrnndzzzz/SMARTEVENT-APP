@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'state/app_settings.dart';
 import 'state/app_state.dart';
@@ -16,6 +17,14 @@ import 'screens/menu_panel.dart';
 import 'widgets/page_indicator.dart';
 
 void main() {
+  // Portrait only. Every screen is laid out as one column at phone
+  // width — the keypad, the month grid, the three-band hub — and none of
+  // them has a landscape arrangement worth turning the phone for.
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   runApp(const SmartEventApp());
 }
 
