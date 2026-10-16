@@ -501,7 +501,7 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Receipt for a new expense',
+                  'New expense',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.body.copyWith(
