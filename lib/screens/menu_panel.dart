@@ -216,9 +216,20 @@ class _Band extends StatelessWidget {
               ),
               const SizedBox(width: AppLayout.tight),
               if (count != null && count > 0) ...[
-                Text(
-                  '$count',
-                  style: AppText.moneyLarge.copyWith(fontSize: 22, color: on),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$count',
+                      style: AppText.moneyLarge.copyWith(
+                        fontSize: 22,
+                        color: on,
+                      ),
+                    ),
+                    if (area.badgeLabel != null)
+                      MonoLabel(area.badgeLabel!, fontSize: 9),
+                  ],
                 ),
                 const SizedBox(width: AppLayout.between),
               ],
