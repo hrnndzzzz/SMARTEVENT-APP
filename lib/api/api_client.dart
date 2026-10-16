@@ -78,7 +78,16 @@ class ApiClient {
     );
   }
 
-  Future<dynamic> post(String path, {Object? body, bool isForm = false}) {
+  /// [patience] overrides the client's usual allowance for one call.
+  /// Sign-in needs it: it verifies a password hash, which is slow on
+  /// purpose, and it is usually the first request after an idle spell,
+  /// so it pays for a cold connection through the pooler as well.
+  Future<dynamic> post(
+    String path, {
+    Object? body,
+    bool isForm = false,
+    Duration? patience,
+  }) {
     final headers = {..._authHeaders};
     late final Object encodedBody;
     if (isForm) {
@@ -90,6 +99,7 @@ class ApiClient {
     }
     return _send(
       () => _httpClient.post(_uri(path), headers: headers, body: encodedBody),
+      patience: patience,
     );
   }
 
@@ -235,9 +245,12 @@ class ApiClient {
   /// Runs a request and turns every failure mode into either an
   /// [ApiException] (the server answered) or a [NetworkException] (it
   /// didn't). Nothing else escapes.
-  Future<dynamic> _send(Future<http.Response> Function() request) async {
+  Future<dynamic> _send(
+    Future<http.Response> Function() request, {
+    Duration? patience,
+  }) async {
     try {
-      final response = await request().timeout(timeout);
+      final response = await request().timeout(patience ?? timeout);
       onReachability?.call(reachable: true);
       return _handleResponse(response);
     } on ApiException {
