@@ -86,10 +86,20 @@ class _AccountMenu extends StatelessWidget {
     null => 'Guest',
   };
 
+  /// Opens one of the menu's destinations, then puts the menu back.
+  ///
+  /// Coming back from Settings used to land on whatever was behind the
+  /// menu, so a second change meant finding the avatar and opening it
+  /// again. The menu is a place you work from, not a thing you pass
+  /// through once.
   Future<void> _go(BuildContext context, Widget screen) async {
     final navigator = Navigator.of(context);
+    final root = navigator.context;
     navigator.pop();
     await navigator.push(MaterialPageRoute(builder: (_) => screen));
+    // Signing out replaces the whole stack, so there may be nothing left
+    // to reopen onto.
+    if (root.mounted && navigator.mounted) AccountMenu.show(root);
   }
 
   Future<void> _logOut(BuildContext context) async {
