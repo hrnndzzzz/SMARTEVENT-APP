@@ -270,9 +270,15 @@ class _ApprovalStatusCard extends StatelessWidget {
             BrutInlineMessage(
               tone: BrutTone.coral,
               icon: Icons.cancel_outlined,
-              text: rejectionNote?.isNotEmpty == true
-                  ? 'Rejected by ${event.rejectedBy}. $rejectionNote'
-                  : 'Rejected by ${event.rejectedBy}.',
+              // The reviewer is not always known — a legacy row, or one
+              // rejected before the field existed, carries none. Saying
+              // "Rejected by null" is worse than not naming anyone.
+              text: [
+                event.rejectedBy?.isNotEmpty == true
+                    ? 'Rejected by ${event.rejectedBy}.'
+                    : 'This proposal was rejected.',
+                if (rejectionNote?.isNotEmpty == true) rejectionNote!,
+              ].join(' '),
             )
           else
             Row(
