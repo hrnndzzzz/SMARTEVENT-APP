@@ -15,3 +15,5 @@ starlette==1.7.0
 pydantic==2.13.4
 resend==2.48.0
 reportlab==5.0.1
+openpyxl==3.1.5
+defusedxml==0.7.1

@@ -8,7 +8,8 @@ pluginManagement {
             flutterSdkPath
         }
 
-    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+    // Resolve Windows SDK junctions so Android Studio and Gradle use the same build identity.
+    includeBuild(file("$flutterSdkPath/packages/flutter_tools/gradle").toPath().toRealPath().toString())
 
     repositories {
         google()

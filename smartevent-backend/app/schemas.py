@@ -817,6 +817,23 @@ class CiteMemberCreate(BaseModel):
     )
 
 
+class RosterImportError(BaseModel):
+    row: int
+    column: str
+    message: str
+
+
+class RosterImportedMember(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+
+
+class RosterImportOut(BaseModel):
+    filename: str
+    inserted_count: int
+    members: list[RosterImportedMember]
+
+
 class CiteMemberOut(BaseModel):
     organization_id: uuid.UUID | None = None
     model_config = ConfigDict(from_attributes=True)

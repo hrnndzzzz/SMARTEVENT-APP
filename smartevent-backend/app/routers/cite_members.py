@@ -2,16 +2,33 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import assert_record_scope, require_role, resolve_department_id, resolve_organization_id
 from app.models import CiteMember, Organization, User
-from app.schemas import CiteMemberCreate, CiteMemberOut, CiteMemberUpdate
+from app.schemas import CiteMemberCreate, CiteMemberOut, CiteMemberUpdate, RosterImportOut
 from app.services.access_audit import record_access_change
+from app.services.roster_import import MAX_FILE_BYTES, commit_roster_import, validate_roster_workbook
 
 router = APIRouter(prefix="/cite-members", tags=["cite-members"])
+
+
+@router.post("/import", response_model=RosterImportOut, status_code=status.HTTP_201_CREATED)
+def import_cite_members(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    try:
+        content = file.file.read(MAX_FILE_BYTES + 1)
+        filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+        validated = validate_roster_workbook(db, current_user, content, filename)
+        members = commit_roster_import(db, current_user, validated)
+        return {"filename": filename, "inserted_count": len(members), "members": members}
+    finally:
+        file.file.close()
 
 
 @router.post("", response_model=CiteMemberOut, status_code=status.HTTP_201_CREATED)
