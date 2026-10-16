@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'account_menu.dart';
+import 'user_avatar.dart';
 import 'connection_banner.dart';
 import 'notification_peek.dart';
 
@@ -40,17 +41,6 @@ class AppHeader extends StatelessWidget {
     this.onBack,
   });
 
-  static String _initialsFor(String name) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
   /// `CITE · TREASURER`. Falls back to whichever half is known rather than
   /// printing a placeholder for the other.
   static String? scopeLineFor(AppState app) {
@@ -65,7 +55,6 @@ class AppHeader extends StatelessWidget {
     // The department accent comes from the theme rather than from state:
     // main.dart puts it there, so every identity surface reads one value.
     final accent = Theme.of(context).colorScheme.secondary;
-    final initials = _initialsFor(app.currentAccount?.name ?? 'Guest');
 
     return Row(
       children: [
@@ -98,8 +87,7 @@ class AppHeader extends StatelessWidget {
         _BellWithBadge(onTap: onBellTap),
         const SizedBox(width: 8),
         _Avatar(
-          initials: initials,
-          accent: accent,
+          name: app.currentAccount?.name ?? 'Guest',
           onTap: onAvatarTap ?? () => AccountMenu.show(context),
         ),
       ],
@@ -108,14 +96,9 @@ class AppHeader extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({
-    required this.initials,
-    required this.accent,
-    required this.onTap,
-  });
+  const _Avatar({required this.name, required this.onTap});
 
-  final String initials;
-  final Color accent;
+  final String name;
   final VoidCallback onTap;
 
   @override
@@ -123,16 +106,14 @@ class _Avatar extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        BrutSurface(
+        GestureDetector(
           onTap: onTap,
-          semanticLabel: 'Account',
-          fill: accent,
-          radius: AppRadius.pill,
-          shadow: AppShadows.sm,
-          width: 38,
-          height: 38,
-          alignment: Alignment.center,
-          child: Text(initials, style: AppText.number.copyWith(fontSize: 13)),
+          behavior: HitTestBehavior.opaque,
+          child: Semantics(
+            label: 'Account',
+            button: true,
+            child: UserAvatar(name: name, size: 38),
+          ),
         ),
         // Whether the backend is answering, where you are already looking.
         Positioned(

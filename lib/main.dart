@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'state/app_settings.dart';
+import 'state/avatar.dart';
 import 'state/app_state.dart';
 import 'state/reachability.dart';
 import 'widgets/connection_banner.dart';
@@ -44,6 +45,7 @@ class _SmartEventAppState extends State<SmartEventApp> {
     // the gate below has something to wait for.
     ..restoreSession();
   final _settings = AppSettings()..restore();
+  final _avatar = Avatar()..load();
 
   @override
   void dispose() {
@@ -60,6 +62,7 @@ class _SmartEventAppState extends State<SmartEventApp> {
         // theme, and a dark screen turning white on log out reads as a bug.
         ChangeNotifierProvider.value(value: _settings),
         ChangeNotifierProvider.value(value: _reachability),
+        ChangeNotifierProvider.value(value: _avatar),
       ],
       child: Consumer2<AppState, AppSettings>(
         builder: (context, app, settings, _) => MaterialApp(
