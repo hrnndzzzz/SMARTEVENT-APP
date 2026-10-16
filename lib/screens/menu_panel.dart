@@ -153,8 +153,11 @@ class _Band extends StatelessWidget {
       child: Semantics(
         label: area.title,
         button: true,
+        // The band first, the pulse over it: the body is an opaque fill
+        // and would paint the pulse out if it came second.
         child: Stack(
           children: [
+            _bandBody(context, fill, on, count),
             if (count != null && count > 0)
               Positioned.fill(
                 child: Align(
@@ -164,7 +167,6 @@ class _Band extends StatelessWidget {
                   ),
                 ),
               ),
-            _bandBody(context, fill, on, count),
           ],
         ),
       ),
