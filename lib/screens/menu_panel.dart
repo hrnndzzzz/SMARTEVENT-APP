@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../state/app_areas.dart';
 import '../state/app_state.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -135,8 +136,16 @@ class _Band extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = area.badge?.call(app);
-    final fill = area.tone.fill(context);
+    // The bands take the page's own surface and the numeral carries the
+    // colour, alternating blue and orange down the list. Six full-width
+    // fills were six things shouting at once; one accent the size of a
+    // coin is enough to make the list read as a set.
+    final fill = context.palette.surface;
     final on = context.foregroundOn(fill);
+    final accent = index.isOdd
+        ? BrutTone.brand.fill(context)
+        : BrutTone.orange.fill(context);
+    final onAccent = context.foregroundOn(accent);
 
     return GestureDetector(
       onTap: () =>
@@ -148,7 +157,12 @@ class _Band extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: fill,
-            border: Border(bottom: context.side),
+            // A rule above the first as well, so the top band sits on
+            // something instead of floating under the search bar.
+            border: Border(
+              top: index == 1 ? context.side : BorderSide.none,
+              bottom: context.side,
+            ),
           ),
           padding: const EdgeInsets.fromLTRB(
             AppLayout.gutter,
@@ -161,16 +175,17 @@ class _Band extends StatelessWidget {
               // The number is the position in the list, which is the one
               // thing about a band that is true regardless of role.
               Container(
-                width: 26,
-                height: 26,
+                width: 30,
+                height: 30,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
+                  color: accent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: on, width: 1.5),
+                  border: Border.all(color: AppColors.ink, width: 2),
                 ),
                 child: Text(
                   '$index',
-                  style: AppText.number.copyWith(fontSize: 11, color: on),
+                  style: AppText.number.copyWith(fontSize: 12, color: onAccent),
                 ),
               ),
               const SizedBox(width: AppLayout.between),

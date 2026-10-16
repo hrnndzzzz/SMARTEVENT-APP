@@ -59,6 +59,11 @@ class HomeScreen extends StatelessWidget {
     final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
 
     return BrutScreen(
+      // The one action on this screen, round and fixed in the middle,
+      // where a thumb already is. It stays put while the figures above
+      // it scroll, because it is not part of the reading.
+      floatingActionButton: canRecord ? const _RecordButton() : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       topBar: AppHeader(
         onBellTap: () => Navigator.of(
           context,
@@ -129,19 +134,23 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(width: AppLayout.between),
                 Expanded(
                   flex: 2,
+                  // One tile standing beside the card, so it takes the
+                  // card's height rather than shrinking to its own text
+                  // and leaving the pair looking mismatched.
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _Tile(
-                        value: '${app.pendingExpenses.length}',
-                        label: 'Awaiting review',
-                        tone: app.pendingExpenses.isEmpty
-                            ? BrutTone.neutral
-                            : BrutTone.orange,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ExpensesScreen(),
+                      Expanded(
+                        child: _Tile(
+                          value: '${app.pendingExpenses.length}',
+                          label: 'Awaiting review',
+                          tone: app.pendingExpenses.isEmpty
+                              ? BrutTone.neutral
+                              : BrutTone.orange,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ExpensesScreen(),
+                            ),
                           ),
                         ),
                       ),
@@ -199,18 +208,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppLayout.section),
-
-          if (canRecord) ...[
-            BrutButton(
-              label: 'Record an expense',
-              icon: Icons.document_scanner_outlined,
-              tone: BrutTone.orange,
-              size: BrutSize.large,
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
-            ),
-          ],
         ],
       ),
     );
@@ -406,6 +403,33 @@ class AlertWidget extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Record an expense: the one thing this screen is for doing rather
+/// than reading.
+class _RecordButton extends StatelessWidget {
+  const _RecordButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutSurface(
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
+      semanticLabel: 'Record an expense',
+      fill: AppColors.orange,
+      radius: AppRadius.pill,
+      shadow: AppShadows.lg,
+      width: 68,
+      height: 68,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.document_scanner_outlined,
+        size: 28,
+        color: AppColors.ink,
+      ),
     );
   }
 }

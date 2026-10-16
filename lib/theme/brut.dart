@@ -891,6 +891,7 @@ class BrutScreen extends StatelessWidget {
     this.topBar,
     this.footer,
     this.floatingActionButton,
+    this.floatingActionButtonLocation,
     this.scrollable = true,
     this.bottomPadding = AppLayout.contentPadding,
   });
@@ -909,6 +910,10 @@ class BrutScreen extends StatelessWidget {
   final Widget child;
   final Widget? footer;
   final Widget? floatingActionButton;
+
+  /// Where that button sits. The default is the corner; a screen with
+  /// one unmistakable action centres it instead.
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
   final bool scrollable;
 
   /// Room under the content, for a screen with a floating button over it.
@@ -925,6 +930,7 @@ class BrutScreen extends StatelessWidget {
 
     return Scaffold(
       floatingActionButton: floatingActionButton,
+      floatingActionButtonLocation: floatingActionButtonLocation,
       body: SafeArea(
         // The footer handles the bottom inset itself, so the safe area
         // must not also pad it or the gap doubles.

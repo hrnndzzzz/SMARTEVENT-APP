@@ -112,8 +112,11 @@ class _CreateBand extends StatelessWidget {
       );
     }
     return switch (event.status) {
+      // Blue, like the empty state above it. A draft is not waiting on
+      // anybody, so it has no status colour to wear — and this band is
+      // the create button, which should look like one.
       EventApprovalStatus.draft => (
-        BrutTone.neutral,
+        BrutTone.brand,
         'Draft — not submitted',
         event.title,
       ),
