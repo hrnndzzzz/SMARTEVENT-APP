@@ -75,6 +75,20 @@ const List<UserRole> memberRoles = [
   UserRole.adviser,
 ];
 
+/// Roles `PATCH /users/{id}/access` will accept, in its own order.
+///
+/// Wider than [memberRoles], because the access route can also make an
+/// account an Admin or SDS Staff — promotions a roster entry cannot
+/// express. Super Admin and Signatory are absent: both are provisioned
+/// through their own endpoints and neither is reachable this way.
+const List<UserRole> accessAssignableRoles = [
+  UserRole.officer,
+  UserRole.treasurer,
+  UserRole.adviser,
+  UserRole.sdsStaff,
+  UserRole.admin,
+];
+
 /// Parses a role string from the API.
 ///
 /// Returns null for anything unrecognized rather than defaulting. The old

@@ -9,7 +9,6 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import '../widgets/scope_picker.dart';
 import '../widgets/brut_date_picker.dart';
 import 'capture_screen.dart';
 import 'notifications_screen.dart';
@@ -50,11 +49,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
   String? _categoryId;
   String? _eventId;
   DateTime? _expenseDate;
-
-  /// Only used by accounts without their own scope — in practice a Super
-  /// Admin, which belongs to no department.
-  String? _departmentId;
-  String? _organizationId;
 
   final _vendorController = TextEditingController();
   final _totalController = TextEditingController();
@@ -238,12 +232,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   String? _validate() {
     if (_categoryId == null) return 'Choose a category.';
-    if (context.read<AppState>().mustChooseScope) {
-      // Your account has no department of its own, so the backend cannot
-      // infer one — it refuses the create rather than guessing.
-      if (_departmentId == null) return 'Choose a department for this expense.';
-      if (_organizationId == null) return 'Choose an organization.';
-    }
     if (_vendorController.text.trim().isEmpty) {
       return 'Enter what this expense was for.';
     }
@@ -311,8 +299,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
             category: line.category,
           ),
       ],
-      departmentId: _departmentId,
-      organizationId: _organizationId,
+      // Deliberately not sent. POST /expenses falls back to the
+      // category's department and organization and then rejects anything
+      // that differs, so the only values that can succeed are the ones
+      // the category already carries. Asking for them gave a Super Admin
+      // — who has no organization of their own — a required field whose
+      // every wrong answer was a 400.
+      departmentId: null,
+      organizationId: null,
     );
 
     if (!mounted) return;
@@ -395,25 +389,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
           if (showForm) ...[
             const SizedBox(height: 14),
-            // Only an account without its own scope sees this; everyone
-            // else has theirs applied server-side.
-            if (app.mustChooseScope) ...[
-              ScopePicker(
-                departments: app.departments,
-                departmentId: _departmentId,
-                onDepartmentChanged: (id) => setState(() {
-                  _departmentId = id;
-                  // An organization only exists inside one department,
-                  // so a department change invalidates the choice.
-                  _organizationId = null;
-                }),
-                organizations: app.organizationsIn(_departmentId),
-                organizationId: _organizationId,
-                onOrganizationChanged: (id) =>
-                    setState(() => _organizationId = id),
-              ),
-              const SizedBox(height: 14),
-            ],
             _ReviewCard(
               scan: _scan,
               categories: app.categories,

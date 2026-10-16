@@ -16,6 +16,7 @@ import '../api/models/receipt.dart';
 import '../api/proposal_letter_service.dart';
 import '../api/income_service.dart';
 import '../api/models/scope.dart';
+import '../api/files_service.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
 import 'reachability.dart';
@@ -1146,6 +1147,11 @@ class AppState extends ChangeNotifier {
   // ---- Receipts and duplicate review -------------------------------------
 
   late final ReceiptService _receiptService = ReceiptService(_apiClient);
+  late final FilesService _filesService = FilesService(_apiClient);
+
+  /// Turns a stored file reference into something an image can load.
+  Future<String> resolveFile(String reference) =>
+      _filesService.resolve(reference);
 
   List<Receipt> receipts = [];
   final LoadState receiptsLoad = LoadState();
