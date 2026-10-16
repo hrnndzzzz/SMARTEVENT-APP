@@ -1,25 +1,33 @@
-"""
-Shared FastAPI dependencies. `get_current_user` is the one every
-protected route will use — it reads the "Authorization: Bearer <token>"
-header, decodes it, and loads the matching User row.
-
-`require_role(...)` builds on top of it for routes that should only be
-usable by certain roles (e.g. only admins can create categories).
-"""
+"""Shared authentication and fail-closed authorization."""
 
 import uuid
+from datetime import timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
+from app.models import Organization, User
 from app.security import decode_access_token
 
-# tokenUrl just tells FastAPI's auto-docs (/docs) where to send the
-# "Authorize" button's login request — it doesn't affect behavior here.
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+
+VALID_ROLES = {
+    "super_admin",
+    "admin",
+    "adviser",
+    "treasurer",
+    "officer",
+    "sds_staff",
+    "signatory",
+}
+ADMIN_ROLES = {"admin", "super_admin"}
+SCOPED_OPERATIONAL_ROLES = {"adviser", "treasurer"}
+SCOPED_READ_ROLES = SCOPED_OPERATIONAL_ROLES | {"officer"}
+FINANCIAL_ROLES = ADMIN_ROLES | {"treasurer"}
 
 
 def get_current_user(
@@ -32,35 +40,269 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    user_id = decode_access_token(token)
-    if user_id is None:
+    claims = decode_access_token(token)
+    if claims is None:
         raise credentials_exception
 
     try:
-        user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
-    except ValueError:
+        user = db.query(User).filter(User.id == uuid.UUID(claims["sub"])).first()
+    except (ValueError, TypeError, AttributeError):
         raise credentials_exception
 
-    if user is None or not user.is_active:
+    if user is None or not user.is_active or user.is_suspended:
         raise credentials_exception
+
+    if user.role not in VALID_ROLES:
+        raise credentials_exception
+
+    updated_at = user.updated_at
+    if updated_at is not None:
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        if claims["iat"] < updated_at.timestamp():
+            raise credentials_exception
 
     return user
 
 
-def require_role(*allowed_roles: str):
-    """
-    Usage in a route:
-        @router.post("/categories")
-        def create_category(user: User = Depends(require_role("admin"))):
-            ...
-    """
+def require_active_account(user: User = Depends(get_current_user)) -> User:
+    if user.must_change_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required before accessing this resource",
+        )
+    return user
 
-    def role_checker(user: User = Depends(get_current_user)) -> User:
-        if user.role not in allowed_roles:
+
+def ensure_account_ready_for_app(user: User) -> User:
+    if getattr(user, "is_suspended", False):
+        raise HTTPException(status_code=403, detail="This account is suspended")
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required before accessing this resource",
+        )
+    return user
+
+
+def require_role(*allowed_roles: str):
+    unknown_roles = set(allowed_roles) - VALID_ROLES
+    if unknown_roles:
+        raise ValueError(f"Unknown application role(s): {', '.join(sorted(unknown_roles))}")
+
+    effective_roles = set(allowed_roles)
+    if "admin" in effective_roles:
+        effective_roles.add("super_admin")
+
+    def role_checker(user: User = Depends(require_active_account)) -> User:
+        user = ensure_account_ready_for_app(user)
+        ensure_operational_assignment(user)
+        if user.role not in effective_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Requires one of these roles: {', '.join(allowed_roles)}",
+                detail=f"Requires one of these roles: {', '.join(sorted(effective_roles))}",
             )
         return user
 
     return role_checker
+
+
+def enforce_read_only(
+    request: Request,
+    user: User = Depends(require_active_account),
+) -> User:
+    user = ensure_account_ready_for_app(user)
+    if user.role == "officer" and request.method not in ("GET", "HEAD", "OPTIONS"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{user.role}' has read-only access. {request.method} requests are forbidden.",
+        )
+    return user
+
+
+def require_financial_access(
+    user: User = Depends(require_active_account),
+) -> User:
+    user = ensure_account_ready_for_app(user)
+    ensure_operational_assignment(user)
+    if user.role not in FINANCIAL_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Financial access restricted to treasurer, admin, or super_admin",
+        )
+    return user
+
+
+def require_operational_read(
+    user: User = Depends(require_active_account),
+) -> User:
+    user = ensure_account_ready_for_app(user)
+    ensure_operational_assignment(user)
+    if user.role not in ADMIN_ROLES | SCOPED_READ_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This role has no access to operational data",
+        )
+    return user
+
+
+def assert_department_scope(
+    user: User,
+    record_department_id: uuid.UUID | None,
+    *,
+    allow_officer_read: bool = False,
+) -> None:
+    if user.role == "super_admin":
+        return
+
+    allowed_roles = (SCOPED_READ_ROLES | {"admin"}) if allow_officer_read else (SCOPED_OPERATIONAL_ROLES | {"admin"})
+    if user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{user.role}' is not permitted to access this scoped record",
+        )
+
+    if user.department_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has no department assigned. Contact an administrator.",
+        )
+
+    if record_department_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This record has no department scope and cannot be accessed by your role.",
+        )
+
+    if user.department_id != record_department_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access records belonging to your own department.",
+        )
+
+
+def assert_owner_or_admin(
+    owner_id: uuid.UUID,
+    current_user: User,
+    action: str,
+    *,
+    owner_roles: set[str] = SCOPED_OPERATIONAL_ROLES,
+) -> None:
+    if current_user.role in ADMIN_ROLES:
+        return
+    if current_user.role not in owner_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{current_user.role}' cannot {action} this record",
+        )
+    if owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You can only {action} records you own",
+        )
+
+
+def assert_not_self_review(submitter_id: uuid.UUID, current_user: User) -> None:
+    if submitter_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot approve or reject a record that you submitted.",
+        )
+
+
+def scope_query_by_department(
+    query,
+    department_column,
+    current_user: User,
+    *,
+    allow_officer_read: bool = True,
+):
+    current_user = ensure_account_ready_for_app(current_user)
+    if current_user.role == "super_admin":
+        return query
+
+    allowed_roles = (SCOPED_READ_ROLES | {"admin"}) if allow_officer_read else (SCOPED_OPERATIONAL_ROLES | {"admin"})
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{current_user.role}' is not permitted to access scoped data",
+        )
+    if current_user.department_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has no department assigned. Contact an administrator.",
+        )
+
+    organization_id = getattr(current_user, "organization_id", None)
+    if organization_id is None:
+        raise HTTPException(status_code=403, detail="Your account has no organization assigned")
+    model = department_column.class_
+    return query.filter(
+        department_column == current_user.department_id,
+        model.organization_id == organization_id,
+    )
+
+
+def assert_record_scope(user: User, record, *, allow_officer_read: bool = False) -> None:
+    user = ensure_account_ready_for_app(user)
+    assert_department_scope(user, record.department_id, allow_officer_read=allow_officer_read)
+    if user.role == "super_admin":
+        return
+    organization_id = getattr(user, "organization_id", None)
+    if organization_id is None or organization_id != getattr(record, "organization_id", None):
+        raise HTTPException(status_code=403, detail="You can only access records in your assigned organization")
+
+
+def ensure_operational_assignment(user: User) -> None:
+    if user.role in {"admin", "adviser", "treasurer", "officer"} and (
+        getattr(user, "department_id", None) is None
+        or getattr(user, "organization_id", None) is None
+    ):
+        raise HTTPException(status_code=403, detail="An administrator must assign your department and organization")
+
+
+def resolve_organization_id(
+    db: Session, user: User, requested_id: uuid.UUID | None, department_id: uuid.UUID | None,
+) -> uuid.UUID:
+    if user.role != "super_admin":
+        assigned_id = getattr(user, "organization_id", None)
+        if assigned_id is None or (requested_id is not None and requested_id != assigned_id):
+            raise HTTPException(status_code=403, detail="Use your assigned organization")
+        requested_id = assigned_id
+    if requested_id is None:
+        raise HTTPException(status_code=400, detail="organization_id is required")
+    organization = db.query(Organization).filter(Organization.id == requested_id).first()
+    if organization is None or organization.department_id != department_id:
+        raise HTTPException(status_code=400, detail="Organization must exist in the selected department")
+    return organization.id
+
+
+def resolve_department_id(
+    current_user: User,
+    requested_department_id: uuid.UUID | None,
+    *,
+    require_for_admin: bool = False,
+) -> uuid.UUID | None:
+    current_user = ensure_account_ready_for_app(current_user)
+    if current_user.role == "super_admin":
+        if require_for_admin and requested_department_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="department_id is required when an admin creates this record.",
+            )
+        return requested_department_id
+
+    if current_user.department_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has no department assigned. Contact an administrator.",
+        )
+    if (
+        requested_department_id is not None
+        and requested_department_id != current_user.department_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only create records in your own department.",
+        )
+    return current_user.department_id

@@ -1,89 +1,61 @@
-"""
-Password hashing (Argon2) and JWT creation/verification
-(via python-jose).
+﻿"""Argon2 password hashing and signed, expiring access tokens."""
 
-Nothing in here talks to the database — it's pure
-crypto/token logic, used by routers/auth.py and dependencies.py.
-"""
-
+import math
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
+from pwdlib.exceptions import UnknownHashError
 
 from app.config import settings
 
-
-# Password hashing
-# Argon2 is used instead of Passlib/bcrypt.
 password_hash = PasswordHash.recommended()
 
 
 def hash_password(plain_password: str) -> str:
-    """
-    Hash a plain-text password using Argon2.
-    """
     return password_hash.hash(plain_password)
 
 
-def verify_password(
-    plain_password: str,
-    password_hash_value: str,
-) -> bool:
-    """
-    Verify a plain-text password against a previously generated hash.
-    """
-    return password_hash.verify(
-        plain_password,
-        password_hash_value,
-    )
+def verify_password(plain_password: str, password_hash_value: str) -> bool:
+    try:
+        return password_hash.verify(plain_password, password_hash_value)
+    except (UnknownHashError, ValueError):
+        return False
 
 
-# JWT
-def create_access_token(
-    subject: str,
-    expires_minutes: int | None = None,
-) -> str:
-    """
-    Create a JWT access token.
-
-    `subject` is the user's ID as a string.
-    It is stored in the JWT `sub` claim and read back by
-    dependencies.py.
-    """
-
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=expires_minutes or settings.jwt_expire_minutes
-    )
-
-    to_encode = {
-        "sub": subject,
-        "exp": expire,
-    }
-
+def create_access_token(subject: str, expires_minutes: int | None = None) -> str:
+    now = datetime.now(timezone.utc)
+    lifetime = settings.jwt_expire_minutes if expires_minutes is None else expires_minutes
     return jwt.encode(
-        to_encode,
+        {
+            "sub": subject,
+            "iat": now.timestamp(),
+            "exp": (now + timedelta(minutes=lifetime)).timestamp(),
+            "iss": "smartevent",
+            "aud": "smartevent-api",
+        },
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )
 
 
-def decode_access_token(token: str) -> str | None:
-    """
-    Decode and validate a JWT access token.
-
-    Returns the user ID from the `sub` claim if the token
-    is valid. Returns None if the token is invalid or expired.
-    """
-
+def decode_access_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(
             token,
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
+            issuer="smartevent",
+            audience="smartevent-api",
+            options={"require_sub": True, "require_iat": True, "require_exp": True,
+                     "require_iss": True, "require_aud": True},
         )
-
-        return payload.get("sub")
-
-    except JWTError:
+        issued_at, expires_at = payload["iat"], payload["exp"]
+        if (any(type(value) not in (int, float) or not math.isfinite(value)
+                for value in (issued_at, expires_at))
+                or not 0 <= issued_at <= datetime.now(timezone.utc).timestamp()
+                or issued_at >= expires_at):
+            return None
+        return payload
+    except (JWTError, ValueError, TypeError, OverflowError):
         return None
