@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_areas.dart';
+import '../state/app_settings.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
@@ -142,10 +145,6 @@ class _Band extends StatelessWidget {
     // coin is enough to make the list read as a set.
     final fill = context.palette.surface;
     final on = context.foregroundOn(fill);
-    final accent = index.isOdd
-        ? BrutTone.brand.fill(context)
-        : BrutTone.orange.fill(context);
-    final onAccent = context.foregroundOn(accent);
 
     return GestureDetector(
       onTap: () =>
@@ -154,96 +153,165 @@ class _Band extends StatelessWidget {
       child: Semantics(
         label: area.title,
         button: true,
-        child: Container(
-          decoration: BoxDecoration(
-            color: fill,
-            // A rule above the first as well, so the top band sits on
-            // something instead of floating under the search bar.
-            border: Border(
-              top: index == 1 ? context.side : BorderSide.none,
-              bottom: context.side,
-            ),
-          ),
-          padding: const EdgeInsets.fromLTRB(
-            AppLayout.gutter,
-            18,
-            AppLayout.gutter,
-            18,
-          ),
-          child: Row(
-            children: [
-              // The number is the position in the list, which is the one
-              // thing about a band that is true regardless of role.
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accent,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.ink, width: 2),
-                ),
-                child: Text(
-                  '$index',
-                  style: AppText.number.copyWith(fontSize: 12, color: onAccent),
-                ),
-              ),
-              const SizedBox(width: AppLayout.between),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      area.title,
-                      style: AppText.display.copyWith(
-                        fontSize: 26,
-                        color: on,
-                        height: 1.05,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      area.blurb,
-                      style: AppText.caption.copyWith(color: on),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppLayout.tight),
-              if (count != null && count > 0) ...[
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 74),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$count',
-                        style: AppText.moneyLarge.copyWith(
-                          fontSize: 22,
-                          color: on,
-                        ),
-                      ),
-                      if (area.badgeLabel != null)
-                        Text(
-                          area.badgeLabel!.toUpperCase(),
-                          textAlign: TextAlign.right,
-                          style: AppText.monoLabel.copyWith(fontSize: 8.5),
-                        ),
-                    ],
+        child: Stack(
+          children: [
+            if (count != null && count > 0)
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _AttentionPulse(
+                    semantic: '$count ${area.badgeLabel ?? 'waiting'}',
                   ),
                 ),
-                const SizedBox(width: AppLayout.between),
+              ),
+            _bandBody(context, fill, on, count),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bandBody(BuildContext context, Color fill, Color on, int? count) {
+    final accent = index.isOdd
+        ? BrutTone.brand.fill(context)
+        : BrutTone.orange.fill(context);
+    final onAccent = context.foregroundOn(accent);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: fill,
+        // A rule above the first as well, so the top band sits on
+        // something instead of floating under the search bar.
+        border: Border(
+          top: index == 1 ? context.side : BorderSide.none,
+          bottom: context.side,
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        AppLayout.gutter,
+        18,
+        AppLayout.gutter,
+        18,
+      ),
+      child: Row(
+        children: [
+          // The number is the position in the list, which is the one
+          // thing about a band that is true regardless of role.
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.ink, width: 2),
+            ),
+            child: Text(
+              '$index',
+              style: AppText.number.copyWith(fontSize: 12, color: onAccent),
+            ),
+          ),
+          const SizedBox(width: AppLayout.between),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  area.title,
+                  style: AppText.display.copyWith(
+                    fontSize: 26,
+                    color: on,
+                    height: 1.05,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  area.blurb,
+                  style: AppText.caption.copyWith(color: on),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
-              Icon(Icons.arrow_outward, size: 22, color: on),
+            ),
+          ),
+          const SizedBox(width: AppLayout.tight),
+          Icon(Icons.arrow_outward, size: 22, color: on),
+        ],
+      ),
+    );
+  }
+}
+
+/// A band with something waiting behind it, said without a number.
+///
+/// One pulse every ten seconds down the right edge: long enough apart
+/// that six of them are not a light show, bright enough that the eye
+/// catches one while reading something else. Red, because it means the
+/// same thing as every other red in the app — this wants you — and a
+/// count said that in a way nobody could tell from the band's own
+/// numeral.
+class _AttentionPulse extends StatefulWidget {
+  const _AttentionPulse({required this.semantic});
+
+  final String semantic;
+
+  @override
+  State<_AttentionPulse> createState() => _AttentionPulseState();
+}
+
+class _AttentionPulseState extends State<_AttentionPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 10),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = context.watch<AppSettings>().reduceMotion;
+    final edge = BrutTone.coral.fill(context);
+
+    Widget strip(double strength) => IgnorePointer(
+      child: Container(
+        width: 56,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
+            colors: [
+              edge.withValues(alpha: 0.85 * strength),
+              edge.withValues(alpha: 0),
             ],
           ),
         ),
+      ),
+    );
+
+    // Held steady rather than removed: the signal is the point, the
+    // movement is only what makes it noticed.
+    if (still) {
+      return Semantics(label: widget.semantic, child: strip(0.5));
+    }
+
+    return Semantics(
+      label: widget.semantic,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          // One swell inside the first fifth of the cycle, flat after.
+          final t = _controller.value;
+          final strength = t < 0.2 ? math.sin(t / 0.2 * math.pi) : 0.0;
+          return strip(strength);
+        },
       ),
     );
   }

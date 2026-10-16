@@ -217,7 +217,7 @@ class _ReadinessCard extends StatelessWidget {
             title: blocker,
             marker: const BrutIconTile(
               icon: Icons.priority_high,
-              tone: BrutTone.sun,
+              tone: BrutTone.coral,
               size: 32,
             ),
           ),

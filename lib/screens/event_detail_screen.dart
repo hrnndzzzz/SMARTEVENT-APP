@@ -654,7 +654,7 @@ class _ReadinessNoticeState extends State<_ReadinessNotice> {
     final first = readiness.blockers.first;
     final more = readiness.blockers.length - 1;
     return BrutCard(
-      tone: BrutTone.sun,
+      tone: BrutTone.coral,
       radius: AppRadius.rowAll,
       padding: const EdgeInsets.all(12),
       onTap: _openFull,

@@ -325,7 +325,7 @@ class AlertWidget extends StatelessWidget {
         items.add((
           label: '$events event${events == 1 ? '' : 's'} awaiting a decision',
           where: 'events',
-          tone: BrutTone.sun,
+          tone: BrutTone.coral,
         ));
       }
       final expenses = app.pendingExpenses.length;
@@ -333,7 +333,7 @@ class AlertWidget extends StatelessWidget {
         items.add((
           label: '$expenses expense${expenses == 1 ? '' : 's'} to review',
           where: 'expenses',
-          tone: BrutTone.sun,
+          tone: BrutTone.coral,
         ));
       }
     }
@@ -352,7 +352,7 @@ class AlertWidget extends StatelessWidget {
       items.add((
         label: '$low item${low == 1 ? '' : 's'} low on stock',
         where: 'inventory',
-        tone: BrutTone.sun,
+        tone: BrutTone.coral,
       ));
     }
 
