@@ -778,6 +778,80 @@ class BrutInlineMessage extends StatelessWidget {
 }
 
 /// A section heading with an optional count or action on the right.
+/// A section that can be folded away.
+///
+/// Three screens asked for the same thing: a stack of warnings you have
+/// read and no longer want occupying the screen. Folding is per section
+/// and lasts the life of the screen rather than being persisted — a
+/// blocker that comes back deserves to be seen again.
+///
+/// The header always carries the count, so a folded section still says
+/// what it is hiding.
+class BrutFoldable extends StatefulWidget {
+  const BrutFoldable({
+    super.key,
+    required this.title,
+    required this.children,
+    this.count,
+    this.initiallyOpen = true,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final int? count;
+  final bool initiallyOpen;
+
+  @override
+  State<BrutFoldable> createState() => _BrutFoldableState();
+}
+
+class _BrutFoldableState extends State<BrutFoldable> {
+  late bool _open = widget.initiallyOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          button: true,
+          expanded: _open,
+          label: widget.count == null
+              ? widget.title
+              : '${widget.title}, ${widget.count}',
+          child: GestureDetector(
+            onTap: () => setState(() => _open = !_open),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(widget.title, style: AppText.sectionTitle),
+                  ),
+                  if (widget.count != null) ...[
+                    MonoLabel('${widget.count}'),
+                    const SizedBox(width: 8),
+                  ],
+                  Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: context.palette.subtle,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_open) ...[
+          const SizedBox(height: AppLayout.between),
+          ...widget.children,
+        ],
+      ],
+    );
+  }
+}
+
 class BrutSectionTitle extends StatelessWidget {
   const BrutSectionTitle(this.title, {super.key, this.aside});
 

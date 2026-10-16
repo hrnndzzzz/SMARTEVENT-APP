@@ -103,6 +103,7 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: BrutCard(
+                    onTap: () => _open(context, 'money'),
                     tone: BrutTone.dark,
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -142,12 +143,11 @@ class HomeScreen extends StatelessWidget {
                         tone: app.pendingExpenses.isEmpty
                             ? BrutTone.neutral
                             : BrutTone.orange,
-                      ),
-                      const SizedBox(height: AppLayout.between),
-                      _Tile(
-                        value: '${(used * 100).round()}%',
-                        label: 'Of budget used',
-                        tone: used >= 1 ? BrutTone.coral : BrutTone.neutral,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ExpensesScreen(),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -163,6 +163,7 @@ class HomeScreen extends StatelessWidget {
                 child: _Stat(
                   value: '${peso(allocated, decimals: 0)}',
                   label: 'Allocated',
+                  onTap: () => _open(context, 'money'),
                 ),
               ),
               const SizedBox(width: AppLayout.between),
@@ -170,6 +171,7 @@ class HomeScreen extends StatelessWidget {
                 child: _Stat(
                   value: '${peso(spent, decimals: 0)}',
                   label: 'Approved spending',
+                  onTap: () => _open(context, 'money'),
                 ),
               ),
             ],
@@ -177,6 +179,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: AppLayout.between),
 
           BrutCard(
+            onTap: () => _open(context, 'money'),
             radius: AppRadius.rowAll,
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -219,15 +222,25 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.value, required this.label, required this.tone});
+  const _Tile({
+    required this.value,
+    required this.label,
+    required this.tone,
+    this.onTap,
+  });
 
   final String value;
   final String label;
   final BrutTone tone;
 
+  /// Where the figure came from. A number with no way through to the
+  /// records behind it is a dead end on the screen people open most.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     return BrutCard(
+      onTap: onTap,
       tone: tone,
       radius: AppRadius.rowAll,
       padding: const EdgeInsets.all(12),
@@ -252,14 +265,16 @@ class _Tile extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
+  const _Stat({required this.value, required this.label, this.onTap});
 
   final String value;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return BrutCard(
+      onTap: onTap,
       radius: AppRadius.rowAll,
       padding: const EdgeInsets.all(12),
       shadow: AppShadows.sm,
@@ -375,20 +390,25 @@ class AlertWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        BrutSectionTitle('Needs you', aside: MonoLabel('${items.length}')),
-        const SizedBox(height: AppLayout.between),
-        for (var i = 0; i < shown.length; i++) ...[
-          BrutListRow(
-            title: shown[i].label,
-            marker: BrutIconTile(
-              icon: Icons.priority_high,
-              tone: shown[i].tone,
-              size: 32,
-            ),
-            onTap: () => _open(context, shown[i].where),
-          ),
-          if (i != shown.length - 1) const SizedBox(height: AppLayout.tight),
-        ],
+        BrutFoldable(
+          title: 'Needs you',
+          count: items.length,
+          children: [
+            for (var i = 0; i < shown.length; i++) ...[
+              BrutListRow(
+                title: shown[i].label,
+                marker: BrutIconTile(
+                  icon: Icons.priority_high,
+                  tone: shown[i].tone,
+                  size: 32,
+                ),
+                onTap: () => _open(context, shown[i].where),
+              ),
+              if (i != shown.length - 1)
+                const SizedBox(height: AppLayout.tight),
+            ],
+          ],
+        ),
       ],
     );
   }
