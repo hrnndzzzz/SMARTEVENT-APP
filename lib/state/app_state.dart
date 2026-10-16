@@ -16,7 +16,9 @@ import '../api/models/receipt.dart';
 import '../api/proposal_letter_service.dart';
 import '../api/income_service.dart';
 import '../api/models/scope.dart';
+import '../api/compliance_service.dart';
 import '../api/files_service.dart';
+import '../api/models/compliance.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
 import 'reachability.dart';
@@ -1148,6 +1150,35 @@ class AppState extends ChangeNotifier {
 
   late final ReceiptService _receiptService = ReceiptService(_apiClient);
   late final FilesService _filesService = FilesService(_apiClient);
+  late final ComplianceService _complianceService = ComplianceService(
+    _apiClient,
+  );
+
+  /// The pre-activity gates. These are pass-throughs rather than cached
+  /// state: each belongs to one event and is read while looking at it,
+  /// so holding them here would be keeping a copy of something only one
+  /// screen ever asks about.
+  Future<EventLogistics?> eventLogistics(String eventId) =>
+      _complianceService.logistics(eventId);
+
+  Future<EventLogistics?> saveEventLogistics(
+    String eventId,
+    EventLogistics logistics,
+  ) => _complianceService.saveLogistics(eventId, logistics);
+
+  Future<List<Signatory>> availableSignatories() =>
+      _complianceService.signatories();
+
+  Future<List<RoutingStep>> eventRouting(String eventId) =>
+      _complianceService.routing(eventId);
+
+  Future<List<RoutingStep>> setEventRouting(
+    String eventId,
+    List<String> signatoryIds,
+  ) => _complianceService.setRouting(eventId, signatoryIds);
+
+  Future<EventReadiness> eventReadiness(String eventId) =>
+      _complianceService.readiness(eventId);
 
   /// Turns a stored file reference into something an image can load.
   Future<String> resolveFile(String reference) =>

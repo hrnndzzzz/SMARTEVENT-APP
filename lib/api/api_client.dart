@@ -104,6 +104,19 @@ class ApiClient {
     );
   }
 
+  /// PUT, for the routes that replace a record wholesale rather than
+  /// amending one — logistics and the institutional route.
+  Future<dynamic> put(String path, {Object? body}) {
+    final headers = {..._authHeaders, 'Content-Type': 'application/json'};
+    return _send(
+      () => _httpClient.put(
+        _uri(path),
+        headers: headers,
+        body: body == null ? '' : jsonEncode(body),
+      ),
+    );
+  }
+
   Future<void> delete(String path) async {
     await _send(() => _httpClient.delete(_uri(path), headers: _authHeaders));
   }

@@ -6,6 +6,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'create_event_screen.dart';
 import '../widgets/event_status.dart';
+import 'event_readiness_screen.dart';
 
 class EventDetailScreen extends StatelessWidget {
   final EventItem event;
@@ -180,6 +181,24 @@ class EventDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              // The gates between here and approval. Anyone who can
+              // propose or review needs to see them; only an Admin can
+              // clear the two this screen links to, and the screen says
+              // which of them are theirs.
+              if ((role?.canProposeEvents ?? false) ||
+                  (role?.canReview ?? false)) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Before approval',
+                  icon: Icons.checklist_outlined,
+                  tone: BrutTone.neutral,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => EventReadinessScreen(event: event),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               _ApprovalTimelineCard(event: event),
               // Editing a proposal belongs to whoever may
