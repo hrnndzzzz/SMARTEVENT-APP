@@ -34,7 +34,12 @@ class _SearchResult {
 }
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.autofocus = false});
+
+  /// Raises the keyboard on arrival. True when the screen was opened
+  /// from the menu's search bar: tapping a search bar is already the
+  /// act of starting to type.
+  final bool autofocus;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -119,6 +124,7 @@ class _SearchScreenState extends State<SearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SearchBar(
+            autofocus: widget.autofocus,
             controller: _controller,
             onChanged: (_) => setState(() {}),
             onClear: () => setState(() => _controller.clear()),
@@ -188,16 +194,19 @@ class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final bool autofocus;
 
   const _SearchBar({
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    this.autofocus = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return BrutTextField(
+      autofocus: autofocus,
       controller: controller,
       onChanged: onChanged,
       hint: 'Search events or transactions…',

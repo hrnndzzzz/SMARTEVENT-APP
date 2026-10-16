@@ -7,15 +7,14 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import 'create_event_screen.dart';
-import 'event_approvals_screen.dart';
 import 'events_screen.dart';
 
 /// Events, one swipe left of the dashboard.
 ///
-/// Three bands, because there are exactly three things anyone does with
-/// an event: propose one, look through them, or find out where one got
-/// to. Each fills a third of the screen, so none of them is the small
-/// one you have to hunt for.
+/// Two bands: propose one, or look through them. There used to be a
+/// third for approvals, which turned out to be the list again with one
+/// filter already applied — the list's own Waiting chip does the same
+/// thing without a second screen to keep in step.
 ///
 /// The first band carries the state of the newest proposal in its
 /// colour — yellow while someone is deciding, coral if it came back,
@@ -67,31 +66,17 @@ class EventsHubScreen extends StatelessWidget {
                     child: _Band(
                       index: 2,
                       title: 'All events',
-                      blurb: 'Every proposal, as a list or a month',
+                      blurb: pending > 0
+                          ? '$pending waiting · list or month'
+                          : 'Every proposal, as a list or a month',
                       icon: Icons.list_alt_outlined,
-                      // Not brand: band one is brand before anything has
-                      // been proposed, and two blue bands touching read
-                      // as one band.
-                      tone: BrutTone.violet,
+                      // Orange rather than blue: band one is blue before
+                      // anything is proposed, and two blue bands touching
+                      // read as one band.
+                      tone: BrutTone.orange,
                       count: app.events.length,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const EventsScreen()),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _Band(
-                      index: 3,
-                      title: 'Approvals',
-                      blurb: 'Where each one got to, and who decided',
-                      icon: Icons.fact_check_outlined,
-                      tone: pending > 0 ? BrutTone.sun : BrutTone.teal,
-                      count: pending,
-                      countLabel: pending > 0 ? 'waiting' : null,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const EventApprovalsScreen(),
-                        ),
                       ),
                     ),
                   ),
@@ -274,7 +259,6 @@ class _Band extends StatelessWidget {
     required this.tone,
     required this.onTap,
     this.count,
-    this.countLabel,
   });
 
   final int index;
@@ -284,7 +268,6 @@ class _Band extends StatelessWidget {
   final BrutTone tone;
   final VoidCallback onTap;
   final int? count;
-  final String? countLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -321,9 +304,7 @@ class _Band extends StatelessWidget {
                         const SizedBox(width: AppLayout.tight),
                         if (count != null && count! > 0)
                           Text(
-                            countLabel == null
-                                ? '$count'
-                                : '$count ${countLabel!}'.toUpperCase(),
+                            '$count',
                             style: AppText.monoLabel.copyWith(color: on),
                           ),
                       ],

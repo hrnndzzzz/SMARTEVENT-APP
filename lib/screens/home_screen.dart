@@ -7,9 +7,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
-import '../theme/palette.dart';
 import '../widgets/app_header.dart';
-import 'event_approvals_screen.dart';
+import 'events_screen.dart';
 import 'expenses_screen.dart';
 import 'notifications_screen.dart';
 import 'scanner_screen.dart';
@@ -104,7 +103,10 @@ class HomeScreen extends StatelessWidget {
                   flex: 3,
                   child: BrutCard(
                     onTap: () => _open(context, 'money'),
-                    tone: BrutTone.dark,
+                    // Blue, not black. The figure people open the app for
+                    // should wear one of the department's two colours
+                    // rather than a neutral that belongs to neither.
+                    tone: BrutTone.brand,
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,17 +117,11 @@ class HomeScreen extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             '${peso(remaining, decimals: 0)}',
-                            style: AppText.heroNumber.copyWith(
-                              fontSize: 40,
-                              color: context.palette.canvas,
-                            ),
+                            style: AppText.heroNumber.copyWith(fontSize: 40),
                           ),
                         ),
                         const SizedBox(height: AppLayout.section),
-                        MonoLabel(
-                          'Remaining budget',
-                          color: context.palette.canvas,
-                        ),
+                        const MonoLabel('Remaining budget'),
                       ],
                     ),
                   ),
@@ -305,7 +301,7 @@ class _Stat extends StatelessWidget {
 void _open(BuildContext context, String where) {
   final WidgetBuilder? builder = switch (where) {
     'expenses' => (_) => const ExpensesScreen(),
-    'events' => (_) => const EventApprovalsScreen(),
+    'events' => (_) => const EventsScreen(),
     _ => areaById(where)?.builder,
   };
   if (builder != null) {

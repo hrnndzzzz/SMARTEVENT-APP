@@ -13,6 +13,17 @@ import 'app_state.dart';
 
 /// The app's areas, in one list.
 ///
+/// ## The two colours, and the three
+///
+/// An area is orange when it is about money — Money, Reports, Flagged —
+/// and blue when it is not. That is the whole rule, and it is why the
+/// menu now reads as one system rather than a row of unrelated tiles:
+/// the department is orange and blue, so the app is.
+///
+/// Green, yellow and coral never fill an area. They mean approved,
+/// waiting and returned, and a screen that spends them on a menu entry
+/// has nothing left to say with them where it matters.
+///
 /// Before this there were two navigation systems — a six-tab bar and a
 /// radial menu — and the menu repeated every tab before adding five more.
 /// Eleven destinations, no grouping, and the same thing reachable two
@@ -78,7 +89,7 @@ const List<AppArea> appAreas = [
     title: 'Inventory',
     blurb: 'Stock, movements and low-stock items',
     icon: Icons.inventory_2_outlined,
-    tone: BrutTone.mint,
+    tone: BrutTone.brand,
     badge: _lowStock,
     builder: _inventory,
   ),
@@ -87,7 +98,7 @@ const List<AppArea> appAreas = [
     title: 'Reports',
     blurb: 'Financial reports and exports',
     icon: Icons.insert_chart_outlined,
-    tone: BrutTone.violet,
+    tone: BrutTone.orange,
     builder: _reports,
   ),
   AppArea(
@@ -95,7 +106,7 @@ const List<AppArea> appAreas = [
     title: 'Flagged',
     blurb: 'Expenses worth a second look',
     icon: Icons.flag_outlined,
-    tone: BrutTone.sun,
+    tone: BrutTone.orange,
     badge: _flagged,
     builder: _risk,
   ),
@@ -104,7 +115,7 @@ const List<AppArea> appAreas = [
     title: 'Letters',
     blurb: 'Proposal letters for events',
     icon: Icons.description_outlined,
-    tone: BrutTone.teal,
+    tone: BrutTone.brand,
     badge: _letters,
     // Officers reach none of it, and sign-in does not even load the
     // list for them — so the card would open on an empty screen that

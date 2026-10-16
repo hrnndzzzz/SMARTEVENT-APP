@@ -7,6 +7,7 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
+import 'search_screen.dart';
 
 /// The menu, one swipe right of the dashboard.
 ///
@@ -27,7 +28,10 @@ class MenuPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final areas = menuAreasFor(app.currentRole);
+    final areas = [
+      for (final area in menuAreasFor(app.currentRole))
+        if (area.id != 'search') area,
+    ];
 
     return Scaffold(
       backgroundColor: context.palette.canvas,
@@ -63,6 +67,43 @@ class MenuPanel extends StatelessWidget {
                       onPressed: onClose,
                     ),
                 ],
+              ),
+            ),
+            // Search sits above the list rather than inside it: it is not
+            // a seventh place to go, it is how you skip going to any of
+            // them. Tapping opens the screen with the keyboard already up.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppLayout.gutter,
+                0,
+                AppLayout.gutter,
+                AppLayout.between,
+              ),
+              child: BrutSurface(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SearchScreen(autofocus: true),
+                  ),
+                ),
+                semanticLabel: 'Search events and transactions',
+                radius: AppRadius.controlAll,
+                shadow: AppShadows.sm,
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.search, size: 18, color: context.palette.muted),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Find an event or a transaction',
+                        style: AppText.body.copyWith(
+                          color: context.palette.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
