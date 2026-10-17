@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_settings.dart';
+import '../widgets/backend_address_card.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 
@@ -54,6 +55,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: settings.reduceMotion,
             onChanged: settings.setReduceMotion,
           ),
+          const SizedBox(height: 20),
+          const BrutSectionTitle('Backend'),
+          const SizedBox(height: 10),
+          const BackendAddressCard(),
           const SizedBox(height: 20),
           const BrutSectionTitle('This device'),
           const SizedBox(height: 10),

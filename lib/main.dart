@@ -11,13 +11,14 @@ import 'theme/brut.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/home_screen.dart';
+import 'api/api_config.dart';
 import 'screens/proposal_letters_screen.dart';
 import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
 import 'widgets/page_indicator.dart';
 
-void main() {
+void main() async {
   // Portrait only. Every screen is laid out as one column at phone
   // width — the keypad, the month grid, the three-band hub — and none of
   // them has a landscape arrangement worth turning the phone for.
@@ -26,6 +27,9 @@ void main() {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  // Before the first request, so a device pointed at its own backend
+  // address never fires one at the build's address first.
+  await ApiConfig.load();
   runApp(const SmartEventApp());
 }
 
