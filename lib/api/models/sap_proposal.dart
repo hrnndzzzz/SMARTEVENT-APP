@@ -823,7 +823,6 @@ class SapProposal {
     this.clearance,
     this.evaluation,
     this.returnRemarks,
-    this.hasFinalScan = false,
   });
 
   final String id;
@@ -853,7 +852,6 @@ class SapProposal {
 
   final SapEvaluation? evaluation;
   final String? returnRemarks;
-  final bool hasFinalScan;
 
   bool get isProposerEditable => state?.isProposerEditable ?? false;
 
@@ -872,21 +870,24 @@ class SapProposal {
     details: SapDetails.fromJson(
       Map<String, dynamic>.from((json['details'] as Map?) ?? const {}),
     ),
+    // The server nests these under `collections`, keyed exactly as the
+    // endpoints are named — hyphens and all. Reading them from the top
+    // level silently yielded four empty lists, so anything saved came
+    // back blank on the next load.
     programFlow: [
-      for (final row in (json['program_flow'] as List? ?? const []))
-        SapProgramFlowItem.fromJson(Map<String, dynamic>.from(row as Map)),
+      for (final row in _rows(json, 'program-flow'))
+        SapProgramFlowItem.fromJson(row),
     ],
     budgetItems: [
-      for (final row in (json['budget_items'] as List? ?? const []))
-        SapBudgetItem.fromJson(Map<String, dynamic>.from(row as Map)),
+      for (final row in _rows(json, 'budget-items')) SapBudgetItem.fromJson(row),
     ],
     supportRequests: [
-      for (final row in (json['support_requests'] as List? ?? const []))
-        SapSupportRequest.fromJson(Map<String, dynamic>.from(row as Map)),
+      for (final row in _rows(json, 'support-requests'))
+        SapSupportRequest.fromJson(row),
     ],
     affectedClasses: [
-      for (final row in (json['affected_classes'] as List? ?? const []))
-        SapAffectedClass.fromJson(Map<String, dynamic>.from(row as Map)),
+      for (final row in _rows(json, 'affected-classes'))
+        SapAffectedClass.fromJson(row),
     ],
     clearance: json['clearance'] == null
         ? null
@@ -899,6 +900,14 @@ class SapProposal {
             Map<String, dynamic>.from(json['evaluation'] as Map),
           ),
     returnRemarks: json['return_remarks'] as String?,
-    hasFinalScan: (json['has_final_scan'] as bool?) ?? false,
   );
+
+  /// One collection out of the nested `collections` object.
+  static List<Map<String, dynamic>> _rows(Map<String, dynamic> json, String key) {
+    final collections = json['collections'];
+    if (collections is! Map) return const [];
+    final rows = collections[key];
+    if (rows is! List) return const [];
+    return [for (final row in rows) Map<String, dynamic>.from(row as Map)];
+  }
 }

@@ -52,16 +52,20 @@ void main() {
       'core_values': ['courage', 'humility'],
       'egas': [1, 2, 3, 4],
     },
-    'program_flow': [
-      {'start': '08:00:00', 'end': '11:00:00', 'activity': 'Seminar'},
-    ],
-    'budget_items': [
-      {'particulars': 'Speaker', 'amount': '2000.00'},
-    ],
-    'support_requests': [
-      {'type': 'projector'},
-    ],
-    'affected_classes': const [],
+    // Exactly as app/services/sap.py builds it: one nested object, keyed
+    // the way the endpoints are named.
+    'collections': {
+      'program-flow': [
+        {'start': '08:00:00', 'end': '11:00:00', 'activity': 'Seminar'},
+      ],
+      'budget-items': [
+        {'particulars': 'Speaker', 'amount': '2000.00'},
+      ],
+      'support-requests': [
+        {'type': 'projector', 'quantity': 1, 'specify': ''},
+      ],
+      'affected-classes': const [],
+    },
   };
 
   group('parsing', () {
@@ -96,6 +100,24 @@ void main() {
       // so a float round-trip here is a 422 nobody can explain.
       expect(p.details.totalBudget, '2500.00');
       expect(p.details.totalBudget, isA<String>());
+    });
+
+    test('collections come out of the nested object', () async {
+      // Reading these from the top level parsed four empty lists and
+      // lost everything that had been saved.
+      final service = serviceReturning(aggregate);
+      final p = await service.fetch('e1');
+
+      expect(p.programFlow, hasLength(1));
+      expect(p.budgetItems, hasLength(1));
+      expect(p.supportRequests, hasLength(1));
+      expect(p.affectedClasses, isEmpty);
+    });
+
+    test('a missing collections object is not a crash', () async {
+      final service = serviceReturning({...aggregate}..remove('collections'));
+      final p = await service.fetch('e1');
+      expect(p.programFlow, isEmpty);
     });
 
     test('an unknown enum value does not throw', () async {

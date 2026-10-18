@@ -255,6 +255,63 @@ class SapForm extends ChangeNotifier {
   Future<bool> submit() =>
       _write((s, v) => s.submit(eventId, expectedVersion: v));
 
+  SapWorkflow? _workflow;
+  SapWorkflow? get workflow => _workflow;
+
+  /// Loads the nine slots. Returns quietly when the backend has no SAP
+  /// routes, since the screen shows the blank form in that case.
+  Future<void> loadWorkflow() async {
+    final service = _service;
+    if (service == null) return;
+    try {
+      _workflow = await service.workflow(eventId);
+    } on SapUnavailable {
+      _localOnly = true;
+    } catch (_) {
+      // The slots are a view of something already on screen; failing to
+      // refresh them is not worth an error banner of its own.
+    }
+    notifyListeners();
+  }
+
+  /// Records that SDS inspected one signed page.
+  Future<bool> recordCheckpoint({
+    required String stepId,
+    required SapCheckpointEvidence evidence,
+  }) async {
+    final service = _service;
+    if (service == null) {
+      _localOnly = true;
+      notifyListeners();
+      return false;
+    }
+
+    _saving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _workflow = await service.recordCheckpoint(
+        eventId,
+        stepId: stepId,
+        expectedVersion: version,
+        evidence: evidence,
+      );
+      // The proposal's own version moved with it.
+      await load();
+      return true;
+    } on SapVersionConflict catch (conflict) {
+      _stale = true;
+      _error = conflict.message;
+      return false;
+    } catch (e) {
+      _error = e is ApiException ? e.message : e.toString();
+      return false;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> evaluate({
     required SapEvaluationOutcome outcome,
     required String remarks,

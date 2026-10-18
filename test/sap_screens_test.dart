@@ -241,6 +241,19 @@ void main() {
     expect(find.text('Sign now'), findsNothing);
   });
 
+  testWidgets('Part 5 offers no Record button before submission', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(SapPart5Screen(form: blankForm())));
+    await tester.pumpAndSettle();
+
+    // No slots exist on the server until the first submission, so there
+    // is nothing to record against.
+    expect(find.text('Record'), findsNothing);
+    expect(find.textContaining('open once the proposal is submitted'),
+        findsOneWidget);
+  });
+
   testWidgets('Part 6 needs both an outcome and remarks', (tester) async {
     await tester.pumpWidget(host(SapPart6Screen(form: blankForm())));
     await tester.pumpAndSettle();
