@@ -2,7 +2,7 @@
 import uuid
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, Text, UniqueConstraint, func,
+    Boolean, CheckConstraint, Column, Date, DateTime, Time, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, declared_attr
@@ -69,7 +69,9 @@ class User(OrganizationScoped, Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
-    __table_args__ = (UniqueConstraint("user_id", "kind", name="uq_notification_user_kind"),)
+    __table_args__ = (Index('uq_registration_notification', 'user_id', 'kind', unique=True,
+                           postgresql_where=text("kind = 'registration_confirmation'"),
+                           sqlite_where=text("kind = 'registration_confirmation'")),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
@@ -99,7 +101,12 @@ class Category(OrganizationScoped, Base):
 
 class Event(OrganizationScoped, Base):
     __tablename__ = "events"
-    __table_args__ = (CheckConstraint("review_round > 0", name="event_review_round_positive"),)
+    __table_args__ = (
+        CheckConstraint("review_round > 0", name="event_review_round_positive"),
+        CheckConstraint('(start_time IS NULL AND end_time IS NULL) OR '
+                        '(start_time IS NOT NULL AND end_time IS NOT NULL AND end_time > start_time)',
+                        name='event_local_time_window'),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
@@ -118,6 +125,8 @@ class Event(OrganizationScoped, Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     completed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     event_date = Column(Date, nullable=True)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
     estimated_cost = Column(Numeric(12, 2), default=0)
     allocated_budget = Column(Numeric(12, 2), nullable=False, default=0)
     remaining_budget = Column(Numeric(12, 2), nullable=False, default=0)

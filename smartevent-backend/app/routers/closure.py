@@ -37,6 +37,8 @@ def attendance_pdf(event_id: uuid.UUID, db: Session = Depends(get_db), user: Use
 @router.post("/complete", response_model=EventOut)
 def complete_event(event_id: uuid.UUID, payload: EventCompletion, db: Session = Depends(get_db), user: User = Depends(staff)):
     event = scoped_event(db, event_id, user, write=True, states={"approved"})
+    from app.services.sap import assert_generic_workflow
+    assert_generic_workflow(db, event)
     if event.event_date is None or payload.completed_on < event.event_date or payload.completed_on > institution_today():
         raise HTTPException(422, "Completion must be on/after the activity date and not in the future")
     ensure_post_requirements(db, event)

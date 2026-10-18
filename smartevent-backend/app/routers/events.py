@@ -58,6 +58,9 @@ def _get_event_or_404(db: Session, event_id: uuid.UUID, *, lock: bool = False) -
     event = query.first()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if lock:
+        from app.services.sap import assert_generic_workflow
+        assert_generic_workflow(db, event)
     return event
 
 

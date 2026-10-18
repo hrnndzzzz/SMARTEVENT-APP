@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -322,6 +322,8 @@ class EventOut(BaseModel):
     completed_at: datetime | None = None
     completed_by: uuid.UUID | None = None
     event_date: date | None
+    start_time: time | None = None
+    end_time: time | None = None
     estimated_cost: float
     allocated_budget: float
     remaining_budget: float

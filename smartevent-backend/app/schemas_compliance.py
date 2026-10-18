@@ -14,7 +14,7 @@ class Input(BaseModel):
 
 
 class LogisticsUpdate(Input):
-    activity_location: Literal["on_campus", "off_campus"]
+    activity_location: Literal["on_campus", "off_campus", "online"]
     destination: str = Field(min_length=1, max_length=300)
     transport_mode: Literal["none", "institution", "third_party"]
     transport_notes: str | None = Field(default=None, max_length=2000)
