@@ -694,6 +694,73 @@ class SapDetails {
     excuseArrangement: json['excuse_arrangement'] as String?,
   );
 
+  /// Replaces named fields, leaving the rest alone.
+  ///
+  /// [clearVenue] and friends exist because a plain `null` argument means
+  /// "unchanged" here; clearing a field has to be asked for explicitly.
+  SapDetails copyWith({
+    String? schoolYear,
+    String? departmentType,
+    String? department,
+    DateTime? proposalDate,
+    String? title,
+    String? organizationName,
+    String? course,
+    DateTime? activityDate,
+    SapTime? startTime,
+    SapTime? endTime,
+    SapModality? modality,
+    SapSetting? setting,
+    String? venue,
+    String? personsInCharge,
+    String? attire,
+    List<String>? activityTypes,
+    String? scope,
+    List<String>? programTypes,
+    int? expectedStudents,
+    String? rationale,
+    String? objectives,
+    List<SapCoreValue>? coreValues,
+    List<int>? egas,
+    String? emergencyPlan,
+    String? totalBudget,
+    String? fundingSource,
+    String? additionalInformation,
+    String? excuseArrangement,
+  }) {
+    return SapDetails(
+      schoolYear: schoolYear ?? this.schoolYear,
+      departmentType: departmentType ?? this.departmentType,
+      department: department ?? this.department,
+      proposalDate: proposalDate ?? this.proposalDate,
+      title: title ?? this.title,
+      organizationName: organizationName ?? this.organizationName,
+      course: course ?? this.course,
+      activityDate: activityDate ?? this.activityDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      modality: modality ?? this.modality,
+      setting: setting ?? this.setting,
+      venue: venue ?? this.venue,
+      personsInCharge: personsInCharge ?? this.personsInCharge,
+      attire: attire ?? this.attire,
+      activityTypes: activityTypes ?? this.activityTypes,
+      scope: scope ?? this.scope,
+      programTypes: programTypes ?? this.programTypes,
+      expectedStudents: expectedStudents ?? this.expectedStudents,
+      rationale: rationale ?? this.rationale,
+      objectives: objectives ?? this.objectives,
+      coreValues: coreValues ?? this.coreValues,
+      egas: egas ?? this.egas,
+      emergencyPlan: emergencyPlan ?? this.emergencyPlan,
+      totalBudget: totalBudget ?? this.totalBudget,
+      fundingSource: fundingSource ?? this.fundingSource,
+      additionalInformation:
+          additionalInformation ?? this.additionalInformation,
+      excuseArrangement: excuseArrangement ?? this.excuseArrangement,
+    );
+  }
+
   /// Only the keys that were actually set.
   ///
   /// `PATCH` takes a partial object, and the backend rejects unknown keys,
