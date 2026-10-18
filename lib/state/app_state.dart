@@ -17,6 +17,7 @@ import '../api/proposal_letter_service.dart';
 import '../api/income_service.dart';
 import '../api/models/scope.dart';
 import '../api/compliance_service.dart';
+import '../api/sap_service.dart';
 import '../api/files_service.dart';
 import '../api/models/compliance.dart';
 import '../api/receipt_service.dart';
@@ -1153,6 +1154,11 @@ class AppState extends ChangeNotifier {
   late final ComplianceService _complianceService = ComplianceService(
     _apiClient,
   );
+
+  /// The SAS-SDS-FO-020 proposal form. Handed to a [SapForm] per event
+  /// rather than cached here: one proposal belongs to one event and is
+  /// read while looking at it.
+  late final SapService sapService = SapService(_apiClient);
 
   /// The pre-activity gates. These are pass-throughs rather than cached
   /// state: each belongs to one event and is read while looking at it,

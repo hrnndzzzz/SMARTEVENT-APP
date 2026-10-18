@@ -5,6 +5,8 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'create_event_screen.dart';
+import 'sap/sap_form_screen.dart';
+import '../state/sap_form.dart';
 import '../widgets/event_status.dart';
 import '../api/compliance_service.dart';
 import '../api/models/compliance.dart';
@@ -198,6 +200,30 @@ class EventDetailScreen extends StatelessWidget {
               // propose one, and only while it is still draft or
               // rejected. Officers are read-only and no longer
               // get this button.
+              // The SAS-SDS-FO-020 form. Offered on any event the backend
+              // knows about: the proposer fills Parts 1 to 3 and the SDS
+              // Office the rest, and which of those a given person may do
+              // is the API's call to make, not a button's. An event that
+              // has never reached the server has nothing to hang a
+              // proposal on.
+              if (event.remoteId case final eventId?) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Proposal form',
+                  icon: Icons.description_outlined,
+                  tone: BrutTone.neutral,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => SapFormScreen(
+                        form: SapForm(
+                          eventId: eventId,
+                          service: context.read<AppState>().sapService,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               if ((role?.canProposeEvents ?? false) &&
                   event.status == EventApprovalStatus.rejected) ...[
                 const SizedBox(height: 14),
