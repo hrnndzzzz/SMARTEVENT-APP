@@ -204,6 +204,33 @@ void main() {
       expect(bodyOf()['recorded_on_behalf'], isTrue);
     });
 
+    test('a support request always carries a quantity', () async {
+      // The backend declares `quantity: int = Field(ge=1)` with no
+      // default, so omitting it is a 422 on every row.
+      final service = serviceReturning(aggregate);
+      await service.replaceSupportRequests(
+        'e1',
+        expectedVersion: 6,
+        items: const [SapSupportRequest(type: SapSupportType.projector)],
+      );
+
+      final item = (bodyOf()['items'] as List).single as Map;
+      expect(item['quantity'], 1);
+      expect(item['type'], 'projector');
+    });
+
+    test('a quantity below one is lifted to one', () async {
+      final service = serviceReturning(aggregate);
+      await service.replaceSupportRequests(
+        'e1',
+        expectedVersion: 7,
+        items: const [
+          SapSupportRequest(type: SapSupportType.chairs, quantity: 0),
+        ],
+      );
+      expect(((bodyOf()['items'] as List).single as Map)['quantity'], 1);
+    });
+
     test('evaluation sends the outcome by its wire name', () async {
       final service = serviceReturning(aggregate);
       await service.evaluate(

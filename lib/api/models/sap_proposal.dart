@@ -286,12 +286,17 @@ class SapBudgetItem {
 class SapSupportRequest {
   const SapSupportRequest({
     required this.type,
-    this.quantity,
+    this.quantity = 1,
     this.specify,
   });
 
   final SapSupportType type;
-  final int? quantity;
+
+  /// Required by the backend, and at least 1. Most rows on the paper are
+  /// a bare tick with no number beside them, so a ticked row without a
+  /// stated count means one of the thing.
+  final int quantity;
+
   final String? specify;
 
   factory SapSupportRequest.fromJson(Map<String, dynamic> json) =>
@@ -299,13 +304,13 @@ class SapSupportRequest {
         type:
             SapSupportType.fromWire(json['type'] as String?) ??
             SapSupportType.other,
-        quantity: json['quantity'] as int?,
+        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
         specify: json['specify'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
     'type': type.wireName,
-    if (quantity != null) 'quantity': quantity,
+    'quantity': quantity < 1 ? 1 : quantity,
     if (specify != null && specify!.isNotEmpty) 'specify': specify,
   };
 }

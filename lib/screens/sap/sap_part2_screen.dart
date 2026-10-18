@@ -56,6 +56,9 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
     _form.setSupportRequests(next);
   }
 
+  /// The backend requires a quantity of at least one on every row, so an
+  /// emptied box means one rather than none — a ticked row with no number
+  /// beside it is still a request for the thing.
   void _amend(SapSupportType type, {int? quantity, String? specify}) {
     final next = [
       for (final r in _form.supportRequests)
@@ -166,7 +169,7 @@ class _SupportTile extends StatefulWidget {
 
 class _SupportTileState extends State<_SupportTile> {
   late final _quantity = TextEditingController(
-    text: widget.request?.quantity?.toString() ?? '',
+    text: widget.request?.quantity.toString() ?? '',
   );
   late final _detail = TextEditingController(
     text: widget.request?.specify ?? '',
@@ -200,7 +203,7 @@ class _SupportTileState extends State<_SupportTile> {
               enabled: widget.enabled,
               keyboardType: TextInputType.number,
               controller: _quantity,
-              onChanged: (v) => widget.onQuantity(int.tryParse(v.trim())),
+              onChanged: (v) => widget.onQuantity(int.tryParse(v.trim()) ?? 1),
             ),
           ],
           if (_ticked && widget.takesDetail) ...[

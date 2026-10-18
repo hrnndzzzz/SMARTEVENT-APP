@@ -38,6 +38,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
   late final _objectives = TextEditingController(text: _d.objectives ?? '');
   late final _emergency = TextEditingController(text: _d.emergencyPlan ?? '');
   late final _funding = TextEditingController(text: _d.fundingSource ?? '');
+  late final _schoolYear = TextEditingController(text: _d.schoolYear ?? '');
+  late final _departmentType = TextEditingController(
+    text: _d.departmentType ?? '',
+  );
+  late final _department = TextEditingController(text: _d.department ?? '');
 
   SapDetails get _d => _form.details;
   bool get _editable => _form.canEditProposerParts;
@@ -56,6 +61,9 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
       _objectives,
       _emergency,
       _funding,
+      _schoolYear,
+      _departmentType,
+      _department,
     ]) {
       c.dispose();
     }
@@ -79,8 +87,39 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         objectives: _objectives.text.trim(),
         emergencyPlan: _emergency.text.trim(),
         fundingSource: _funding.text.trim(),
+        schoolYear: _schoolYear.text.trim(),
+        departmentType: _departmentType.text.trim(),
+        department: _department.text.trim(),
       ),
     );
+  }
+
+  /// Programme rows the server would reject: it requires
+  /// `start <= row.start < row.end <= end`.
+  List<SapProgramFlowItem> _outsideWindow(SapDetails d) {
+    final from = d.startTime;
+    final to = d.endTime;
+    if (from == null || to == null) return const [];
+    return [
+      for (final row in _form.programFlow)
+        if (row.start.compareTo(from) < 0 ||
+            row.end.compareTo(to) > 0 ||
+            row.start.compareTo(row.end) >= 0)
+          row,
+    ];
+  }
+
+  Future<void> _pickProposalDate() async {
+    final now = DateTime.now();
+    final chosen = await showDatePicker(
+      context: context,
+      initialDate: _d.proposalDate ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2),
+    );
+    if (chosen != null) {
+      _form.updateDetails((d) => d.copyWith(proposalDate: chosen));
+    }
   }
 
   Future<void> _save() async {
@@ -143,6 +182,50 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                       'read-only until it is returned for revision.',
                 ),
               const SizedBox(height: 12),
+
+              // The paper's header block. Every one of these is required
+              // at submission, so the form asks for them rather than
+              // letting the attempt fail on four fields at once.
+              BrutTextField(
+                controller: _schoolYear,
+                label: 'School year',
+                hint: '2026-2027',
+                enabled: _editable,
+              ),
+              const SizedBox(height: 14),
+              BrutTextField(
+                controller: _departmentType,
+                label: 'Department type',
+                hint: 'College',
+                enabled: _editable,
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 14),
+              BrutTextField(
+                controller: _department,
+                label: 'Department',
+                hint: 'CITE Department',
+                enabled: _editable,
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 14),
+              BrutDateField(
+                label: 'Date of proposal',
+                value: d.proposalDate,
+                hint: 'Pick a date',
+                onTap: _editable ? _pickProposalDate : () {},
+              ),
+              if (d.proposalDate != null &&
+                  d.activityDate != null &&
+                  d.proposalDate!.isAfter(d.activityDate!)) ...[
+                const SizedBox(height: 10),
+                const BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.error_outline,
+                  text: 'The proposal date cannot come after the activity.',
+                ),
+              ],
+              const SizedBox(height: 20),
 
               BrutTextField(
                 controller: _title,
@@ -280,18 +363,18 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ),
               const SizedBox(height: 18),
 
+              // The server prints these two lists on the PDF exactly as
+              // they arrive, joined with commas — unlike the core values,
+              // which it title-cases. So the stored value has to be the
+              // wording the paper uses, not a snake_case key.
               SapMultiChoice<String>(
                 label: 'Activity type',
                 options: const [
-                  'co_curricular',
-                  'extra_curricular',
-                  'subject_embedded',
+                  'Co-Curricular',
+                  'Extra-Curricular',
+                  'Subject-Embedded/Academic',
                 ],
-                labelOf: (v) => switch (v) {
-                  'co_curricular' => 'Co-curricular',
-                  'extra_curricular' => 'Extra-curricular',
-                  _ => 'Subject-embedded / academic',
-                },
+                labelOf: (v) => v,
                 selected: d.activityTypes,
                 enabled: _editable,
                 onChanged: (v) =>
@@ -316,23 +399,15 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               SapMultiChoice<String>(
                 label: 'Program',
                 options: const [
-                  'team_building',
-                  'leadership_summit',
-                  'general_assembly',
-                  'competition',
-                  'press_conference',
-                  'seminar_convention',
-                  'other',
+                  'Team Building',
+                  'Leadership Summit',
+                  'General Assembly',
+                  'Competition',
+                  'Press Conference',
+                  'Seminar/Convention',
+                  'Others',
                 ],
-                labelOf: (v) => switch (v) {
-                  'team_building' => 'Team building',
-                  'leadership_summit' => 'Leadership summit',
-                  'general_assembly' => 'General assembly',
-                  'competition' => 'Competition',
-                  'press_conference' => 'Press conference',
-                  'seminar_convention' => 'Seminar / convention',
-                  _ => 'Other',
-                },
+                labelOf: (v) => v,
                 selected: d.programTypes,
                 enabled: _editable,
                 onChanged: (v) =>
@@ -396,6 +471,17 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
               const BrutSectionTitle('Program flow'),
               const SizedBox(height: 8),
+              if (_outsideWindow(d).isNotEmpty) ...[
+                BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.error_outline,
+                  text:
+                      '${_outsideWindow(d).length} row(s) fall outside '
+                      '${d.startTime!.label} – ${d.endTime!.label}. Every row '
+                      'has to sit inside the activity.',
+                ),
+                const SizedBox(height: 10),
+              ],
               _ProgramFlowEditor(form: _form, enabled: _editable),
               const SizedBox(height: 20),
 
