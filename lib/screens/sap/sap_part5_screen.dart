@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
@@ -78,6 +79,58 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
     }
   }
 
+  /// Picks the scan and sends it.
+  ///
+  /// The server is strict here — six unencrypted pages, flattened, under
+  /// 10 MB — and it is write-once, so this confirms first rather than
+  /// letting a stray tap settle an approval.
+  Future<void> _uploadScan() async {
+    final picked = await FilePicker.pickFiles(
+      dialogTitle: 'Choose the signed scan',
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+    );
+    final file = picked.firstOrNull;
+    if (file == null || !mounted) return;
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Upload this as the approval evidence?'),
+        content: Text(
+          '${file.name}\n\nThis approves the proposal and cannot be '
+          'replaced afterwards.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Upload'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final ok = await _form.uploadFinalScan(bytes: bytes, filename: file.name);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Approved. The scan is stored as the signature evidence.'
+              : _form.error ?? 'Could not upload it.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -154,6 +207,35 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                       'rest follow the page, each after the one above it. A '
                       'checkpoint recorded wrongly is not overwritten: return '
                       'the proposal and start a fresh revision.',
+                ),
+                const SizedBox(height: 22),
+
+                const BrutSectionTitle('Signed scan'),
+                const SizedBox(height: 8),
+                BrutInlineMessage(
+                  tone: workflow.completedCount == workflow.totalCount
+                      ? BrutTone.neutral
+                      : BrutTone.sun,
+                  icon: Icons.upload_file,
+                  text: workflow.completedCount == workflow.totalCount
+                      ? 'Upload the scanned, signed form. It must be a '
+                            'flattened PDF of exactly six pages, no larger '
+                            'than 10 MB. This is the evidence of approval, '
+                            'and it cannot be replaced once sent.'
+                      : 'All nine checkpoints have to be recorded before the '
+                            'signed scan can be uploaded.',
+                ),
+                const SizedBox(height: 10),
+                BrutButton(
+                  label: 'Upload the signed scan',
+                  icon: Icons.picture_as_pdf_outlined,
+                  busy: _form.saving,
+                  busyLabel: 'Uploading',
+                  onPressed:
+                      workflow.completedCount == workflow.totalCount &&
+                          _form.state == SapState.pendingReview
+                      ? _uploadScan
+                      : null,
                 ),
               ],
             ],

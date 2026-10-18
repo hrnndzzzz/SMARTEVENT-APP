@@ -25,6 +25,19 @@ class SapVersionConflict implements Exception {
   final List<String> blockers;
 }
 
+/// A link to the stored scan. Short-lived by design.
+class SapFinalScan {
+  const SapFinalScan({
+    required this.url,
+    required this.expiresInSeconds,
+    required this.sha256,
+  });
+
+  final String url;
+  final int expiresInSeconds;
+  final String sha256;
+}
+
 /// SAS-SDS-FO-020 (001): the Student Activity Proposal Form.
 ///
 /// Every call lives under `/events/{id}/sap-proposal`. Collections are
@@ -228,6 +241,68 @@ class SapService {
         body: {'expected_version': expectedVersion, ...evidence.toJson()},
       );
       return SapWorkflow.fromJson(Map<String, dynamic>.from(response as Map));
+    });
+  }
+
+  /// `GET /pdf` — the printable six-page form.
+  ///
+  /// A draft preview while the proposal is still editable, otherwise the
+  /// stored bytes of the submitted revision. [revisionNo] fetches an
+  /// earlier printed copy instead.
+  ///
+  /// It stays an unsigned printable copy even after approval: the signed
+  /// scan is a separate download, and nothing stamps a signature or an
+  /// approval mark onto these bytes.
+  Future<DownloadedFile> pdf(String eventId, {int? revisionNo}) {
+    return _guard(() async {
+      return _client.download(
+        '${_base(eventId)}/pdf',
+        query: revisionNo == null ? null : {'revision_no': '$revisionNo'},
+        expectedContentType: 'application/pdf',
+        fallbackFilename: 'SAS-SDS-FO-020.pdf',
+      );
+    });
+  }
+
+  /// `POST /final-signed-copy` — the scanned, signed paper.
+  ///
+  /// Write-once: there is deliberately no replacement after approval, so
+  /// the caller should be sure before sending. The server requires
+  /// exactly six unencrypted pages with no forms or annotations, which is
+  /// what flattening a scan produces.
+  Future<SapProposal> uploadFinalScan(
+    String eventId, {
+    required int expectedVersion,
+    required List<int> bytes,
+    required String filename,
+  }) {
+    return _guard(() async {
+      final response = await _client.upload(
+        '${_base(eventId)}/final-signed-copy',
+        field: 'file',
+        bytes: bytes,
+        filename: filename,
+        contentType: 'application/pdf',
+        fields: {'expected_version': '$expectedVersion'},
+      );
+      return _proposal(response);
+    });
+  }
+
+  /// `GET /final-signed-copy` — a short-lived private link to the scan,
+  /// with the digest the server stored for it.
+  ///
+  /// SDS only, and the link expires in minutes. Never put it in a log, a
+  /// cache or analytics: it is a signed URL to private evidence.
+  Future<SapFinalScan> finalScan(String eventId) {
+    return _guard(() async {
+      final response = await _client.get('${_base(eventId)}/final-signed-copy');
+      final row = Map<String, dynamic>.from(response as Map);
+      return SapFinalScan(
+        url: row['url'] as String,
+        expiresInSeconds: (row['expires_in'] as num?)?.toInt() ?? 0,
+        sha256: (row['sha256'] as String?) ?? '',
+      );
     });
   }
 

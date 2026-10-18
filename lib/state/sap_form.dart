@@ -312,6 +312,67 @@ class SapForm extends ChangeNotifier {
     }
   }
 
+  /// Fetches the printable form. Returns null when there is nothing to
+  /// print yet or the backend has no SAP routes.
+  Future<DownloadedFile?> printableForm({int? revisionNo}) async {
+    final service = _service;
+    if (service == null) {
+      _localOnly = true;
+      notifyListeners();
+      return null;
+    }
+    _error = null;
+    try {
+      return await service.pdf(eventId, revisionNo: revisionNo);
+    } on SapUnavailable {
+      _localOnly = true;
+    } catch (e) {
+      _error = e is ApiException ? e.message : e.toString();
+    }
+    notifyListeners();
+    return null;
+  }
+
+  /// Uploads the signed scan. Write-once on the server, so this is the
+  /// one action here with no second chance.
+  Future<bool> uploadFinalScan({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final service = _service;
+    if (service == null) return false;
+
+    _saving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _adopt(
+        await service.uploadFinalScan(
+          eventId,
+          expectedVersion: version,
+          bytes: bytes,
+          filename: filename,
+        ),
+      );
+      return true;
+    } on SapVersionConflict catch (conflict) {
+      _stale = true;
+      _error = conflict.message;
+      return false;
+    } catch (e) {
+      _error = e is ApiException ? e.message : e.toString();
+      return false;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Sends the proposal back for revision. The comment is required.
+  Future<bool> returnForRevision(String remarks) => _write(
+    (s, v) => s.returnForRevision(eventId, expectedVersion: v, remarks: remarks),
+  );
+
   Future<bool> evaluate({
     required SapEvaluationOutcome outcome,
     required String remarks,

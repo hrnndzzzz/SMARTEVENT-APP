@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../api/export_saver.dart';
+import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
@@ -27,10 +29,49 @@ class SapFormScreen extends StatefulWidget {
 }
 
 class _SapFormScreenState extends State<SapFormScreen> {
+  bool _printing = false;
+
   @override
   void initState() {
     super.initState();
     widget.form.load();
+  }
+
+  Future<void> _print(SapForm form) async {
+    setState(() => _printing = true);
+    final file = await form.printableForm();
+    if (!mounted) return;
+    setState(() => _printing = false);
+
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(form.error ?? 'Nothing to print yet.')),
+      );
+      return;
+    }
+    await ExportSaver.share(file, subject: 'SAS-SDS-FO-020 proposal form');
+  }
+
+  Future<void> _return(SapForm form) async {
+    final remarks = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _ReturnSheet(),
+    );
+    if (remarks == null) return;
+
+    final ok = await form.returnForRevision(remarks);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Returned. Resubmitting creates a new revision; the '
+                    'signatures already collected do not carry over.'
+              : form.error ?? 'Could not return it.',
+        ),
+      ),
+    );
   }
 
   Future<void> _open(SapPart part) async {
@@ -112,15 +153,36 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     const SizedBox(height: 8),
                   ],
                   const SizedBox(height: 10),
+                  BrutButton(
+                    label: 'Print or share the form',
+                    icon: Icons.print_outlined,
+                    tone: BrutTone.neutral,
+                    busy: _printing,
+                    busyLabel: 'Preparing',
+                    onPressed: form.isLocalOnly ? null : () => _print(form),
+                  ),
+                  const SizedBox(height: 10),
                   const BrutInlineMessage(
                     tone: BrutTone.neutral,
-                    icon: Icons.print_outlined,
+                    icon: Icons.info_outline,
                     text:
-                        'Printing uses the university\'s own six-page layout, '
-                        'produced by the server so the paper always matches '
-                        'the record. Nine signature slots print empty, to be '
-                        'signed by hand.',
+                        'The printed copy uses the university\'s own six-page '
+                        'layout, produced by the server so the paper always '
+                        'matches the record. The nine signature slots print '
+                        'empty, to be signed by hand. It stays an unsigned '
+                        'copy even after approval.',
                   ),
+                  if (form.state == SapState.pendingReview) ...[
+                    const SizedBox(height: 18),
+                    const BrutSectionTitle('SDS Office'),
+                    const SizedBox(height: 8),
+                    BrutButton(
+                      label: 'Return for revision',
+                      icon: Icons.undo,
+                      tone: BrutTone.coral,
+                      onPressed: () => _return(form),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -177,6 +239,70 @@ class _PartRow extends StatelessWidget {
       ),
       trailing: BrutBadge(label: label, tone: tone),
       onTap: status == SapPartStatus.locked ? null : onTap,
+    );
+  }
+}
+
+/// Why the proposal is going back. The server requires a comment, and a
+/// blank one helps nobody reading it later.
+class _ReturnSheet extends StatefulWidget {
+  const _ReturnSheet();
+
+  @override
+  State<_ReturnSheet> createState() => _ReturnSheetState();
+}
+
+class _ReturnSheetState extends State<_ReturnSheet> {
+  final _remarks = TextEditingController();
+
+  @override
+  void dispose() {
+    _remarks.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.viewInsetsOf(context).bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const BrutSectionTitle('Return for revision'),
+          const SizedBox(height: 8),
+          const BrutInlineMessage(
+            tone: BrutTone.sun,
+            icon: Icons.warning_amber_outlined,
+            text:
+                'Resubmitting makes a new revision. The signatures already '
+                'collected stay with the old one and have to be gathered '
+                'again on the reprinted form.',
+          ),
+          const SizedBox(height: 12),
+          BrutTextField(
+            controller: _remarks,
+            label: 'What needs changing',
+            hint: 'Move the activity to the afternoon; morning classes clash.',
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 16),
+          BrutButton(
+            label: 'Send it back',
+            tone: BrutTone.coral,
+            onPressed: _remarks.text.trim().isEmpty
+                ? null
+                : () => Navigator.of(context).pop(_remarks.text.trim()),
+          ),
+        ],
+      ),
     );
   }
 }
