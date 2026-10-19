@@ -410,8 +410,39 @@ class ExpenseEntry {
 class AppState extends ChangeNotifier {
   /// [reachability], when given, is told whether the backend answered
   /// after every request. Optional so a test can build a plain AppState.
-  AppState({Reachability? reachability})
-    : _apiClient = ApiClient(onReachability: reachability?.report);
+  AppState({Reachability? reachability}) {
+    _apiClient = ApiClient(
+      onReachability: reachability?.report,
+      onSessionExpired: _onSessionExpired,
+    );
+  }
+
+  /// The token stopped being accepted, so this client is signed out
+  /// whether or not anyone has said so yet.
+  ///
+  /// Showing the last data that loaded is the worst of the options: the
+  /// figures are real, they are wrong, and nothing on screen says which.
+  /// Signing out sends the gate back to the welcome screen with a line
+  /// explaining why, and the next sign-in starts clean.
+  void _onSessionExpired() {
+    if (currentAccount == null && currentRole == null) return;
+    _sessionExpiredNotice = true;
+    // Deferred: this fires from inside a response handler, which can be
+    // mid-build for whatever triggered the request.
+    Future.microtask(signOut);
+  }
+
+  bool _sessionExpiredNotice = false;
+
+  /// Whether the last sign-out was the server rejecting the token rather
+  /// than someone choosing to leave. Read once by the welcome screen.
+  bool get sessionExpiredNotice => _sessionExpiredNotice;
+
+  void clearSessionExpiredNotice() {
+    if (!_sessionExpiredNotice) return;
+    _sessionExpiredNotice = false;
+    notifyListeners();
+  }
 
   /// Turns anything thrown by the API layer into one user-facing message,
   /// keeping the three cases distinct on purpose:
@@ -2107,7 +2138,7 @@ class AppState extends ChangeNotifier {
   Account? currentAccount;
   UserRole? currentRole;
 
-  final ApiClient _apiClient;
+  late final ApiClient _apiClient;
   late final AuthService _authService = AuthService(_apiClient);
 
   /// Thrown when `/auth/me` reports a role this build doesn't know. Better

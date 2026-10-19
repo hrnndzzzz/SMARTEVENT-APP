@@ -23,6 +23,7 @@ class ApiClient {
     TokenStore? tokenStore,
     http.Client? httpClient,
     this.onReachability,
+    this.onSessionExpired,
     this.timeout = const Duration(seconds: 20),
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _httpClient = httpClient ?? http.Client();
@@ -31,6 +32,14 @@ class ApiClient {
   /// status still counts as reachable: the server is there, it just said
   /// no. Only a failure to reach it at all is `false`.
   final void Function({required bool reachable})? onReachability;
+
+  /// Called when a request that carried a token comes back 401.
+  ///
+  /// That is the one unambiguous reading of a 401: the token the request
+  /// was made with is no longer accepted. A signed-out client getting a
+  /// 401 from the login route means something else entirely — wrong
+  /// password — which is why this only fires when a token was attached.
+  final void Function()? onSessionExpired;
 
   final TokenStore _tokenStore;
   final http.Client _httpClient;
@@ -282,6 +291,9 @@ class ApiClient {
 
   dynamic _handleResponse(http.Response response) {
     final status = response.statusCode;
+    if (status == 401 && _token != null) {
+      onSessionExpired?.call();
+    }
     if (status >= 200 && status < 300) {
       if (response.body.isEmpty) return null;
       // A 204 has no body; anything else that parses cleanly is returned.
