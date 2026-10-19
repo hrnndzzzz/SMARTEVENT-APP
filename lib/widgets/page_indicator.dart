@@ -41,6 +41,13 @@ class PageIndicator extends StatelessWidget {
     final inset = MediaQuery.viewPaddingOf(context).bottom;
     final palette = context.palette;
 
+    // The bar is the darkest thing on a light page and a raised surface
+    // on a dark one. Using the ink colour for both would paint it nearly
+    // white in the dark theme, where ink is #F2F1EC — a white slab where
+    // a floating control should be.
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bar = dark ? palette.surface : palette.ink;
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppLayout.gutter,
@@ -50,13 +57,13 @@ class PageIndicator extends StatelessWidget {
         (inset > 0 ? inset : AppLayout.tight) + 6,
       ),
       child: Container(
-        height: 62,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        height: 54,
+        padding: const EdgeInsets.symmetric(horizontal: 5),
         decoration: BoxDecoration(
-          color: palette.ink,
-          borderRadius: BorderRadius.circular(18),
+          color: bar,
+          borderRadius: BorderRadius.circular(16),
           border: Border.fromBorderSide(context.side),
-          boxShadow: AppShadows.base,
+          boxShadow: AppShadows.sm,
         ),
         child: Row(
           children: [
@@ -66,6 +73,7 @@ class PageIndicator extends StatelessWidget {
                   label: labels[i],
                   icon: _icons[i % _icons.length],
                   active: i == current,
+                  bar: bar,
                   onTap: () => onGo(i),
                 ),
               ),
@@ -81,21 +89,28 @@ class _Segment extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.active,
+    required this.bar,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
   final bool active;
+
+  /// What this sits on, so the foreground can be measured against it
+  /// rather than assumed.
+  final Color bar;
+
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    // Everything sits on the dark bar, so the resting colour is the
-    // canvas rather than the ink — the usual pairing is inverted here.
-    final resting = palette.canvas.withValues(alpha: 0.55);
     final chosen = Theme.of(context).colorScheme.secondary;
+
+    // Measured against whatever the bar turned out to be, so neither
+    // theme ends up with grey-on-grey.
+    final resting = context.foregroundOn(bar).withValues(alpha: 0.6);
+    final onChosen = context.foregroundOn(chosen);
 
     return GestureDetector(
       onTap: onTap,
@@ -109,27 +124,23 @@ class _Segment extends StatelessWidget {
             duration: MediaQuery.disableAnimationsOf(context)
                 ? Duration.zero
                 : AppMotion.press,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: active ? chosen : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  size: 19,
-                  color: active ? palette.ink : resting,
-                ),
-                const SizedBox(height: 3),
+                Icon(icon, size: 17, color: active ? onChosen : resting),
+                const SizedBox(height: 2),
                 Text(
                   label.toUpperCase(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppText.monoLabel.copyWith(
-                    fontSize: 9,
-                    color: active ? palette.ink : resting,
+                    fontSize: 8,
+                    color: active ? onChosen : resting,
                   ),
                 ),
               ],

@@ -36,22 +36,17 @@ void main() {
     }
   });
 
-  testWidgets('footer', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(420, 300));
+  Future<void> shoot(WidgetTester tester, String name, ThemeData theme) async {
+    await tester.binding.setSurfaceSize(const Size(420, 190));
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(),
+        theme: theme,
         home: Scaffold(
           body: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               PageIndicator(
                 current: 1,
-                onGo: (_) {},
-                labels: const ['Menu', 'Dashboard', 'Events'],
-              ),
-              PageIndicator(
-                current: 0,
                 onGo: (_) {},
                 labels: const ['Menu', 'Dashboard', 'Events'],
               ),
@@ -63,7 +58,15 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(MaterialApp),
-      matchesGoldenFile('sap-preview/footer.png'),
+      matchesGoldenFile('sap-preview/$name.png'),
     );
+  }
+
+  testWidgets('footer light', (tester) async {
+    await shoot(tester, 'footer-light', AppTheme.light());
+  });
+
+  testWidgets('footer dark', (tester) async {
+    await shoot(tester, 'footer-dark', AppTheme.dark());
   });
 }
