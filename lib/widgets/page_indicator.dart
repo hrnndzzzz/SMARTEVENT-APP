@@ -56,7 +56,7 @@ class PageIndicator extends StatelessWidget {
         (inset > 0 ? inset : AppLayout.tight) + 6,
       ),
       child: Container(
-        height: 46,
+        height: 54,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: bar,
@@ -125,15 +125,31 @@ class _Segment extends StatelessWidget {
             duration: MediaQuery.disableAnimationsOf(context)
                 ? Duration.zero
                 : AppMotion.press,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
               color: active ? chosen : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
-            // Icon alone. The label still reaches a screen reader through
-            // the Semantics above, so nothing is lost by taking the word
-            // off the glass.
-            child: Icon(icon, size: 19, color: active ? onChosen : resting),
+            // The glyph carries the place and the word underneath names
+            // it, on every destination rather than only the chosen one —
+            // otherwise the two you are not on are the ones left unnamed.
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 17, color: active ? onChosen : resting),
+                const SizedBox(height: 2),
+                Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
+                  style: AppText.monoLabel.copyWith(
+                    fontSize: 8,
+                    color: active ? onChosen : resting,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
