@@ -11,9 +11,10 @@ import '../theme/palette.dart';
 /// sitting above the page instead of a border the page ends at, and the
 /// gap underneath keeps it clear of the phone's own gesture bar.
 ///
-/// It is an indicator first and a control second. The segment you are on
-/// is filled — so the answer to "which way is the menu" is on screen
-/// rather than something you have to remember.
+/// It is an indicator first and a control second. The destination you are
+/// on is filled with the department's own colour — so the answer to
+/// "which way is the menu" is on screen rather than something you have to
+/// remember.
 class PageIndicator extends StatelessWidget {
   const PageIndicator({
     super.key,
@@ -27,8 +28,8 @@ class PageIndicator extends StatelessWidget {
   final ValueChanged<int> onGo;
   final List<String> labels;
 
-  /// The three destinations, in order. Icons rather than bars now: at this
-  /// size a word alone is a small target, and the glyph names the place
+  /// The three destinations, in order. Icons rather than bars: at this
+  /// height a word alone is a small target, and the glyph names the place
   /// faster than the label does.
   static const List<IconData> _icons = [
     Icons.grid_view_rounded,
@@ -39,14 +40,13 @@ class PageIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.viewPaddingOf(context).bottom;
-    final palette = context.palette;
 
-    // The bar is the darkest thing on a light page and a raised surface
-    // on a dark one. Using the ink colour for both would paint it nearly
-    // white in the dark theme, where ink is #F2F1EC — a white slab where
-    // a floating control should be.
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final bar = dark ? palette.surface : palette.ink;
+    // A raised surface in both themes: white on a light page, the dark
+    // theme's own card colour on a dark one. The page itself is slightly
+    // off-white and slightly off-black respectively, so the bar reads as
+    // lifted without having to be the opposite colour of everything
+    // around it.
+    final bar = context.palette.surface;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -57,11 +57,11 @@ class PageIndicator extends StatelessWidget {
         (inset > 0 ? inset : AppLayout.tight) + 6,
       ),
       child: Container(
-        height: 54,
-        padding: const EdgeInsets.symmetric(horizontal: 5),
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: bar,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.fromBorderSide(context.side),
           boxShadow: AppShadows.sm,
         ),
@@ -105,11 +105,13 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The department's own colour — blue for most, orange for CITE — which
+    // is how the rest of the app shows which organisation you are in.
     final chosen = Theme.of(context).colorScheme.secondary;
 
-    // Measured against whatever the bar turned out to be, so neither
-    // theme ends up with grey-on-grey.
-    final resting = context.foregroundOn(bar).withValues(alpha: 0.6);
+    // Measured against whatever each sits on, so neither theme lands on
+    // grey over grey.
+    final resting = context.foregroundOn(bar).withValues(alpha: 0.55);
     final onChosen = context.foregroundOn(chosen);
 
     return GestureDetector(
@@ -124,25 +126,36 @@ class _Segment extends StatelessWidget {
             duration: MediaQuery.disableAnimationsOf(context)
                 ? Duration.zero
                 : AppMotion.press,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: EdgeInsets.symmetric(
+              horizontal: active ? 11 : 9,
+              vertical: 5,
+            ),
             decoration: BoxDecoration(
               color: active ? chosen : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Column(
+            // The name rides beside the icon on the chosen one only.
+            // Three labels stacked under three icons spends most of the
+            // bar's height repeating what the icons already say.
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 17, color: active ? onChosen : resting),
-                const SizedBox(height: 2),
-                Text(
-                  label.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.monoLabel.copyWith(
-                    fontSize: 8,
-                    color: active ? onChosen : resting,
+                Icon(icon, size: 18, color: active ? onChosen : resting),
+                if (active) ...[
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      label.toUpperCase(),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.clip,
+                      style: AppText.monoLabel.copyWith(
+                        fontSize: 9,
+                        color: onChosen,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
