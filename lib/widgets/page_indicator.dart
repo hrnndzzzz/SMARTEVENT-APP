@@ -28,9 +28,8 @@ class PageIndicator extends StatelessWidget {
   final ValueChanged<int> onGo;
   final List<String> labels;
 
-  /// The three destinations, in order. Icons rather than bars: at this
-  /// height a word alone is a small target, and the glyph names the place
-  /// faster than the label does.
+  /// The three destinations, in order. The glyph names the place; the
+  /// word is carried by [Semantics] for anyone who cannot see it.
   static const List<IconData> _icons = [
     Icons.grid_view_rounded,
     Icons.space_dashboard_outlined,
@@ -126,38 +125,15 @@ class _Segment extends StatelessWidget {
             duration: MediaQuery.disableAnimationsOf(context)
                 ? Duration.zero
                 : AppMotion.press,
-            padding: EdgeInsets.symmetric(
-              horizontal: active ? 11 : 9,
-              vertical: 5,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               color: active ? chosen : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
-            // The name rides beside the icon on the chosen one only.
-            // Three labels stacked under three icons spends most of the
-            // bar's height repeating what the icons already say.
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 18, color: active ? onChosen : resting),
-                if (active) ...[
-                  const SizedBox(width: 7),
-                  Flexible(
-                    child: Text(
-                      label.toUpperCase(),
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.clip,
-                      style: AppText.monoLabel.copyWith(
-                        fontSize: 9,
-                        color: onChosen,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            // Icon alone. The label still reaches a screen reader through
+            // the Semantics above, so nothing is lost by taking the word
+            // off the glass.
+            child: Icon(icon, size: 19, color: active ? onChosen : resting),
           ),
         ),
       ),
