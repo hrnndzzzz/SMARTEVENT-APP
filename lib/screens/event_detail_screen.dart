@@ -241,7 +241,14 @@ class EventDetailScreen extends StatelessWidget {
                   tone: BrutTone.neutral,
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => CreateEventScreen(existingEvent: event),
+                      builder: (_) => SapProposerFlowScreen(
+                        form: SapForm(
+                          eventId: event.remoteId,
+                          service: context.read<AppState>().isDemoMode
+                              ? null
+                              : context.read<AppState>().sapService,
+                        ),
+                      ),
                     ),
                   ),
                 ),

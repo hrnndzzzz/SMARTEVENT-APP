@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'sap/sap_proposer_flow_screen.dart';
+import '../state/sap_form.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
@@ -6,7 +8,6 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
-import 'create_event_screen.dart';
 import 'events_screen.dart';
 
 /// Events, one swipe left of the dashboard.
@@ -133,11 +134,22 @@ class _CreateBand extends StatelessWidget {
     };
   }
 
+  /// Straight into the form. Filling it in is how an event gets made:
+  /// the record is a consequence of Part 1, not a separate thing to ask
+  /// for first. The event is created on the way out of that part, so
+  /// nothing exists until there is a title and a date for it.
   void _open(BuildContext context) {
     if (!canPropose) return;
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CreateEventScreen()));
+    final app = context.read<AppState>();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SapProposerFlowScreen(
+          form: SapForm(
+            service: app.isDemoMode ? null : app.sapService,
+          ),
+        ),
+      ),
+    );
   }
 
   @override

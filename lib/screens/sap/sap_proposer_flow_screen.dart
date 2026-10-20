@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../state/app_state.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
@@ -68,6 +70,55 @@ class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
         state != SapState.revisionRequested;
   }
 
+  /// Which semester an activity falls in, from its date.
+  ///
+  /// The event record wants one and the paper form has no such field,
+  /// so asking for it would be asking for something the university does
+  /// not. Philippine academic year: first runs August to December,
+  /// second January to May, and the short summer term after that.
+  static Semester _semesterOf(DateTime date) {
+    if (date.month >= 8) return Semester.first;
+    if (date.month <= 5) return Semester.second;
+    return Semester.summer;
+  }
+
+  /// Makes the event this form belongs to, from what Part 1 says.
+  ///
+  /// Filling the form is how an event gets created now, so the record
+  /// is a consequence of the first part rather than something asked for
+  /// beforehand.
+  Future<void> _createEventIfNeeded() async {
+    if (_form.hasEvent) return;
+    final d = _form.details;
+    final title = (d.title ?? '').trim();
+    if (title.isEmpty || d.activityDate == null) return;
+
+    final app = context.read<AppState>();
+    final error = await app.addEvent(
+      title: title,
+      estimatedCost: double.tryParse(d.totalBudget ?? '') ?? 0,
+      eventDate: d.activityDate,
+      description: d.rationale,
+      schoolYear: d.schoolYear ?? '',
+      semester: _semesterOf(d.activityDate!),
+      eventScope: d.scope == 'departmental'
+          ? EventScope.departmental
+          : EventScope.organizational,
+      submitNow: false,
+    );
+
+    if (!mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+
+    final created = app.events.isNotEmpty ? app.events.first.remoteId : null;
+    if (created != null) await _form.bindEvent(created);
+  }
+
   Future<void> _open(SapPart part) async {
     final screen = switch (part) {
       SapPart.two => SapPart2Screen(form: _form),
@@ -77,6 +128,10 @@ class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => screen));
+    if (!mounted) return;
+    // Coming back from Part 1 is the first moment there is enough to
+    // make the event with.
+    if (part == SapPart.one) await _createEventIfNeeded();
     if (mounted) setState(() {});
   }
 

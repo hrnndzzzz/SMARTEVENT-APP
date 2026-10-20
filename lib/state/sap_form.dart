@@ -42,8 +42,9 @@ class SapForm extends ChangeNotifier {
   // The lint wants `this._service`, which Dart does not allow as a named
   // parameter, private names being illegal there.
   // ignore: prefer_initializing_formals
-  SapForm({required this.eventId, SapService? service, this.seed})
-    : _service = service;
+  SapForm({String? eventId, SapService? service, this.seed})
+    : _eventId = eventId,
+      _service = service;
 
   /// What the event was created with, carried into the form.
   ///
@@ -54,7 +55,16 @@ class SapForm extends ChangeNotifier {
   /// somebody has already written.
   final SapDetails? seed;
 
-  final String eventId;
+  /// Null until there is an event to hang the proposal on.
+  ///
+  /// Filling the form is how an event gets made now, so the first two
+  /// parts are written before any record exists. Nothing is sent while
+  /// this is null; the edits sit here until the event is created and
+  /// [bindEvent] is called.
+  String? _eventId;
+  String? get eventId => _eventId;
+  bool get hasEvent => _eventId != null;
+
   final SapService? _service;
 
   SapProposal? _proposal;
@@ -108,7 +118,9 @@ class SapForm extends ChangeNotifier {
   /// Loads the proposal, creating the draft if the event has none.
   Future<void> load() async {
     final service = _service;
-    if (service == null) {
+    // No event yet means nothing to fetch: this form is how one gets
+    // made, so it starts empty and local by definition.
+    if (service == null || _eventId == null) {
       _localOnly = true;
       _applySeed();
       notifyListeners();
@@ -126,9 +138,9 @@ class SapForm extends ChangeNotifier {
       // had none, and if it 404s too the slice is genuinely absent.
       SapProposal p;
       try {
-        p = await service.fetch(eventId);
+        p = await service.fetch(_eventId!);
       } on SapUnavailable {
-        p = await service.create(eventId);
+        p = await service.create(_eventId!);
       }
       _adopt(p);
       _applySeed();
@@ -211,9 +223,42 @@ class SapForm extends ChangeNotifier {
 
   /// Runs one write, translating the two failures every write shares.
   /// Returns false when nothing was saved.
+  /// Attaches this form to the event it just caused to exist, and
+  /// pushes everything written so far.
+  Future<void> bindEvent(String id) async {
+    if (_eventId != null) return;
+    _eventId = id;
+    notifyListeners();
+    if (_service == null) return;
+
+    // Everything written before the event existed, held aside: load()
+    // creates the proposal and adopts the server's empty version of it,
+    // which would otherwise wipe exactly what we are here to send.
+    final written = _details;
+    final flow = [..._programFlow];
+    final budget = [..._budgetItems];
+    final support = [..._supportRequests];
+    final classes = [..._affectedClasses];
+
+    await load();
+
+    _details = written;
+    _programFlow = flow;
+    _budgetItems = budget;
+    _supportRequests = support;
+    _affectedClasses = classes;
+    notifyListeners();
+
+    await saveDetails();
+    if (flow.isNotEmpty) await saveProgramFlow();
+    if (budget.isNotEmpty) await saveBudgetItems();
+    if (support.isNotEmpty) await saveSupportRequests();
+    if (classes.isNotEmpty) await saveAffectedClasses();
+  }
+
   Future<bool> _write(Future<SapProposal> Function(SapService, int) call) async {
     final service = _service;
-    if (service == null) {
+    if (service == null || _eventId == null) {
       _localOnly = true;
       notifyListeners();
       return true; // Kept locally, which the screens say out loud.
@@ -247,22 +292,22 @@ class SapForm extends ChangeNotifier {
   }
 
   Future<bool> saveDetails() => _write(
-    (s, v) => s.saveDetails(eventId, expectedVersion: v, details: _details),
+    (s, v) => s.saveDetails(_eventId!, expectedVersion: v, details: _details),
   );
 
   Future<bool> saveProgramFlow() => _write(
     (s, v) =>
-        s.replaceProgramFlow(eventId, expectedVersion: v, items: _programFlow),
+        s.replaceProgramFlow(_eventId!, expectedVersion: v, items: _programFlow),
   );
 
   Future<bool> saveBudgetItems() => _write(
     (s, v) =>
-        s.replaceBudgetItems(eventId, expectedVersion: v, items: _budgetItems),
+        s.replaceBudgetItems(_eventId!, expectedVersion: v, items: _budgetItems),
   );
 
   Future<bool> saveSupportRequests() => _write(
     (s, v) => s.replaceSupportRequests(
-      eventId,
+      _eventId!,
       expectedVersion: v,
       items: _supportRequests,
     ),
@@ -270,7 +315,7 @@ class SapForm extends ChangeNotifier {
 
   Future<bool> saveAffectedClasses() => _write(
     (s, v) => s.replaceAffectedClasses(
-      eventId,
+      _eventId!,
       expectedVersion: v,
       items: _affectedClasses,
     ),
@@ -280,12 +325,12 @@ class SapForm extends ChangeNotifier {
     final c = _clearance;
     if (c == null) return Future.value(false);
     return _write(
-      (s, v) => s.saveClearance(eventId, expectedVersion: v, clearance: c),
+      (s, v) => s.saveClearance(_eventId!, expectedVersion: v, clearance: c),
     );
   }
 
   Future<bool> submit() =>
-      _write((s, v) => s.submit(eventId, expectedVersion: v));
+      _write((s, v) => s.submit(_eventId!, expectedVersion: v));
 
   SapWorkflow? _workflow;
   SapWorkflow? get workflow => _workflow;
@@ -296,7 +341,7 @@ class SapForm extends ChangeNotifier {
     final service = _service;
     if (service == null) return;
     try {
-      _workflow = await service.workflow(eventId);
+      _workflow = await service.workflow(_eventId!);
     } on SapUnavailable {
       _localOnly = true;
     } catch (_) {
@@ -323,7 +368,7 @@ class SapForm extends ChangeNotifier {
     notifyListeners();
     try {
       _workflow = await service.recordCheckpoint(
-        eventId,
+        _eventId!,
         stepId: stepId,
         expectedVersion: version,
         evidence: evidence,
@@ -355,7 +400,7 @@ class SapForm extends ChangeNotifier {
     }
     _error = null;
     try {
-      return await service.pdf(eventId, revisionNo: revisionNo);
+      return await service.pdf(_eventId!, revisionNo: revisionNo);
     } on SapUnavailable {
       _localOnly = true;
     } catch (e) {
@@ -380,7 +425,7 @@ class SapForm extends ChangeNotifier {
     try {
       _adopt(
         await service.uploadFinalScan(
-          eventId,
+          _eventId!,
           expectedVersion: version,
           bytes: bytes,
           filename: filename,
@@ -402,7 +447,7 @@ class SapForm extends ChangeNotifier {
 
   /// Sends the proposal back for revision. The comment is required.
   Future<bool> returnForRevision(String remarks) => _write(
-    (s, v) => s.returnForRevision(eventId, expectedVersion: v, remarks: remarks),
+    (s, v) => s.returnForRevision(_eventId!, expectedVersion: v, remarks: remarks),
   );
 
   Future<bool> evaluate({
@@ -410,7 +455,7 @@ class SapForm extends ChangeNotifier {
     required String remarks,
   }) => _write(
     (s, v) => s.evaluate(
-      eventId,
+      _eventId!,
       expectedVersion: v,
       outcome: outcome,
       remarks: remarks,
@@ -489,7 +534,7 @@ class SapForm extends ChangeNotifier {
   void adoptForTest({SapState? state, SapDetails? details}) {
     _proposal = SapProposal(
       id: 'test',
-      eventId: eventId,
+      eventId: _eventId ?? '',
       state: state ?? SapState.draft,
       version: 1,
       revisionNo: 0,

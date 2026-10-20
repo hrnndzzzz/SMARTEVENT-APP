@@ -38,6 +38,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
   late final _objectives = TextEditingController(text: _d.objectives ?? '');
   late final _emergency = TextEditingController(text: _d.emergencyPlan ?? '');
   late final _funding = TextEditingController(text: _d.fundingSource ?? '');
+  late final _budget = TextEditingController(text: _d.totalBudget ?? '');
   late final _schoolYear = TextEditingController(text: _d.schoolYear ?? '');
   late final _departmentType = TextEditingController(
     text: _d.departmentType ?? '',
@@ -61,6 +62,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
       _objectives,
       _emergency,
       _funding,
+      _budget,
       _schoolYear,
       _departmentType,
       _department,
@@ -87,6 +89,10 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         objectives: _objectives.text.trim(),
         emergencyPlan: _emergency.text.trim(),
         fundingSource: _funding.text.trim(),
+        // Kept as typed. The server compares this against the breakdown
+        // in Part 3 as an exact decimal, so rounding it through a double
+        // is how a 422 appears that nobody can account for.
+        totalBudget: _budget.text.trim().replaceAll(',', ''),
         schoolYear: _schoolYear.text.trim(),
         departmentType: _departmentType.text.trim(),
         department: _department.text.trim(),
@@ -492,6 +498,16 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 enabled: _editable,
                 maxLines: 6,
                 textCapitalization: TextCapitalization.sentences,
+              ),
+              const SizedBox(height: 14),
+              BrutTextField(
+                controller: _budget,
+                label: 'Budget',
+                hint: '2500.00',
+                enabled: _editable,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 14),
               BrutTextField(

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'sap/sap_proposer_flow_screen.dart';
+import '../state/sap_form.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_layout.dart';
@@ -64,8 +66,14 @@ class _EventsScreenState extends State<EventsScreen> {
                   size: BrutSize.small,
                   expand: false,
                   onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const CreateEventScreen(),
+                    MaterialPageRoute<void>(
+                      builder: (_) => SapProposerFlowScreen(
+                        form: SapForm(
+                          service: context.read<AppState>().isDemoMode
+                              ? null
+                              : context.read<AppState>().sapService,
+                        ),
+                      ),
                     ),
                   ),
                 ),
