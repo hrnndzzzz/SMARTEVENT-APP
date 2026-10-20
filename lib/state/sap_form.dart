@@ -42,7 +42,17 @@ class SapForm extends ChangeNotifier {
   // The lint wants `this._service`, which Dart does not allow as a named
   // parameter, private names being illegal there.
   // ignore: prefer_initializing_formals
-  SapForm({required this.eventId, SapService? service}) : _service = service;
+  SapForm({required this.eventId, SapService? service, this.seed})
+    : _service = service;
+
+  /// What the event was created with, carried into the form.
+  ///
+  /// The two forms ask for the same things — title, school year, scope,
+  /// date, budget — and typing them twice is the sort of thing that
+  /// makes people stop filling in the second one. Applied only to a
+  /// proposal with nothing in it yet, so it can never overwrite what
+  /// somebody has already written.
+  final SapDetails? seed;
 
   final String eventId;
   final SapService? _service;
@@ -100,6 +110,7 @@ class SapForm extends ChangeNotifier {
     final service = _service;
     if (service == null) {
       _localOnly = true;
+      _applySeed();
       notifyListeners();
       return;
     }
@@ -120,6 +131,7 @@ class SapForm extends ChangeNotifier {
         p = await service.create(eventId);
       }
       _adopt(p);
+      _applySeed();
       _localOnly = false;
     } on SapUnavailable {
       // The backend predates this slice. Keep whatever is typed.
@@ -130,6 +142,26 @@ class SapForm extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  /// Fills an empty form from what the event was created with. A title
+  /// already present means somebody has been here, and nothing is
+  /// touched.
+  void _applySeed() {
+    final from = seed;
+    if (from == null) return;
+    if ((_details.title ?? '').isNotEmpty) return;
+
+    _details = _details.copyWith(
+      title: from.title,
+      organizationName: from.organizationName,
+      schoolYear: from.schoolYear,
+      scope: from.scope,
+      activityDate: from.activityDate,
+      proposalDate: from.proposalDate,
+      totalBudget: from.totalBudget,
+      rationale: from.rationale,
+    );
   }
 
   void _adopt(SapProposal p) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import 'sap/sap_proposer_flow_screen.dart';
+import '../api/models/sap_proposal.dart';
 import '../state/sap_form.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
@@ -220,6 +221,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   // Nothing to talk to while exploring, and a form that
                   // keeps its own edits is the point there.
                   service: app.isDemoMode ? null : app.sapService,
+                  // Everything just typed, carried over. The two forms
+                  // overlap on half a dozen fields, and asking for them
+                  // again is how the second one goes unfilled.
+                  seed: SapDetails(
+                    title: title,
+                    organizationName: created?.org,
+                    schoolYear: _schoolYear,
+                    scope: _eventScope?.wireName,
+                    activityDate: _pickedDate,
+                    proposalDate: DateTime.now(),
+                    totalBudget: budgetValue.toStringAsFixed(2),
+                    rationale: _descriptionController.text.trim().isEmpty
+                        ? null
+                        : _descriptionController.text.trim(),
+                  ),
                 ),
               ),
             ),

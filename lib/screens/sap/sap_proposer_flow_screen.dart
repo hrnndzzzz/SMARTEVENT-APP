@@ -106,7 +106,13 @@ class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
         return BrutScreen(
           header: BrutFlowHeader(
             title: _steps[current].$1.title,
-            flowName: 'Proposal form',
+            // Named for where it sits in the whole job, not for the
+            // screen it happens to be. Creating the event and filling
+            // its form is one task, and calling the second half
+            // something else makes it look optional.
+            flowName: _form.seed == null
+                ? 'Proposal form'
+                : 'New event · proposal form',
             currentStep: current,
             onBack: () => Navigator.of(context).maybePop(),
             steps: [
@@ -152,6 +158,18 @@ class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
                       'This backend has no proposal-form routes yet, so '
                       'everything here stays on this phone until it does.',
                 ),
+              // Said once, at the top, on the way in from creating the
+              // event: the record exists, this is the rest of it.
+              if (_form.seed != null && _doneCount() == 0) ...[
+                const BrutInlineMessage(
+                  tone: BrutTone.mint,
+                  icon: Icons.check_circle_outline,
+                  text:
+                      'Event created. What you already typed is filled in '
+                      'below — the rest is what the SDS Office needs.',
+                ),
+                const SizedBox(height: AppLayout.tight),
+              ],
               if (_form.state == SapState.revisionRequested) ...[
                 BrutInlineMessage(
                   tone: BrutTone.coral,
