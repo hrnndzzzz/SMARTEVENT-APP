@@ -149,11 +149,12 @@ class EventProgressList extends StatelessWidget {
     // Three is enough to be useful; the events screen has the rest.
     final shown = live.take(3).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Foldable, because someone with nothing outstanding should be able
+    // to put it away and see the money underneath without scrolling.
+    return BrutFoldable(
+      title: 'Your events',
+      count: live.length,
       children: [
-        const BrutSectionTitle('Your events'),
-        const SizedBox(height: AppLayout.tight),
         for (var i = 0; i < shown.length; i++) ...[
           EventProgressBar(
             title: shown[i].title,

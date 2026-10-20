@@ -179,8 +179,14 @@ class _SignInScreenState extends State<SignInScreen> {
                   tone: BrutTone.brand,
                 ),
                 onTap: () {
+                  final navigator = Navigator.of(context);
                   Navigator.of(sheetContext).pop();
                   context.read<AppState>().enterDemo(role: role);
+                  // The gate that decides welcome-or-app is the route
+                  // under this one, so changing the state is not enough:
+                  // without this the app is there and buried under the
+                  // sign-in screen that is still on top of it.
+                  navigator.popUntil((route) => route.isFirst);
                 },
               ),
               const SizedBox(height: AppLayout.tight),

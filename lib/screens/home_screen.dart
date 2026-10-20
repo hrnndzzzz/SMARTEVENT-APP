@@ -71,7 +71,9 @@ class HomeScreen extends StatelessWidget {
           context,
         ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
-      bottomPadding: AppLayout.section,
+      // Clear of the record button, which floats over the bottom of this
+      // screen: the last card was sitting underneath it.
+      bottomPadding: canRecord ? 96 : AppLayout.section,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

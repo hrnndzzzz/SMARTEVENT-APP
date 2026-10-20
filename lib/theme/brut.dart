@@ -175,7 +175,7 @@ class _BrutSurfaceState extends State<BrutSurface> {
 
     Widget surface = AnimatedContainer(
       duration: duration,
-      curve: Curves.easeOut,
+      curve: AppMotion.pressed,
       width: widget.width,
       height: widget.height,
       padding: widget.padding,
@@ -875,10 +875,22 @@ class _BrutFoldableState extends State<BrutFoldable> {
             ),
           ),
         ),
-        if (_open) ...[
-          const SizedBox(height: AppLayout.between),
-          ...widget.children,
-        ],
+        AnimatedSize(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : AppMotion.accordion,
+          curve: AppMotion.inPlace,
+          alignment: Alignment.topCenter,
+          child: _open
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: AppLayout.between),
+                    ...widget.children,
+                  ],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
       ],
     );
   }
@@ -886,12 +898,13 @@ class _BrutFoldableState extends State<BrutFoldable> {
 
 /// The app's own spinner.
 ///
-/// A square with a 2px outline and a hard shadow, turning in steps
-/// rather than sweeping — the kit has no soft edges or easing anywhere
-/// else, and a smooth Material ring in the middle of it looked borrowed.
-/// Eight stops a second reads as deliberate rather than stuttering.
+/// A ring carrying the two accents — blue leading, orange following —
+/// turning in steps rather than sweeping. The kit has no easing in its
+/// loading states anywhere else, and a smooth Material ring in the
+/// middle of it looked borrowed. Twelve stops a second reads as
+/// deliberate rather than stuttering.
 ///
-/// Reduce motion stops the rotation and leaves the mark, because the
+/// Reduce motion stops the rotation and leaves the ring, because the
 /// point is "this is working", not the spinning.
 class BrutSpinner extends StatefulWidget {
   const BrutSpinner({
