@@ -6,6 +6,7 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import 'sap/sap_review_demo_screen.dart';
 import '../main.dart';
 import 'change_password_screen.dart';
 import 'forgot_password_screen.dart';
@@ -140,15 +141,38 @@ class _SignInScreenState extends State<SignInScreen> {
     BrutSheet.show<void>(
       context,
       builder: (sheetContext) => BrutSheet(
-        title: 'Sign in as a demo account',
-        subtitle: _demoPassword.isEmpty
-            ? 'No demo password in this build.'
-            : 'Signs in for real — same token, same data.',
+        title: 'Demo',
+        subtitle: 'Shortcuts that are not part of the app proper.',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_demoPassword.isEmpty)
+            // Safe in any build: it talks to nothing, signs nobody in,
+            // and holds its own data. Unlike the quick logins below it,
+            // which fake a session and belong in debug only.
+            BrutListRow(
+              title: 'Review a proposal',
+              meta: 'The form with a reviewer\'s marks on it',
+              marker: const BrutIconTile(
+                size: 32,
+                icon: Icons.edit_note,
+                tone: BrutTone.mint,
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SapReviewDemoScreen(),
+                  ),
+                );
+              },
+            ),
+            if (kDebugMode) ...[
+              const SizedBox(height: AppLayout.section),
+              const BrutSectionTitle('Sign in as'),
+              const SizedBox(height: AppLayout.tight),
+            ],
+            if (kDebugMode && _demoPassword.isEmpty)
               const BrutInlineMessage(
                 text:
                     'Rebuild with '
@@ -156,7 +180,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     'The password is kept out of the repository on purpose.',
                 icon: Icons.key_off_outlined,
               )
-            else
+            else if (kDebugMode)
               for (final (email, label, icon) in _demoAccounts) ...[
                 BrutListRow(
                   title: label,
@@ -189,15 +213,14 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               const SizedBox(height: 20),
               GestureDetector(
-                // Debug builds only. The shortcut fills in a role without
-                // asking the backend for anything, so the app comes up
+                // The hold opens in every build; what it offers does not.
+                // The review demo talks to nothing and signs nobody in,
+                // so it is safe anywhere. The quick logins fill in a role
+                // without asking the backend, which leaves the app
                 // looking signed in while holding no token and every call
-                // it makes comes back 401. That is a useful thing to have
-                // while building a screen and a terrible thing to hand to
-                // someone holding a phone in front of a panel.
-                onLongPress: kDebugMode
-                    ? () => _showQuickLoginSheet(context)
-                    : null,
+                // coming back 401 — useful while building a screen,
+                // terrible in front of a panel. Those stay in debug.
+                onLongPress: () => _showQuickLoginSheet(context),
                 child: const Text('Welcome back', style: AppText.display),
               ),
               const SizedBox(height: 6),
