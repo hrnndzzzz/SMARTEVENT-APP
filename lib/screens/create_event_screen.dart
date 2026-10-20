@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import 'sap/sap_proposer_flow_screen.dart';
+import '../state/sap_form.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -196,10 +198,33 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       setState(() => _submitting = false);
 
       if (error == null) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$title submitted for review.')));
+        // Creating the event is half the job: what the university wants
+        // is the filled SAS-SDS-FO-020, and asking someone to find their
+        // way back to it afterwards is how it stays unfilled. The new
+        // event is inserted at the front of the list.
+        final created = app.events.isNotEmpty ? app.events.first : null;
+        final navigator = Navigator.of(context);
+        final messenger = ScaffoldMessenger.of(context);
+
+        navigator.pop();
+        messenger.showSnackBar(
+          SnackBar(content: Text('$title created. Now the proposal form.')),
+        );
+
+        if (created?.remoteId case final eventId?) {
+          navigator.push(
+            MaterialPageRoute<void>(
+              builder: (_) => SapProposerFlowScreen(
+                form: SapForm(
+                  eventId: eventId,
+                  // Nothing to talk to while exploring, and a form that
+                  // keeps its own edits is the point there.
+                  service: app.isDemoMode ? null : app.sapService,
+                ),
+              ),
+            ),
+          );
+        }
       } else {
         ScaffoldMessenger.of(
           context,
