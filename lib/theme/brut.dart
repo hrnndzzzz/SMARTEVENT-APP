@@ -883,8 +883,9 @@ class BrutSpinner extends StatefulWidget {
   final double size;
   final BrutTone tone;
 
-  /// Overrides the tone, for a spinner sitting on a coloured fill that
-  /// already decided what its ink is — a busy button, say.
+  /// Overrides both arcs with one colour, for a spinner sitting on a
+  /// coloured fill that has already decided what its ink is — a busy
+  /// button, say, where two accents would fight the button under them.
   final Color? color;
 
   @override
@@ -893,11 +894,13 @@ class BrutSpinner extends StatefulWidget {
 
 class _BrutSpinnerState extends State<BrutSpinner>
     with SingleTickerProviderStateMixin {
-  static const _stops = 8;
+  /// The ring lands on each twelfth rather than sliding between them,
+  /// which keeps the mechanical tick the rest of the kit has.
+  static const _stops = 12;
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(seconds: 1),
+    duration: const Duration(milliseconds: 1100),
   )..repeat();
 
   @override
@@ -908,43 +911,111 @@ class _BrutSpinnerState extends State<BrutSpinner>
 
   @override
   Widget build(BuildContext context) {
-    final fill = widget.color ?? widget.tone.fill(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final still =
         MediaQuery.disableAnimationsOf(context) ||
         context.watch<AppSettings>().reduceMotion;
 
-    // A small one lives inside a button or beside a heading, where a
-    // shadow and a 2px rule would outweigh what they sit next to.
-    final small = widget.size < 22;
-    final mark = Container(
-      width: widget.size,
-      height: widget.size,
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: small ? BorderRadius.circular(3) : AppRadius.controlAll,
-        border: small
-            ? Border.all(color: context.palette.ink, width: 1)
-            : Border.fromBorderSide(context.side),
-        boxShadow: small ? const [] : context.shadows(AppShadows.sm),
-      ),
-    );
+    // The app's two accents, chasing each other: blue leads, orange
+    // follows. Which is also how the areas are coloured, so a spinner
+    // looks like it belongs to this app rather than to Material.
+    final one = widget.color ?? (dark ? AppColors.brandDark : AppColors.brand);
+    final two =
+        widget.color ?? (dark ? AppColors.orangeDark : AppColors.orange);
 
-    if (still) return Semantics(label: 'Loading', child: mark);
+    final painter = _SpinnerPainter(
+      first: one,
+      second: two,
+      track: context.palette.line,
+      outline: context.palette.ink,
+      // Thin rings look weedy next to 2px rules; a small one drops the
+      // outline instead of shrinking the stroke to nothing.
+      stroke: widget.size < 22 ? 3.0 : 5.0,
+      outlined: widget.size >= 22,
+    );
 
     return Semantics(
       label: 'Loading',
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          // Quantised: the square lands on each eighth rather than
-          // sliding between them.
-          final step = (_controller.value * _stops).floor() / _stops;
-          return Transform.rotate(angle: step * 2 * math.pi, child: child);
-        },
-        child: mark,
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: still
+            ? CustomPaint(painter: painter)
+            : AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  final step = (_controller.value * _stops).floor() / _stops;
+                  return Transform.rotate(
+                    angle: step * 2 * math.pi,
+                    child: CustomPaint(painter: painter),
+                  );
+                },
+              ),
       ),
     );
   }
+}
+
+class _SpinnerPainter extends CustomPainter {
+  const _SpinnerPainter({
+    required this.first,
+    required this.second,
+    required this.track,
+    required this.outline,
+    required this.stroke,
+    required this.outlined,
+  });
+
+  final Color first;
+  final Color second;
+  final Color track;
+  final Color outline;
+  final double stroke;
+  final bool outlined;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = outlined ? stroke / 2 + 1 : stroke / 2;
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - inset * 2,
+      size.height - inset * 2,
+    );
+
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.butt;
+
+    // The whole ring first, so the gap between the arcs reads as part of
+    // the shape rather than as nothing.
+    canvas.drawArc(rect, 0, 2 * math.pi, false, ring..color = track);
+
+    const sweep = math.pi * 0.62;
+    canvas.drawArc(rect, -math.pi / 2, sweep, false, ring..color = first);
+    canvas.drawArc(rect, math.pi / 2, sweep, false, ring..color = second);
+
+    if (!outlined) return;
+
+    // The kit's outline, inside and out, so the ring reads as drawn
+    // rather than as a glow.
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = outline;
+    canvas.drawCircle(rect.center, rect.width / 2 + stroke / 2, edge);
+    canvas.drawCircle(rect.center, rect.width / 2 - stroke / 2, edge);
+  }
+
+  @override
+  bool shouldRepaint(_SpinnerPainter old) =>
+      old.first != first ||
+      old.second != second ||
+      old.track != track ||
+      old.outline != outline ||
+      old.stroke != stroke ||
+      old.outlined != outlined;
 }
 
 class BrutSectionTitle extends StatelessWidget {

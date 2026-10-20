@@ -8,15 +8,18 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 
-/// Press and hold the bell to see what the number counts.
+/// Tap the bell to see what the number counts.
+///
+/// A small window over the page rather than a screen of its own: an
+/// inbox you have to navigate into, and back out of, is a lot of
+/// ceremony for four lines of text you mostly want to dismiss.
 ///
 /// The rule this is built around: **the number on the badge is the length
-/// of the list in the peek.** If they can disagree the peek is worse than
-/// nothing, so when the inbox has not been loaded yet the peek says so
+/// of the list in the window.** If they can disagree the window is worse
+/// than nothing, so when the inbox has not been loaded yet it says so
 /// rather than showing a shorter list than the badge promised.
 ///
-/// Keep holding and slide onto a row to mark it read; let go anywhere else
-/// to close. A normal tap still opens the inbox.
+/// Tap a row to mark it read. Tap anywhere else to close.
 class NotificationPeek extends StatefulWidget {
   const NotificationPeek({super.key, required this.child, required this.onTap});
 
@@ -47,14 +50,28 @@ class _NotificationPeekState extends State<NotificationPeek> {
   List<AppNotice> _unreadOf(AppState app) =>
       app.notices.where((n) => n.isUnread).toList();
 
+  void _toggle() {
+    if (_entry != null) {
+      _close();
+      return;
+    }
+    _open();
+  }
+
   void _open() {
     final app = context.read<AppState>();
-    if (app.unreadNoticeCount == 0) return;
-
     _rows = _unreadOf(app);
     // The badge counts what the server says; the list is what this device
     // has fetched. Fetch rather than show fewer than the badge promised.
     if (_rows.length != app.unreadNoticeCount) app.loadNotices();
+    // Nothing to show and nothing on the way: say so rather than opening
+    // an empty card that looks like a failure.
+    if (app.unreadNoticeCount == 0 && _rows.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nothing new.')),
+      );
+      return;
+    }
 
     _rowKeys
       ..clear()
@@ -76,40 +93,17 @@ class _NotificationPeekState extends State<NotificationPeek> {
         rowKeys: _rowKeys,
         highlighted: _highlighted,
         total: app.unreadNoticeCount,
+        onDismiss: _close,
+        onChoose: _choose,
       ),
     );
     overlay.insert(_entry!);
   }
 
-  void _moveTo(Offset globalPosition) {
-    if (_entry == null) return;
-
-    int? found;
-    for (var i = 0; i < _rowKeys.length; i++) {
-      final box = _rowKeys[i].currentContext?.findRenderObject() as RenderBox?;
-      if (box == null) continue;
-      final rect = box.localToGlobal(Offset.zero) & box.size;
-      if (rect.contains(globalPosition)) {
-        found = i;
-        break;
-      }
-    }
-
-    if (found != _highlighted) {
-      _highlighted = found;
-      if (found != null) HapticFeedback.selectionClick();
-      _entry!.markNeedsBuild();
-    }
-  }
-
-  Future<void> _release() async {
-    final chosen = _highlighted;
-    final notice = chosen == null || chosen >= _rows.length
-        ? null
-        : _rows[chosen];
+  Future<void> _choose(int index) async {
+    if (index < 0 || index >= _rows.length) return;
+    final notice = _rows[index];
     _close();
-
-    if (notice == null) return;
 
     final messenger = ScaffoldMessenger.of(context);
     final error = await context.read<AppState>().markNoticeRead(notice);
@@ -129,11 +123,7 @@ class _NotificationPeekState extends State<NotificationPeek> {
     return GestureDetector(
       key: _anchor,
       behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap,
-      onLongPressStart: (_) => _open(),
-      onLongPressMoveUpdate: (d) => _moveTo(d.globalPosition),
-      onLongPressEnd: (_) => _release(),
-      onLongPressCancel: _close,
+      onTap: _toggle,
       child: widget.child,
     );
   }
@@ -147,6 +137,8 @@ class _PeekLayer extends StatelessWidget {
     required this.rowKeys,
     required this.highlighted,
     required this.total,
+    required this.onDismiss,
+    required this.onChoose,
   });
 
   final Rect anchor;
@@ -154,6 +146,8 @@ class _PeekLayer extends StatelessWidget {
   final List<GlobalKey> rowKeys;
   final int? highlighted;
   final int total;
+  final VoidCallback onDismiss;
+  final ValueChanged<int> onChoose;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +166,9 @@ class _PeekLayer extends StatelessWidget {
     return Stack(
       children: [
         Positioned.fill(
-          child: IgnorePointer(
+          child: GestureDetector(
+            onTap: onDismiss,
+            behavior: HitTestBehavior.opaque,
             child: BackdropFilter(
               filter: reduceMotion
                   ? ImageFilter.blur()
@@ -188,8 +184,7 @@ class _PeekLayer extends StatelessWidget {
           left: left,
           top: top,
           width: cardWidth,
-          child: IgnorePointer(
-            child: BrutCard(
+          child: BrutCard(
               shadow: AppShadows.lg,
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -202,8 +197,11 @@ class _PeekLayer extends StatelessWidget {
                     const Text('Loading…', style: AppText.caption)
                   else ...[
                     for (var i = 0; i < rows.length; i++) ...[
-                      Container(
+                      GestureDetector(
                         key: rowKeys[i],
+                        onTap: () => onChoose(i),
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 8,
@@ -237,18 +235,16 @@ class _PeekLayer extends StatelessWidget {
                             ),
                           ],
                         ),
+                        ),
                       ),
                       if (i != rows.length - 1) const SizedBox(height: 4),
                     ],
                     const SizedBox(height: 10),
-                    const MonoLabel(
-                      'Slide onto one and let go to mark it read',
-                    ),
+                    const MonoLabel('Tap one to mark it read'),
                   ],
                 ],
               ),
             ),
-          ),
         ),
       ],
     );

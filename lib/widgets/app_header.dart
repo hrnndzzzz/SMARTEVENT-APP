@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../state/app_settings.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -132,54 +135,145 @@ class _Avatar extends StatelessWidget {
 /// than from counting a loaded list, so it is right even before the inbox
 /// has been opened. No badge at all when the count is zero — a "0" is
 /// noise.
-class _BellWithBadge extends StatelessWidget {
+///
+/// When something is unread the bell asks for attention on a cycle: it
+/// fades to the number, shakes, and fades back. Once every eight seconds
+/// rather than continuously, because a thing that moves forever stops
+/// being noticed and starts being irritating.
+class _BellWithBadge extends StatefulWidget {
   const _BellWithBadge({required this.onTap});
 
   final VoidCallback? onTap;
 
   @override
+  State<_BellWithBadge> createState() => _BellWithBadgeState();
+}
+
+class _BellWithBadgeState extends State<_BellWithBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 8),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// How far through one swell we are, 0 to 1, and 0 for most of the
+  /// cycle. The bell is still for about six of the eight seconds.
+  static double _phase(double t) {
+    const share = 0.26;
+    return t < share ? t / share : 0.0;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final count = context.watch<AppState>().unreadNoticeCount;
+    // Reduce-motion is a preference, not a requirement: a host without
+    // the settings provider — a widget test, mostly — should still get a
+    // working bell rather than an exception.
+    var reduceMotion = false;
+    try {
+      reduceMotion = context.watch<AppSettings>().reduceMotion;
+    } on ProviderNotFoundException {
+      reduceMotion = false;
+    }
+    final still = MediaQuery.disableAnimationsOf(context) || reduceMotion;
+
+    final bell = NotificationPeek(
+      onTap: widget.onTap,
+      child: BrutIconButton(
+        icon: Icons.notifications_none,
+        label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
+        onPressed: widget.onTap,
+        size: 38,
+      ),
+    );
+
+    if (count == 0) return bell;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // A tap opens the inbox; a hold shows what the number counts.
-        NotificationPeek(
-          onTap: onTap,
-          child: BrutIconButton(
-            icon: Icons.notifications_none,
-            label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
-            onPressed: onTap,
-            size: 38,
+        if (still)
+          bell
+        else
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final p = _phase(_controller.value);
+              // Three shakes across the swell, fading in and out at the
+              // ends so it never starts or stops with a jolt.
+              final envelope = p == 0 ? 0.0 : math.sin(p * math.pi);
+              final angle =
+                  math.sin(p * math.pi * 6) * 0.14 * envelope;
+              return Transform.rotate(angle: angle, child: child);
+            },
+            child: bell,
           ),
-        ),
-        if (count > 0)
-          Positioned(
-            right: -5,
-            top: -5,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              constraints: const BoxConstraints(minWidth: 18),
-              decoration: BoxDecoration(
-                color: AppColors.coral,
-                borderRadius: AppRadius.pill,
-                border: context.borderAll,
-              ),
-              child: Text(
-                // Past 99 the exact number stops being useful and starts
-                // breaking the layout.
-                count > 99 ? '99+' : '$count',
-                textAlign: TextAlign.center,
-                style: AppText.monoLabel.copyWith(
-                  fontSize: 9,
-                  color: context.palette.ink,
-                  letterSpacing: 0,
+        Positioned(
+          right: -5,
+          top: -5,
+          child: still
+              ? _Badge(count: count, swell: 0)
+              : AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    final p = _phase(_controller.value);
+                    return _Badge(
+                      count: count,
+                      swell: p == 0 ? 0 : math.sin(p * math.pi),
+                    );
+                  },
                 ),
-              ),
-            ),
-          ),
+        ),
       ],
     );
   }
 }
+
+/// The count. [swell] runs 0 to 1 and back across one attention cycle,
+/// growing the badge and deepening its red at the peak.
+class _Badge extends StatelessWidget {
+  const _Badge({required this.count, required this.swell});
+
+  final int count;
+  final double swell;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.scale(
+      scale: 1 + swell * 0.28,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        constraints: const BoxConstraints(minWidth: 18),
+        decoration: BoxDecoration(
+          color: Color.lerp(AppColors.coral, AppColors.alert, swell),
+          borderRadius: AppRadius.pill,
+          border: context.borderAll,
+        ),
+        child: Text(
+          // Past 99 the exact number stops being useful and starts
+          // breaking the layout.
+          count > 99 ? '99+' : '$count',
+          textAlign: TextAlign.center,
+          style: AppText.monoLabel.copyWith(
+            fontSize: 9,
+            color: context.palette.ink,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
