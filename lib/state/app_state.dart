@@ -458,6 +458,11 @@ class AppState extends ChangeNotifier {
   ///    more useful than blaming the user's connection, which is what the
   ///    old blanket `catch (_)` did.
   String _messageForFailure(Object error) {
+    // Said plainly, rather than as a network failure, because nothing
+    // failed: there is no server here and that is the point.
+    if (error is DemoUnavailable) {
+      return 'This is a demo, so nothing is sent to a server.';
+    }
     if (error is ApiException) return error.message;
     if (error is NetworkException) return error.message;
     return 'Unexpected problem handling the server response: $error';
@@ -528,6 +533,18 @@ class AppState extends ChangeNotifier {
 
   Future<String?> markNoticeRead(AppNotice notice) async {
     if (!notice.isUnread) return null;
+
+    // Exploring: mark it here, because there is nobody to tell.
+    if (_demoMode) {
+      notices = [
+        for (final n in notices)
+          if (n.id == notice.id) n.markedRead() else n,
+      ];
+      unreadNoticeCount = notices.where((n) => n.isUnread).length;
+      notifyListeners();
+      return null;
+    }
+
     try {
       final updated = await _noticeService.markRead(notice.id);
       notices = [
@@ -1982,6 +1999,34 @@ class AppState extends ChangeNotifier {
     String? departmentId,
     String? organizationId,
   }) async {
+    // Exploring: make the event here. Creating one is the single most
+    // worthwhile thing to show, and a demo that cannot do it because
+    // there is no server is not demonstrating the app.
+    if (_demoMode) {
+      events.insert(
+        0,
+        EventItem(
+          remoteId: 'demo-ev-${DateTime.now().microsecondsSinceEpoch}',
+          title: title,
+          org: 'ACPES',
+          date: eventDate == null
+              ? 'No date'
+              : '${eventDate.day}/${eventDate.month}/${eventDate.year}',
+          on: eventDate,
+          budget: estimatedCost.toStringAsFixed(2),
+          status: submitNow
+              ? EventApprovalStatus.pendingAdviser
+              : EventApprovalStatus.draft,
+          schoolYear: schoolYear,
+          semester: semester,
+          eventScope: eventScope,
+          proposedBy: currentAccount?.id,
+        ),
+      );
+      notifyListeners();
+      return null;
+    }
+
     try {
       final created = await _eventService.create(
         categoryId: categoryId,
@@ -2322,6 +2367,9 @@ class AppState extends ChangeNotifier {
   /// Signs in to the seeded data as [role]. Nothing leaves the device.
   void enterDemo({UserRole role = UserRole.treasurer}) {
     _demoMode = true;
+    // Belt as well as braces: the paths below fill the app without a
+    // request, and the client refuses anything that asks anyway.
+    _apiClient.demoMode = true;
     currentAccount = DemoData.account(role);
     currentRole = role;
     _passwordSetupRequired = false;
@@ -2575,6 +2623,7 @@ class AppState extends ChangeNotifier {
   /// cleared once those modules are actually wired.
   Future<void> signOut() async {
     _demoMode = false;
+    _apiClient.demoMode = false;
     currentAccount = null;
     currentRole = null;
     _passwordSetupRequired = false;
