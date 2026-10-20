@@ -1227,7 +1227,11 @@ class AppState extends ChangeNotifier {
     List<String> signatoryIds,
   ) => _complianceService.setRouting(eventId, signatoryIds);
 
+  /// Readiness, or nothing to say while exploring. The notice that
+  /// shows this is already silent when the route is missing, so a demo
+  /// that cannot ask simply says nothing rather than going red.
   Future<EventReadiness> eventReadiness(String eventId) =>
+      _demoMode ? Future.error(const FeatureUnavailable()) :
       _complianceService.readiness(eventId);
 
   /// Turns a stored file reference into something an image can load.
@@ -1608,6 +1612,10 @@ class AppState extends ChangeNotifier {
   Future<({List<ApprovalRecord>? records, String? error})> loadApprovals(
     EventItem event,
   ) async {
+    // Exploring has no server to ask. This one is called straight from
+    // the card rather than through _runLoad, so it needs saying twice.
+    if (_demoMode) return (records: const <ApprovalRecord>[], error: null);
+
     final remoteId = event.remoteId;
     if (remoteId == null) {
       return (records: null, error: 'This event has no backend record yet.');
