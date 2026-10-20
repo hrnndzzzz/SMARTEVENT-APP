@@ -100,48 +100,36 @@ class _CreateBand extends StatelessWidget {
   final bool canPropose;
   final EventItem? latest;
 
-  /// Null means nothing has been proposed yet, which is its own state —
-  /// not a pending one, and not a finished one.
-  (BrutTone, String, String) get _state {
+  /// What the band says. Null means nothing has been proposed yet,
+  /// which is its own state — not a pending one, and not a finished one.
+  ///
+  /// The colour is deliberately not part of this. This band is the
+  /// create button, and a button that turns yellow, red or green
+  /// depending on something that happened to a different event is a
+  /// button nobody can learn. The status still shows, in words, where
+  /// changing text costs nothing.
+  (String, String) get _state {
     final event = latest;
     if (event == null) {
       return (
-        BrutTone.brand,
         'Nothing proposed yet',
         canPropose ? 'Tap, or swipe up, to write the first one' : '',
       );
     }
     return switch (event.status) {
-      // Blue, like the empty state above it. A draft is not waiting on
-      // anybody, so it has no status colour to wear — and this band is
-      // the create button, which should look like one.
-      EventApprovalStatus.draft => (
-        BrutTone.brand,
-        'Draft — not submitted',
-        event.title,
-      ),
-      EventApprovalStatus.pendingAdviser => (
-        BrutTone.sun,
-        'With the adviser',
-        event.title,
-      ),
-      EventApprovalStatus.pendingAdmin => (
-        BrutTone.sun,
-        'With the admin',
-        event.title,
-      ),
+      EventApprovalStatus.draft => ('Draft — not submitted', event.title),
+      EventApprovalStatus.pendingAdviser => ('With the adviser', event.title),
+      EventApprovalStatus.pendingAdmin => ('With the admin', event.title),
       EventApprovalStatus.pendingInstitutional => (
-        BrutTone.sun,
         'With the signatories',
         event.title,
       ),
       EventApprovalStatus.rejected => (
-        BrutTone.coral,
         'Came back — needs changes',
         event.title,
       ),
       EventApprovalStatus.approved ||
-      EventApprovalStatus.completed => (BrutTone.mint, 'Approved', event.title),
+      EventApprovalStatus.completed => ('Approved', event.title),
     };
   }
 
@@ -154,8 +142,8 @@ class _CreateBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (tone, headline, detail) = _state;
-    final fill = tone.fill(context);
+    final (headline, detail) = _state;
+    final fill = BrutTone.brand.fill(context);
     final on = context.foregroundOn(fill);
 
     return GestureDetector(
