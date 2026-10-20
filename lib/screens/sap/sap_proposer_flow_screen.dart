@@ -5,6 +5,7 @@ import '../../state/sap_form.dart';
 import '../../theme/app_layout.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import 'proposal_steps.dart';
 import 'sap_part1_screen.dart';
 import 'sap_part2_screen.dart';
 import 'sap_part3_screen.dart';
@@ -113,12 +114,17 @@ class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
             flowName: _form.seed == null
                 ? 'Proposal form'
                 : 'New event · proposal form',
-            currentStep: current,
+            // The same five the create screen shows. The first two are
+            // done as soon as the event exists, which it does by the
+            // time anyone is standing here.
+            currentStep: ProposalSteps.forPart(current),
             onBack: () => Navigator.of(context).maybePop(),
             steps: [
+              BrutStep(label: ProposalSteps.labels[ProposalSteps.budget]),
+              BrutStep(label: ProposalSteps.labels[ProposalSteps.event]),
               for (var i = 0; i < _steps.length; i++)
                 BrutStep(
-                  label: _steps[i].$2,
+                  label: ProposalSteps.labels[ProposalSteps.forPart(i)],
                   // A step is reachable once the one before it has been
                   // started; jumping to the breakdown before there is an
                   // activity to budget for helps nobody.

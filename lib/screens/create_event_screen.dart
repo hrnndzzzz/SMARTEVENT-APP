@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import 'sap/sap_proposer_flow_screen.dart';
 import '../api/models/sap_proposal.dart';
 import '../state/sap_form.dart';
+import 'sap/proposal_steps.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -294,12 +295,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         flowName: _isEditing ? 'Revise proposal' : 'New proposal',
         title: _step == 0 ? 'How much?' : 'The details',
         currentStep: _step,
+        // All five, because this is the first half of one job rather
+        // than a flow of its own. The three after this screen belong to
+        // the form it hands over to.
         steps: [
           BrutStep(
-            label: 'Budget',
+            label: ProposalSteps.labels[ProposalSteps.budget],
             onJump: _step == 1 ? () => setState(() => _step = 0) : null,
           ),
-          const BrutStep(label: 'Details'),
+          BrutStep(label: ProposalSteps.labels[ProposalSteps.event]),
+          for (var i = ProposalSteps.firstPart;
+              i < ProposalSteps.count;
+              i++)
+            BrutStep(label: ProposalSteps.labels[i]),
         ],
         onBack: () => _step == 0
             ? Navigator.of(context).maybePop()

@@ -56,6 +56,25 @@ void main() {
     );
   });
 
+  testWidgets('bar', (tester) async {
+    // Five labels at phone width is the thing worth looking at: they
+    // either fit or they do not.
+    await tester.binding.setSurfaceSize(const Size(390, 420));
+    final form = SapForm(eventId: 'e1');
+    form.updateDetails((d) => d.copyWith(title: 'Hack the Future'));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: SapProposerFlowScreen(form: form),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('sap-preview/proposal-bar.png'),
+    );
+  });
+
   testWidgets('waiting', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 620));
     final form = SapForm(eventId: 'e1')
