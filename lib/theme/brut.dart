@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_settings.dart';
+import '../state/sfx.dart';
 import 'app_colors.dart';
 import 'app_layout.dart';
 import 'app_theme.dart';
@@ -127,6 +128,19 @@ class BrutSurface extends StatefulWidget {
   State<BrutSurface> createState() => _BrutSurfaceState();
 }
 
+/// The tap sound, for anything pressable.
+///
+/// Every control in the kit is a BrutSurface underneath, so this is the
+/// one place it has to be wired. A host with no player — a widget test —
+/// simply gets silence.
+void _sound(BuildContext context) {
+  try {
+    context.read<SfxPlayer>().play(Sfx.tap);
+  } on ProviderNotFoundException {
+    // Nothing to play through, which is not a reason to refuse the tap.
+  }
+}
+
 class _BrutSurfaceState extends State<BrutSurface> {
   bool _down = false;
 
@@ -187,7 +201,14 @@ class _BrutSurfaceState extends State<BrutSurface> {
     if (_interactive) {
       surface = GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTap: widget.onTap == null
+            ? null
+            : () {
+                // On the press itself rather than on the release, so it
+                // lands with the shadow rather than after it.
+                _sound(context);
+                widget.onTap!();
+              },
         onLongPress: widget.onLongPress,
         onTapDown: (_) => setState(() => _down = true),
         onTapUp: (_) => setState(() => _down = false),

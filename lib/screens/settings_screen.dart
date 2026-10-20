@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_settings.dart';
+import '../state/sfx.dart';
 import '../widgets/backend_address_card.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -46,6 +47,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 10),
           const _ThemePicker(),
           const SizedBox(height: 18),
+          _SwitchTile(
+            label: 'Sound and vibration',
+            subtitle:
+                'A short sound and a tap when something registers, is '
+                'accepted, or is refused. Your phone\'s silent switch '
+                'still wins.',
+            value: context.watch<SfxPlayer>().enabled,
+            onChanged: context.read<SfxPlayer>().setEnabled,
+          ),
+          const SizedBox(height: 10),
           _SwitchTile(
             label: 'Reduce motion',
             subtitle:
