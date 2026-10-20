@@ -9,7 +9,6 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import '../widgets/app_header.dart';
-import 'notifications_screen.dart';
 
 /// Why an event cannot be approved yet, and the two things you can do
 /// about it from here.
@@ -107,9 +106,6 @@ class _EventReadinessScreenState extends State<EventReadinessScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

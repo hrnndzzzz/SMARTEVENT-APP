@@ -6,7 +6,6 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'notifications_screen.dart';
 
 /// Where an institutional signatory lands.
 ///
@@ -28,9 +27,6 @@ class SignatoryScreen extends StatelessWidget {
 
     return BrutScreen(
       topBar: AppHeader(
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

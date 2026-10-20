@@ -9,7 +9,6 @@ import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import 'categories_screen.dart';
 import 'expenses_screen.dart';
-import 'notifications_screen.dart';
 import 'income_screen.dart';
 import 'receipts_screen.dart';
 import 'scanner_screen.dart';
@@ -33,9 +32,6 @@ class MoneyScreen extends StatelessWidget {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

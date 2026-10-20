@@ -11,7 +11,7 @@ import '../theme/brut.dart';
 import 'account_menu.dart';
 import 'user_avatar.dart';
 import 'connection_banner.dart';
-import 'notification_peek.dart';
+import 'notification_menu.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
 /// in as, the bell, and the avatar.
@@ -25,7 +25,6 @@ class AppHeader extends StatelessWidget {
   /// The dashboard says who you are under the greeting, where there is
   /// room for it, and the account menu says it in full.
   final String? subtitle;
-  final VoidCallback? onBellTap;
 
   /// Overrides what the avatar does. It opens the account menu by
   /// default, which is what every screen wanted.
@@ -39,7 +38,6 @@ class AppHeader extends StatelessWidget {
   const AppHeader({
     super.key,
     this.subtitle,
-    this.onBellTap,
     this.onAvatarTap,
     this.onBack,
   });
@@ -87,7 +85,7 @@ class AppHeader extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        _BellWithBadge(onTap: onBellTap),
+        const _BellWithBadge(),
         const SizedBox(width: 8),
         _Avatar(
           name: app.currentAccount?.name ?? 'Guest',
@@ -141,9 +139,7 @@ class _Avatar extends StatelessWidget {
 /// rather than continuously, because a thing that moves forever stops
 /// being noticed and starts being irritating.
 class _BellWithBadge extends StatefulWidget {
-  const _BellWithBadge({required this.onTap});
-
-  final VoidCallback? onTap;
+  const _BellWithBadge();
 
   @override
   State<_BellWithBadge> createState() => _BellWithBadgeState();
@@ -189,14 +185,15 @@ class _BellWithBadgeState extends State<_BellWithBadge>
     }
     final still = MediaQuery.disableAnimationsOf(context) || reduceMotion;
 
-    final bell = NotificationPeek(
-      onTap: widget.onTap,
-      child: BrutIconButton(
-        icon: Icons.notifications_none,
-        label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
-        onPressed: widget.onTap,
-        size: 38,
-      ),
+    // One handler, on the button itself. The previous arrangement had a
+    // gesture wrapper outside and an onPressed inside, and the inner one
+    // won every tap — which is why this still opened a screen after it
+    // was supposed to open a window.
+    final bell = BrutIconButton(
+      icon: Icons.notifications_none,
+      label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
+      onPressed: () => NotificationMenu.show(context),
+      size: 38,
     );
 
     if (count == 0) return bell;

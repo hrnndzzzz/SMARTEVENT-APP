@@ -9,7 +9,6 @@ import 'analytics_sheet.dart';
 import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
-import 'notifications_screen.dart';
 import '../theme/peso.dart';
 
 /// Consolidated financial reports.
@@ -106,9 +105,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,

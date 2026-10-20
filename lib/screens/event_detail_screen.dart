@@ -215,12 +215,19 @@ class EventDetailScreen extends StatelessWidget {
                   tone: BrutTone.neutral,
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => SapFormScreen(
-                        form: SapForm(
+                      // The SDS Office works all six parts. Everyone else
+                      // only ever fills the first three, and a six-part
+                      // list hands them three they cannot touch.
+                      builder: (_) {
+                        final app = context.read<AppState>();
+                        final form = SapForm(
                           eventId: eventId,
-                          service: context.read<AppState>().sapService,
-                        ),
-                      ),
+                          service: app.isDemoMode ? null : app.sapService,
+                        );
+                        return role == UserRole.sdsStaff
+                            ? SapFormScreen(form: form)
+                            : SapProposerFlowScreen(form: form);
+                      },
                     ),
                   ),
                 ),

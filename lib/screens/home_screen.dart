@@ -12,7 +12,6 @@ import '../widgets/event_progress_bar.dart';
 import 'event_detail_screen.dart';
 import 'events_screen.dart';
 import 'expenses_screen.dart';
-import 'notifications_screen.dart';
 import 'scanner_screen.dart';
 import '../theme/peso.dart';
 
@@ -67,9 +66,6 @@ class HomeScreen extends StatelessWidget {
       floatingActionButton: canRecord ? const _RecordButton() : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       topBar: AppHeader(
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       // Clear of the record button, which floats over the bottom of this
       // screen: the last card was sitting underneath it.

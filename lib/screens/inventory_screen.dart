@@ -6,7 +6,6 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'inventory_detail_screen.dart';
-import 'notifications_screen.dart';
 
 /// The equipment catalog and its stock.
 ///
@@ -49,9 +48,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           : null,
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,

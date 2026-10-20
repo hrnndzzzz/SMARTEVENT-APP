@@ -8,7 +8,6 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_calendar.dart';
 import '../widgets/event_status.dart';
-import 'notifications_screen.dart';
 import 'create_event_screen.dart';
 import 'event_detail_screen.dart';
 
@@ -41,9 +40,6 @@ class _EventsScreenState extends State<EventsScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,

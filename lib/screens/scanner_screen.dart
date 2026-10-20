@@ -11,7 +11,6 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import 'capture_screen.dart';
-import 'notifications_screen.dart';
 import '../theme/peso.dart';
 
 /// Capture a receipt, read it, correct it, then save it.
@@ -349,9 +348,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       bottomPadding: 96,
       child: Column(
