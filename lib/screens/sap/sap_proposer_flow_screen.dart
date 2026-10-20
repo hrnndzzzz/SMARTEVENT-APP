@@ -37,7 +37,40 @@ class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
   @override
   void initState() {
     super.initState();
-    _form.load();
+    _form.load().then((_) {
+      if (mounted) _fillFromAccount();
+    });
+  }
+
+  /// Puts the account's own organization and department on the form.
+  ///
+  /// Which organization an event belongs to is a fact about the account,
+  /// not a choice to be made per event: a JPSSITE officer proposes for
+  /// JPSSITE. So it is filled in rather than asked for, and left
+  /// editable only because the name cannot always be resolved.
+  ///
+  /// Only Admin and Super Admin may list organizations, so for everyone
+  /// else the name is blank and has to be typed. That is a gap in
+  /// `/auth/me`, which returns ids without names.
+  void _fillFromAccount() {
+    final app = context.read<AppState>();
+    final account = app.currentAccount;
+    if (account == null) return;
+    if ((_form.details.organizationName ?? '').isNotEmpty) return;
+
+    final org = app.organizations
+        .where((o) => o.id == account.organizationId)
+        .map((o) => o.name)
+        .firstOrNull;
+    final department = app.departments
+        .where((d) => d.id == account.departmentId)
+        .map((d) => d.name)
+        .firstOrNull;
+
+    if (org == null && department == null) return;
+    _form.updateDetails(
+      (d) => d.copyWith(organizationName: org, department: department),
+    );
   }
 
   /// The three parts that are the proposer's, with the part screen each

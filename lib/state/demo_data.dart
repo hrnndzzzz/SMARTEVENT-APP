@@ -1,4 +1,5 @@
 import '../api/models/academic.dart';
+import '../api/models/scope.dart';
 import 'app_state.dart';
 
 /// A whole app's worth of data, with no server behind it.
@@ -40,6 +41,37 @@ abstract final class DemoData {
     isSuspended: false,
     mustChangePassword: false,
   );
+
+  /// The two societies CITE actually has, and the college they sit in.
+  ///
+  /// Which organization an event belongs to follows the account rather
+  /// than being picked per event: a JPSSITE officer proposes for
+  /// JPSSITE. The demo account is an ACPES one, so its forms fill in
+  /// ACPES.
+  static List<RemoteDepartment> departments() => [
+    RemoteDepartment(
+      id: 'demo-cite',
+      code: 'CITE',
+      name: 'College of Information Technology and Engineering',
+      description: null,
+    ),
+  ];
+
+  static List<RemoteOrganization> organizations() => [
+    RemoteOrganization(
+      id: 'demo-acpes',
+      code: 'ACPES',
+      name: 'Association of Computer Engineering Students',
+      departmentId: 'demo-cite',
+    ),
+    RemoteOrganization(
+      id: 'demo-jpssite',
+      code: 'JPSSITE',
+      name:
+          'Junior Philippine Student Society for Information Technology',
+      departmentId: 'demo-cite',
+    ),
+  ];
 
   static List<Category> categories() => [
     Category(

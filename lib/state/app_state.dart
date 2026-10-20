@@ -2376,6 +2376,8 @@ class AppState extends ChangeNotifier {
     sessionChecked = true;
 
     categories = DemoData.categories();
+    departments = DemoData.departments();
+    organizations = DemoData.organizations();
     events
       ..clear()
       ..addAll(DemoData.events());
