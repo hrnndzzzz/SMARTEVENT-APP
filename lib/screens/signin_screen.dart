@@ -142,14 +142,49 @@ class _SignInScreenState extends State<SignInScreen> {
       context,
       builder: (sheetContext) => BrutSheet(
         title: 'Demo',
-        subtitle: 'Shortcuts that are not part of the app proper.',
+        subtitle: 'Seeded data, no server. Nothing here leaves the phone.',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Safe in any build: it talks to nothing, signs nobody in,
-            // and holds its own data. Unlike the quick logins below it,
-            // which fake a session and belong in debug only.
+            // Safe in any build: these talk to nothing and sign nobody
+            // in. Unlike the quick logins below them, which fake a
+            // session against a real backend and belong in debug only.
+            for (final (role, label, meta, icon) in const [
+              (
+                UserRole.treasurer,
+                'Explore as a treasurer',
+                'Events, money, inventory, reports',
+                Icons.account_balance_wallet_outlined,
+              ),
+              (
+                UserRole.adviser,
+                'Explore as an adviser',
+                'The same, plus reviewing what others send',
+                Icons.fact_check_outlined,
+              ),
+              (
+                UserRole.sdsStaff,
+                'Explore as the SDS Office',
+                'All six parts of the proposal form',
+                Icons.admin_panel_settings_outlined,
+              ),
+            ]) ...[
+              BrutListRow(
+                title: label,
+                meta: meta,
+                marker: BrutIconTile(
+                  size: 32,
+                  icon: icon,
+                  tone: BrutTone.brand,
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  context.read<AppState>().enterDemo(role: role);
+                },
+              ),
+              const SizedBox(height: AppLayout.tight),
+            ],
             BrutListRow(
               title: 'Review a proposal',
               meta: 'The form with a reviewer\'s marks on it',

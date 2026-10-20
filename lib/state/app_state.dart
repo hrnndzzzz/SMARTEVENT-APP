@@ -33,6 +33,7 @@ import '../api/expense_service.dart';
 import '../api/models/remote_expense.dart';
 import '../api/models/registration_result.dart';
 import '../api/models/user_profile.dart';
+import 'demo_data.dart';
 import 'user_role.dart';
 import '../theme/peso.dart';
 
@@ -425,6 +426,7 @@ class AppState extends ChangeNotifier {
   /// Signing out sends the gate back to the welcome screen with a line
   /// explaining why, and the next sign-in starts clean.
   void _onSessionExpired() {
+    if (_demoMode) return;
     if (currentAccount == null && currentRole == null) return;
     _sessionExpiredNotice = true;
     // Deferred: this fires from inside a response handler, which can be
@@ -464,6 +466,17 @@ class AppState extends ChangeNotifier {
   /// Runs a module load, recording loading/ready/failed instead of
   /// discarding the outcome.
   Future<void> _runLoad(LoadState state, Future<void> Function() load) async {
+    // Nothing to fetch while exploring; the data is already here, and a
+    // request would only replace it with a failure.
+    if (_demoMode) {
+      state
+        ..status = LoadStatus.ready
+        ..error = null
+        ..sessionExpired = false;
+      notifyListeners();
+      return;
+    }
+
     state
       ..status = LoadStatus.loading
       ..error = null
@@ -2289,6 +2302,44 @@ class AppState extends ChangeNotifier {
   /// screen at someone who is already signed in.
   bool sessionChecked = false;
 
+  /// Exploring with seeded data and no server behind it.
+  ///
+  /// The quick-login shortcut fakes a session and then lets the app call
+  /// a backend it holds no token for, so every screen fills with 401s.
+  /// This fills the collections instead and stops the fetching, which is
+  /// the difference between a demo and a broken app.
+  bool _demoMode = false;
+  bool get isDemoMode => _demoMode;
+
+  /// Signs in to the seeded data as [role]. Nothing leaves the device.
+  void enterDemo({UserRole role = UserRole.treasurer}) {
+    _demoMode = true;
+    currentAccount = DemoData.account(role);
+    currentRole = role;
+    _passwordSetupRequired = false;
+    sessionChecked = true;
+
+    categories = DemoData.categories();
+    events
+      ..clear()
+      ..addAll(DemoData.events());
+    expenses
+      ..clear()
+      ..addAll(DemoData.expenses());
+    notices = DemoData.notices();
+    unreadNoticeCount = notices.where((n) => n.isUnread).length;
+
+    // Every module reads as loaded, so no screen shows a spinner waiting
+    // on a request that will never be made.
+    for (final state in _moduleLoads) {
+      state
+        ..status = LoadStatus.ready
+        ..error = null
+        ..sessionExpired = false;
+    }
+    notifyListeners();
+  }
+
   /// Bridges `/auth/me` into the local account model.
   ///
   /// Returns an error message when the role is unrecognized, so the caller
@@ -2515,6 +2566,7 @@ class AppState extends ChangeNotifier {
   /// user-scoped backend data, so they are left alone here; they get
   /// cleared once those modules are actually wired.
   Future<void> signOut() async {
+    _demoMode = false;
     currentAccount = null;
     currentRole = null;
     _passwordSetupRequired = false;
