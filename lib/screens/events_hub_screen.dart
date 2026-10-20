@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'sap/sap_proposer_flow_screen.dart';
+import 'sap/sap_proposal_flow.dart';
 import '../state/sap_form.dart';
 import 'package:provider/provider.dart';
 
@@ -141,14 +141,9 @@ class _CreateBand extends StatelessWidget {
   void _open(BuildContext context) {
     if (!canPropose) return;
     final app = context.read<AppState>();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SapProposerFlowScreen(
-          form: SapForm(
-            service: app.isDemoMode ? null : app.sapService,
-          ),
-        ),
-      ),
+    SapProposalFlow.start(
+      context,
+      SapForm(service: app.isDemoMode ? null : app.sapService),
     );
   }
 

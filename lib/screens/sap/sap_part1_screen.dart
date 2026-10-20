@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
+import 'proposal_steps.dart';
 import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
 
@@ -12,9 +13,26 @@ import 'sap_form_fields.dart';
 /// harder for no gain. The programme flow and emergency plan sit at the
 /// end, where the paper puts them.
 class SapPart1Screen extends StatefulWidget {
-  const SapPart1Screen({super.key, required this.form});
+  const SapPart1Screen({
+    super.key,
+    required this.form,
+    this.step,
+    this.onContinue,
+  });
 
   final SapForm form;
+
+  /// Where this part sits when it is being filled in as one of three.
+  ///
+  /// Null means it was opened on its own — from the SDS Office's
+  /// six-part list — and it keeps a plain header and a Save button.
+  /// Given a step, it becomes part of the run: the bar shows all three,
+  /// and the button carries on to the next rather than going back.
+  final int? step;
+
+  /// What to do after this part saves, when it is one of three.
+  final Future<void> Function(BuildContext)? onContinue;
+
 
   @override
   State<SapPart1Screen> createState() => _SapPart1ScreenState();
@@ -133,7 +151,13 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     final ok = await _form.saveDetails();
     if (!mounted) return;
     if (ok) {
-      Navigator.of(context).maybePop();
+      // Part of a run: carry on rather than going back to whatever was
+      // behind this.
+      if (widget.onContinue case final next?) {
+        await next(context);
+      } else if (mounted) {
+        Navigator.of(context).maybePop();
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_form.error ?? 'Could not save.')),
@@ -162,15 +186,29 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         final d = _form.details;
 
         return BrutScreen(
-          header: BrutHeader(
-            title: 'Activity Details',
-            eyebrow: 'Part 1',
-            onBack: () => Navigator.of(context).maybePop(),
-          ),
+          // One of three when it is being filled in as a run, its own
+          // screen when the SDS Office opens it from their six-part
+          // list.
+          header: widget.step == null
+              ? BrutHeader(
+                  title: 'Activity Details',
+                  eyebrow: 'Part 1',
+                  onBack: () => Navigator.of(context).maybePop(),
+                )
+              : BrutFlowHeader(
+                  title: 'Activity Details',
+                  flowName: 'Part 1 of 3',
+                  currentStep: widget.step!,
+                  onBack: () => Navigator.of(context).maybePop(),
+                  steps: [
+                    for (final label in ProposalSteps.labels)
+                      BrutStep(label: label),
+                  ],
+                ),
           footer: BrutFooter(
             onBack: () => Navigator.of(context).maybePop(),
             child: BrutButton(
-              label: 'Save',
+              label: widget.step == null ? 'Save' : 'Next: school support',
               busy: _form.saving,
               busyLabel: 'Saving',
               onPressed: _editable ? _save : null,

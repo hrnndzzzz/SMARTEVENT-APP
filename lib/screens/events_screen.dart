@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'sap/sap_proposer_flow_screen.dart';
+import 'sap/sap_proposal_flow.dart';
 import '../state/sap_form.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -10,7 +10,6 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_calendar.dart';
 import '../widgets/event_status.dart';
-import 'create_event_screen.dart';
 import 'event_detail_screen.dart';
 
 /// Every proposal, as a list or as a month.
@@ -65,15 +64,12 @@ class _EventsScreenState extends State<EventsScreen> {
                   icon: Icons.add,
                   size: BrutSize.small,
                   expand: false,
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => SapProposerFlowScreen(
-                        form: SapForm(
-                          service: context.read<AppState>().isDemoMode
-                              ? null
-                              : context.read<AppState>().sapService,
-                        ),
-                      ),
+                  onPressed: () => SapProposalFlow.start(
+                    context,
+                    SapForm(
+                      service: context.read<AppState>().isDemoMode
+                          ? null
+                          : context.read<AppState>().sapService,
                     ),
                   ),
                 ),

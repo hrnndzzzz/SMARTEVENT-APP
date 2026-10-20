@@ -4,9 +4,8 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
-import 'create_event_screen.dart';
 import 'sap/sap_form_screen.dart';
-import 'sap/sap_proposer_flow_screen.dart';
+import 'sap/sap_proposal_flow.dart';
 import '../state/sap_form.dart';
 import '../widgets/event_status.dart';
 import '../api/compliance_service.dart';
@@ -220,13 +219,12 @@ class EventDetailScreen extends StatelessWidget {
                       // list hands them three they cannot touch.
                       builder: (_) {
                         final app = context.read<AppState>();
-                        final form = SapForm(
-                          eventId: eventId,
-                          service: app.isDemoMode ? null : app.sapService,
+                        return SapFormScreen(
+                          form: SapForm(
+                            eventId: eventId,
+                            service: app.isDemoMode ? null : app.sapService,
+                          ),
                         );
-                        return role == UserRole.sdsStaff
-                            ? SapFormScreen(form: form)
-                            : SapProposerFlowScreen(form: form);
                       },
                     ),
                   ),
@@ -241,7 +239,7 @@ class EventDetailScreen extends StatelessWidget {
                   tone: BrutTone.neutral,
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => SapProposerFlowScreen(
+                      builder: (_) => SapFormScreen(
                         form: SapForm(
                           eventId: event.remoteId,
                           service: context.read<AppState>().isDemoMode

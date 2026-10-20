@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:smartevent/screens/admin_screen.dart';
 import 'package:smartevent/screens/categories_screen.dart';
-import 'package:smartevent/screens/create_event_screen.dart';
+import 'package:smartevent/screens/sap/sap_part1_screen.dart';
+import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/screens/income_screen.dart';
 import 'package:smartevent/screens/inventory_screen.dart';
 import 'package:smartevent/screens/proposal_letters_screen.dart';
@@ -36,7 +37,7 @@ Widget _host(Widget child, double keyboard, UserRole role) {
 
 void main() {
   final screens = <String, Widget>{
-    'create event': const CreateEventScreen(),
+    'proposal part 1': SapPart1Screen(form: SapForm(eventId: 'e1')),
     'categories': const CategoriesScreen(),
     'proposal letters': const ProposalLettersScreen(),
     'income': const IncomeScreen(),

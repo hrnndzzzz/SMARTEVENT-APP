@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
+import 'proposal_steps.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
@@ -17,9 +18,26 @@ import 'sap_form_fields.dart';
 /// something the person filling this in has to resolve, not something the
 /// form should paper over by rewriting one of the two numbers.
 class SapPart3Screen extends StatefulWidget {
-  const SapPart3Screen({super.key, required this.form});
+  const SapPart3Screen({
+    super.key,
+    required this.form,
+    this.step,
+    this.onContinue,
+  });
 
   final SapForm form;
+
+  /// Where this part sits when it is being filled in as one of three.
+  ///
+  /// Null means it was opened on its own — from the SDS Office's
+  /// six-part list — and it keeps a plain header and a Save button.
+  /// Given a step, it becomes part of the run: the bar shows all three,
+  /// and the button carries on to the next rather than going back.
+  final int? step;
+
+  /// What to do after this part saves, when it is one of three.
+  final Future<void> Function(BuildContext)? onContinue;
+
 
   @override
   State<SapPart3Screen> createState() => _SapPart3ScreenState();
@@ -150,7 +168,12 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
         return;
       }
     }
-    if (mounted) Navigator.of(context).maybePop();
+    if (!mounted) return;
+    if (widget.onContinue case final next?) {
+      await next(context);
+    } else {
+      Navigator.of(context).maybePop();
+    }
   }
 
   Future<void> _addBudgetLine() async {
@@ -189,15 +212,29 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
             _centavos(declared) != summed;
 
         return BrutScreen(
-          header: BrutHeader(
-            title: 'Additional Information',
-            eyebrow: 'Part 3',
-            onBack: () => Navigator.of(context).maybePop(),
-          ),
+          // One of three when it is being filled in as a run, its own
+          // screen when the SDS Office opens it from their six-part
+          // list.
+          header: widget.step == null
+              ? BrutHeader(
+                  title: 'Additional Information',
+                  eyebrow: 'Part 3',
+                  onBack: () => Navigator.of(context).maybePop(),
+                )
+              : BrutFlowHeader(
+                  title: 'Additional Information',
+                  flowName: 'Part 3 of 3',
+                  currentStep: widget.step!,
+                  onBack: () => Navigator.of(context).maybePop(),
+                  steps: [
+                    for (final label in ProposalSteps.labels)
+                      BrutStep(label: label),
+                  ],
+                ),
           footer: BrutFooter(
             onBack: () => Navigator.of(context).maybePop(),
             child: BrutButton(
-              label: 'Save',
+              label: widget.step == null ? 'Save' : 'Send to the SDS Office',
               busy: _form.saving,
               busyLabel: 'Saving',
               onPressed: _editable ? _save : null,

@@ -1,32 +1,18 @@
-/// The whole job of proposing an activity, as five steps.
+/// Filling in the proposal, as its three parts.
 ///
-/// Creating the event and filling its form were two flows with two
-/// progress bars, which made the second look like a different task
-/// someone could skip. It is not: the event record is not what the
-/// university wants, the filled SAS-SDS-FO-020 is.
+/// They are the form's own parts and nothing else. An earlier version
+/// put the create-event screen's two steps in front of these, which
+/// made the bar describe the app's plumbing rather than the paper the
+/// person is filling in.
 ///
-/// So one bar runs across both. The first two steps are done the moment
-/// the event exists, which is true whether you have just made it or are
-/// coming back to one from last week.
+/// Parts 4 to 6 are the SDS Office's and are not steps here: a bar a
+/// proposer cannot finish is worse than no bar.
 abstract final class ProposalSteps {
-  /// In order. Short, because five labels have to fit a phone's width.
-  static const List<String> labels = [
-    'Budget',
-    'Event',
-    'Activity',
-    'Support',
-    'Breakdown',
-  ];
+  static const List<String> labels = ['Activity', 'Support', 'Breakdown'];
 
-  /// Where the create-event screen's own two steps sit.
-  static const int budget = 0;
-  static const int event = 1;
-
-  /// Where the three parts of the form sit. Part 1 is step three of
-  /// five, not step one of three.
-  static const int firstPart = 2;
-
-  static int forPart(int partIndex) => firstPart + partIndex;
+  static const int activity = 0;
+  static const int support = 1;
+  static const int breakdown = 2;
 
   static int get count => labels.length;
 }
