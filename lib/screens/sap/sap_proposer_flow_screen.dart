@@ -53,7 +53,15 @@ class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
   /// else the name is blank and has to be typed. That is a gap in
   /// `/auth/me`, which returns ids without names.
   void _fillFromAccount() {
-    final app = context.read<AppState>();
+    // A host without the app's state — a widget test, mostly — still
+    // gets a working form, just one nobody has pre-filled.
+    final AppState app;
+    try {
+      app = context.read<AppState>();
+    } on ProviderNotFoundException {
+      return;
+    }
+
     final account = app.currentAccount;
     if (account == null) return;
     if ((_form.details.organizationName ?? '').isNotEmpty) return;
