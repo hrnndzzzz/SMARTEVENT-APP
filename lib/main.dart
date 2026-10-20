@@ -12,6 +12,7 @@ import 'screens/welcome_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'api/api_config.dart';
+import 'state/notice_shelf.dart';
 import 'state/sfx.dart';
 import 'screens/proposal_letters_screen.dart';
 import 'screens/signatory_screen.dart';
@@ -52,6 +53,7 @@ class _SmartEventAppState extends State<SmartEventApp> {
   final _settings = AppSettings()..restore();
   final _avatar = Avatar()..load();
   final _sfx = SfxPlayer()..load();
+  final _shelf = NoticeShelf();
 
   @override
   void dispose() {
@@ -70,6 +72,7 @@ class _SmartEventAppState extends State<SmartEventApp> {
         ChangeNotifierProvider.value(value: _reachability),
         ChangeNotifierProvider.value(value: _avatar),
         ChangeNotifierProvider.value(value: _sfx),
+        ChangeNotifierProvider.value(value: _shelf),
       ],
       child: Consumer2<AppState, AppSettings>(
         builder: (context, app, settings, _) => MaterialApp(
