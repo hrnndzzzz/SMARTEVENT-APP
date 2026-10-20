@@ -1,0 +1,299 @@
+import 'package:flutter/material.dart';
+
+import '../../api/models/sap_proposal.dart';
+import '../../state/sap_form.dart';
+import '../../theme/app_layout.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/brut.dart';
+import 'sap_part1_screen.dart';
+import 'sap_part2_screen.dart';
+import 'sap_part3_screen.dart';
+
+/// The proposal, as the person writing it sees it.
+///
+/// Three steps, not six. Parts 4 to 6 belong to the SDS Office, and a
+/// six-step bar would show a proposer three steps they can never
+/// complete — a progress bar that cannot reach the end is worse than no
+/// bar at all.
+///
+/// After the third the proposal leaves them: it goes to the SDS Office
+/// for clearance, then to paper for signing. The waiting state says so
+/// plainly rather than leaving the screen looking unfinished.
+class SapProposerFlowScreen extends StatefulWidget {
+  const SapProposerFlowScreen({super.key, required this.form});
+
+  final SapForm form;
+
+  @override
+  State<SapProposerFlowScreen> createState() => _SapProposerFlowScreenState();
+}
+
+class _SapProposerFlowScreenState extends State<SapProposerFlowScreen> {
+  late final SapForm _form = widget.form;
+
+  @override
+  void initState() {
+    super.initState();
+    _form.load();
+  }
+
+  /// The three parts that are the proposer's, with the part screen each
+  /// one opens.
+  static const List<(SapPart, String)> _steps = [
+    (SapPart.one, 'Details'),
+    (SapPart.two, 'Support'),
+    (SapPart.three, 'Breakdown'),
+  ];
+
+  /// The step to land on: the first one that is not finished, or the
+  /// last if they all are.
+  int get _current {
+    for (var i = 0; i < _steps.length; i++) {
+      if (_form.statusOf(_steps[i].$1) != SapPartStatus.complete) return i;
+    }
+    return _steps.length - 1;
+  }
+
+  bool get _allDone => _steps.every(
+    (s) => _form.statusOf(s.$1) == SapPartStatus.complete,
+  );
+
+  /// True once it has gone to the SDS Office and is out of the
+  /// proposer's hands.
+  bool get _submitted {
+    final state = _form.state;
+    return state != null &&
+        state != SapState.draft &&
+        state != SapState.revisionRequested;
+  }
+
+  Future<void> _open(SapPart part) async {
+    final screen = switch (part) {
+      SapPart.two => SapPart2Screen(form: _form),
+      SapPart.three => SapPart3Screen(form: _form),
+      _ => SapPart1Screen(form: _form),
+    };
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => screen));
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _submit() async {
+    final ok = await _form.submit();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Sent to the SDS Office.'
+              : _form.error ?? 'Could not send it.',
+        ),
+      ),
+    );
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _form,
+      builder: (context, _) {
+        if (_submitted) return _waiting(context);
+
+        final current = _current;
+
+        return BrutScreen(
+          header: BrutFlowHeader(
+            title: _steps[current].$1.title,
+            flowName: 'Proposal form',
+            currentStep: current,
+            onBack: () => Navigator.of(context).maybePop(),
+            steps: [
+              for (var i = 0; i < _steps.length; i++)
+                BrutStep(
+                  label: _steps[i].$2,
+                  // A step is reachable once the one before it has been
+                  // started; jumping to the breakdown before there is an
+                  // activity to budget for helps nobody.
+                  onJump: i == 0 || _startedUpTo(i)
+                      ? () => _open(_steps[i].$1)
+                      : null,
+                ),
+            ],
+          ),
+          footer: BrutFooter(
+            note: _allDone
+                ? 'All three parts filled in'
+                : '${_doneCount()} of 3 filled in',
+            secondary: _allDone
+                ? null
+                : BrutButton(
+                    label: 'Open ${_steps[current].$2.toLowerCase()}',
+                    tone: BrutTone.neutral,
+                    onPressed: () => _open(_steps[current].$1),
+                  ),
+            child: BrutButton(
+              label: 'Send to the SDS Office',
+              icon: Icons.outbox,
+              busy: _form.saving,
+              busyLabel: 'Sending',
+              onPressed: _allDone ? _submit : null,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_form.isLocalOnly)
+                const BrutInlineMessage(
+                  tone: BrutTone.sun,
+                  icon: Icons.cloud_off,
+                  text:
+                      'This backend has no proposal-form routes yet, so '
+                      'everything here stays on this phone until it does.',
+                ),
+              if (_form.state == SapState.revisionRequested) ...[
+                BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.undo,
+                  text: _form.proposal?.returnRemarks?.isNotEmpty ?? false
+                      ? 'Returned: ${_form.proposal!.returnRemarks}'
+                      : 'Returned for revision. Make the changes and send '
+                            'it again.',
+                ),
+                const SizedBox(height: AppLayout.tight),
+              ],
+              const SizedBox(height: AppLayout.tight),
+
+              for (var i = 0; i < _steps.length; i++) ...[
+                _StepRow(
+                  number: i + 1,
+                  title: _steps[i].$1.title,
+                  status: _form.statusOf(_steps[i].$1),
+                  onTap: () => _open(_steps[i].$1),
+                ),
+                const SizedBox(height: AppLayout.tight),
+              ],
+
+              const SizedBox(height: AppLayout.tight),
+              const BrutInlineMessage(
+                tone: BrutTone.neutral,
+                icon: Icons.info_outline,
+                text:
+                    'Parts 4 to 6 are the SDS Office\'s: clearance, the '
+                    'nine signatures, and the evaluation afterwards. You '
+                    'do not fill those in.',
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  int _doneCount() => _steps
+      .where((s) => _form.statusOf(s.$1) == SapPartStatus.complete)
+      .length;
+
+  bool _startedUpTo(int index) {
+    for (var i = 0; i < index; i++) {
+      if (_form.statusOf(_steps[i].$1) == SapPartStatus.empty) return false;
+    }
+    return true;
+  }
+
+  /// Where the proposal has got to once it is no longer theirs.
+  Widget _waiting(BuildContext context) {
+    final state = _form.state;
+    final (line, detail, tone) = switch (state) {
+      SapState.pendingReview => (
+        'With the SDS Office',
+        'They check Part 4, then it is printed for the nine signatures. '
+            'You will be told when it has been approved.',
+        BrutTone.sun,
+      ),
+      SapState.approved => (
+        'Approved',
+        'The signed copy is on file. Nothing more to do until the '
+            'activity has run.',
+        BrutTone.mint,
+      ),
+      SapState.completed => (
+        'Completed',
+        'Evaluated and closed.',
+        BrutTone.mint,
+      ),
+      _ => ('Sent', 'Waiting on the SDS Office.', BrutTone.sun),
+    };
+
+    return BrutScreen(
+      header: BrutHeader(
+        title: 'Proposal form',
+        eyebrow: 'SAS-SDS-FO-020 (001)',
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: AppLayout.section),
+          BrutCard(
+            tone: tone,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const MonoLabel('Where it is'),
+                const SizedBox(height: 6),
+                Text(line, style: AppText.display.copyWith(fontSize: 26)),
+                const SizedBox(height: 10),
+                Text(detail, style: AppText.caption),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppLayout.section),
+          const BrutInlineMessage(
+            tone: BrutTone.neutral,
+            icon: Icons.lock_outline,
+            text:
+                'Parts 1 to 3 are read-only while it is under review. If '
+                'something has to change, the SDS Office returns it and '
+                'they open again.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  const _StepRow({
+    required this.number,
+    required this.title,
+    required this.status,
+    required this.onTap,
+  });
+
+  final int number;
+  final String title;
+  final SapPartStatus status;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, tone) = switch (status) {
+      SapPartStatus.complete => ('Filled in', BrutTone.mint),
+      SapPartStatus.partial => ('Started', BrutTone.sun),
+      _ => ('Not started', BrutTone.neutral),
+    };
+
+    return BrutListRow(
+      title: title,
+      meta: 'Part $number',
+      marker: SizedBox(
+        width: 26,
+        child: Text('$number', style: AppText.number.copyWith(fontSize: 20)),
+      ),
+      trailing: BrutBadge(label: label, tone: tone),
+      onTap: onTap,
+    );
+  }
+}

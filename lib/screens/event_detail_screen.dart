@@ -6,6 +6,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'create_event_screen.dart';
 import 'sap/sap_form_screen.dart';
+import 'sap/sap_proposer_flow_screen.dart';
 import '../state/sap_form.dart';
 import '../widgets/event_status.dart';
 import '../api/compliance_service.dart';

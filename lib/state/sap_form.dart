@@ -450,6 +450,30 @@ class SapForm extends ChangeNotifier {
     return n;
   }
 
+  /// Puts the form into a given state without a server, for tests and
+  /// for the offline demo. Not a shortcut around the API: nothing here
+  /// is ever sent anywhere.
+  @visibleForTesting
+  void adoptForTest({SapState? state, SapDetails? details}) {
+    _proposal = SapProposal(
+      id: 'test',
+      eventId: eventId,
+      state: state ?? SapState.draft,
+      version: 1,
+      revisionNo: 0,
+      formCode: 'SAS-SDS-FO-020',
+      formVersion: '001',
+      details: details ?? _details,
+      programFlow: _programFlow,
+      budgetItems: _budgetItems,
+      supportRequests: _supportRequests,
+      affectedClasses: _affectedClasses,
+      clearance: _clearance,
+    );
+    if (details != null) _details = details;
+    notifyListeners();
+  }
+
   /// A plain count for the hub's footer.
   int get completedParts => [
     for (final p in SapPart.values)
