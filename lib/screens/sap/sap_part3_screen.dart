@@ -28,9 +28,63 @@ class SapPart3Screen extends StatefulWidget {
 class _SapPart3ScreenState extends State<SapPart3Screen> {
   late final SapForm _form = widget.form;
 
-  late final _additional = TextEditingController(
-    text: _form.details.additionalInformation ?? '',
-  );
+  /// The headings a real filled form uses, in the order it uses them.
+  /// Taken from the submitted copies rather than invented: a blank box
+  /// labelled "other details" is how this part gets left empty.
+  static const List<String> _otherDetailHeadings = [
+    'Attendance monitoring',
+    'Focus',
+    'Attire',
+    'Guest speaker coordination',
+    'Class interruption notice',
+    'Educational continuity',
+    'Certificates or credits',
+    'Registration process',
+    'Target audience',
+    'Documentation and media coverage',
+  ];
+
+  static String _hintFor(String heading) => switch (heading) {
+    'Attendance monitoring' => 'A registration log sheet will be used…',
+    'Focus' => 'What the activity is for, in a sentence or two',
+    'Attire' => 'Organizational shirt or decent civilian attire',
+    'Guest speaker coordination' => 'Who is being approached, and when',
+    'Class interruption notice' => 'Which students are excused, and by whom',
+    'Educational continuity' => 'What affected classes get instead',
+    'Certificates or credits' => 'What participants receive',
+    'Registration process' => 'Where and when they sign in',
+    'Target audience' => 'Who it is for',
+    _ => 'Who is photographing it, and what for',
+  };
+
+  /// What the backend will take for this whole part.
+  static const int _otherDetailsLimit = 500;
+
+  late final Map<String, TextEditingController> _otherDetails = {
+    for (final heading in _otherDetailHeadings)
+      heading: TextEditingController(
+        text: _sectionOf(heading, _form.details.additionalInformation ?? ''),
+      ),
+  };
+
+  /// Reads one heading back out of the stored text. The headings are
+  /// written by this screen, so they are reliable delimiters.
+  static String _sectionOf(String heading, String stored) {
+    final start = stored.indexOf('$heading:');
+    if (start < 0) return '';
+    final from = start + heading.length + 1;
+    final next = stored.indexOf('\n\n', from);
+    return stored.substring(from, next < 0 ? stored.length : next).trim();
+  }
+
+  /// The headings and their answers, as one block, skipping the blanks.
+  String get _composedOtherDetails => [
+    for (final heading in _otherDetailHeadings)
+      if (_otherDetails[heading]!.text.trim().isNotEmpty)
+        '$heading: ${_otherDetails[heading]!.text.trim()}',
+  ].join('\n\n');
+
+  int get _otherDetailsLength => _composedOtherDetails.length;
   late final _excuse = TextEditingController(
     text: _form.details.excuseArrangement ?? '',
   );
@@ -39,7 +93,9 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
 
   @override
   void dispose() {
-    _additional.dispose();
+    for (final c in _otherDetails.values) {
+      c.dispose();
+    }
     _excuse.dispose();
     super.dispose();
   }
@@ -73,7 +129,7 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
   Future<void> _save() async {
     _form.updateDetails(
       (d) => d.copyWith(
-        additionalInformation: _additional.text.trim(),
+        additionalInformation: _composedOtherDetails,
         excuseArrangement: _excuse.text.trim(),
       ),
     );
@@ -150,15 +206,38 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              BrutTextField(
-                controller: _additional,
-                label: 'Other details',
-                hint: 'Anything the offices should know',
-                enabled: _editable,
-                maxLines: 5,
-                textCapitalization: TextCapitalization.sentences,
+              const BrutSectionTitle('Other details'),
+              const SizedBox(height: 6),
+              Text(
+                'The headings a filled form uses. Leave any of them '
+                'blank and they are simply left out.',
+                style: AppText.caption,
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 12),
+              for (final heading in _otherDetailHeadings) ...[
+                BrutTextField(
+                  controller: _otherDetails[heading]!,
+                  label: heading,
+                  hint: _hintFor(heading),
+                  enabled: _editable,
+                  maxLines: 3,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (_otherDetailsLength > _otherDetailsLimit) ...[
+                BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.error_outline,
+                  text:
+                      'These come to $_otherDetailsLength characters and the '
+                      'server takes $_otherDetailsLimit. Shorten them before '
+                      'submitting.',
+                ),
+                const SizedBox(height: 12),
+              ],
+              const SizedBox(height: 10),
 
               const BrutSectionTitle('Budget breakdown'),
               const SizedBox(height: 8),

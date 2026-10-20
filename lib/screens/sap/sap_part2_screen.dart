@@ -24,18 +24,16 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
 
   bool get _editable => _form.canEditProposerParts;
 
-  /// Which types take a count, and which take free text. The rest are a
-  /// plain tick.
+  /// Which types have a number on the paper: the microphone's quantity,
+  /// the pax for food, the passenger count for a vehicle, and the
+  /// chairs and tables, which a real form fills in as "additional 100
+  /// chairs".
   static const _withQuantity = {
     SapSupportType.microphone,
     SapSupportType.food,
-  };
-  static const _withDetail = {
-    SapSupportType.budget,
-    SapSupportType.room,
     SapSupportType.vehicle,
-    SapSupportType.diverseNeeds,
-    SapSupportType.other,
+    SapSupportType.chairs,
+    SapSupportType.tables,
   };
 
   SapSupportRequest? _requestFor(SapSupportType type) {
@@ -123,7 +121,11 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
                   request: _requestFor(type),
                   enabled: _editable,
                   takesQuantity: _withQuantity.contains(type),
-                  takesDetail: _withDetail.contains(type),
+                  // Every ticked row on the paper has room written
+                  // beside it — "St. Augustine Bldg. AVR", "Podium",
+                  // "additional 100 chairs" — so none of them is only
+                  // a tick.
+                  takesDetail: true,
                   onToggle: () => _toggle(type),
                   onQuantity: (q) => _amend(type, quantity: q),
                   onDetail: (s) => _amend(type, specify: s),
@@ -212,10 +214,16 @@ class _SupportTileState extends State<_SupportTile> {
               label: 'Please specify',
               hint: switch (widget.type) {
                 SapSupportType.budget => 'How much, and what for',
-                SapSupportType.room => 'Which room or venue',
-                SapSupportType.vehicle => 'Number of passengers',
+                SapSupportType.room => 'St. Augustine Bldg. AVR',
+                SapSupportType.vehicle => 'Where to, and back when',
+                SapSupportType.food => 'What, and for whom',
+                SapSupportType.sound => 'Anything particular',
+                SapSupportType.microphone => 'Wired, wireless, lapel',
+                SapSupportType.projector => 'Anything particular',
+                SapSupportType.chairs => 'Additional 100 chairs',
+                SapSupportType.tables => 'How many, and where',
                 SapSupportType.diverseNeeds => 'What is needed',
-                _ => 'Details',
+                SapSupportType.other => 'Podium',
               },
               enabled: widget.enabled,
               controller: _detail,
