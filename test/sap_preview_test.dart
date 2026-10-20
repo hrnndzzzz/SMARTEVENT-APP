@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/screens/sap/sap_part1_screen.dart';
+import 'package:smartevent/screens/sap/sap_part2_screen.dart';
 import 'package:smartevent/screens/sap/sap_part3_screen.dart';
 import 'package:smartevent/screens/sap/sap_part5_screen.dart';
 import 'package:smartevent/state/sap_form.dart';
@@ -108,8 +109,24 @@ void main() {
 
   testWidgets('preview', (tester) async {
     await _shoot(tester, 'hub', SapFormScreen(form: filled()));
-    await _shoot(tester, 'part1', SapPart1Screen(form: filled()));
-    await _shoot(tester, 'part3', SapPart3Screen(form: filled()));
     await _shoot(tester, 'part5', SapPart5Screen(form: filled()));
+
+    // As the flow renders them: each part is a step, so each carries
+    // the three-step bar rather than a plain header.
+    await _shoot(
+      tester,
+      'part1',
+      SapPart1Screen(form: filled(), step: 0, onContinue: (_) async {}),
+    );
+    await _shoot(
+      tester,
+      'part2',
+      SapPart2Screen(form: filled(), step: 1, onContinue: (_) async {}),
+    );
+    await _shoot(
+      tester,
+      'part3',
+      SapPart3Screen(form: filled(), step: 2, onContinue: (_) async {}),
+    );
   });
 }
