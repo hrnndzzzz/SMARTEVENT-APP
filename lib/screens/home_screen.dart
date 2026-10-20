@@ -8,6 +8,8 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
+import '../widgets/event_progress_bar.dart';
+import 'event_detail_screen.dart';
 import 'events_screen.dart';
 import 'expenses_screen.dart';
 import 'notifications_screen.dart';
@@ -88,10 +90,17 @@ class HomeScreen extends StatelessWidget {
           ],
           const SizedBox(height: AppLayout.section),
 
-          // First thing under the greeting, because it is the first
-          // question anyone opening the app has.
-          const AlertWidget(),
-          const SizedBox(height: AppLayout.section),
+          // First thing under the greeting, because "has my event
+          // moved?" is the first question anyone opening this app has.
+          // What needs attention now lives on the bell instead, where
+          // the count already was.
+          EventProgressList(
+            events: app.events,
+            onOpen: (event) => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+            ),
+          ),
+          if (app.events.isNotEmpty) const SizedBox(height: AppLayout.section),
 
           // The hero: what is left, beside the two numbers that explain it.
           //
