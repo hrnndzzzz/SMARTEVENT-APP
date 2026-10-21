@@ -280,9 +280,23 @@ always use actual server responses.
 
 ## Deployment and verification
 
+Remote database status (October 18, 2026, Asia/Manila): applied successfully to
+`SMARTEVENT: APP` (`vzdctweadahekptsmnyn`). Supabase recorded the exact local
+`20261017000100_sap_fo_020.sql` contents as migration `20261018070927_sap_fo_020`.
+Do not reapply the local file to this project. Reconcile this version mapping
+before using CLI migration push; the remote tool assigned its own timestamp.
+
+`supabase/tests/sap_access.sql` ran successfully against that remote project.
+All six SAP tables have RLS enabled; backend grants and client access restrictions
+passed; immutable-evidence triggers are enabled; `proposal-letters` is private.
+These are database access/configuration checks, not an end-to-end API test or
+a test of concurrent requests, signature authenticity, or signed-URL expiration.
+The updated FastAPI server still needs to be running/deployed with dependencies
+and a valid public `SAP_VERIFICATION_BASE_URL` before complete frontend testing.
+
 1. Back up and apply `20261017000100_sap_fo_020.sql` after existing security and
-   compliance phases 1–3, using the deployment owner. The migration was prepared
-   locally, not applied to a remote database. It extends online logistics, adds
+   compliance phases 1–3 when setting up a new database, using the deployment
+   owner. Already applied to the project above. It extends online logistics, adds
    nullable event time projections and recurring notifications, and creates
    server-only SAP tables plus immutable-evidence triggers.
 2. Keep FastAPI on `smartevent_app`; anon/authenticated/service_role have no SAP
@@ -297,8 +311,8 @@ always use actual server responses.
 6. Run the migration in disposable PostgreSQL staging and verify actual role/RLS,
    immutable triggers, concurrent requests and Supabase signed URL expiry before
    production. `supabase/tests/sap_access.sql` supplies read-only staging checks for
-   RLS, table grants, immutable triggers and the default private bucket. It has not
-   been run here. Local tests check SQL declarations but do not execute PostgreSQL RLS.
+   RLS, table grants, immutable triggers and the default private bucket. It passed
+   on the remote project above. Local SQLite tests do not execute PostgreSQL RLS.
 7. Have SDS approve the clean printable layout and retention procedures. Pilot
    with paper signatures; do not treat a successful upload as signature verification.
 

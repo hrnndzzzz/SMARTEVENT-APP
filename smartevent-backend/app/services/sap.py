@@ -7,12 +7,13 @@ from fastapi import HTTPException
 from app.dependencies import assert_record_scope
 from app.models import Event, User, Notification
 from app.models_compliance import EventLogistics
-from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPEvaluation
+from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPEvaluation, SAPAttachment, SAPReview
 from app.schemas_sap import validate_submission
 from app.services.sap_pdf import signature_slots, render_proposal
 from app.services.access_audit import record_access_change
 from app.services.compliance import invalidate_clearance, require_pre_activity_clearance
 from app.services.academic_year import validate_school_year
+from app.services.closure import institution_today
 
 
 def now():
@@ -50,9 +51,14 @@ def collections(db, proposal):
     return result
 
 
-def snapshot(db, proposal):
+def snapshot(db, proposal, revision_no=None):
+    number = revision_no or (proposal.revision_no + 1 if proposal.state in {'draft', 'revision_requested'} else proposal.revision_no)
+    attachments = db.query(SAPAttachment).filter_by(proposal_id=proposal.id, revision_no=number).order_by(SAPAttachment.uploaded_at).all()
     return dict(form_code=proposal.form_code, form_version=proposal.form_version,
-                details=proposal.details, clearance=proposal.clearance, collections=collections(db, proposal))
+                details=proposal.details, clearance=proposal.clearance, collections=collections(db, proposal),
+                attachments=[dict(id=str(row.id), category=row.category, display_name=row.display_name,
+                                  file_name=row.file_name, content_type=row.content_type, sha256=row.sha256,
+                                  uploaded_at=row.uploaded_at.isoformat()) for row in attachments])
 
 
 def revision(db, proposal, number=None):
@@ -77,15 +83,17 @@ def workflow(db, proposal):
             'completed_count': len(signed), 'total_count': 9,
             'steps': [dict(id=row.id, slot=row.slot, position=row.position, display_label=row.label,
                            revision_no=proposal.revision_no, status='recorded' if row.evidence else 'pending',
-                           actionable=proposal.state == 'pending_sap_review' and not row.evidence and set(prerequisites(row.slot)) <= signed,
+                           actionable=proposal.state in {'pending_sap_review', 'sds_signed'} and not row.evidence and set(prerequisites(row.slot)) <= signed,
                            evidence=row.evidence, recorded_by=row.recorded_by, recorded_at=row.recorded_at)
                       for row in rows]}
 
 
 def output(db, proposal):
+    review = db.query(SAPReview).join(SAPRevision, SAPReview.revision_id == SAPRevision.id).filter(SAPRevision.proposal_id == proposal.id, SAPRevision.revision_no == proposal.revision_no).first() if proposal.revision_no else None
     evaluation = db.query(SAPEvaluation).filter_by(proposal_id=proposal.id).first()
     return dict(id=proposal.id, event_id=proposal.event_id, state=proposal.state, version=proposal.version,
                 revision_no=proposal.revision_no, return_remarks=proposal.return_remarks, **snapshot(db, proposal),
+                sds_review=None if review is None else dict(overall_remarks=review.overall_remarks, section_remarks=review.section_remarks, signed_by=str(review.signed_by) if review.signed_by else None, signed_at=review.signed_at.isoformat() if review.signed_at else None, signed_pdf_sha256=review.signed_pdf_sha256),
                 evaluation=None if evaluation is None else dict(outcome=evaluation.outcome, remarks=evaluation.remarks,
                     evaluated_by=evaluation.evaluated_by, evaluated_at=evaluation.evaluated_at))
 
@@ -123,6 +131,10 @@ def submit(db, event, proposal, user, verification_base):
     try:
         d = validate_submission(data['details'], data['collections'], data['clearance'])
         validate_school_year(d.school_year)
+        if (d.activity_date - institution_today()).days < 30:
+            raise ValueError('Submit at least 30 calendar days before the activity')
+        if d.setting == 'off_campus' and not db.query(SAPAttachment.id).filter_by(proposal_id=proposal.id, revision_no=proposal.revision_no + 1, category='roc_coc').first():
+            raise ValueError('Off-campus activities require an ROC/COC attachment for this revision')
         if event.semester not in {'1st', '2nd', 'summer'}:
             raise ValueError('Set the event semester before submission')
         # Allocation remains controlled by the existing financial workflow.

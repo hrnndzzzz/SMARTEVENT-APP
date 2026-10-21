@@ -17,7 +17,7 @@ class SAPProposal(Base):
     details = Column(JSON, nullable=False, default=dict)
     clearance = Column(JSON, nullable=True)
     return_remarks = Column(Text)
-    __table_args__ = (CheckConstraint("state IN ('draft','pending_sap_review','revision_requested','approved','completed','rejected')"),)
+    __table_args__ = (CheckConstraint("state IN ('draft','pending_sap_review','revision_requested','sds_signed','approved','completed','rejected')"),)
 
 
 class SAPItem(Base):
@@ -77,3 +77,30 @@ class SAPEvaluation(Base):
     evaluated_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
     evaluated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     __table_args__ = (CheckConstraint("outcome IN ('conducted','canceled')"),)
+
+
+class SAPAttachment(Base):
+    __tablename__ = 'sap_attachments'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    proposal_id = Column(UUID(as_uuid=True), ForeignKey('sap_proposals.id'), nullable=False, index=True)
+    revision_no = Column(Integer, nullable=False)
+    category = Column(String(30), nullable=False)
+    display_name = Column(String(150), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    content_type = Column(String(80), nullable=False)
+    storage_ref = Column(Text, nullable=False)
+    sha256 = Column(String(64), nullable=False)
+    uploaded_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    uploaded_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class SAPReview(Base):
+    __tablename__ = 'sap_reviews'
+    revision_id = Column(UUID(as_uuid=True), ForeignKey('sap_revisions.id'), primary_key=True)
+    overall_remarks = Column(Text, nullable=False, default='')
+    section_remarks = Column(JSON, nullable=False, default=dict)
+    signature_strokes = Column(JSON)
+    signed_by = Column(UUID(as_uuid=True), ForeignKey('users.id'))
+    signed_at = Column(DateTime(timezone=True))
+    signed_pdf = Column(LargeBinary)
+    signed_pdf_sha256 = Column(String(64))

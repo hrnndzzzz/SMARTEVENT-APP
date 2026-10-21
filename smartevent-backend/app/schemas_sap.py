@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 from copy import copy
-from pydantic import BaseModel, ConfigDict, Field, model_validator, create_model
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, create_model
 
 
 class StrictModel(BaseModel):
@@ -22,7 +22,8 @@ class Details(StrictModel):
     activity_date: date
     start_time: time
     end_time: time
-    setting: Literal['on_campus', 'online']
+    setting: Literal['on_campus', 'off_campus', 'online']
+    off_campus_agreement: bool = False
     modality: Literal['face_to_face', 'online', 'hybrid']
     venue: str = Field(min_length=1, max_length=200)
     persons_in_charge: str = Field(min_length=1, max_length=250)
@@ -49,6 +50,8 @@ class Details(StrictModel):
             raise ValueError('Proposal date cannot follow activity date')
         if self.setting == 'online' and self.modality != 'online':
             raise ValueError('Online setting requires online modality')
+        if (self.setting == 'off_campus') != self.off_campus_agreement:
+            raise ValueError('Off-campus activities require agreement acknowledgment')
         if any(not x or len(x) > 80 for x in self.activity_types + self.program_types):
             raise ValueError('Checkbox labels must contain 1–80 characters')
         return self
@@ -171,3 +174,41 @@ def validate_submission(details, collections, clearance):
     if bool(parsed['affected-classes']) != (c.class_interruption == 'yes'):
         raise ValueError('SDS clearance must match declared class interruptions')
     return d
+
+
+class SDSReviewWrite(Version):
+    overall_remarks: str = Field(default='', max_length=3000)
+    section_remarks: dict[str, str] = Field(default_factory=dict)
+    signature_strokes: list[list[dict[str, float]]] = Field(min_length=1, max_length=80)
+
+    @field_validator('section_remarks')
+    @classmethod
+    def valid_section_remarks(cls, value):
+        allowed = {'activity_details', 'budget', 'support_requests', 'additional_information', 'clearance', 'other'}
+        if any(key not in allowed or not isinstance(text, str) or len(text) > 1000 for key, text in value.items()):
+            raise ValueError('Section remarks contain an unsupported section or exceed 1000 characters')
+        return {key: text.strip() for key, text in value.items() if text.strip()}
+
+    @field_validator('signature_strokes')
+    @classmethod
+    def valid_strokes(cls, value):
+        if sum(len(stroke) for stroke in value) > 5000 or any(not stroke for stroke in value):
+            raise ValueError('Signature drawing is empty or too complex')
+        for stroke in value:
+            for point in stroke:
+                if set(point) != {'x', 'y'} or not all(0 <= point[key] <= 1 for key in ('x', 'y')):
+                    raise ValueError('Signature points must be normalized between 0 and 1')
+        return value
+
+
+class ReviewNotesWrite(Version):
+    overall_remarks: str = Field(default='', max_length=3000)
+    section_remarks: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator('section_remarks')
+    @classmethod
+    def valid_section_remarks(cls, value):
+        allowed = {'activity_details', 'budget', 'support_requests', 'additional_information', 'clearance', 'other'}
+        if any(key not in allowed or not isinstance(text, str) or len(text) > 1000 for key, text in value.items()):
+            raise ValueError('Section remarks contain an unsupported section or exceed 1000 characters')
+        return {key: text.strip() for key, text in value.items() if text.strip()}

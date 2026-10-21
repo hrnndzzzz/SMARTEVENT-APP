@@ -19,12 +19,9 @@ class ApiConfig {
     'SMARTEVENT_API_BASE_URL',
   );
 
-  /// Used only when nothing was defined at build time. This reaches a
-  /// backend on the developer's own machine, which means the emulator or
-  /// device has to be able to resolve it: either run
-  /// `adb reverse tcp:8000 tcp:8000`, or pass `http://10.0.2.2:8000`
-  /// (Android emulator) or the machine's LAN IP via the define above.
-  static const String _localDevFallback = 'http://127.0.0.1:8000';
+  /// Wireless development server. The phone must share its network.
+  /// Override with SMARTEVENT_API_BASE_URL if the laptop's IP changes.
+  static const String _localDevFallback = 'http://10.122.168.250:8000';
 
   /// Whether a base URL was supplied at build time. False means the build
   /// is pointing at the local development fallback, which is never right

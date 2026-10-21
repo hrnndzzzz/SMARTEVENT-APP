@@ -1,8 +1,9 @@
-"""Backend-only SAP API. SDS records physical evidence, not e-signatures."""
+"""SAP proposal API for supporting files, SDS review, e-signing, and paper evidence."""
 from datetime import date, timezone, timedelta
 from io import BytesIO
 from uuid import UUID
 import hashlib
+from pathlib import PurePath
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query
 from fastapi.responses import Response
 from pydantic import ValidationError
@@ -11,8 +12,8 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import require_active_account
 from app.models import User, DocumentRouting, Approval
-from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation
-from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, CheckpointWrite, EvaluationWrite, COLLECTIONS
+from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation, SAPAttachment, SAPReview
+from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS
 from app.services import sap, storage
 from app.services.sap_pdf import render_proposal
 from app.services.closure import institution_today, ensure_post_requirements
@@ -58,6 +59,101 @@ def update(event_id: UUID, payload: DraftWrite, db: Session = Depends(get_db), u
     return sap.save(db, event, proposal, user, 'sap_details_updated')
 
 
+@router.post('/attachments', status_code=201)
+async def upload_attachment(event_id: UUID, category: str = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    if category not in {'apf', 'pcf', 'appendix', 'roc_coc', 'other'}:
+        raise HTTPException(422, 'Unsupported attachment category')
+    event, proposal = sap.load(db, event_id, user, write=True, proposer=True)
+    if proposal.state not in {'draft', 'revision_requested'}:
+        raise HTTPException(409, 'Attachments can only be added to a draft or returned revision')
+    data = await file.read(storage.MAX_UPLOAD_BYTES + 1)
+    if not data or len(data) > storage.MAX_UPLOAD_BYTES:
+        raise HTTPException(422, 'Files must be between 1 byte and 10 MB')
+    content_type = (file.content_type or '').lower()
+    if data.startswith(b'%PDF-') and content_type == 'application/pdf':
+        extension = 'pdf'
+    elif data.startswith(b'\x89PNG\r\n\x1a\n') and content_type == 'image/png':
+        extension = 'png'
+    elif data.startswith(b'\xff\xd8\xff') and content_type in {'image/jpeg', 'image/jpg'}:
+        extension, content_type = 'jpg', 'image/jpeg'
+    else:
+        raise HTTPException(422, 'Attach a PDF, PNG, or JPEG file with a matching file type')
+    try:
+        ref = storage.upload_proposal_letter(data, content_type, extension, user.id, event.organization_id)
+    except (storage.StorageError, RuntimeError):
+        raise HTTPException(503, 'Private storage is unavailable') from None
+    name = PurePath(file.filename or 'supporting-document').name[:255]
+    row = SAPAttachment(proposal_id=proposal.id, revision_no=proposal.revision_no + 1, category=category,
+        display_name=name[:150], file_name=name, content_type=content_type, storage_ref=ref,
+        sha256=hashlib.sha256(data).hexdigest(), uploaded_by=user.id)
+    db.add(row)
+    return sap.save(db, event, proposal, user, 'sap_attachment_uploaded', details={'category': category})
+
+
+@router.get('/attachments')
+def list_attachments(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    _, proposal = sap.load(db, event_id, user)
+    rev_no = proposal.revision_no + 1 if proposal.state in {'draft', 'revision_requested'} else proposal.revision_no
+    rows = db.query(SAPAttachment).filter_by(proposal_id=proposal.id, revision_no=rev_no).order_by(SAPAttachment.uploaded_at).all()
+    return [{'id': str(row.id), 'category': row.category, 'display_name': row.display_name, 'file_name': row.file_name,
+             'content_type': row.content_type, 'sha256': row.sha256, 'uploaded_at': row.uploaded_at.isoformat()} for row in rows]
+
+
+@router.get('/attachments/{attachment_id}/download')
+def attachment_download(event_id: UUID, attachment_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    _, proposal = sap.load(db, event_id, user)
+    row = db.query(SAPAttachment).filter_by(id=attachment_id, proposal_id=proposal.id).first()
+    if row is None:
+        raise HTTPException(404, 'Attachment not found')
+    try:
+        return {'url': storage.signed_file_url(row.storage_ref), 'expires_in': storage.SIGNED_URL_SECONDS, 'sha256': row.sha256}
+    except (storage.StorageError, RuntimeError):
+        raise HTTPException(503, 'Private storage is unavailable') from None
+
+
+@router.put('/sds-review')
+def review_notes(event_id: UUID, payload: ReviewNotesWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    event, proposal = sap.load(db, event_id, user, write=True, sds=True)
+    sap.check_version(proposal, payload.expected_version)
+    if proposal.state != 'pending_sap_review':
+        raise HTTPException(409, 'Only a pending revision can receive SDS remarks')
+    rev = sap.revision(db, proposal)
+    row = db.query(SAPReview).filter_by(revision_id=rev.id).first()
+    if row is None:
+        row = SAPReview(revision_id=rev.id, overall_remarks=payload.overall_remarks, section_remarks=payload.section_remarks)
+        db.add(row)
+    elif row.signed_at:
+        raise HTTPException(409, 'Signed review is immutable; create a new revision')
+    else:
+        row.overall_remarks, row.section_remarks = payload.overall_remarks, payload.section_remarks
+    return sap.save(db, event, proposal, user, 'sap_review_notes_saved')
+
+
+@router.post('/sds-sign')
+def sign_revision(event_id: UUID, payload: SDSReviewWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    event, proposal = sap.load(db, event_id, user, write=True, sds=True)
+    sap.check_version(proposal, payload.expected_version)
+    if proposal.state != 'pending_sap_review':
+        raise HTTPException(409, 'Only a pending revision can be signed')
+    rev = sap.revision(db, proposal)
+    row = db.query(SAPReview).filter_by(revision_id=rev.id).first()
+    if row and row.signed_at:
+        raise HTTPException(409, 'This revision is already signed')
+    overall = payload.overall_remarks if payload.overall_remarks else (row.overall_remarks if row else '')
+    sections = payload.section_remarks if payload.section_remarks else (row.section_remarks if row else {})
+    signer = user.full_name.strip() or user.email
+    signed_pdf = render_proposal(rev.snapshot, rev.revision_no, review={'overall_remarks': overall, 'section_remarks': sections},
+        signer_name=signer, signature_strokes=payload.signature_strokes, signed=True)
+    if row is None:
+        row = SAPReview(revision_id=rev.id)
+        db.add(row)
+    row.overall_remarks, row.section_remarks = overall, sections
+    row.signature_strokes, row.signed_by, row.signed_at = payload.signature_strokes, user.id, sap.now()
+    row.signed_pdf, row.signed_pdf_sha256 = signed_pdf, hashlib.sha256(signed_pdf).hexdigest()
+    proposal.state = 'sds_signed'
+    return sap.save(db, event, proposal, user, 'sap_revision_signed', notify=True)
+
+
 @router.put('/sds-clearance')
 def clearance(event_id: UUID, payload: ClearanceWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
@@ -85,8 +181,8 @@ def workflow(event_id: UUID, db: Session = Depends(get_db), user: User = Depends
 def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
-    if proposal.state != 'pending_sap_review':
-        raise HTTPException(409, 'Only the current pending revision can receive checkpoints')
+    if proposal.state not in {'pending_sap_review', 'sds_signed'}:
+        raise HTTPException(409, 'Only the current reviewed revision can receive checkpoints')
     rev = sap.revision(db, proposal)
     rows = sap.steps(db, rev)
     row = next((r for r in rows if r.id == step_id), None)
@@ -132,7 +228,14 @@ def return_proposal(event_id: UUID, payload: ReturnWrite, db: Session = Depends(
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
     if proposal.state != 'pending_sap_review':
-        raise HTTPException(409, 'Only a pending SAP revision can be returned')
+        raise HTTPException(409, 'Only an unsigned pending SAP revision can be returned')
+    rev = sap.revision(db, proposal)
+    review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
+    if review is None:
+        review = SAPReview(revision_id=rev.id, overall_remarks=payload.remarks, section_remarks={})
+        db.add(review)
+    elif not review.signed_at:
+        review.overall_remarks = payload.remarks
     proposal.state, proposal.return_remarks, proposal.clearance = 'revision_requested', payload.remarks, None
     event.status = 'draft'
     return sap.save(db, event, proposal, user, 'sap_returned', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
@@ -143,7 +246,9 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), db: Session
     _, proposal = sap.load(db, event_id, user)
     if revision_no or proposal.state not in {'draft', 'revision_requested'}:
         rev = sap.revision(db, proposal, revision_no)
-        data, number = rev.printable_pdf, rev.revision_no
+        signed_review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
+        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else render_proposal(rev.snapshot, rev.revision_no, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None)
+        number = rev.revision_no
     else:
         try:
             Details.model_validate(proposal.details)
@@ -164,17 +269,17 @@ async def final_copy(event_id: UUID, expected_version: int = Form(..., ge=1), fi
     from pypdf import PdfReader
     try:
         reader = PdfReader(BytesIO(data), strict=True)
-        if reader.is_encrypted or len(reader.pages) != 6:
-            raise ValueError('Expected six unencrypted pages')
+        if reader.is_encrypted or len(reader.pages) < 3:
+            raise ValueError('Expected an unencrypted official form scan')
         root = reader.trailer['/Root']
         if '/OpenAction' in root or '/AA' in root or '/AcroForm' in root or '/Names' in root or any('/Annots' in p or '/AA' in p for p in reader.pages):
             raise ValueError('Upload a flattened scan without active content or attachments')
     except Exception:
-        raise HTTPException(422, 'Expected a valid, flattened, six-page PDF scan without active content') from None
+        raise HTTPException(422, 'Expected a valid, flattened official form PDF scan without active content') from None
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, expected_version)
-    if proposal.state != 'pending_sap_review':
-        raise HTTPException(409, 'Final scan can only approve the current pending revision')
+    if proposal.state != 'sds_signed':
+        raise HTTPException(409, 'Final scan can only approve the SDS-signed revision')
     rev = sap.revision(db, proposal)
     rows = sap.steps(db, rev)
     if len(rows) != 9 or any(not row.evidence for row in rows):
