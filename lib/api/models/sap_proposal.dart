@@ -1013,3 +1013,95 @@ class SapSignature {
     for (final stroke in strokes) [for (final point in stroke) point.toJson()],
   ];
 }
+
+/// What a supporting file is for.
+///
+/// The server keeps this list closed. `rocCoc` is the one with a rule
+/// attached: an off-campus proposal cannot be submitted without one on
+/// the revision being sent.
+enum SapAttachmentCategory {
+  apf('apf', 'Activity Proposal Form'),
+  pcf('pcf', 'Parent Consent Form'),
+  appendix('appendix', 'Appendix'),
+  rocCoc('roc_coc', 'ROC / COC'),
+  other('other', 'Other');
+
+  const SapAttachmentCategory(this.wireName, this.label);
+
+  final String wireName;
+  final String label;
+
+  static SapAttachmentCategory? fromWire(String? value) {
+    for (final c in SapAttachmentCategory.values) {
+      if (c.wireName == value) return c;
+    }
+    return null;
+  }
+}
+
+/// One supporting file, as the server lists it.
+///
+/// Files belong to the revision they were uploaded for. They are listed
+/// by name on the printed form but never merged into it, so each one is
+/// downloaded separately.
+class SapAttachment {
+  const SapAttachment({
+    required this.id,
+    required this.category,
+    required this.filename,
+    this.sizeBytes,
+    this.revisionNo,
+  });
+
+  final String id;
+  final SapAttachmentCategory? category;
+  final String filename;
+  final int? sizeBytes;
+  final int? revisionNo;
+
+  factory SapAttachment.fromJson(Map<String, dynamic> json) => SapAttachment(
+    id: (json['id'] as String?) ?? '',
+    category: SapAttachmentCategory.fromWire(json['category'] as String?),
+    filename: (json['filename'] as String?) ?? '',
+    sizeBytes: (json['size_bytes'] as num?)?.toInt(),
+    revisionNo: (json['revision_no'] as num?)?.toInt(),
+  );
+}
+
+/// What the server will take as a supporting file.
+///
+/// Checked before sending: an upload refused for its type or size costs
+/// the proposer the whole transfer before it says so.
+class SapUploadLimits {
+  const SapUploadLimits._();
+
+  static const int maxBytes = 10 * 1024 * 1024;
+
+  static const Map<String, String> _byExtension = {
+    'pdf': 'application/pdf',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+  };
+
+  /// The media type to send for [filename], or null if the server would
+  /// refuse it. The extension decides, because the server validates the
+  /// part's declared type and does not sniff the bytes.
+  static String? contentTypeFor(String filename) {
+    final dot = filename.lastIndexOf('.');
+    if (dot < 0 || dot == filename.length - 1) return null;
+    return _byExtension[filename.substring(dot + 1).toLowerCase()];
+  }
+
+  /// Why this file would be refused, or null if it would be taken.
+  static String? problemWith(String filename, int sizeBytes) {
+    if (contentTypeFor(filename) == null) {
+      return 'Only PDF, PNG and JPEG files can be attached.';
+    }
+    if (sizeBytes > maxBytes) {
+      return 'That file is over the 10 MB limit.';
+    }
+    if (sizeBytes <= 0) return 'That file is empty.';
+    return null;
+  }
+}

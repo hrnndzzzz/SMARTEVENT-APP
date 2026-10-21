@@ -412,6 +412,63 @@ class SapForm extends ChangeNotifier {
 
   /// Uploads the signed scan. Write-once on the server, so this is the
   /// one action here with no second chance.
+  /// Supporting files on the current draft or revision, newest call
+  /// wins. Empty until [loadAttachments] has run once.
+  List<SapAttachment> get attachments => List.unmodifiable(_attachments);
+  List<SapAttachment> _attachments = const [];
+
+  /// Whether the ROC or COC the server insists on for an off-campus
+  /// submission is already attached.
+  bool get hasRocCoc =>
+      _attachments.any((a) => a.category == SapAttachmentCategory.rocCoc);
+
+  Future<void> loadAttachments() async {
+    final service = _service;
+    if (service == null || _eventId == null) return;
+    try {
+      _attachments = await service.attachments(_eventId!);
+      notifyListeners();
+    } catch (_) {
+      // A listing that fails leaves what was there. The proposer is
+      // told what is missing at submission either way, and an error
+      // banner over a side list is noise while they are still typing.
+    }
+  }
+
+  /// Attaches a supporting file. Returns the reason it was refused, or
+  /// null when it went.
+  Future<String?> attachFile({
+    required SapAttachmentCategory category,
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final service = _service;
+    if (service == null || _eventId == null) {
+      return 'This proposal has not been saved to the server yet.';
+    }
+
+    _saving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final saved = await service.uploadAttachment(
+        _eventId!,
+        category: category,
+        bytes: bytes,
+        filename: filename,
+      );
+      _attachments = [..._attachments, saved];
+      return null;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    } catch (e) {
+      return e is ApiException ? e.message : e.toString();
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> uploadFinalScan({
     required List<int> bytes,
     required String filename,

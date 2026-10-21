@@ -42,7 +42,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Thirty days of notice'), findsOneWidget);
-    expect(find.textContaining('ROC or COC'), findsOneWidget);
+    expect(
+      find.textContaining('A signed ROC or COC attached'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('and offers somewhere to attach it', (tester) async {
+    await tester.pumpWidget(
+      host(SapPart1Screen(form: formSet(SapSetting.offCampus))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Attach the ROC or COC'), findsOneWidget);
+    expect(find.textContaining('PDF, PNG or JPEG'), findsOneWidget);
+    expect(find.textContaining('is attached.'), findsNothing);
+  });
+
+  testWidgets('on campus is asked for no attachment', (tester) async {
+    await tester.pumpWidget(
+      host(SapPart1Screen(form: formSet(SapSetting.onCampus))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Attach the ROC or COC'), findsNothing);
   });
 
   testWidgets('it will not go on unacknowledged', (tester) async {

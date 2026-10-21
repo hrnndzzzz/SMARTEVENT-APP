@@ -194,7 +194,11 @@ class ApiClient {
           ),
         );
 
-      return http.Response.fromStream(await request.send());
+      // Sent through the injected client like every other method here.
+      // `request.send()` would quietly make its own, which ignores any
+      // client this was constructed with and, in a test, reaches the
+      // real network.
+      return http.Response.fromStream(await _httpClient.send(request));
     });
   }
 

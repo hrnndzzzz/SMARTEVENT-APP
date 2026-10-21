@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
@@ -42,6 +43,14 @@ class SapPart1Screen extends StatefulWidget {
 }
 
 class _SapPart1ScreenState extends State<SapPart1Screen> {
+  @override
+  void initState() {
+    super.initState();
+    // So an off-campus proposal that already has its ROC/COC says so
+    // instead of asking for it again.
+    _form.loadAttachments();
+  }
+
   late final SapForm _form = widget.form;
 
   late final _title = TextEditingController(text: _d.title ?? '');
@@ -183,6 +192,34 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     return DateTime(activity.year, activity.month, activity.day)
         .difference(DateTime(from.year, from.month, from.day))
         .inDays;
+  }
+
+  /// Attaches the ROC or COC an off-campus submission cannot go without.
+  ///
+  /// The file is checked for type and size before it is sent, so a wrong
+  /// one is refused here rather than after the whole transfer.
+  Future<void> _attachRocCoc() async {
+    final picked = await FilePicker.pickFiles(
+      dialogTitle: 'Choose the signed ROC or COC',
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
+    );
+    final file = picked.firstOrNull;
+    if (file == null || !mounted) return;
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+
+    final problem = await _form.attachFile(
+      category: SapAttachmentCategory.rocCoc,
+      bytes: bytes,
+      filename: file.name,
+    );
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(problem ?? '${file.name} attached.')),
+    );
   }
 
   Future<void> _pickDate() async {
@@ -435,6 +472,31 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                     text:
                         'An off-campus activity cannot be sent until this '
                         'is acknowledged.',
+                  ),
+                ],
+                const SizedBox(height: 10),
+                if (_form.hasRocCoc)
+                  const BrutInlineMessage(
+                    tone: BrutTone.mint,
+                    icon: Icons.check_circle_outline,
+                    text: 'The ROC or COC is attached.',
+                  )
+                else ...[
+                  BrutButton(
+                    label: 'Attach the ROC or COC',
+                    icon: Icons.attach_file,
+                    tone: BrutTone.neutral,
+                    busy: _form.saving,
+                    busyLabel: 'Attaching',
+                    onPressed: _editable ? _attachRocCoc : null,
+                  ),
+                  const SizedBox(height: 8),
+                  const BrutInlineMessage(
+                    tone: BrutTone.neutral,
+                    icon: Icons.info_outline,
+                    text:
+                        'PDF, PNG or JPEG, up to 10 MB. It is attached to '
+                        'this revision: a returned proposal needs it again.',
                   ),
                 ],
               ],

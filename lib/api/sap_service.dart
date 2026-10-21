@@ -310,6 +310,71 @@ class SapService {
     });
   }
 
+  /// `POST /attachments` — a supporting file for the active revision.
+  ///
+  /// PDF, PNG or JPEG, up to 10 MB. The type and size are checked here
+  /// first: a refusal costs the proposer the whole transfer before the
+  /// server says why, which on a phone is a slow way to learn that a
+  /// file was the wrong sort.
+  ///
+  /// Throws [ArgumentError] when the file is one the server would refuse.
+  Future<SapAttachment> uploadAttachment(
+    String eventId, {
+    required SapAttachmentCategory category,
+    required List<int> bytes,
+    required String filename,
+  }) {
+    final problem = SapUploadLimits.problemWith(filename, bytes.length);
+    if (problem != null) throw ArgumentError(problem);
+
+    return _guard(() async {
+      final response = await _client.upload(
+        '${_base(eventId)}/attachments',
+        field: 'file',
+        bytes: bytes,
+        filename: filename,
+        contentType: SapUploadLimits.contentTypeFor(filename)!,
+        fields: {'category': category.wireName},
+      );
+      return SapAttachment.fromJson(Map<String, dynamic>.from(response as Map));
+    });
+  }
+
+  /// `GET /attachments` — the files on the draft or current revision.
+  Future<List<SapAttachment>> attachments(String eventId) {
+    return _guard(() async {
+      final response = await _client.get('${_base(eventId)}/attachments');
+      // A bare list, or one wrapped the way the collections are. The
+      // contract does not promise which, and guessing wrong is how the
+      // collections came back empty the first time.
+      final rows = response is List
+          ? response
+          : (response as Map)['attachments'] as List? ?? const [];
+      return [
+        for (final row in rows)
+          SapAttachment.fromJson(Map<String, dynamic>.from(row as Map)),
+      ];
+    });
+  }
+
+  /// `GET /attachments/{id}/download` — a short-lived private link.
+  ///
+  /// The link expires in minutes and points at private storage. It is
+  /// never to be logged, cached or sent anywhere else.
+  Future<SapFinalScan> attachmentLink(String eventId, String attachmentId) {
+    return _guard(() async {
+      final response = await _client.get(
+        '${_base(eventId)}/attachments/$attachmentId/download',
+      );
+      final row = Map<String, dynamic>.from(response as Map);
+      return SapFinalScan(
+        url: row['url'] as String,
+        expiresInSeconds: (row['expires_in'] as num?)?.toInt() ?? 0,
+        sha256: (row['sha256'] as String?) ?? '',
+      );
+    });
+  }
+
   /// `GET /pdf` — the printable six-page form.
   ///
   /// A draft preview while the proposal is still editable, otherwise the
