@@ -124,4 +124,27 @@ void main() {
     await tester.pump();
     expect(find.text('Back to today'), findsNothing);
   });
+
+  testWidgets('status chips narrow both views', (tester) async {
+    await _open(tester, _seeded());
+
+    expect(find.text('CITE Week Opening'), findsOneWidget);
+    expect(find.text('Hackathon 2026'), findsOneWidget);
+
+    // Waiting leaves only the one with a pending status.
+    await tester.tap(find.text('Waiting'));
+    await tester.pump();
+    expect(find.text('Hackathon 2026'), findsOneWidget);
+    expect(find.text('CITE Week Opening'), findsNothing);
+
+    // And the month honours the same narrowing.
+    await _toCalendar(tester);
+    expect(find.textContaining('1 this month'), findsNothing);
+  });
+
+  testWidgets('a single school year offers no year chip', (tester) async {
+    await _open(tester, _seeded());
+    // One year in the data is a chip that cannot change anything.
+    expect(find.text('All years'), findsNothing);
+  });
 }

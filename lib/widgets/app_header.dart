@@ -1,13 +1,17 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../state/app_settings.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'account_menu.dart';
+import 'user_avatar.dart';
 import 'connection_banner.dart';
-import 'notification_peek.dart';
+import 'notification_menu.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
 /// in as, the bell, and the avatar.
@@ -21,7 +25,6 @@ class AppHeader extends StatelessWidget {
   /// The dashboard says who you are under the greeting, where there is
   /// room for it, and the account menu says it in full.
   final String? subtitle;
-  final VoidCallback? onBellTap;
 
   /// Overrides what the avatar does. It opens the account menu by
   /// default, which is what every screen wanted.
@@ -35,21 +38,9 @@ class AppHeader extends StatelessWidget {
   const AppHeader({
     super.key,
     this.subtitle,
-    this.onBellTap,
     this.onAvatarTap,
     this.onBack,
   });
-
-  static String _initialsFor(String name) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
 
   /// `CITE · TREASURER`. Falls back to whichever half is known rather than
   /// printing a placeholder for the other.
@@ -65,7 +56,6 @@ class AppHeader extends StatelessWidget {
     // The department accent comes from the theme rather than from state:
     // main.dart puts it there, so every identity surface reads one value.
     final accent = Theme.of(context).colorScheme.secondary;
-    final initials = _initialsFor(app.currentAccount?.name ?? 'Guest');
 
     return Row(
       children: [
@@ -95,11 +85,10 @@ class AppHeader extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        _BellWithBadge(onTap: onBellTap),
+        const _BellWithBadge(),
         const SizedBox(width: 8),
         _Avatar(
-          initials: initials,
-          accent: accent,
+          name: app.currentAccount?.name ?? 'Guest',
           onTap: onAvatarTap ?? () => AccountMenu.show(context),
         ),
       ],
@@ -108,14 +97,9 @@ class AppHeader extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({
-    required this.initials,
-    required this.accent,
-    required this.onTap,
-  });
+  const _Avatar({required this.name, required this.onTap});
 
-  final String initials;
-  final Color accent;
+  final String name;
   final VoidCallback onTap;
 
   @override
@@ -123,16 +107,14 @@ class _Avatar extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        BrutSurface(
+        GestureDetector(
           onTap: onTap,
-          semanticLabel: 'Account',
-          fill: accent,
-          radius: AppRadius.pill,
-          shadow: AppShadows.sm,
-          width: 38,
-          height: 38,
-          alignment: Alignment.center,
-          child: Text(initials, style: AppText.number.copyWith(fontSize: 13)),
+          behavior: HitTestBehavior.opaque,
+          child: Semantics(
+            label: 'Account',
+            button: true,
+            child: UserAvatar(name: name, size: 38),
+          ),
         ),
         // Whether the backend is answering, where you are already looking.
         Positioned(
@@ -151,54 +133,144 @@ class _Avatar extends StatelessWidget {
 /// than from counting a loaded list, so it is right even before the inbox
 /// has been opened. No badge at all when the count is zero — a "0" is
 /// noise.
-class _BellWithBadge extends StatelessWidget {
-  const _BellWithBadge({required this.onTap});
+///
+/// When something is unread the bell asks for attention on a cycle: it
+/// fades to the number, shakes, and fades back. Once every eight seconds
+/// rather than continuously, because a thing that moves forever stops
+/// being noticed and starts being irritating.
+class _BellWithBadge extends StatefulWidget {
+  const _BellWithBadge();
 
-  final VoidCallback? onTap;
+  @override
+  State<_BellWithBadge> createState() => _BellWithBadgeState();
+}
+
+class _BellWithBadgeState extends State<_BellWithBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 8),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// How far through one swell we are, 0 to 1, and 0 for most of the
+  /// cycle. The bell is still for about six of the eight seconds.
+  static double _phase(double t) {
+    const share = 0.26;
+    return t < share ? t / share : 0.0;
+  }
 
   @override
   Widget build(BuildContext context) {
     final count = context.watch<AppState>().unreadNoticeCount;
+    // Reduce-motion is a preference, not a requirement: a host without
+    // the settings provider — a widget test, mostly — should still get a
+    // working bell rather than an exception.
+    var reduceMotion = false;
+    try {
+      reduceMotion = context.watch<AppSettings>().reduceMotion;
+    } on ProviderNotFoundException {
+      reduceMotion = false;
+    }
+    final still = MediaQuery.disableAnimationsOf(context) || reduceMotion;
+
+    // One handler, on the button itself. The previous arrangement had a
+    // gesture wrapper outside and an onPressed inside, and the inner one
+    // won every tap — which is why this still opened a screen after it
+    // was supposed to open a window.
+    final bell = BrutIconButton(
+      icon: Icons.notifications_none,
+      label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
+      onPressed: () => NotificationMenu.show(context),
+      size: 38,
+    );
+
+    if (count == 0) return bell;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // A tap opens the inbox; a hold shows what the number counts.
-        NotificationPeek(
-          onTap: onTap,
-          child: BrutIconButton(
-            icon: Icons.notifications_none,
-            label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
-            onPressed: onTap,
-            size: 38,
+        if (still)
+          bell
+        else
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final p = _phase(_controller.value);
+              // Three shakes across the swell, fading in and out at the
+              // ends so it never starts or stops with a jolt.
+              final envelope = p == 0 ? 0.0 : math.sin(p * math.pi);
+              final angle =
+                  math.sin(p * math.pi * 6) * 0.14 * envelope;
+              return Transform.rotate(angle: angle, child: child);
+            },
+            child: bell,
           ),
-        ),
-        if (count > 0)
-          Positioned(
-            right: -5,
-            top: -5,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              constraints: const BoxConstraints(minWidth: 18),
-              decoration: BoxDecoration(
-                color: AppColors.coral,
-                borderRadius: AppRadius.pill,
-                border: context.borderAll,
-              ),
-              child: Text(
-                // Past 99 the exact number stops being useful and starts
-                // breaking the layout.
-                count > 99 ? '99+' : '$count',
-                textAlign: TextAlign.center,
-                style: AppText.monoLabel.copyWith(
-                  fontSize: 9,
-                  color: context.palette.ink,
-                  letterSpacing: 0,
+        Positioned(
+          right: -5,
+          top: -5,
+          child: still
+              ? _Badge(count: count, swell: 0)
+              : AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    final p = _phase(_controller.value);
+                    return _Badge(
+                      count: count,
+                      swell: p == 0 ? 0 : math.sin(p * math.pi),
+                    );
+                  },
                 ),
-              ),
-            ),
-          ),
+        ),
       ],
     );
   }
 }
+
+/// The count. [swell] runs 0 to 1 and back across one attention cycle,
+/// growing the badge and deepening its red at the peak.
+class _Badge extends StatelessWidget {
+  const _Badge({required this.count, required this.swell});
+
+  final int count;
+  final double swell;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.scale(
+      scale: 1 + swell * 0.28,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        constraints: const BoxConstraints(minWidth: 18),
+        decoration: BoxDecoration(
+          color: Color.lerp(AppColors.coral, AppColors.alert, swell),
+          borderRadius: AppRadius.pill,
+          border: context.borderAll,
+        ),
+        child: Text(
+          // Past 99 the exact number stops being useful and starts
+          // breaking the layout.
+          count > 99 ? '99+' : '$count',
+          textAlign: TextAlign.center,
+          style: AppText.monoLabel.copyWith(
+            fontSize: 9,
+            color: context.palette.ink,
+            letterSpacing: 0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+

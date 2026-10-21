@@ -99,7 +99,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
       header: BrutHeader(
         eyebrow: 'Catalog item',
         title: item.itemName,
-        tone: item.isLowStock ? BrutTone.sun : BrutTone.brand,
+        tone: item.isLowStock ? BrutTone.coral : BrutTone.brand,
         onBack: () => Navigator.of(context).maybePop(),
       ),
       child: Column(
@@ -144,7 +144,7 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: BrutSpinner(size: 14),
                   )
                 : BrutIconButton(
                     icon: Icons.refresh,
@@ -171,7 +171,7 @@ class _StockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BrutCard(
-      tone: item.isLowStock ? BrutTone.sun : BrutTone.neutral,
+      tone: item.isLowStock ? BrutTone.coral : BrutTone.neutral,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

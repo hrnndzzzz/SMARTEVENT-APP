@@ -241,6 +241,23 @@ class AppMotion {
   static const Duration enter = Duration(milliseconds: 180);
   static const Duration sheet = Duration(milliseconds: 200);
   static const Duration accordion = Duration(milliseconds: 300);
+
+  /// Things arriving: a little overshoot at the end, so a panel lands
+  /// rather than stopping dead. Decelerating alone reads as the frame
+  /// rate giving out.
+  static const Curve arriving = Curves.easeOutCubic;
+
+  /// Things leaving. Faster at the start, because nobody watches an
+  /// exit — they are already looking at what comes next.
+  static const Curve leaving = Curves.easeInCubic;
+
+  /// Opening and closing in place: an accordion, a disclosure. Eased at
+  /// both ends, since the eye follows the whole movement.
+  static const Curve inPlace = Curves.easeInOutCubic;
+
+  /// A press. Nearly instant, and linear at this length — a curve over
+  /// 80ms is a curve nobody perceives.
+  static const Curve pressed = Curves.linear;
 }
 
 class AppTheme {

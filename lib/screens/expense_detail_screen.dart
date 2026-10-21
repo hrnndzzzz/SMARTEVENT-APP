@@ -6,6 +6,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'complete_purchase_screen.dart';
 import '../theme/peso.dart';
+import '../widgets/stored_image.dart';
 
 /// One expense in full: amounts, the OCR reading, any flag, the itemized
 /// lines, the review decision, and the entry point to purchase completion.
@@ -266,6 +267,10 @@ class _OcrCard extends StatelessWidget {
               'is recorded.',
               style: AppText.caption.copyWith(color: context.palette.muted),
             ),
+            const SizedBox(height: 12),
+            // The scan that produced the figures above, so the reading
+            // can be checked against the paper rather than trusted.
+            StoredImage(reference: expense.receiptUrl!, height: 240),
           ],
         ],
       ),
@@ -298,7 +303,7 @@ class _LinesCard extends StatelessWidget {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: BrutSpinner(size: 14),
                   )
                 : BrutIconButton(
                     icon: Icons.refresh,

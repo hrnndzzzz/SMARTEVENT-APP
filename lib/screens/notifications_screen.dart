@@ -50,7 +50,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         child: switch (load) {
           _ when load.isLoading && app.notices.isEmpty => const Center(
-            child: CircularProgressIndicator(),
+            child: BrutSpinner(),
           ),
           _ when load.hasFailed && app.notices.isEmpty => BrutRetry(
             title: 'Could not load notifications',

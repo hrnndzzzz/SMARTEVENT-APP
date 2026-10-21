@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'sap/sap_proposal_flow.dart';
+import '../state/sap_form.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_layout.dart';
@@ -8,8 +10,6 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_calendar.dart';
 import '../widgets/event_status.dart';
-import 'notifications_screen.dart';
-import 'create_event_screen.dart';
 import 'event_detail_screen.dart';
 
 /// Every proposal, as a list or as a month.
@@ -28,6 +28,7 @@ class _EventsScreenState extends State<EventsScreen> {
   /// The list is the default: it is the whole filtered set in one
   /// scroll, and it is what every role already knows.
   bool _calendar = false;
+  _StatusFilter _status = _StatusFilter.all;
 
   void _open(EventItem event) {
     Navigator.of(
@@ -40,9 +41,6 @@ class _EventsScreenState extends State<EventsScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -66,22 +64,28 @@ class _EventsScreenState extends State<EventsScreen> {
                   icon: Icons.add,
                   size: BrutSize.small,
                   expand: false,
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const CreateEventScreen(),
+                  onPressed: () => SapProposalFlow.start(
+                    context,
+                    SapForm(
+                      service: context.read<AppState>().isDemoMode
+                          ? null
+                          : context.read<AppState>().sapService,
                     ),
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 12),
-          const _SchoolYearFilterBar(),
+          _EventFilterBar(
+            status: _status,
+            onStatus: (value) => setState(() => _status = value),
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: Consumer<AppState>(
               builder: (context, app, _) {
                 if (app.eventsLoad.isLoading && app.events.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Center(child: BrutSpinner());
                 }
                 if (app.eventsLoad.hasFailed && app.events.isEmpty) {
                   return Center(
@@ -120,13 +124,28 @@ class _EventsScreenState extends State<EventsScreen> {
                     ),
                   );
                 }
+                // One narrowing, both views: switching to the month
+                // should not quietly widen what is on screen.
+                final events = [
+                  for (final event in app.events)
+                    if (_status.matches(event.status)) event,
+                ];
                 if (_calendar) {
-                  return EventCalendar(events: app.events, onOpen: _open);
+                  return EventCalendar(events: events, onOpen: _open);
+                }
+                if (events.isEmpty) {
+                  return Center(
+                    child: BrutEmptyState(
+                      icon: Icons.filter_alt_outlined,
+                      title: 'Nothing ${_status.label.toLowerCase()}',
+                      hint: 'Tap All to see every proposal again.',
+                    ),
+                  );
                 }
                 return ListView(
                   padding: const EdgeInsets.only(bottom: 8),
                   children: [
-                    for (final event in app.events) ...[
+                    for (final event in events) ...[
                       _EventCard(event: event),
                       const SizedBox(height: 10),
                     ],
@@ -260,38 +279,100 @@ class _EventCard extends StatelessWidget {
 /// labelled so it is clear which narrowing is the server's.
 /// "Needs school year" is the repair queue for legacy rows and is only
 /// useful to an administrator, who is the one who can fix them.
-class _SchoolYearFilterBar extends StatelessWidget {
-  const _SchoolYearFilterBar();
+/// What the list is narrowed to.
+///
+/// Status first, because that is how the list is actually read — the
+/// stripe down each card is the same information, and the chips are how
+/// you ask for one colour's worth of it.
+///
+/// School year sits behind it and only appears when there is a choice to
+/// make: one year on its own is a chip that cannot change anything.
+/// "Missing school year" is not a year at all — it is the repair queue
+/// for legacy rows, and only an administrator can fix one.
+class _EventFilterBar extends StatelessWidget {
+  const _EventFilterBar({required this.status, required this.onStatus});
+
+  final _StatusFilter status;
+  final ValueChanged<_StatusFilter> onStatus;
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final years = app.knownSchoolYears;
     final canRepair = app.currentRole?.isAdministrator ?? false;
+    final showYears = years.length > 1;
 
-    if (years.isEmpty && !canRepair) return const SizedBox.shrink();
-
-    return BrutChipBar(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        BrutChip(
-          label: 'All years',
-          selected:
-              app.schoolYearFilter == null && !app.showOnlyMissingSchoolYear,
-          onTap: () => app.applyEventFilter(),
+        BrutChipBar(
+          children: [
+            for (final option in _StatusFilter.values)
+              BrutChip(
+                label: option.label,
+                selected: option == status,
+                tone: option.tone,
+                onTap: () => onStatus(option),
+              ),
+          ],
         ),
-        for (final year in years)
-          BrutChip(
-            label: year,
-            selected: app.schoolYearFilter == year,
-            onTap: () => app.applyEventFilter(schoolYear: year),
+        if (showYears || canRepair) ...[
+          const SizedBox(height: 8),
+          BrutChipBar(
+            children: [
+              if (showYears) ...[
+                BrutChip(
+                  label: 'All years',
+                  selected:
+                      app.schoolYearFilter == null &&
+                      !app.showOnlyMissingSchoolYear,
+                  onTap: () => app.applyEventFilter(),
+                ),
+                for (final year in years)
+                  BrutChip(
+                    label: year,
+                    selected: app.schoolYearFilter == year,
+                    onTap: () => app.applyEventFilter(schoolYear: year),
+                  ),
+              ],
+              if (canRepair)
+                BrutChip(
+                  label: 'Missing school year',
+                  selected: app.showOnlyMissingSchoolYear,
+                  onTap: () => app.showOnlyMissingSchoolYear
+                      ? app.applyEventFilter()
+                      : app.applyEventFilter(missingOnly: true),
+                ),
+            ],
           ),
-        if (canRepair)
-          BrutChip(
-            label: 'Needs school year',
-            selected: app.showOnlyMissingSchoolYear,
-            onTap: () => app.applyEventFilter(missingOnly: true),
-          ),
+        ],
       ],
     );
   }
+}
+
+/// The colours the list is already sorted by, as something you can ask
+/// for. Pending covers all three waiting stages: to the person reading
+/// the list they mean one thing, and the badge says which desk.
+enum _StatusFilter {
+  all('All', null),
+  pending('Waiting', BrutTone.sun),
+  approved('Approved', BrutTone.mint),
+  rejected('Returned', BrutTone.coral),
+  draft('Drafts', BrutTone.neutral);
+
+  const _StatusFilter(this.label, this.tone);
+
+  final String label;
+  final BrutTone? tone;
+
+  bool matches(EventApprovalStatus status) => switch (this) {
+    _StatusFilter.all => true,
+    _StatusFilter.pending => status.isPending,
+    _StatusFilter.approved =>
+      status == EventApprovalStatus.approved ||
+          status == EventApprovalStatus.completed,
+    _StatusFilter.rejected => status == EventApprovalStatus.rejected,
+    _StatusFilter.draft => status == EventApprovalStatus.draft,
+  };
 }

@@ -8,7 +8,6 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/expense_review.dart';
 import 'expense_detail_screen.dart';
-import 'notifications_screen.dart';
 import '../theme/peso.dart';
 
 /// Expenses, with the ones waiting on a decision at the top.
@@ -50,9 +49,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -72,7 +68,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
             )
           else if (app.expensesLoad.hasFailed && app.expenses.isEmpty)

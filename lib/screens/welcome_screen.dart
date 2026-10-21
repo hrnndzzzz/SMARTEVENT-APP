@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../state/app_state.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
@@ -80,6 +82,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(
             children: [
+              // Why you are looking at this screen, when you did not ask
+              // to leave. Without it an expired token just dumps someone
+              // back at the welcome page with no explanation.
+              if (context.watch<AppState>().sessionExpiredNotice) ...[
+                const SizedBox(height: 12),
+                const BrutInlineMessage(
+                  tone: BrutTone.sun,
+                  icon: Icons.schedule,
+                  text:
+                      'Your session expired, so you were signed out. '
+                      'Sign in again to pick up where you left off.',
+                ),
+              ],
               Expanded(
                 child: Center(
                   child: Column(

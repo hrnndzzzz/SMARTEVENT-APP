@@ -5,7 +5,6 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'notifications_screen.dart';
 
 /// Proposal letters.
 ///
@@ -58,9 +57,6 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
           : null,
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -79,7 +75,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.letters.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.letters.isEmpty => BrutRetry(
                 title: 'Could not load letters',

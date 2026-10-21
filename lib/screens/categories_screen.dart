@@ -5,7 +5,6 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'notifications_screen.dart';
 import '../theme/peso.dart';
 
 /// Categories — full CRUD, which `FRONTEND_README.md` §4 makes mandatory:
@@ -33,9 +32,6 @@ class CategoriesScreen extends StatelessWidget {
           : null,
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -76,7 +72,7 @@ class _Body extends StatelessWidget {
     final load = app.categoriesLoad;
 
     if (load.isLoading && app.categories.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: BrutSpinner());
     }
 
     if (load.hasFailed && app.categories.isEmpty) {
@@ -136,7 +132,7 @@ class _CategoryCard extends StatelessWidget {
             children: [
               Expanded(child: Text(category.name, style: AppText.cardTitle)),
               if (_isLow) ...[
-                const BrutBadge(label: 'Low balance', tone: BrutTone.sun),
+                const BrutBadge(label: 'Low balance', tone: BrutTone.coral),
                 const SizedBox(width: 4),
               ],
               if (canManage)
@@ -160,7 +156,7 @@ class _CategoryCard extends StatelessWidget {
           const SizedBox(height: 12),
           BrutProgressBar(
             value: _usedFraction,
-            tone: _isLow ? BrutTone.sun : BrutTone.brand,
+            tone: _isLow ? BrutTone.coral : BrutTone.brand,
           ),
           const SizedBox(height: 14),
           Row(

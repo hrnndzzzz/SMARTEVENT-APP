@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    SmartEvent talks to a plain-HTTP FastAPI backend while it is run on a
+    LAN (a laptop on the same Wi-Fi or phone hotspot), so cleartext has to
+    be permitted for the app to reach it at all.
+
+    Once the backend is deployed behind HTTPS, flip cleartextTrafficPermitted
+    to "false" below. Nothing else needs to change.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

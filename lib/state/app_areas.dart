@@ -13,6 +13,17 @@ import 'app_state.dart';
 
 /// The app's areas, in one list.
 ///
+/// ## The two colours, and the three
+///
+/// An area is orange when it is about money — Money, Reports, Flagged —
+/// and blue when it is not. That is the whole rule, and it is why the
+/// menu now reads as one system rather than a row of unrelated tiles:
+/// the department is orange and blue, so the app is.
+///
+/// Green, yellow and coral never fill an area. They mean approved,
+/// waiting and returned, and a screen that spends them on a menu entry
+/// has nothing left to say with them where it matters.
+///
 /// Before this there were two navigation systems — a six-tab bar and a
 /// radial menu — and the menu repeated every tab before adding five more.
 /// Eleven destinations, no grouping, and the same thing reachable two
@@ -30,6 +41,7 @@ class AppArea {
     required this.tone,
     required this.builder,
     this.badge,
+    this.badgeLabel,
     this.visibleTo,
   });
 
@@ -45,6 +57,13 @@ class AppArea {
   /// The number on the card. Null means this area does not count
   /// anything — better than showing a zero that means "not loaded".
   final int Function(AppState app)? badge;
+
+  /// What that number counts, in one or two words.
+  ///
+  /// A bare figure beside the band's own numeral was two unlabelled
+  /// numbers on one row, and nothing said which was the position and
+  /// which was the count.
+  final String? badgeLabel;
 
   /// Null means everyone who can sign in.
   final bool Function(UserRole role)? visibleTo;
@@ -62,6 +81,7 @@ const List<AppArea> appAreas = [
     icon: Icons.event_outlined,
     tone: BrutTone.brand,
     badge: _pendingEvents,
+    badgeLabel: 'waiting',
     builder: _events,
   ),
   AppArea(
@@ -71,6 +91,7 @@ const List<AppArea> appAreas = [
     icon: Icons.payments_outlined,
     tone: BrutTone.orange,
     badge: _pendingExpenses,
+    badgeLabel: 'to review',
     builder: _money,
   ),
   AppArea(
@@ -78,8 +99,9 @@ const List<AppArea> appAreas = [
     title: 'Inventory',
     blurb: 'Stock, movements and low-stock items',
     icon: Icons.inventory_2_outlined,
-    tone: BrutTone.mint,
+    tone: BrutTone.brand,
     badge: _lowStock,
+    badgeLabel: 'low stock',
     builder: _inventory,
   ),
   AppArea(
@@ -87,7 +109,7 @@ const List<AppArea> appAreas = [
     title: 'Reports',
     blurb: 'Financial reports and exports',
     icon: Icons.insert_chart_outlined,
-    tone: BrutTone.violet,
+    tone: BrutTone.orange,
     builder: _reports,
   ),
   AppArea(
@@ -95,8 +117,9 @@ const List<AppArea> appAreas = [
     title: 'Flagged',
     blurb: 'Expenses worth a second look',
     icon: Icons.flag_outlined,
-    tone: BrutTone.sun,
+    tone: BrutTone.orange,
     badge: _flagged,
+    badgeLabel: 'flagged',
     builder: _risk,
   ),
   AppArea(
@@ -104,8 +127,9 @@ const List<AppArea> appAreas = [
     title: 'Letters',
     blurb: 'Proposal letters for events',
     icon: Icons.description_outlined,
-    tone: BrutTone.teal,
+    tone: BrutTone.brand,
     badge: _letters,
+    badgeLabel: 'on file',
     // Officers reach none of it, and sign-in does not even load the
     // list for them — so the card would open on an empty screen that
     // will never fill.

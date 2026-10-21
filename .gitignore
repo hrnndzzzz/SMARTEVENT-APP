@@ -57,11 +57,16 @@ __pycache__/
 .idea/
 *.egg-info/
 
-# Local-only credential notes for the demo accounts.
+# Local-only credentials: the demo-account notes, and the dart-define
+# file the debug build reads the demo password from.
 .local-*.txt
+<<<<<<< HEAD
 
 # Generated backend artifacts
 node_modules/
 .pytest_cache/
 /smartevent-backend/tmp/
 /smartevent-backend/supabase/.temp/
+=======
+.local-*.json
+>>>>>>> feature/receipt-camera

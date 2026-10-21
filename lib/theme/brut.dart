@@ -1,4 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/app_settings.dart';
+import '../state/sfx.dart';
 import 'app_colors.dart';
 import 'app_layout.dart';
 import 'app_theme.dart';
@@ -44,17 +49,24 @@ enum BrutTone {
 extension BrutToneColors on BrutTone {
   /// The solid fill. The accents are fixed; the neutral and dark ones
   /// follow the theme.
-  Color fill(BuildContext context) => switch (this) {
-    BrutTone.neutral => context.palette.surface,
-    BrutTone.brand => Theme.of(context).colorScheme.primary,
-    BrutTone.sun => AppColors.sun,
-    BrutTone.mint => AppColors.mint,
-    BrutTone.coral => AppColors.coral,
-    BrutTone.orange => AppColors.orange,
-    BrutTone.violet => AppColors.violet,
-    BrutTone.teal => AppColors.teal,
-    BrutTone.dark => context.palette.ink,
-  };
+  Color fill(BuildContext context) {
+    // The accents are held down on a dark canvas. At full strength they
+    // are light sources rather than surfaces, and a screen carrying
+    // three of them has nothing else left to look at.
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return switch (this) {
+      BrutTone.neutral => context.palette.surface,
+      BrutTone.brand =>
+        dark ? AppColors.brandDark : Theme.of(context).colorScheme.primary,
+      BrutTone.sun => dark ? AppColors.sunDark : AppColors.sun,
+      BrutTone.mint => dark ? AppColors.mintDark : AppColors.mint,
+      BrutTone.coral => dark ? AppColors.coralDark : AppColors.coral,
+      BrutTone.orange => dark ? AppColors.orangeDark : AppColors.orange,
+      BrutTone.violet => dark ? AppColors.violetDark : AppColors.violet,
+      BrutTone.teal => dark ? AppColors.tealDark : AppColors.teal,
+      BrutTone.dark => context.palette.ink,
+    };
+  }
 
   /// The soft version, for a background sitting behind a paragraph.
   Color tint(BuildContext context) => switch (this) {
@@ -116,6 +128,19 @@ class BrutSurface extends StatefulWidget {
   State<BrutSurface> createState() => _BrutSurfaceState();
 }
 
+/// The tap sound, for anything pressable.
+///
+/// Every control in the kit is a BrutSurface underneath, so this is the
+/// one place it has to be wired. A host with no player — a widget test —
+/// simply gets silence.
+void _sound(BuildContext context) {
+  try {
+    context.read<SfxPlayer>().play(Sfx.tap);
+  } on ProviderNotFoundException {
+    // Nothing to play through, which is not a reason to refuse the tap.
+  }
+}
+
 class _BrutSurfaceState extends State<BrutSurface> {
   bool _down = false;
 
@@ -150,7 +175,7 @@ class _BrutSurfaceState extends State<BrutSurface> {
 
     Widget surface = AnimatedContainer(
       duration: duration,
-      curve: Curves.easeOut,
+      curve: AppMotion.pressed,
       width: widget.width,
       height: widget.height,
       padding: widget.padding,
@@ -176,7 +201,14 @@ class _BrutSurfaceState extends State<BrutSurface> {
     if (_interactive) {
       surface = GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
+        onTap: widget.onTap == null
+            ? null
+            : () {
+                // On the press itself rather than on the release, so it
+                // lands with the shadow rather than after it.
+                _sound(context);
+                widget.onTap!();
+              },
         onLongPress: widget.onLongPress,
         onTapDown: (_) => setState(() => _down = true),
         onTapUp: (_) => setState(() => _down = false),
@@ -255,7 +287,7 @@ class BrutButton extends StatelessWidget {
           SizedBox(
             width: _iconSize,
             height: _iconSize,
-            child: CircularProgressIndicator(strokeWidth: 2, color: foreground),
+            child: BrutSpinner(size: _iconSize, color: foreground),
           )
         else if (icon != null)
           Icon(icon, size: _iconSize, color: foreground),
@@ -778,6 +810,248 @@ class BrutInlineMessage extends StatelessWidget {
 }
 
 /// A section heading with an optional count or action on the right.
+/// A section that can be folded away.
+///
+/// Three screens asked for the same thing: a stack of warnings you have
+/// read and no longer want occupying the screen. Folding is per section
+/// and lasts the life of the screen rather than being persisted — a
+/// blocker that comes back deserves to be seen again.
+///
+/// The header always carries the count, so a folded section still says
+/// what it is hiding.
+class BrutFoldable extends StatefulWidget {
+  const BrutFoldable({
+    super.key,
+    required this.title,
+    required this.children,
+    this.count,
+    this.initiallyOpen = true,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final int? count;
+  final bool initiallyOpen;
+
+  @override
+  State<BrutFoldable> createState() => _BrutFoldableState();
+}
+
+class _BrutFoldableState extends State<BrutFoldable> {
+  late bool _open = widget.initiallyOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          button: true,
+          expanded: _open,
+          label: widget.count == null
+              ? widget.title
+              : '${widget.title}, ${widget.count}',
+          child: GestureDetector(
+            onTap: () => setState(() => _open = !_open),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(widget.title, style: AppText.sectionTitle),
+                  ),
+                  if (widget.count != null) ...[
+                    MonoLabel('${widget.count}'),
+                    const SizedBox(width: 8),
+                  ],
+                  Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: context.palette.subtle,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : AppMotion.accordion,
+          curve: AppMotion.inPlace,
+          alignment: Alignment.topCenter,
+          child: _open
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: AppLayout.between),
+                    ...widget.children,
+                  ],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+}
+
+/// The app's own spinner.
+///
+/// A ring carrying the two accents — blue leading, orange following —
+/// turning in steps rather than sweeping. The kit has no easing in its
+/// loading states anywhere else, and a smooth Material ring in the
+/// middle of it looked borrowed. Twelve stops a second reads as
+/// deliberate rather than stuttering.
+///
+/// Reduce motion stops the rotation and leaves the ring, because the
+/// point is "this is working", not the spinning.
+class BrutSpinner extends StatefulWidget {
+  const BrutSpinner({
+    super.key,
+    this.size = 34,
+    this.tone = BrutTone.brand,
+    this.color,
+  });
+
+  final double size;
+  final BrutTone tone;
+
+  /// Overrides both arcs with one colour, for a spinner sitting on a
+  /// coloured fill that has already decided what its ink is — a busy
+  /// button, say, where two accents would fight the button under them.
+  final Color? color;
+
+  @override
+  State<BrutSpinner> createState() => _BrutSpinnerState();
+}
+
+class _BrutSpinnerState extends State<BrutSpinner>
+    with SingleTickerProviderStateMixin {
+  /// The ring lands on each twelfth rather than sliding between them,
+  /// which keeps the mechanical tick the rest of the kit has.
+  static const _stops = 12;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final still =
+        MediaQuery.disableAnimationsOf(context) ||
+        context.watch<AppSettings>().reduceMotion;
+
+    // The app's two accents, chasing each other: blue leads, orange
+    // follows. Which is also how the areas are coloured, so a spinner
+    // looks like it belongs to this app rather than to Material.
+    final one = widget.color ?? (dark ? AppColors.brandDark : AppColors.brand);
+    final two =
+        widget.color ?? (dark ? AppColors.orangeDark : AppColors.orange);
+
+    final painter = _SpinnerPainter(
+      first: one,
+      second: two,
+      track: context.palette.line,
+      outline: context.palette.ink,
+      // Thin rings look weedy next to 2px rules; a small one drops the
+      // outline instead of shrinking the stroke to nothing.
+      stroke: widget.size < 22 ? 3.0 : 5.0,
+      outlined: widget.size >= 22,
+    );
+
+    return Semantics(
+      label: 'Loading',
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: still
+            ? CustomPaint(painter: painter)
+            : AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  final step = (_controller.value * _stops).floor() / _stops;
+                  return Transform.rotate(
+                    angle: step * 2 * math.pi,
+                    child: CustomPaint(painter: painter),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _SpinnerPainter extends CustomPainter {
+  const _SpinnerPainter({
+    required this.first,
+    required this.second,
+    required this.track,
+    required this.outline,
+    required this.stroke,
+    required this.outlined,
+  });
+
+  final Color first;
+  final Color second;
+  final Color track;
+  final Color outline;
+  final double stroke;
+  final bool outlined;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = outlined ? stroke / 2 + 1 : stroke / 2;
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - inset * 2,
+      size.height - inset * 2,
+    );
+
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.butt;
+
+    // The whole ring first, so the gap between the arcs reads as part of
+    // the shape rather than as nothing.
+    canvas.drawArc(rect, 0, 2 * math.pi, false, ring..color = track);
+
+    const sweep = math.pi * 0.62;
+    canvas.drawArc(rect, -math.pi / 2, sweep, false, ring..color = first);
+    canvas.drawArc(rect, math.pi / 2, sweep, false, ring..color = second);
+
+    if (!outlined) return;
+
+    // The kit's outline, inside and out, so the ring reads as drawn
+    // rather than as a glow.
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = outline;
+    canvas.drawCircle(rect.center, rect.width / 2 + stroke / 2, edge);
+    canvas.drawCircle(rect.center, rect.width / 2 - stroke / 2, edge);
+  }
+
+  @override
+  bool shouldRepaint(_SpinnerPainter old) =>
+      old.first != first ||
+      old.second != second ||
+      old.track != track ||
+      old.outline != outline ||
+      old.stroke != stroke ||
+      old.outlined != outlined;
+}
+
 class BrutSectionTitle extends StatelessWidget {
   const BrutSectionTitle(this.title, {super.key, this.aside});
 
@@ -810,6 +1084,7 @@ class BrutScreen extends StatelessWidget {
     this.topBar,
     this.footer,
     this.floatingActionButton,
+    this.floatingActionButtonLocation,
     this.scrollable = true,
     this.bottomPadding = AppLayout.contentPadding,
   });
@@ -828,6 +1103,10 @@ class BrutScreen extends StatelessWidget {
   final Widget child;
   final Widget? footer;
   final Widget? floatingActionButton;
+
+  /// Where that button sits. The default is the corner; a screen with
+  /// one unmistakable action centres it instead.
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
   final bool scrollable;
 
   /// Room under the content, for a screen with a floating button over it.
@@ -844,6 +1123,7 @@ class BrutScreen extends StatelessWidget {
 
     return Scaffold(
       floatingActionButton: floatingActionButton,
+      floatingActionButtonLocation: floatingActionButtonLocation,
       body: SafeArea(
         // The footer handles the bottom inset itself, so the safe area
         // must not also pad it or the gap doubles.

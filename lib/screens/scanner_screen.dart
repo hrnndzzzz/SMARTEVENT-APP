@@ -9,9 +9,8 @@ import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import '../widgets/scope_picker.dart';
 import '../widgets/brut_date_picker.dart';
-import 'notifications_screen.dart';
+import 'capture_screen.dart';
 import '../theme/peso.dart';
 
 /// Capture a receipt, read it, correct it, then save it.
@@ -50,11 +49,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
   String? _eventId;
   DateTime? _expenseDate;
 
-  /// Only used by accounts without their own scope — in practice a Super
-  /// Admin, which belongs to no department.
-  String? _departmentId;
-  String? _organizationId;
-
   final _vendorController = TextEditingController();
   final _totalController = TextEditingController();
   final _purposeController = TextEditingController();
@@ -66,6 +60,23 @@ class _ScannerScreenState extends State<ScannerScreen> {
   /// accepted types come from `receiptImageTypes` rather than a second list
   /// here, so this and what gets sent cannot drift apart.
   static const int _maxBytes = 10 * 1024 * 1024;
+
+  /// Guards the one automatic open, so backing out of the camera leaves
+  /// you here rather than bouncing straight back into it.
+  bool _offeredCamera = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Scanning starts with a photo, so the camera is the screen rather
+    // than something to go and find once you have arrived.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_offeredCamera) {
+        _offeredCamera = true;
+        _shoot();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -81,6 +92,27 @@ class _ScannerScreenState extends State<ScannerScreen> {
   /// category, a description and an amount.
   bool get _canSave =>
       (_scan != null || _manualEntry) && _categoryId != null && !_saving;
+
+  /// The in-app camera, which crops to the frame before anything is
+  /// uploaded.
+  ///
+  /// It is also where the gallery lives now: offering both on this screen
+  /// put a choice in front of someone who had already decided to scan a
+  /// receipt. The camera opens, and an older photo is one tap inside it.
+  Future<void> _shoot() async {
+    final result = await Navigator.of(context).push<CaptureResult>(
+      MaterialPageRoute(builder: (_) => const CaptureScreen()),
+    );
+    if (!mounted) return;
+    switch (result) {
+      case CapturedReceipt(:final bytes, :final filename):
+        await _accept(bytes, filename, path: null);
+      case GalleryRequested():
+        await _pick(ImageSource.gallery);
+      case null:
+        break;
+    }
+  }
 
   Future<void> _pick(ImageSource source) async {
     final XFile? photo = await _picker.pickImage(source: source);
@@ -106,10 +138,24 @@ class _ScannerScreenState extends State<ScannerScreen> {
       return;
     }
 
+    _accept(bytes, photo.name, path: photo.path);
+  }
+
+  /// One way in for both routes: check it, hold it, then read it.
+  Future<void> _accept(
+    Uint8List bytes,
+    String filename, {
+    required String? path,
+  }) async {
+    if (bytes.length > _maxBytes) {
+      final mb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
+      setState(() => _error = 'That image is ${mb}MB. The limit is 10MB.');
+      return;
+    }
     setState(() {
-      _capturedImage = File(photo.path);
+      _capturedImage = path == null ? null : File(path);
       _capturedBytes = bytes;
-      _capturedFilename = photo.name;
+      _capturedFilename = filename;
       _scan = null;
       _manualEntry = false;
       _error = null;
@@ -185,12 +231,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   String? _validate() {
     if (_categoryId == null) return 'Choose a category.';
-    if (context.read<AppState>().mustChooseScope) {
-      // Your account has no department of its own, so the backend cannot
-      // infer one — it refuses the create rather than guessing.
-      if (_departmentId == null) return 'Choose a department for this expense.';
-      if (_organizationId == null) return 'Choose an organization.';
-    }
     if (_vendorController.text.trim().isEmpty) {
       return 'Enter what this expense was for.';
     }
@@ -258,8 +298,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
             category: line.category,
           ),
       ],
-      departmentId: _departmentId,
-      organizationId: _organizationId,
+      // Deliberately not sent. POST /expenses falls back to the
+      // category's department and organization and then rejects anything
+      // that differs, so the only values that can succeed are the ones
+      // the category already carries. Asking for them gave a Super Admin
+      // — who has no organization of their own — a required field whose
+      // every wrong answer was a 400.
+      departmentId: null,
+      organizationId: null,
     );
 
     if (!mounted) return;
@@ -302,9 +348,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       bottomPadding: 96,
       child: Column(
@@ -321,8 +364,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           _CapturePreview(
             image: _capturedImage,
             busy: _scanning,
-            onCamera: () => _pick(ImageSource.camera),
-            onGallery: () => _pick(ImageSource.gallery),
+            onCamera: _shoot,
           ),
 
           if (_scanning) ...[
@@ -343,25 +385,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
           if (showForm) ...[
             const SizedBox(height: 14),
-            // Only an account without its own scope sees this; everyone
-            // else has theirs applied server-side.
-            if (app.mustChooseScope) ...[
-              ScopePicker(
-                departments: app.departments,
-                departmentId: _departmentId,
-                onDepartmentChanged: (id) => setState(() {
-                  _departmentId = id;
-                  // An organization only exists inside one department,
-                  // so a department change invalidates the choice.
-                  _organizationId = null;
-                }),
-                organizations: app.organizationsIn(_departmentId),
-                organizationId: _organizationId,
-                onOrganizationChanged: (id) =>
-                    setState(() => _organizationId = id),
-              ),
-              const SizedBox(height: 14),
-            ],
             _ReviewCard(
               scan: _scan,
               categories: app.categories,
@@ -421,13 +444,11 @@ class _CapturePreview extends StatelessWidget {
     required this.image,
     required this.busy,
     required this.onCamera,
-    required this.onGallery,
   });
 
   final File? image;
   final bool busy;
   final VoidCallback onCamera;
-  final VoidCallback onGallery;
 
   @override
   Widget build(BuildContext context) {
@@ -460,26 +481,13 @@ class _CapturePreview extends StatelessWidget {
               : Image.file(image!, fit: BoxFit.cover, width: double.infinity),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: BrutButton(
-                label: 'Camera',
-                icon: Icons.photo_camera_outlined,
-                tone: BrutTone.neutral,
-                onPressed: busy ? null : onCamera,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: BrutButton(
-                label: 'Gallery',
-                icon: Icons.photo_library_outlined,
-                tone: BrutTone.neutral,
-                onPressed: busy ? null : onGallery,
-              ),
-            ),
-          ],
+        // One way on. The gallery is inside the camera, a tap away, so
+        // the only decision here is whether this photo is the one.
+        BrutButton(
+          label: image == null ? 'Open the camera' : 'Take another',
+          icon: Icons.photo_camera_outlined,
+          tone: image == null ? BrutTone.orange : BrutTone.neutral,
+          onPressed: busy ? null : onCamera,
         ),
       ],
     );
@@ -496,11 +504,7 @@ class _Busy extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        const SizedBox(width: 14, height: 14, child: BrutSpinner(size: 14)),
         const SizedBox(width: 10),
         Text(label, style: AppText.caption),
       ],

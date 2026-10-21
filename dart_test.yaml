@@ -1,0 +1,8 @@
+# Preview renders are for looking at, not for gating a build. They change
+# whenever a screen does, which is the point of them, so `flutter test`
+# leaves them alone and they are asked for by name:
+#
+#   flutter test --tags preview --update-goldens test/sap_preview_test.dart
+tags:
+  preview:
+    skip: "run explicitly with --tags preview"

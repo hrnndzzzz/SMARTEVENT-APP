@@ -6,7 +6,6 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
-import 'notifications_screen.dart';
 import '../theme/peso.dart';
 
 /// Income recorded against events, by fund source.
@@ -53,9 +52,6 @@ class _IncomeScreenState extends State<IncomeScreen> {
           : null,
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -74,7 +70,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.incomes.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
                 title: 'Could not load income',

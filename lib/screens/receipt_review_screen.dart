@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/peso.dart';
+import '../widgets/stored_image.dart';
 
 /// One receipt, what it resembles, and the decision.
 ///
@@ -128,6 +129,11 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
         children: [
           _StatusCard(receipt: _receipt),
           const SizedBox(height: 14),
+          // The receipt itself. Reviewing one for a duplicate without
+          // being able to look at it was asking for a judgement on two
+          // rows of text.
+          StoredImage(reference: _receipt.receiptUrl),
+          const SizedBox(height: 14),
           _DetailsCard(receipt: _receipt, title: 'This receipt'),
 
           if (_receipt.hasSimilar) ...[
@@ -138,7 +144,7 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: BrutSpinner(size: 14),
                     )
                   : null,
             ),

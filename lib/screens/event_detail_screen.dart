@@ -4,8 +4,13 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
-import 'create_event_screen.dart';
+import 'sap/sap_form_screen.dart';
+import 'sap/sap_proposal_flow.dart';
+import '../state/sap_form.dart';
 import '../widgets/event_status.dart';
+import '../api/compliance_service.dart';
+import '../api/models/compliance.dart';
+import 'event_readiness_screen.dart';
 
 class EventDetailScreen extends StatelessWidget {
   final EventItem event;
@@ -180,12 +185,51 @@ class EventDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              // What is in the way, on the screen where the question is
+              // asked. A button called Before approval answered nothing
+              // until you pressed it; this says the first blocker and
+              // then offers to go and clear it.
+              if ((role?.canProposeEvents ?? false) ||
+                  (role?.canReview ?? false)) ...[
+                const SizedBox(height: 14),
+                _ReadinessNotice(event: event),
+              ],
               const SizedBox(height: 14),
               _ApprovalTimelineCard(event: event),
               // Editing a proposal belongs to whoever may
               // propose one, and only while it is still draft or
               // rejected. Officers are read-only and no longer
               // get this button.
+              // The SAS-SDS-FO-020 form. Offered on any event the backend
+              // knows about: the proposer fills Parts 1 to 3 and the SDS
+              // Office the rest, and which of those a given person may do
+              // is the API's call to make, not a button's. An event that
+              // has never reached the server has nothing to hang a
+              // proposal on.
+              if (event.remoteId case final eventId?) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Proposal form',
+                  icon: Icons.description_outlined,
+                  tone: BrutTone.neutral,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      // The SDS Office works all six parts. Everyone else
+                      // only ever fills the first three, and a six-part
+                      // list hands them three they cannot touch.
+                      builder: (_) {
+                        final app = context.read<AppState>();
+                        return SapFormScreen(
+                          form: SapForm(
+                            eventId: eventId,
+                            service: app.isDemoMode ? null : app.sapService,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
               if ((role?.canProposeEvents ?? false) &&
                   event.status == EventApprovalStatus.rejected) ...[
                 const SizedBox(height: 14),
@@ -195,7 +239,14 @@ class EventDetailScreen extends StatelessWidget {
                   tone: BrutTone.neutral,
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => CreateEventScreen(existingEvent: event),
+                      builder: (_) => SapFormScreen(
+                        form: SapForm(
+                          eventId: event.remoteId,
+                          service: context.read<AppState>().isDemoMode
+                              ? null
+                              : context.read<AppState>().sapService,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -251,9 +302,15 @@ class _ApprovalStatusCard extends StatelessWidget {
             BrutInlineMessage(
               tone: BrutTone.coral,
               icon: Icons.cancel_outlined,
-              text: rejectionNote?.isNotEmpty == true
-                  ? 'Rejected by ${event.rejectedBy}. $rejectionNote'
-                  : 'Rejected by ${event.rejectedBy}.',
+              // The reviewer is not always known — a legacy row, or one
+              // rejected before the field existed, carries none. Saying
+              // "Rejected by null" is worse than not naming anyone.
+              text: [
+                event.rejectedBy?.isNotEmpty == true
+                    ? 'Rejected by ${event.rejectedBy}.'
+                    : 'This proposal was rejected.',
+                if (rejectionNote?.isNotEmpty == true) rejectionNote!,
+              ].join(' '),
             )
           else
             Row(
@@ -406,7 +463,7 @@ class _ApprovalTimelineCardState extends State<_ApprovalTimelineCard> {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: BrutSpinner(size: 14),
                   )
                 : BrutIconButton(
                     icon: Icons.refresh,
@@ -541,6 +598,131 @@ class _ApprovalRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Why this event cannot be approved yet, inline.
+///
+/// It asks the backend for the same blockers the approval refusal
+/// carries, and shows the first with a count of the rest. A deployment
+/// without the route says nothing at all rather than claiming the event
+/// is ready — silence is the honest answer when there is nothing to ask.
+class _ReadinessNotice extends StatefulWidget {
+  const _ReadinessNotice({required this.event});
+
+  final EventItem event;
+
+  @override
+  State<_ReadinessNotice> createState() => _ReadinessNoticeState();
+}
+
+class _ReadinessNoticeState extends State<_ReadinessNotice> {
+  EventReadiness? _readiness;
+  bool _unavailable = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final id = widget.event.remoteId;
+    if (id == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final result = await context.read<AppState>().eventReadiness(id);
+      if (mounted)
+        setState(() {
+          _readiness = result;
+          _loading = false;
+        });
+    } on FeatureUnavailable {
+      if (mounted)
+        setState(() {
+          _unavailable = true;
+          _loading = false;
+        });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openFull() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EventReadinessScreen(event: widget.event),
+      ),
+    );
+    if (mounted) _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _unavailable) return const SizedBox.shrink();
+
+    final readiness = _readiness;
+    if (readiness == null) return const SizedBox.shrink();
+
+    if (readiness.ready) {
+      return BrutCard(
+        tone: BrutTone.mint,
+        radius: AppRadius.rowAll,
+        padding: const EdgeInsets.all(12),
+        onTap: _openFull,
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Ready for approval.',
+                style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 18),
+          ],
+        ),
+      );
+    }
+
+    final first = readiness.blockers.first;
+    final more = readiness.blockers.length - 1;
+    return BrutCard(
+      tone: BrutTone.coral,
+      radius: AppRadius.rowAll,
+      padding: const EdgeInsets.all(12),
+      onTap: _openFull,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.priority_high, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Not ready for approval',
+                  style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(first, style: AppText.caption),
+                if (more > 0) ...[
+                  const SizedBox(height: 4),
+                  MonoLabel('and $more more'),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, size: 18),
+        ],
+      ),
     );
   }
 }
