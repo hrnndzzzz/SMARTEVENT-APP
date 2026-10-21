@@ -469,6 +469,87 @@ class SapForm extends ChangeNotifier {
     }
   }
 
+  /// Remarks the SDS Office has written but not yet signed off.
+  ///
+  /// Kept here so the screen can show what was last saved and so an
+  /// unsent edit is not lost when the screen rebuilds.
+  Map<SapRemarkSection, String> sectionRemarks = {};
+  String overallRemarks = '';
+
+  /// `PUT /sds-review` — saves remarks without signing. Returns the
+  /// reason it failed, or null.
+  Future<String?> saveReviewNotes() async {
+    final service = _service;
+    if (service == null || _eventId == null) {
+      return 'This proposal has not been saved to the server yet.';
+    }
+
+    _saving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _adopt(
+        await service.saveReviewNotes(
+          _eventId!,
+          expectedVersion: version,
+          overallRemarks: overallRemarks,
+          sectionRemarks: sectionRemarks,
+        ),
+      );
+      return null;
+    } on SapVersionConflict catch (conflict) {
+      _stale = true;
+      _error = conflict.message;
+      return conflict.message;
+    } catch (e) {
+      _error = e is ApiException ? e.message : e.toString();
+      return _error;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
+
+  /// `POST /sds-sign` — signs the pending revision.
+  ///
+  /// Final: it locks the revision and stores the signed PDF. A proposal
+  /// that needs changing afterwards is returned and signed again as a
+  /// new revision.
+  Future<String?> sdsSign(SapSignature signature) async {
+    final service = _service;
+    if (service == null || _eventId == null) {
+      return 'This proposal has not been saved to the server yet.';
+    }
+
+    _saving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _adopt(
+        await service.sdsSign(
+          _eventId!,
+          expectedVersion: version,
+          signature: signature,
+          overallRemarks: overallRemarks,
+          sectionRemarks: sectionRemarks,
+        ),
+      );
+      return null;
+    } on ArgumentError catch (e) {
+      return '${e.message}';
+    } on SapVersionConflict catch (conflict) {
+      _stale = true;
+      _error = conflict.message;
+      return conflict.message;
+    } catch (e) {
+      _error = e is ApiException ? e.message : e.toString();
+      return _error;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> uploadFinalScan({
     required List<int> bytes,
     required String filename,

@@ -12,6 +12,7 @@ import 'package:smartevent/screens/sap/sap_part1_screen.dart';
 import 'package:smartevent/screens/sap/sap_part2_screen.dart';
 import 'package:smartevent/screens/sap/sap_part3_screen.dart';
 import 'package:smartevent/screens/sap/sap_part5_screen.dart';
+import 'package:smartevent/screens/sap/sds_sign_screen.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 
@@ -115,6 +116,11 @@ void main() {
   testWidgets('preview', (tester) async {
     await _shoot(tester, 'hub', SapFormScreen(form: filled()));
     await _shoot(tester, 'part5', SapPart5Screen(form: filled()));
+    await _shoot(
+      tester,
+      'sds-sign',
+      SdsSignScreen(form: filled()..adoptForTest(state: SapState.pendingReview)),
+    );
 
     // As the flow renders them: each part is a step, so each carries
     // the three-step bar rather than a plain header.
