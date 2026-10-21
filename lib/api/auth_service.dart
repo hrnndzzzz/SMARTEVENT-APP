@@ -30,6 +30,12 @@ class AuthService {
       '/auth/login',
       body: formBody,
       isForm: true,
+      // Longer than the rest. Verifying a password hash is slow by
+      // design, and this is usually the first request after an idle
+      // spell, so it also waits on a cold database connection. Giving up
+      // at twenty seconds threw away sessions the server had already
+      // granted.
+      patience: const Duration(seconds: 45),
     );
     final token = response['access_token'] as String;
     await _client.setToken(token);

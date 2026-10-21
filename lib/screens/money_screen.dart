@@ -9,7 +9,6 @@ import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import 'categories_screen.dart';
 import 'expenses_screen.dart';
-import 'notifications_screen.dart';
 import 'income_screen.dart';
 import 'receipts_screen.dart';
 import 'scanner_screen.dart';
@@ -33,9 +32,6 @@ class MoneyScreen extends StatelessWidget {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -44,6 +40,8 @@ class MoneyScreen extends StatelessWidget {
           const Text('Money', style: AppText.display),
           const SizedBox(height: AppLayout.section),
           _Strip(app: app),
+          const SizedBox(height: AppLayout.tight),
+          _UsedBar(app: app),
           const SizedBox(height: AppLayout.section),
           const BrutSectionTitle('What do you need?'),
           const SizedBox(height: AppLayout.between),
@@ -119,7 +117,7 @@ class _Strip extends StatelessWidget {
     ];
 
     return BrutCard(
-      tone: BrutTone.sun,
+      tone: BrutTone.orange,
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
       child: Row(
         children: [
@@ -192,6 +190,50 @@ class _Tile extends StatelessWidget {
             BrutBadge(label: '$count', tone: tone, mono: true),
           ],
           const Icon(Icons.chevron_right, size: 18),
+        ],
+      ),
+    );
+  }
+}
+
+/// How much of the allocation has gone, as a bar.
+///
+/// The strip above says allocated, spent and left as three figures you
+/// have to divide in your head. This is the same fact in the shape of
+/// it: the one thing people want off this screen at a glance.
+class _UsedBar extends StatelessWidget {
+  const _UsedBar({required this.app});
+
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    final allocated = app.totalAllocated;
+    final used = allocated <= 0
+        ? 0.0
+        : (app.totalExpended / allocated).clamp(0.0, 1.0);
+    final over = used >= 1;
+
+    return BrutCard(
+      radius: AppRadius.rowAll,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: MonoLabel('Budget used')),
+              Text(
+                '${(used * 100).round()}%',
+                style: AppText.number.copyWith(fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          BrutProgressBar(
+            value: used,
+            tone: over ? BrutTone.coral : BrutTone.orange,
+          ),
         ],
       ),
     );

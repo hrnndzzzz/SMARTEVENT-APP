@@ -23,6 +23,7 @@ class ApiClient {
     TokenStore? tokenStore,
     http.Client? httpClient,
     this.onReachability,
+    this.onSessionExpired,
     this.timeout = const Duration(seconds: 20),
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _httpClient = httpClient ?? http.Client();
@@ -31,6 +32,23 @@ class ApiClient {
   /// status still counts as reachable: the server is there, it just said
   /// no. Only a failure to reach it at all is `false`.
   final void Function({required bool reachable})? onReachability;
+
+  /// No server to talk to, and no pretending there is.
+  ///
+  /// The demo fills the app from the device. Most of what it shows is
+  /// already handled without a request, but the app has dozens of calls
+  /// and guarding each one is how a leak survives. So the client itself
+  /// refuses while exploring, and every path gets the same honest
+  /// message instead of "could not reach the backend".
+  bool demoMode = false;
+
+  /// Called when a request that carried a token comes back 401.
+  ///
+  /// That is the one unambiguous reading of a 401: the token the request
+  /// was made with is no longer accepted. A signed-out client getting a
+  /// 401 from the login route means something else entirely — wrong
+  /// password — which is why this only fires when a token was attached.
+  final void Function()? onSessionExpired;
 
   final TokenStore _tokenStore;
   final http.Client _httpClient;
@@ -72,13 +90,29 @@ class ApiClient {
     return Uri.parse('$baseUrl$path').replace(queryParameters: query);
   }
 
+  /// Thrown instead of a request while the app is exploring.
+  void _refuseInDemo() {
+    if (demoMode) throw const DemoUnavailable();
+  }
+
   Future<dynamic> get(String path, {Map<String, String>? query}) {
+    _refuseInDemo();
     return _send(
       () => _httpClient.get(_uri(path, query), headers: _authHeaders),
     );
   }
 
-  Future<dynamic> post(String path, {Object? body, bool isForm = false}) {
+  /// [patience] overrides the client's usual allowance for one call.
+  /// Sign-in needs it: it verifies a password hash, which is slow on
+  /// purpose, and it is usually the first request after an idle spell,
+  /// so it pays for a cold connection through the pooler as well.
+  Future<dynamic> post(
+    String path, {
+    Object? body,
+    bool isForm = false,
+    Duration? patience,
+  }) {
+    _refuseInDemo();
     final headers = {..._authHeaders};
     late final Object encodedBody;
     if (isForm) {
@@ -90,10 +124,12 @@ class ApiClient {
     }
     return _send(
       () => _httpClient.post(_uri(path), headers: headers, body: encodedBody),
+      patience: patience,
     );
   }
 
   Future<dynamic> patch(String path, {Object? body}) {
+    _refuseInDemo();
     final headers = {..._authHeaders, 'Content-Type': 'application/json'};
     return _send(
       () => _httpClient.patch(
@@ -104,7 +140,22 @@ class ApiClient {
     );
   }
 
+  /// PUT, for the routes that replace a record wholesale rather than
+  /// amending one — logistics and the institutional route.
+  Future<dynamic> put(String path, {Object? body}) {
+    _refuseInDemo();
+    final headers = {..._authHeaders, 'Content-Type': 'application/json'};
+    return _send(
+      () => _httpClient.put(
+        _uri(path),
+        headers: headers,
+        body: body == null ? '' : jsonEncode(body),
+      ),
+    );
+  }
+
   Future<void> delete(String path) async {
+    _refuseInDemo();
     await _send(() => _httpClient.delete(_uri(path), headers: _authHeaders));
   }
 
@@ -129,6 +180,7 @@ class ApiClient {
     required String contentType,
     Map<String, String> fields = const {},
   }) async {
+    _refuseInDemo();
     return _send(() async {
       final request = http.MultipartRequest('POST', _uri(path))
         ..headers.addAll(_authHeaders)
@@ -162,6 +214,7 @@ class ApiClient {
     required String expectedContentType,
     String fallbackFilename = 'export',
   }) async {
+    _refuseInDemo();
     final http.Response response;
     try {
       response = await _httpClient
@@ -222,9 +275,12 @@ class ApiClient {
   /// Runs a request and turns every failure mode into either an
   /// [ApiException] (the server answered) or a [NetworkException] (it
   /// didn't). Nothing else escapes.
-  Future<dynamic> _send(Future<http.Response> Function() request) async {
+  Future<dynamic> _send(
+    Future<http.Response> Function() request, {
+    Duration? patience,
+  }) async {
     try {
-      final response = await request().timeout(timeout);
+      final response = await request().timeout(patience ?? timeout);
       onReachability?.call(reachable: true);
       return _handleResponse(response);
     } on ApiException {
@@ -256,6 +312,9 @@ class ApiClient {
 
   dynamic _handleResponse(http.Response response) {
     final status = response.statusCode;
+    if (status == 401 && _token != null) {
+      onSessionExpired?.call();
+    }
     if (status >= 200 && status < 300) {
       if (response.body.isEmpty) return null;
       // A 204 has no body; anything else that parses cleanly is returned.
@@ -338,6 +397,15 @@ class ApiClient {
 
 /// The server answered with a non-2xx status. [message] is the backend's own
 /// `detail` when it sent one, so it is safe to show to the user as text.
+/// Raised when the app is exploring with seeded data and something
+/// asked for the network anyway.
+class DemoUnavailable implements Exception {
+  const DemoUnavailable();
+
+  @override
+  String toString() => 'Not available while exploring.';
+}
+
 class ApiException implements Exception {
   ApiException(this.statusCode, this.message, {this.fieldErrors = const {}});
 

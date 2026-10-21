@@ -9,7 +9,6 @@ import 'analytics_sheet.dart';
 import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
-import 'notifications_screen.dart';
 import '../theme/peso.dart';
 
 /// Consolidated financial reports.
@@ -106,9 +105,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -127,34 +123,49 @@ class _ReportsScreenState extends State<ReportsScreen> {
             child: ListView(
               padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
               children: [
-                // The charts and the organization figures moved here from
-                // the role dashboards. Someone who wants to study a chart
-                // comes looking for it; the dashboard is for the four
-                // numbers you need on the way past.
-                BrutButton(
-                  label: 'Organization analytics',
-                  icon: Icons.bar_chart_outlined,
-                  tone: BrutTone.neutral,
-                  onPressed: () => BrutSheet.show<void>(
-                    context,
-                    builder: (_) => const AnalyticsSheet(),
-                  ),
+                // The report is what this screen is for, so it opens on
+                // it. The charts and the period controls are folded: both
+                // are things you go to deliberately, and all of it at
+                // once was a screen you had to scroll before you could
+                // read anything.
+                BrutFoldable(
+                  title: 'Charts',
+                  initiallyOpen: false,
+                  children: [
+                    BrutButton(
+                      label: 'Organization analytics',
+                      icon: Icons.bar_chart_outlined,
+                      tone: BrutTone.neutral,
+                      onPressed: () => BrutSheet.show<void>(
+                        context,
+                        builder: (_) => const AnalyticsSheet(),
+                      ),
+                    ),
+                    const SizedBox(height: AppLayout.between),
+                    AllocationVsActualCard(
+                      budgets: app.categoryBudgets,
+                      spend: app.spendByCategory,
+                    ),
+                    const SizedBox(height: AppLayout.between),
+                    ExpenseDistributionCard(
+                      spendByCategory: app.spendByCategory,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppLayout.between),
-                AllocationVsActualCard(
-                  budgets: app.categoryBudgets,
-                  spend: app.spendByCategory,
-                ),
-                const SizedBox(height: AppLayout.between),
-                ExpenseDistributionCard(spendByCategory: app.spendByCategory),
                 const SizedBox(height: AppLayout.section),
-                const _Filters(),
+                BrutFoldable(
+                  title: 'Period and scope',
+                  // Open while there is nothing to show, because then
+                  // choosing a period is the next thing to do.
+                  initiallyOpen: report == null,
+                  children: const [_Filters()],
+                ),
                 const SizedBox(height: 14),
                 if (load.isLoading)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
+                      child: BrutSpinner(),
                     ),
                   )
                 else if (load.hasFailed)
@@ -171,17 +182,24 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const SizedBox(height: 14),
                   ],
                   _EventsCard(report: report),
-                  const SizedBox(height: 18),
-                  _ExportRow(busy: _exporting, onExport: _export),
                 ],
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 12),
-                // Separate from the report above: this exports the
-                // dashboard snapshot, which has no period filters.
-                _DashboardExportRow(
-                  busy: _exporting,
-                  onExport: _exportDashboard,
+                const SizedBox(height: AppLayout.section),
+                // Both downloads under one heading. They were a row, a
+                // divider and a second row, which read as two unrelated
+                // things rather than two of the same thing.
+                BrutFoldable(
+                  title: 'Download',
+                  initiallyOpen: false,
+                  children: [
+                    if (report != null) ...[
+                      _ExportRow(busy: _exporting, onExport: _export),
+                      const SizedBox(height: 14),
+                    ],
+                    _DashboardExportRow(
+                      busy: _exporting,
+                      onExport: _exportDashboard,
+                    ),
+                  ],
                 ),
               ],
             ),

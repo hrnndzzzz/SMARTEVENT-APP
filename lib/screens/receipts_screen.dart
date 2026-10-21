@@ -4,7 +4,6 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'notifications_screen.dart';
 import 'receipt_review_screen.dart';
 import '../theme/peso.dart';
 
@@ -36,9 +35,6 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -57,7 +53,7 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.receipts.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
                 title: 'Could not load receipts',

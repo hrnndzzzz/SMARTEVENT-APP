@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'inventory_detail_screen.dart';
-import 'notifications_screen.dart';
 
 /// The equipment catalog and its stock.
 ///
@@ -19,6 +19,8 @@ class InventoryScreen extends StatefulWidget {
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
+  _StockFilter _stock = _StockFilter.all;
+
   @override
   void initState() {
     super.initState();
@@ -46,9 +48,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           : null,
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -63,11 +62,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
           const SizedBox(height: 12),
           const _FilterBar(),
+          const SizedBox(height: 8),
+          BrutChipBar(
+            children: [
+              for (final option in _StockFilter.values)
+                BrutChip(
+                  label: option.label,
+                  selected: option == _stock,
+                  tone: option.tone,
+                  onTap: () => setState(() => _stock = option),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.catalog.isEmpty => const Center(
-                child: CircularProgressIndicator(),
+                child: BrutSpinner(),
               ),
               _ when load.hasFailed && app.catalog.isEmpty => BrutRetry(
                 title: 'Could not load inventory',
@@ -76,14 +87,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 onRetry: app.loadCatalog,
               ),
               _ when app.catalog.isEmpty => _Empty(canManage: canManage),
-              _ => RefreshIndicator(
+              _ => _Grouped(
+                items: [
+                  for (final item in app.catalog)
+                    if (_stock.matches(item)) item,
+                ],
                 onRefresh: app.loadCatalog,
-                child: ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 96),
-                  itemCount: app.catalog.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _ItemCard(item: app.catalog[i]),
-                ),
+                emptyLabel: _stock.label.toLowerCase(),
               ),
             },
           ),
@@ -168,7 +178,7 @@ class _ItemCard extends StatelessWidget {
               if (item.isLowStock)
                 BrutBadge(
                   label: 'Low stock (≤ ${item.lowStockThreshold})',
-                  tone: BrutTone.sun,
+                  tone: BrutTone.coral,
                 ),
               if (item.needsEventLink)
                 const BrutBadge(label: 'No event link', tone: BrutTone.coral),
@@ -414,6 +424,93 @@ class _NewItemSheetState extends State<_NewItemSheet> {
           if (_error != null) ...[
             const SizedBox(height: 14),
             BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// What state the stock is in, as something you can ask for.
+enum _StockFilter {
+  all('All', null),
+  available('Available', BrutTone.mint),
+  low('Low stock', BrutTone.coral),
+  none('None left', BrutTone.neutral);
+
+  const _StockFilter(this.label, this.tone);
+
+  final String label;
+  final BrutTone? tone;
+
+  bool matches(RemoteInventoryItem item) => switch (this) {
+    _StockFilter.all => true,
+    _StockFilter.none => item.quantity <= 0,
+    _StockFilter.low => item.quantity > 0 && item.isLowStock,
+    _StockFilter.available => item.quantity > 0 && !item.isLowStock,
+  };
+}
+
+/// The catalogue, under the place each thing is kept.
+///
+/// A flat list of forty items is a list you read end to end to answer
+/// "what is in the faculty office". Storage is the question people
+/// actually arrive with, so it is the heading; anything with no location
+/// recorded gathers at the bottom rather than being hidden.
+class _Grouped extends StatelessWidget {
+  const _Grouped({
+    required this.items,
+    required this.onRefresh,
+    required this.emptyLabel,
+  });
+
+  final List<RemoteInventoryItem> items;
+  final Future<void> Function() onRefresh;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return Center(
+        child: BrutEmptyState(
+          icon: Icons.filter_alt_outlined,
+          title: 'Nothing $emptyLabel',
+          hint: 'Tap All to see the whole catalogue.',
+        ),
+      );
+    }
+
+    const unplaced = 'No location recorded';
+    final byPlace = <String, List<RemoteInventoryItem>>{};
+    for (final item in items) {
+      final place = (item.location?.trim().isNotEmpty ?? false)
+          ? item.location!.trim()
+          : unplaced;
+      byPlace.putIfAbsent(place, () => []).add(item);
+    }
+    final places = byPlace.keys.toList()
+      ..sort((a, b) {
+        if (a == unplaced) return 1;
+        if (b == unplaced) return -1;
+        return a.toLowerCase().compareTo(b.toLowerCase());
+      });
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 96),
+        children: [
+          for (final place in places) ...[
+            BrutSectionTitle(
+              place,
+              aside: MonoLabel('${byPlace[place]!.length}'),
+            ),
+            const SizedBox(height: AppLayout.between),
+            for (final item in byPlace[place]!) ...[
+              _ItemCard(item: item),
+              const SizedBox(height: 10),
+            ],
+            const SizedBox(height: AppLayout.tight),
           ],
         ],
       ),

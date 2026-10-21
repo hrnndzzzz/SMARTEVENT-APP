@@ -40,6 +40,18 @@ class AppNotice {
   /// since the user may be waiting for one that will never arrive.
   bool get emailFailed => emailStatus == 'failed';
 
+  /// The same notice, read. Used where there is no server to tell —
+  /// the offline demo — so the list behaves the way it would online.
+  AppNotice markedRead() => AppNotice(
+    id: id,
+    kind: kind,
+    title: title,
+    body: body,
+    readAt: readAt ?? DateTime.now(),
+    emailStatus: emailStatus,
+    createdAt: createdAt,
+  );
+
   factory AppNotice.fromJson(Map<String, dynamic> json) {
     return AppNotice(
       id: json['id'] as String,

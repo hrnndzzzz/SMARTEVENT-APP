@@ -7,11 +7,11 @@ import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
-import '../theme/palette.dart';
 import '../widgets/app_header.dart';
-import 'event_approvals_screen.dart';
+import '../widgets/event_progress_bar.dart';
+import 'event_detail_screen.dart';
+import 'events_screen.dart';
 import 'expenses_screen.dart';
-import 'notifications_screen.dart';
 import 'scanner_screen.dart';
 import '../theme/peso.dart';
 
@@ -60,12 +60,16 @@ class HomeScreen extends StatelessWidget {
     final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
 
     return BrutScreen(
+      // The one action on this screen, round and fixed in the middle,
+      // where a thumb already is. It stays put while the figures above
+      // it scroll, because it is not part of the reading.
+      floatingActionButton: canRecord ? const _RecordButton() : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       topBar: AppHeader(
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
-      bottomPadding: AppLayout.section,
+      // Clear of the record button, which floats over the bottom of this
+      // screen: the last card was sitting underneath it.
+      bottomPadding: canRecord ? 96 : AppLayout.section,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -84,10 +88,17 @@ class HomeScreen extends StatelessWidget {
           ],
           const SizedBox(height: AppLayout.section),
 
-          // First thing under the greeting, because it is the first
-          // question anyone opening the app has.
-          const AlertWidget(),
-          const SizedBox(height: AppLayout.section),
+          // First thing under the greeting, because "has my event
+          // moved?" is the first question anyone opening this app has.
+          // What needs attention now lives on the bell instead, where
+          // the count already was.
+          EventProgressList(
+            events: app.events,
+            onOpen: (event) => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+            ),
+          ),
+          if (app.events.isNotEmpty) const SizedBox(height: AppLayout.section),
 
           // The hero: what is left, beside the two numbers that explain it.
           //
@@ -103,7 +114,11 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: BrutCard(
-                    tone: BrutTone.dark,
+                    onTap: () => _open(context, 'money'),
+                    // Blue, not black. The figure people open the app for
+                    // should wear one of the department's two colours
+                    // rather than a neutral that belongs to neither.
+                    tone: BrutTone.brand,
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,17 +129,11 @@ class HomeScreen extends StatelessWidget {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             '${peso(remaining, decimals: 0)}',
-                            style: AppText.heroNumber.copyWith(
-                              fontSize: 40,
-                              color: context.palette.canvas,
-                            ),
+                            style: AppText.heroNumber.copyWith(fontSize: 40),
                           ),
                         ),
                         const SizedBox(height: AppLayout.section),
-                        MonoLabel(
-                          'Remaining budget',
-                          color: context.palette.canvas,
-                        ),
+                        const MonoLabel('Remaining budget'),
                       ],
                     ),
                   ),
@@ -132,22 +141,25 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(width: AppLayout.between),
                 Expanded(
                   flex: 2,
+                  // One tile standing beside the card, so it takes the
+                  // card's height rather than shrinking to its own text
+                  // and leaving the pair looking mismatched.
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _Tile(
-                        value: '${app.pendingExpenses.length}',
-                        label: 'Awaiting review',
-                        tone: app.pendingExpenses.isEmpty
-                            ? BrutTone.neutral
-                            : BrutTone.orange,
-                      ),
-                      const SizedBox(height: AppLayout.between),
-                      _Tile(
-                        value: '${(used * 100).round()}%',
-                        label: 'Of budget used',
-                        tone: used >= 1 ? BrutTone.coral : BrutTone.neutral,
+                      Expanded(
+                        child: _Tile(
+                          value: '${app.pendingExpenses.length}',
+                          label: 'Awaiting review',
+                          tone: app.pendingExpenses.isEmpty
+                              ? BrutTone.neutral
+                              : BrutTone.orange,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ExpensesScreen(),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -163,6 +175,7 @@ class HomeScreen extends StatelessWidget {
                 child: _Stat(
                   value: '${peso(allocated, decimals: 0)}',
                   label: 'Allocated',
+                  onTap: () => _open(context, 'money'),
                 ),
               ),
               const SizedBox(width: AppLayout.between),
@@ -170,6 +183,7 @@ class HomeScreen extends StatelessWidget {
                 child: _Stat(
                   value: '${peso(spent, decimals: 0)}',
                   label: 'Approved spending',
+                  onTap: () => _open(context, 'money'),
                 ),
               ),
             ],
@@ -177,6 +191,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: AppLayout.between),
 
           BrutCard(
+            onTap: () => _open(context, 'money'),
             radius: AppRadius.rowAll,
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -200,18 +215,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppLayout.section),
-
-          if (canRecord) ...[
-            BrutButton(
-              label: 'Record an expense',
-              icon: Icons.document_scanner_outlined,
-              tone: BrutTone.orange,
-              size: BrutSize.large,
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
-            ),
-          ],
         ],
       ),
     );
@@ -219,15 +222,25 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.value, required this.label, required this.tone});
+  const _Tile({
+    required this.value,
+    required this.label,
+    required this.tone,
+    this.onTap,
+  });
 
   final String value;
   final String label;
   final BrutTone tone;
 
+  /// Where the figure came from. A number with no way through to the
+  /// records behind it is a dead end on the screen people open most.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     return BrutCard(
+      onTap: onTap,
       tone: tone,
       radius: AppRadius.rowAll,
       padding: const EdgeInsets.all(12),
@@ -252,14 +265,16 @@ class _Tile extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
+  const _Stat({required this.value, required this.label, this.onTap});
 
   final String value;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return BrutCard(
+      onTap: onTap,
       radius: AppRadius.rowAll,
       padding: const EdgeInsets.all(12),
       shadow: AppShadows.sm,
@@ -290,7 +305,7 @@ class _Stat extends StatelessWidget {
 void _open(BuildContext context, String where) {
   final WidgetBuilder? builder = switch (where) {
     'expenses' => (_) => const ExpensesScreen(),
-    'events' => (_) => const EventApprovalsScreen(),
+    'events' => (_) => const EventsScreen(),
     _ => areaById(where)?.builder,
   };
   if (builder != null) {
@@ -317,7 +332,7 @@ class AlertWidget extends StatelessWidget {
         items.add((
           label: '$events event${events == 1 ? '' : 's'} awaiting a decision',
           where: 'events',
-          tone: BrutTone.sun,
+          tone: BrutTone.coral,
         ));
       }
       final expenses = app.pendingExpenses.length;
@@ -325,7 +340,7 @@ class AlertWidget extends StatelessWidget {
         items.add((
           label: '$expenses expense${expenses == 1 ? '' : 's'} to review',
           where: 'expenses',
-          tone: BrutTone.sun,
+          tone: BrutTone.coral,
         ));
       }
     }
@@ -344,7 +359,7 @@ class AlertWidget extends StatelessWidget {
       items.add((
         label: '$low item${low == 1 ? '' : 's'} low on stock',
         where: 'inventory',
-        tone: BrutTone.sun,
+        tone: BrutTone.coral,
       ));
     }
 
@@ -375,21 +390,53 @@ class AlertWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        BrutSectionTitle('Needs you', aside: MonoLabel('${items.length}')),
-        const SizedBox(height: AppLayout.between),
-        for (var i = 0; i < shown.length; i++) ...[
-          BrutListRow(
-            title: shown[i].label,
-            marker: BrutIconTile(
-              icon: Icons.priority_high,
-              tone: shown[i].tone,
-              size: 32,
-            ),
-            onTap: () => _open(context, shown[i].where),
-          ),
-          if (i != shown.length - 1) const SizedBox(height: AppLayout.tight),
-        ],
+        BrutFoldable(
+          title: 'Needs you',
+          count: items.length,
+          children: [
+            for (var i = 0; i < shown.length; i++) ...[
+              BrutListRow(
+                title: shown[i].label,
+                marker: BrutIconTile(
+                  icon: Icons.priority_high,
+                  tone: shown[i].tone,
+                  size: 32,
+                ),
+                onTap: () => _open(context, shown[i].where),
+              ),
+              if (i != shown.length - 1)
+                const SizedBox(height: AppLayout.tight),
+            ],
+          ],
+        ),
       ],
+    );
+  }
+}
+
+/// Record an expense: the one thing this screen is for doing rather
+/// than reading.
+class _RecordButton extends StatelessWidget {
+  const _RecordButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutSurface(
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
+      semanticLabel: 'Record an expense',
+      fill: AppColors.orange,
+      radius: AppRadius.pill,
+      shadow: AppShadows.lg,
+      width: 68,
+      height: 68,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.document_scanner_outlined,
+        size: 28,
+        color: AppColors.ink,
+      ),
     );
   }
 }

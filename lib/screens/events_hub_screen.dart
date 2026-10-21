@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'sap/sap_proposal_flow.dart';
+import '../state/sap_form.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
@@ -6,16 +8,14 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
-import 'create_event_screen.dart';
-import 'event_approvals_screen.dart';
 import 'events_screen.dart';
 
 /// Events, one swipe left of the dashboard.
 ///
-/// Three bands, because there are exactly three things anyone does with
-/// an event: propose one, look through them, or find out where one got
-/// to. Each fills a third of the screen, so none of them is the small
-/// one you have to hunt for.
+/// Two bands: propose one, or look through them. There used to be a
+/// third for approvals, which turned out to be the list again with one
+/// filter already applied — the list's own Waiting chip does the same
+/// thing without a second screen to keep in step.
 ///
 /// The first band carries the state of the newest proposal in its
 /// colour — yellow while someone is deciding, coral if it came back,
@@ -67,31 +67,17 @@ class EventsHubScreen extends StatelessWidget {
                     child: _Band(
                       index: 2,
                       title: 'All events',
-                      blurb: 'Every proposal, as a list or a month',
+                      blurb: pending > 0
+                          ? '$pending waiting · list or month'
+                          : 'Every proposal, as a list or a month',
                       icon: Icons.list_alt_outlined,
-                      // Not brand: band one is brand before anything has
-                      // been proposed, and two blue bands touching read
-                      // as one band.
-                      tone: BrutTone.violet,
+                      // Orange rather than blue: band one is blue before
+                      // anything is proposed, and two blue bands touching
+                      // read as one band.
+                      tone: BrutTone.orange,
                       count: app.events.length,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const EventsScreen()),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _Band(
-                      index: 3,
-                      title: 'Approvals',
-                      blurb: 'Where each one got to, and who decided',
-                      icon: Icons.fact_check_outlined,
-                      tone: pending > 0 ? BrutTone.sun : BrutTone.teal,
-                      count: pending,
-                      countLabel: pending > 0 ? 'waiting' : null,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const EventApprovalsScreen(),
-                        ),
                       ),
                     ),
                   ),
@@ -115,59 +101,56 @@ class _CreateBand extends StatelessWidget {
   final bool canPropose;
   final EventItem? latest;
 
-  /// Null means nothing has been proposed yet, which is its own state —
-  /// not a pending one, and not a finished one.
-  (BrutTone, String, String) get _state {
+  /// What the band says. Null means nothing has been proposed yet,
+  /// which is its own state — not a pending one, and not a finished one.
+  ///
+  /// The colour is deliberately not part of this. This band is the
+  /// create button, and a button that turns yellow, red or green
+  /// depending on something that happened to a different event is a
+  /// button nobody can learn. The status still shows, in words, where
+  /// changing text costs nothing.
+  (String, String) get _state {
     final event = latest;
     if (event == null) {
       return (
-        BrutTone.brand,
         'Nothing proposed yet',
         canPropose ? 'Tap, or swipe up, to write the first one' : '',
       );
     }
     return switch (event.status) {
-      EventApprovalStatus.draft => (
-        BrutTone.neutral,
-        'Draft — not submitted',
-        event.title,
-      ),
-      EventApprovalStatus.pendingAdviser => (
-        BrutTone.sun,
-        'With the adviser',
-        event.title,
-      ),
-      EventApprovalStatus.pendingAdmin => (
-        BrutTone.sun,
-        'With the admin',
-        event.title,
-      ),
+      EventApprovalStatus.draft => ('Draft — not submitted', event.title),
+      EventApprovalStatus.pendingAdviser => ('With the adviser', event.title),
+      EventApprovalStatus.pendingAdmin => ('With the admin', event.title),
       EventApprovalStatus.pendingInstitutional => (
-        BrutTone.sun,
         'With the signatories',
         event.title,
       ),
       EventApprovalStatus.rejected => (
-        BrutTone.coral,
         'Came back — needs changes',
         event.title,
       ),
       EventApprovalStatus.approved ||
-      EventApprovalStatus.completed => (BrutTone.mint, 'Approved', event.title),
+      EventApprovalStatus.completed => ('Approved', event.title),
     };
   }
 
+  /// Straight into the form. Filling it in is how an event gets made:
+  /// the record is a consequence of Part 1, not a separate thing to ask
+  /// for first. The event is created on the way out of that part, so
+  /// nothing exists until there is a title and a date for it.
   void _open(BuildContext context) {
     if (!canPropose) return;
-    Navigator.of(
+    final app = context.read<AppState>();
+    SapProposalFlow.start(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const CreateEventScreen()));
+      SapForm(service: app.isDemoMode ? null : app.sapService),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final (tone, headline, detail) = _state;
-    final fill = tone.fill(context);
+    final (headline, detail) = _state;
+    final fill = BrutTone.brand.fill(context);
     final on = context.foregroundOn(fill);
 
     return GestureDetector(
@@ -274,7 +257,6 @@ class _Band extends StatelessWidget {
     required this.tone,
     required this.onTap,
     this.count,
-    this.countLabel,
   });
 
   final int index;
@@ -284,7 +266,6 @@ class _Band extends StatelessWidget {
   final BrutTone tone;
   final VoidCallback onTap;
   final int? count;
-  final String? countLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -321,9 +302,7 @@ class _Band extends StatelessWidget {
                         const SizedBox(width: AppLayout.tight),
                         if (count != null && count! > 0)
                           Text(
-                            countLabel == null
-                                ? '$count'
-                                : '$count ${countLabel!}'.toUpperCase(),
+                            '$count',
                             style: AppText.monoLabel.copyWith(color: on),
                           ),
                       ],

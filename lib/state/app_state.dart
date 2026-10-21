@@ -16,6 +16,10 @@ import '../api/models/receipt.dart';
 import '../api/proposal_letter_service.dart';
 import '../api/income_service.dart';
 import '../api/models/scope.dart';
+import '../api/compliance_service.dart';
+import '../api/sap_service.dart';
+import '../api/files_service.dart';
+import '../api/models/compliance.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
 import 'reachability.dart';
@@ -29,6 +33,7 @@ import '../api/expense_service.dart';
 import '../api/models/remote_expense.dart';
 import '../api/models/registration_result.dart';
 import '../api/models/user_profile.dart';
+import 'demo_data.dart';
 import 'user_role.dart';
 import '../theme/peso.dart';
 
@@ -406,8 +411,40 @@ class ExpenseEntry {
 class AppState extends ChangeNotifier {
   /// [reachability], when given, is told whether the backend answered
   /// after every request. Optional so a test can build a plain AppState.
-  AppState({Reachability? reachability})
-    : _apiClient = ApiClient(onReachability: reachability?.report);
+  AppState({Reachability? reachability}) {
+    _apiClient = ApiClient(
+      onReachability: reachability?.report,
+      onSessionExpired: _onSessionExpired,
+    );
+  }
+
+  /// The token stopped being accepted, so this client is signed out
+  /// whether or not anyone has said so yet.
+  ///
+  /// Showing the last data that loaded is the worst of the options: the
+  /// figures are real, they are wrong, and nothing on screen says which.
+  /// Signing out sends the gate back to the welcome screen with a line
+  /// explaining why, and the next sign-in starts clean.
+  void _onSessionExpired() {
+    if (_demoMode) return;
+    if (currentAccount == null && currentRole == null) return;
+    _sessionExpiredNotice = true;
+    // Deferred: this fires from inside a response handler, which can be
+    // mid-build for whatever triggered the request.
+    Future.microtask(signOut);
+  }
+
+  bool _sessionExpiredNotice = false;
+
+  /// Whether the last sign-out was the server rejecting the token rather
+  /// than someone choosing to leave. Read once by the welcome screen.
+  bool get sessionExpiredNotice => _sessionExpiredNotice;
+
+  void clearSessionExpiredNotice() {
+    if (!_sessionExpiredNotice) return;
+    _sessionExpiredNotice = false;
+    notifyListeners();
+  }
 
   /// Turns anything thrown by the API layer into one user-facing message,
   /// keeping the three cases distinct on purpose:
@@ -421,6 +458,11 @@ class AppState extends ChangeNotifier {
   ///    more useful than blaming the user's connection, which is what the
   ///    old blanket `catch (_)` did.
   String _messageForFailure(Object error) {
+    // Said plainly, rather than as a network failure, because nothing
+    // failed: there is no server here and that is the point.
+    if (error is DemoUnavailable) {
+      return 'This is a demo, so nothing is sent to a server.';
+    }
     if (error is ApiException) return error.message;
     if (error is NetworkException) return error.message;
     return 'Unexpected problem handling the server response: $error';
@@ -429,6 +471,17 @@ class AppState extends ChangeNotifier {
   /// Runs a module load, recording loading/ready/failed instead of
   /// discarding the outcome.
   Future<void> _runLoad(LoadState state, Future<void> Function() load) async {
+    // Nothing to fetch while exploring; the data is already here, and a
+    // request would only replace it with a failure.
+    if (_demoMode) {
+      state
+        ..status = LoadStatus.ready
+        ..error = null
+        ..sessionExpired = false;
+      notifyListeners();
+      return;
+    }
+
     state
       ..status = LoadStatus.loading
       ..error = null
@@ -480,6 +533,18 @@ class AppState extends ChangeNotifier {
 
   Future<String?> markNoticeRead(AppNotice notice) async {
     if (!notice.isUnread) return null;
+
+    // Exploring: mark it here, because there is nobody to tell.
+    if (_demoMode) {
+      notices = [
+        for (final n in notices)
+          if (n.id == notice.id) n.markedRead() else n,
+      ];
+      unreadNoticeCount = notices.where((n) => n.isUnread).length;
+      notifyListeners();
+      return null;
+    }
+
     try {
       final updated = await _noticeService.markRead(notice.id);
       notices = [
@@ -1146,6 +1211,49 @@ class AppState extends ChangeNotifier {
   // ---- Receipts and duplicate review -------------------------------------
 
   late final ReceiptService _receiptService = ReceiptService(_apiClient);
+  late final FilesService _filesService = FilesService(_apiClient);
+  late final ComplianceService _complianceService = ComplianceService(
+    _apiClient,
+  );
+
+  /// The SAS-SDS-FO-020 proposal form. Handed to a [SapForm] per event
+  /// rather than cached here: one proposal belongs to one event and is
+  /// read while looking at it.
+  late final SapService sapService = SapService(_apiClient);
+
+  /// The pre-activity gates. These are pass-throughs rather than cached
+  /// state: each belongs to one event and is read while looking at it,
+  /// so holding them here would be keeping a copy of something only one
+  /// screen ever asks about.
+  Future<EventLogistics?> eventLogistics(String eventId) =>
+      _complianceService.logistics(eventId);
+
+  Future<EventLogistics?> saveEventLogistics(
+    String eventId,
+    EventLogistics logistics,
+  ) => _complianceService.saveLogistics(eventId, logistics);
+
+  Future<List<Signatory>> availableSignatories() =>
+      _complianceService.signatories();
+
+  Future<List<RoutingStep>> eventRouting(String eventId) =>
+      _complianceService.routing(eventId);
+
+  Future<List<RoutingStep>> setEventRouting(
+    String eventId,
+    List<String> signatoryIds,
+  ) => _complianceService.setRouting(eventId, signatoryIds);
+
+  /// Readiness, or nothing to say while exploring. The notice that
+  /// shows this is already silent when the route is missing, so a demo
+  /// that cannot ask simply says nothing rather than going red.
+  Future<EventReadiness> eventReadiness(String eventId) =>
+      _demoMode ? Future.error(const FeatureUnavailable()) :
+      _complianceService.readiness(eventId);
+
+  /// Turns a stored file reference into something an image can load.
+  Future<String> resolveFile(String reference) =>
+      _filesService.resolve(reference);
 
   List<Receipt> receipts = [];
   final LoadState receiptsLoad = LoadState();
@@ -1521,6 +1629,10 @@ class AppState extends ChangeNotifier {
   Future<({List<ApprovalRecord>? records, String? error})> loadApprovals(
     EventItem event,
   ) async {
+    // Exploring has no server to ask. This one is called straight from
+    // the card rather than through _runLoad, so it needs saying twice.
+    if (_demoMode) return (records: const <ApprovalRecord>[], error: null);
+
     final remoteId = event.remoteId;
     if (remoteId == null) {
       return (records: null, error: 'This event has no backend record yet.');
@@ -1887,6 +1999,34 @@ class AppState extends ChangeNotifier {
     String? departmentId,
     String? organizationId,
   }) async {
+    // Exploring: make the event here. Creating one is the single most
+    // worthwhile thing to show, and a demo that cannot do it because
+    // there is no server is not demonstrating the app.
+    if (_demoMode) {
+      events.insert(
+        0,
+        EventItem(
+          remoteId: 'demo-ev-${DateTime.now().microsecondsSinceEpoch}',
+          title: title,
+          org: 'ACPES',
+          date: eventDate == null
+              ? 'No date'
+              : '${eventDate.day}/${eventDate.month}/${eventDate.year}',
+          on: eventDate,
+          budget: estimatedCost.toStringAsFixed(2),
+          status: submitNow
+              ? EventApprovalStatus.pendingAdviser
+              : EventApprovalStatus.draft,
+          schoolYear: schoolYear,
+          semester: semester,
+          eventScope: eventScope,
+          proposedBy: currentAccount?.id,
+        ),
+      );
+      notifyListeners();
+      return null;
+    }
+
     try {
       final created = await _eventService.create(
         categoryId: categoryId,
@@ -2064,7 +2204,7 @@ class AppState extends ChangeNotifier {
   Account? currentAccount;
   UserRole? currentRole;
 
-  final ApiClient _apiClient;
+  late final ApiClient _apiClient;
   late final AuthService _authService = AuthService(_apiClient);
 
   /// Thrown when `/auth/me` reports a role this build doesn't know. Better
@@ -2215,6 +2355,49 @@ class AppState extends ChangeNotifier {
   /// screen at someone who is already signed in.
   bool sessionChecked = false;
 
+  /// Exploring with seeded data and no server behind it.
+  ///
+  /// The quick-login shortcut fakes a session and then lets the app call
+  /// a backend it holds no token for, so every screen fills with 401s.
+  /// This fills the collections instead and stops the fetching, which is
+  /// the difference between a demo and a broken app.
+  bool _demoMode = false;
+  bool get isDemoMode => _demoMode;
+
+  /// Signs in to the seeded data as [role]. Nothing leaves the device.
+  void enterDemo({UserRole role = UserRole.treasurer}) {
+    _demoMode = true;
+    // Belt as well as braces: the paths below fill the app without a
+    // request, and the client refuses anything that asks anyway.
+    _apiClient.demoMode = true;
+    currentAccount = DemoData.account(role);
+    currentRole = role;
+    _passwordSetupRequired = false;
+    sessionChecked = true;
+
+    categories = DemoData.categories();
+    departments = DemoData.departments();
+    organizations = DemoData.organizations();
+    events
+      ..clear()
+      ..addAll(DemoData.events());
+    expenses
+      ..clear()
+      ..addAll(DemoData.expenses());
+    notices = DemoData.notices();
+    unreadNoticeCount = notices.where((n) => n.isUnread).length;
+
+    // Every module reads as loaded, so no screen shows a spinner waiting
+    // on a request that will never be made.
+    for (final state in _moduleLoads) {
+      state
+        ..status = LoadStatus.ready
+        ..error = null
+        ..sessionExpired = false;
+    }
+    notifyListeners();
+  }
+
   /// Bridges `/auth/me` into the local account model.
   ///
   /// Returns an error message when the role is unrecognized, so the caller
@@ -2364,6 +2547,12 @@ class AppState extends ChangeNotifier {
   }
 
   /// pang shortcut sa login kasi tinatamad na ko mag type all the time
+  /// Fills in a role locally, without signing in.
+  ///
+  /// There is no token behind it, so every request this account makes is
+  /// unauthenticated and comes back 401 — the app looks signed in and
+  /// nothing loads. It exists to open a screen while building it, and
+  /// the control that reaches it is debug-only for that reason.
   void devQuickLogin(UserRole role) {
     final testEmail = 'test.${role.name}@dev.local';
     var account = _accounts.where((a) => a.email == testEmail).firstOrNull;
@@ -2435,6 +2624,8 @@ class AppState extends ChangeNotifier {
   /// user-scoped backend data, so they are left alone here; they get
   /// cleared once those modules are actually wired.
   Future<void> signOut() async {
+    _demoMode = false;
+    _apiClient.demoMode = false;
     currentAccount = null;
     currentRole = null;
     _passwordSetupRequired = false;

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -5,6 +6,7 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import 'sap/sap_review_demo_screen.dart';
 import '../main.dart';
 import 'change_password_screen.dart';
 import 'forgot_password_screen.dart';
@@ -94,42 +96,142 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
+  /// The demo accounts, by the address they sign in with.
+  ///
+  /// Addresses are not secrets and belong here; the password does not.
+  /// It is supplied at build time instead, so a shortcut that signs in
+  /// for real never puts a credential in the repository:
+  ///
+  /// ```
+  /// flutter run --dart-define=SMARTEVENT_DEMO_PASSWORD=...
+  /// ```
+  ///
+  /// Without that define the sheet still opens and says what is missing,
+  /// rather than failing at the first tap.
+  static const _demoAccounts = [
+    (
+      'demo.treasurer@lcup.edu.ph',
+      'Treasurer',
+      Icons.account_balance_wallet_outlined,
+    ),
+    ('demo.admin@lcup.edu.ph', 'Admin', Icons.admin_panel_settings_outlined),
+    ('demo.sds@lcup.edu.ph', 'SDS Staff', Icons.description_outlined),
+  ];
+
+  static const _demoPassword = String.fromEnvironment(
+    'SMARTEVENT_DEMO_PASSWORD',
+  );
+
+  /// Signs in properly, as if the fields had been typed.
+  ///
+  /// The old shortcut set a role locally and asked the backend for
+  /// nothing, so the app came up looking signed in while holding no
+  /// token and every request it made returned 401. This one goes through
+  /// the same sign-in the form does, which means a real token, a real
+  /// profile, and the same handling of a temporary password or a failed
+  /// load afterwards.
+  Future<void> _signInAs(BuildContext sheetContext, String email) async {
+    Navigator.of(sheetContext).pop();
+    _emailController.text = email;
+    _passwordController.text = _demoPassword;
+    await _signIn();
+  }
+
   void _showQuickLoginSheet(BuildContext context) {
     BrutSheet.show<void>(
       context,
       builder: (sheetContext) => BrutSheet(
-        title: 'Dev quick login',
-        subtitle: 'Testing shortcut — not part of the real sign-in flow.',
+        title: 'Demo',
+        subtitle: 'Seeded data, no server. Nothing here leaves the phone.',
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final role in UserRole.values) ...[
+            // Safe in any build: these talk to nothing and sign nobody
+            // in. Unlike the quick logins below them, which fake a
+            // session against a real backend and belong in debug only.
+            for (final (role, label, meta, icon) in const [
+              (
+                UserRole.treasurer,
+                'Explore as a treasurer',
+                'Events, money, inventory, reports',
+                Icons.account_balance_wallet_outlined,
+              ),
+              (
+                UserRole.adviser,
+                'Explore as an adviser',
+                'The same, plus reviewing what others send',
+                Icons.fact_check_outlined,
+              ),
+              (
+                UserRole.sdsStaff,
+                'Explore as the SDS Office',
+                'All six parts of the proposal form',
+                Icons.admin_panel_settings_outlined,
+              ),
+            ]) ...[
               BrutListRow(
-                title: 'Sign in as ${role.label}',
+                title: label,
+                meta: meta,
                 marker: BrutIconTile(
                   size: 32,
-                  icon: switch (role) {
-                    UserRole.officer => Icons.person_outline,
-                    UserRole.treasurer => Icons.account_balance_wallet_outlined,
-                    UserRole.adviser => Icons.fact_check_outlined,
-                    UserRole.sdsStaff => Icons.description_outlined,
-                    UserRole.signatory => Icons.draw_outlined,
-                    UserRole.admin => Icons.admin_panel_settings_outlined,
-                    UserRole.superAdmin => Icons.shield_outlined,
-                  },
+                  icon: icon,
+                  tone: BrutTone.brand,
                 ),
                 onTap: () {
-                  context.read<AppState>().devQuickLogin(role);
+                  final navigator = Navigator.of(context);
                   Navigator.of(sheetContext).pop();
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => RootShell(role: role)),
-                  );
+                  context.read<AppState>().enterDemo(role: role);
+                  // The gate that decides welcome-or-app is the route
+                  // under this one, so changing the state is not enough:
+                  // without this the app is there and buried under the
+                  // sign-in screen that is still on top of it.
+                  navigator.popUntil((route) => route.isFirst);
                 },
               ),
-              if (role != UserRole.values.last)
-                const SizedBox(height: AppLayout.tight),
+              const SizedBox(height: AppLayout.tight),
             ],
+            BrutListRow(
+              title: 'Review a proposal',
+              meta: 'The form with a reviewer\'s marks on it',
+              marker: const BrutIconTile(
+                size: 32,
+                icon: Icons.edit_note,
+                tone: BrutTone.mint,
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SapReviewDemoScreen(),
+                  ),
+                );
+              },
+            ),
+            if (kDebugMode) ...[
+              const SizedBox(height: AppLayout.section),
+              const BrutSectionTitle('Sign in as'),
+              const SizedBox(height: AppLayout.tight),
+            ],
+            if (kDebugMode && _demoPassword.isEmpty)
+              const BrutInlineMessage(
+                text:
+                    'Rebuild with '
+                    '--dart-define=SMARTEVENT_DEMO_PASSWORD=… to use this. '
+                    'The password is kept out of the repository on purpose.',
+                icon: Icons.key_off_outlined,
+              )
+            else if (kDebugMode)
+              for (final (email, label, icon) in _demoAccounts) ...[
+                BrutListRow(
+                  title: label,
+                  meta: email,
+                  marker: BrutIconTile(size: 32, icon: icon),
+                  onTap: () => _signInAs(sheetContext, email),
+                ),
+                if (email != _demoAccounts.last.$1)
+                  const SizedBox(height: AppLayout.tight),
+              ],
           ],
         ),
       ),
@@ -152,6 +254,13 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               const SizedBox(height: 20),
               GestureDetector(
+                // The hold opens in every build; what it offers does not.
+                // The review demo talks to nothing and signs nobody in,
+                // so it is safe anywhere. The quick logins fill in a role
+                // without asking the backend, which leaves the app
+                // looking signed in while holding no token and every call
+                // coming back 401 — useful while building a screen,
+                // terrible in front of a panel. Those stay in debug.
                 onLongPress: () => _showQuickLoginSheet(context),
                 child: const Text('Welcome back', style: AppText.display),
               ),

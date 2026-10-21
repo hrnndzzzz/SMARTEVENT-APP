@@ -106,6 +106,23 @@ class AppColors {
   // SmartEvent needs six distinguishable department colours. These extend
   // the palette in the same register (bright, light enough for ink text)
   // rather than reaching for the muted earth tones they replace.
+  // The accents again, for a dark canvas.
+  //
+  // The same hues held down in lightness: at full strength a yellow card
+  // on #121417 is a lamp, and three of them on one screen is all anyone
+  // sees. These stay recognisably the same colour and stop glowing.
+  // `foregroundOn` measures each one and picks the ink, so every value
+  // here sits above its 0.22 threshold: three of them did not at first,
+  // and one stack of bands came out reading two different ways.
+  static const Color brandDark = Color(0xFF5C92DD);
+  static const Color sunDark = Color(0xFFD4B43A);
+  static const Color mintDark = Color(0xFF59A865);
+  static const Color leafDark = Color(0xFF1E9E4D);
+  static const Color coralDark = Color(0xFFD9636D);
+  static const Color orangeDark = Color(0xFFD47334);
+  static const Color violetDark = Color(0xFFA47FDD);
+  static const Color tealDark = Color(0xFF35A7A0);
+
   static const Color violet = Color(0xFFB07BFF);
   static const Color teal = Color(0xFF3FC8C0);
 

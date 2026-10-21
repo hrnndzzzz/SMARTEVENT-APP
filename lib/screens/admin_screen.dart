@@ -5,7 +5,6 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
-import 'notifications_screen.dart';
 import '../widgets/scope_picker.dart';
 
 /// Roster, accounts and audit.
@@ -51,9 +50,6 @@ class _AdminScreenState extends State<AdminScreen> {
     return BrutScreen(
       topBar: AppHeader(
         onBack: () => Navigator.of(context).maybePop(),
-        onBellTap: () => Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
       ),
       scrollable: false,
       bottomPadding: 0,
@@ -120,7 +116,7 @@ class _RosterTab extends StatelessWidget {
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
+                  child: BrutSpinner(),
                 ),
               )
             else if (load.hasFailed && app.roster.isEmpty)
@@ -259,10 +255,7 @@ class _AccountsTab extends StatelessWidget {
         const SizedBox(height: 14),
         if (load.isLoading && app.managedUsers.isEmpty)
           const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
+            child: Padding(padding: EdgeInsets.all(24), child: BrutSpinner()),
           )
         else if (load.hasFailed && app.managedUsers.isEmpty)
           BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
@@ -380,13 +373,31 @@ class _UserCard extends StatelessWidget {
                   'This is your own account — you cannot change your own '
                   'access.',
             )
-          else
-            BrutButton(
-              label: user.isSuspended ? 'Restore access' : 'Suspend access',
-              tone: user.isSuspended ? BrutTone.mint : BrutTone.coral,
-              size: BrutSize.small,
-              onPressed: () => _confirmSuspension(context, !user.isSuspended),
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: BrutButton(
+                    label: 'Change access',
+                    icon: Icons.tune,
+                    tone: BrutTone.neutral,
+                    size: BrutSize.small,
+                    onPressed: () => _AccessSheet.show(context, user),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: BrutButton(
+                    label: user.isSuspended ? 'Restore' : 'Suspend',
+                    tone: user.isSuspended ? BrutTone.mint : BrutTone.coral,
+                    size: BrutSize.small,
+                    onPressed: () =>
+                        _confirmSuspension(context, !user.isSuspended),
+                  ),
+                ),
+              ],
             ),
+          ],
         ],
       ),
     );
@@ -412,10 +423,7 @@ class _AuditTab extends StatelessWidget {
         const SizedBox(height: 14),
         if (load.isLoading && app.auditLog.isEmpty)
           const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
+            child: Padding(padding: EdgeInsets.all(24), child: BrutSpinner()),
           )
         else if (load.hasFailed && app.auditLog.isEmpty)
           BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
@@ -630,6 +638,139 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
             const SizedBox(height: 14),
             BrutInlineMessage(text: _error!, tone: BrutTone.coral),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Change what an account may do: its organization, its role, its title.
+///
+/// The organization is the part that needed a screen. An account with
+/// none cannot create anything the backend will accept, and there was no
+/// way to give it one — `updateUserAccess` had carried an organizationId
+/// since the roster work and nothing called it.
+///
+/// Moving an account between organizations is a Super Admin's job; an
+/// Admin sees their own organization and can still change role and
+/// position within it.
+class _AccessSheet extends StatefulWidget {
+  const _AccessSheet({required this.user});
+
+  final ManagedUser user;
+
+  static Future<void> show(BuildContext context, ManagedUser user) {
+    return BrutSheet.show<void>(
+      context,
+      builder: (_) => _AccessSheet(user: user),
+    );
+  }
+
+  @override
+  State<_AccessSheet> createState() => _AccessSheetState();
+}
+
+class _AccessSheetState extends State<_AccessSheet> {
+  late String? _organizationId = widget.user.organizationId;
+  late UserRole? _role = widget.user.role;
+  late final _position = TextEditingController(
+    text: widget.user.position ?? '',
+  );
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _position.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final app = context.read<AppState>();
+    final error = await app.updateUserAccess(
+      widget.user,
+      role: _role,
+      position: _position.text.trim().isEmpty ? null : _position.text.trim(),
+      organizationId: _organizationId,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (error == null) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Access updated.')));
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final canTransfer = app.currentRole?.canAdministerSchool ?? false;
+    final organizations = app.organizations;
+
+    return BrutSheet(
+      title: 'Change access',
+      subtitle: widget.user.fullName,
+      footer: BrutButton(
+        label: 'Save changes',
+        size: BrutSize.large,
+        busy: _saving,
+        busyLabel: 'Saving…',
+        onPressed: _saving ? null : _save,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (canTransfer)
+            BrutDropdown<String>(
+              label: 'Organization',
+              value: _organizationId,
+              hint: organizations.isEmpty
+                  ? 'No organizations to choose from'
+                  : 'Select an organization',
+              items: [
+                for (final organization in organizations)
+                  DropdownMenuItem(
+                    value: organization.id,
+                    child: Text(organization.name),
+                  ),
+              ],
+              onChanged: (id) => setState(() => _organizationId = id),
+            )
+          else
+            const BrutInlineMessage(
+              icon: Icons.lock_outline,
+              text:
+                  'Only a Super Admin can move an account to another '
+                  'organization.',
+            ),
+          const SizedBox(height: AppLayout.between),
+          BrutDropdown<UserRole>(
+            label: 'Role',
+            value: _role,
+            hint: 'Select a role',
+            items: [
+              // A Super Admin may also promote to Admin or SDS Staff;
+              // an Admin changes roles within their own organization.
+              for (final role
+                  in canTransfer ? accessAssignableRoles : memberRoles)
+                DropdownMenuItem(value: role, child: Text(role.label)),
+            ],
+            onChanged: (role) => setState(() => _role = role),
+          ),
+          const SizedBox(height: AppLayout.between),
+          BrutTextField(
+            label: 'Position',
+            controller: _position,
+            hint: 'e.g. Treasurer, 3rd year',
+            textCapitalization: TextCapitalization.words,
+          ),
         ],
       ),
     );

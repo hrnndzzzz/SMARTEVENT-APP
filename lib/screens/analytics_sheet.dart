@@ -42,7 +42,7 @@ class AnalyticsSheetState extends State<AnalyticsSheet> {
       child: switch (load) {
         _ when load.isLoading && data == null => const Padding(
           padding: EdgeInsets.symmetric(vertical: 32),
-          child: Center(child: CircularProgressIndicator()),
+          child: Center(child: BrutSpinner()),
         ),
         _ when load.hasFailed && data == null => BrutInlineMessage(
           text: load.error!,

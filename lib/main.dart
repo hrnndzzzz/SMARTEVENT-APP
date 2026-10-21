@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'state/app_settings.dart';
+import 'state/avatar.dart';
 import 'state/app_state.dart';
 import 'state/reachability.dart';
 import 'widgets/connection_banner.dart';
@@ -9,13 +11,27 @@ import 'theme/brut.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/change_password_screen.dart';
 import 'screens/home_screen.dart';
+import 'api/api_config.dart';
+import 'state/notice_shelf.dart';
+import 'state/sfx.dart';
 import 'screens/proposal_letters_screen.dart';
 import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
 import 'widgets/page_indicator.dart';
 
-void main() {
+void main() async {
+  // Portrait only. Every screen is laid out as one column at phone
+  // width — the keypad, the month grid, the three-band hub — and none of
+  // them has a landscape arrangement worth turning the phone for.
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  // Before the first request, so a device pointed at its own backend
+  // address never fires one at the build's address first.
+  await ApiConfig.load();
   runApp(const SmartEventApp());
 }
 
@@ -35,6 +51,9 @@ class _SmartEventAppState extends State<SmartEventApp> {
     // the gate below has something to wait for.
     ..restoreSession();
   final _settings = AppSettings()..restore();
+  final _avatar = Avatar()..load();
+  final _sfx = SfxPlayer()..load();
+  final _shelf = NoticeShelf();
 
   @override
   void dispose() {
@@ -51,6 +70,9 @@ class _SmartEventAppState extends State<SmartEventApp> {
         // theme, and a dark screen turning white on log out reads as a bug.
         ChangeNotifierProvider.value(value: _settings),
         ChangeNotifierProvider.value(value: _reachability),
+        ChangeNotifierProvider.value(value: _avatar),
+        ChangeNotifierProvider.value(value: _sfx),
+        ChangeNotifierProvider.value(value: _shelf),
       ],
       child: Consumer2<AppState, AppSettings>(
         builder: (context, app, settings, _) => MaterialApp(
@@ -97,7 +119,7 @@ class _StartupGate extends StatelessWidget {
     final app = context.watch<AppState>();
 
     if (!app.sessionChecked) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: BrutSpinner()));
     }
 
     // Checked before the role, not after: an account that still owes a

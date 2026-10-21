@@ -9,6 +9,7 @@ import '../screens/notification_prefs_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/welcome_screen.dart';
 import '../state/app_state.dart';
+import '../state/avatar.dart';
 import '../state/reachability.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
@@ -16,6 +17,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import 'connection_banner.dart';
+import 'user_avatar.dart';
 
 /// The menu behind the avatar.
 ///
@@ -64,17 +66,6 @@ abstract final class AccountMenu {
 class _AccountMenu extends StatelessWidget {
   const _AccountMenu();
 
-  static String _initialsFor(String name) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
   static String _roleLabel(UserRole? role) => switch (role) {
     UserRole.officer => 'Officer (view only)',
     UserRole.treasurer => 'Treasurer',
@@ -86,10 +77,20 @@ class _AccountMenu extends StatelessWidget {
     null => 'Guest',
   };
 
+  /// Opens one of the menu's destinations, then puts the menu back.
+  ///
+  /// Coming back from Settings used to land on whatever was behind the
+  /// menu, so a second change meant finding the avatar and opening it
+  /// again. The menu is a place you work from, not a thing you pass
+  /// through once.
   Future<void> _go(BuildContext context, Widget screen) async {
     final navigator = Navigator.of(context);
+    final root = navigator.context;
     navigator.pop();
     await navigator.push(MaterialPageRoute(builder: (_) => screen));
+    // Signing out replaces the whole stack, so there may be nothing left
+    // to reopen onto.
+    if (root.mounted && navigator.mounted) AccountMenu.show(root);
   }
 
   Future<void> _logOut(BuildContext context) async {
@@ -99,6 +100,7 @@ class _AccountMenu extends StatelessWidget {
     // otherwise a fast relaunch could still find it and restore the
     // session we just signed out of.
     await context.read<AppState>().signOut();
+    if (context.mounted) await context.read<Avatar>().clear();
     if (!context.mounted) return;
     navigator.pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const WelcomeScreen()),
@@ -110,7 +112,6 @@ class _AccountMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final name = app.currentAccount?.name ?? 'Guest';
-    final accent = Theme.of(context).colorScheme.secondary;
     final width = MediaQuery.sizeOf(context).width;
 
     return Align(
@@ -133,18 +134,7 @@ class _AccountMenu extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    BrutSurface(
-                      fill: accent,
-                      radius: AppRadius.pill,
-                      shadow: AppShadows.sm,
-                      width: 48,
-                      height: 48,
-                      alignment: Alignment.center,
-                      child: Text(
-                        _initialsFor(name),
-                        style: AppText.moneyLarge.copyWith(fontSize: 17),
-                      ),
-                    ),
+                    UserAvatar(name: name, size: 48),
                     const SizedBox(width: AppLayout.between),
                     Expanded(
                       child: Column(
