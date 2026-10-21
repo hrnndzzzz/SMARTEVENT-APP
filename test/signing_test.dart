@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
@@ -80,12 +81,12 @@ void main() {
     });
 
     testWidgets('a cancelled stroke is still kept', (tester) async {
-      // A pan that is cancelled rather than ended must still keep what
-      // was drawn. Note this passes with or without onPanCancel wired:
-      // flutter_test's cancel() reaches the recognizer as an end. It is
-      // here as an assertion about the behaviour, not as a regression
-      // test for the uncommitted-stroke case seen on a device, which
-      // this harness does not reproduce.
+      // A pointer that is cancelled rather than lifted still keeps what
+      // was drawn. It does so through onEnd: once a drag is accepted,
+      // Flutter turns a cancelled pointer into an end, and onPanCancel
+      // fires only for a drag that was never accepted — which has no
+      // stroke to lose. Worth pinning, because that is not obvious and
+      // it is the difference between a kept signature and a lost one.
       SapSignature? captured;
 
       await tester.pumpWidget(
@@ -101,10 +102,26 @@ void main() {
           tester.getTopLeft(find.byType(SapSignaturePad)) +
           const Offset(40, 60);
 
-      final gesture = await tester.startGesture(origin);
-      await gesture.moveBy(const Offset(30, 20));
+      // A raw PointerCancelEvent, not gesture.cancel(): that one
+      // reaches the recognizer as an end, so it never exercises the
+      // cancel path at all.
+      const pointer = 7;
+      final down = PointerDownEvent(pointer: pointer, position: origin);
+      tester.binding.handlePointerEvent(down);
+      tester.binding.handlePointerEvent(
+        PointerMoveEvent(
+          pointer: pointer,
+          position: origin + const Offset(30, 20),
+          delta: const Offset(30, 20),
+        ),
+      );
       await tester.pump();
-      await gesture.cancel();
+      tester.binding.handlePointerEvent(
+        PointerCancelEvent(
+          pointer: pointer,
+          position: origin + const Offset(30, 20),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(captured, isNotNull, reason: 'the stroke was drawn');

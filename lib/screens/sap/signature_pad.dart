@@ -100,12 +100,6 @@ class _SapSignaturePadState extends State<SapSignaturePad> {
               onPanStart: (d) => _start(d.localPosition),
               onPanUpdate: (d) => _extend(d.localPosition),
               onPanEnd: (_) => _end(),
-              // A cancelled pan still drew something. Without this the
-              // points sit in _current for good: painted on the pad,
-              // never committed, and never counted — so the signer sees
-              // their own ink above a dead Sign button, with Undo and
-              // Clear dead too because both look at committed strokes.
-              onPanCancel: _end,
               child: BrutSurface(
                 fill: context.palette.surface,
                 radius: AppRadius.controlAll,
