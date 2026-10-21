@@ -79,6 +79,43 @@ void main() {
       }
     });
 
+    testWidgets('a cancelled stroke is still kept', (tester) async {
+      // A pan that is cancelled rather than ended must still keep what
+      // was drawn. Note this passes with or without onPanCancel wired:
+      // flutter_test's cancel() reaches the recognizer as an end. It is
+      // here as an assertion about the behaviour, not as a regression
+      // test for the uncommitted-stroke case seen on a device, which
+      // this harness does not reproduce.
+      SapSignature? captured;
+
+      await tester.pumpWidget(
+        host(
+          Scaffold(
+            body: SapSignaturePad(onChanged: (s) => captured = s),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final origin =
+          tester.getTopLeft(find.byType(SapSignaturePad)) +
+          const Offset(40, 60);
+
+      final gesture = await tester.startGesture(origin);
+      await gesture.moveBy(const Offset(30, 20));
+      await tester.pump();
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull, reason: 'the stroke was drawn');
+      expect(captured!.isSendable, isTrue);
+
+      final clear = tester.widget<BrutButton>(
+        find.widgetWithText(BrutButton, 'Clear'),
+      );
+      expect(clear.onPressed, isNotNull, reason: 'there is ink to clear');
+    });
+
     testWidgets('a closed pad says so and cannot be drawn on', (
       tester,
     ) async {
@@ -113,7 +150,7 @@ void main() {
       tester,
     ) async {
       final form = SapForm(eventId: 'e1')
-        ..adoptForTest(state: SapState.pendingReview);
+        ..seedLocally(state: SapState.pendingReview);
 
       await tester.pumpWidget(host(SapFormScreen(form: form)));
       await tester.pumpAndSettle();
@@ -134,7 +171,7 @@ void main() {
   group('the screen', () {
     SapForm pending() {
       final form = SapForm(eventId: 'e1');
-      form.adoptForTest(state: SapState.pendingReview);
+      form.seedLocally(state: SapState.pendingReview);
       return form;
     }
 
@@ -167,7 +204,7 @@ void main() {
       tester,
     ) async {
       final form = SapForm(eventId: 'e1')
-        ..adoptForTest(state: SapState.sdsSigned);
+        ..seedLocally(state: SapState.sdsSigned);
 
       await tester.pumpWidget(host(SdsSignScreen(form: form)));
       await tester.pumpAndSettle();

@@ -10,6 +10,7 @@ import '../state/sap_form.dart';
 import '../widgets/event_status.dart';
 import '../api/compliance_service.dart';
 import '../api/models/compliance.dart';
+import '../api/models/sap_proposal.dart';
 import 'event_readiness_screen.dart';
 
 class EventDetailScreen extends StatelessWidget {
@@ -219,12 +220,20 @@ class EventDetailScreen extends StatelessWidget {
                       // list hands them three they cannot touch.
                       builder: (_) {
                         final app = context.read<AppState>();
-                        return SapFormScreen(
-                          form: SapForm(
-                            eventId: eventId,
-                            service: app.isDemoMode ? null : app.sapService,
-                          ),
+                        final form = SapForm(
+                          eventId: eventId,
+                          service: app.isDemoMode ? null : app.sapService,
                         );
+                        // The demo has no server, so the form would hold
+                        // no proposal and sit at a null state — which
+                        // locks Parts 5 and 6 and hides review and
+                        // signing. Seed it from where the event itself
+                        // has got to, so the SDS role can see the six
+                        // parts it is offered.
+                        if (app.isDemoMode) {
+                          form.seedLocally(state: _demoSapState(event.status));
+                        }
+                        return SapFormScreen(form: form);
                       },
                     ),
                   ),
@@ -726,3 +735,18 @@ class _ReadinessNoticeState extends State<_ReadinessNotice> {
     );
   }
 }
+
+
+/// Where the proposal form sits, for an event in the offline demo.
+///
+/// The event's own approval status is the only thing the demo knows, so
+/// the form follows it rather than inventing a second timeline.
+SapState _demoSapState(EventApprovalStatus status) => switch (status) {
+  EventApprovalStatus.draft => SapState.draft,
+  EventApprovalStatus.pendingAdviser ||
+  EventApprovalStatus.pendingAdmin ||
+  EventApprovalStatus.pendingInstitutional => SapState.pendingReview,
+  EventApprovalStatus.rejected => SapState.revisionRequested,
+  EventApprovalStatus.approved => SapState.approved,
+  EventApprovalStatus.completed => SapState.completed,
+};

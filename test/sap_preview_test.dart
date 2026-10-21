@@ -119,7 +119,7 @@ void main() {
     await _shoot(
       tester,
       'sds-sign',
-      SdsSignScreen(form: filled()..adoptForTest(state: SapState.pendingReview)),
+      SdsSignScreen(form: filled()..seedLocally(state: SapState.pendingReview)),
     );
 
     // As the flow renders them: each part is a step, so each carries

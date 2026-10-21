@@ -668,8 +668,12 @@ class SapForm extends ChangeNotifier {
   /// Puts the form into a given state without a server, for tests and
   /// for the offline demo. Not a shortcut around the API: nothing here
   /// is ever sent anywhere.
-  @visibleForTesting
-  void adoptForTest({SapState? state, SapDetails? details}) {
+  ///
+  /// The demo needs this. Without a proposal the state is null, which
+  /// locks Parts 5 and 6 and hides the review and signing screen — so
+  /// the role offered as "all six parts of the proposal form" showed
+  /// four and two closed rows.
+  void seedLocally({SapState? state, SapDetails? details}) {
     _proposal = SapProposal(
       id: 'test',
       eventId: _eventId ?? '',

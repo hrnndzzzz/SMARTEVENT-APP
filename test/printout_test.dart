@@ -17,7 +17,7 @@ Widget host(Widget child) =>
     MaterialApp(theme: AppTheme.light(), home: child);
 
 SapForm at(SapState state) =>
-    SapForm(eventId: 'e1')..adoptForTest(state: state);
+    SapForm(eventId: 'e1')..seedLocally(state: state);
 
 void main() {
   group('what the hub says it will print', () {
