@@ -373,9 +373,16 @@ void main() {
       expect(SapState.completed.isProposerEditable, isFalse);
     });
 
-    test('off_campus is not a setting this slice accepts', () {
-      expect(SapSetting.fromWire('off_campus'), isNull);
-      expect(SapSetting.values.map((s) => s.wireName), ['on_campus', 'online']);
+    test('all three of the paper settings are accepted', () {
+      // off_campus was refused by the first slice and is taken now. It
+      // carries conditions the other two do not; those are Part 1's to
+      // enforce, not this enum's.
+      expect(SapSetting.fromWire('off_campus'), SapSetting.offCampus);
+      expect(SapSetting.values.map((s) => s.wireName), [
+        'on_campus',
+        'off_campus',
+        'online',
+      ]);
     });
   });
 }

@@ -100,18 +100,17 @@ void main() {
     expect(find.textContaining('needs the modality to be online'), findsOneWidget);
   });
 
-  testWidgets('Part 1 offers no off-campus setting', (tester) async {
+  testWidgets('Part 1 offers all three of the paper settings', (tester) async {
     await tester.pumpWidget(host(SapPart1Screen(form: blankForm())));
     await tester.pumpAndSettle();
 
     expect(find.text('In campus'), findsOneWidget);
+    expect(find.text('Off campus'), findsOneWidget);
     expect(find.text('Online'), findsWidgets);
-    // The paper has a third box; this workflow cannot carry it, and the
-    // screen says where it went instead of offering a dead option.
-    expect(find.text('Off campus'), findsNothing);
+    // What off campus then requires is in off_campus_test.dart.
     expect(
       find.textContaining('separate CHED compliance workflow'),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

@@ -3,15 +3,18 @@ import 'package:flutter/material.dart';
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
 
 /// Part 1 — Activity Details.
 ///
-/// The field order follows the paper exactly, because people fill this in
-/// with the printed form beside them and a reordered screen makes that
-/// harder for no gain. The programme flow and emergency plan sit at the
-/// end, where the paper puts them.
+/// The field order follows the paper closely, because people fill this in
+/// with the printed form beside them. It opens on the activity title
+/// rather than the paper's header block: the header is who you are and
+/// when you are writing, which the account already knows, and the
+/// proposer came to write about the activity. The programme flow and
+/// emergency plan sit at the end, where the paper puts them.
 class SapPart1Screen extends StatefulWidget {
   const SapPart1Screen({
     super.key,
@@ -203,6 +206,8 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         final d = _form.details;
         final notice = _daysOfNotice(d);
         final tooSoon = notice != null && notice < _noticeDays;
+        final unacknowledged =
+            d.setting == SapSetting.offCampus && !d.offCampusAgreement;
 
         return BrutScreen(
           // One of three when it is being filled in as a run, its own
@@ -230,7 +235,9 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               label: widget.step == null ? 'Save' : 'Next: school support',
               busy: _form.saving,
               busyLabel: 'Saving',
-              onPressed: _editable && !tooSoon ? _save : null,
+              onPressed: _editable && !tooSoon && !unacknowledged
+                  ? _save
+                  : null,
             ),
           ),
           child: Column(
@@ -374,17 +381,63 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 onChanged: (s) =>
                     _form.updateDetails((x) => x.copyWith(setting: s)),
               ),
-              // The paper has a third tick box here. This workflow does
-              // not carry it, and saying so beats a box that fails on
-              // submission.
-              const SizedBox(height: 8),
-              const BrutInlineMessage(
-                tone: BrutTone.neutral,
-                icon: Icons.info_outline,
-                text:
-                    'Off-campus activities go through the separate CHED '
-                    'compliance workflow, not this form.',
-              ),
+              // Off campus carries conditions the other two do not, and
+              // the server refuses the proposal without the
+              // acknowledgement, so the form asks for it here rather
+              // than letting submission fail three parts later.
+              if (d.setting == SapSetting.offCampus) ...[
+                const SizedBox(height: 10),
+                BrutCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Going off campus means all of this:',
+                        style: AppText.cardTitle,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '\u2022  Thirty days of notice, counted from the '
+                        'date of proposal.\n'
+                        '\u2022  A signed ROC or COC attached before it is '
+                        'sent.\n'
+                        '\u2022  The parents\u2019 consent forms on file.',
+                        style: AppText.body,
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: BrutChip(
+                          // No tick glyph: the button label font has
+                          // none, and it renders as an empty box. The
+                          // selected fill says it well enough.
+                          label: d.offCampusAgreement
+                              ? 'Acknowledged'
+                              : 'I acknowledge these',
+                          selected: d.offCampusAgreement,
+                          onTap: _editable
+                              ? () => _form.updateDetails(
+                                  (x) => x.copyWith(
+                                    offCampusAgreement: !x.offCampusAgreement,
+                                  ),
+                                )
+                              : () {},
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!d.offCampusAgreement) ...[
+                  const SizedBox(height: 8),
+                  const BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.error_outline,
+                    text:
+                        'An off-campus activity cannot be sent until this '
+                        'is acknowledged.',
+                  ),
+                ],
+              ],
               if (d.setting == SapSetting.online &&
                   d.modality != null &&
                   d.modality != SapModality.online) ...[

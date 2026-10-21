@@ -69,11 +69,16 @@ enum SapModality {
   }
 }
 
-/// The form offers In-Campus, Off-Campus and Online. This first backend
-/// slice covers the first and last only — `off_campus` is rejected, and
-/// off-campus/CHED compliance stays in the separate existing workflow.
+/// The three the paper offers.
+///
+/// `off_campus` was refused by the first backend slice and is accepted
+/// now. It carries conditions the other two do not: an acknowledged
+/// agreement, thirty days' notice, and a ROC/COC attachment on the
+/// revision being submitted. The older CHED compliance workflow is a
+/// separate thing and is not replaced by this.
 enum SapSetting {
   onCampus('on_campus', 'In campus'),
+  offCampus('off_campus', 'Off campus'),
   online('online', 'Online');
 
   const SapSetting(this.wireName, this.label);
@@ -611,6 +616,7 @@ class SapDetails {
     this.endTime,
     this.modality,
     this.setting,
+    this.offCampusAgreement = false,
     this.venue,
     this.personsInCharge,
     this.attire,
@@ -641,6 +647,11 @@ class SapDetails {
   final SapTime? endTime;
   final SapModality? modality;
   final SapSetting? setting;
+
+  /// The proposer's acknowledgement of the off-campus conditions. The
+  /// server requires this to be true for `off_campus` and false for
+  /// everything else, and refuses the pair when they disagree.
+  final bool offCampusAgreement;
   final String? venue;
   final String? personsInCharge;
   final String? attire;
@@ -674,6 +685,7 @@ class SapDetails {
     endTime: SapTime.fromWire(json['end_time'] as String?),
     modality: SapModality.fromWire(json['modality'] as String?),
     setting: SapSetting.fromWire(json['setting'] as String?),
+    offCampusAgreement: (json['off_campus_agreement'] as bool?) ?? false,
     venue: json['venue'] as String?,
     personsInCharge: json['persons_in_charge'] as String?,
     attire: json['attire'] as String?,
@@ -721,6 +733,7 @@ class SapDetails {
     SapTime? endTime,
     SapModality? modality,
     SapSetting? setting,
+    bool? offCampusAgreement,
     String? venue,
     String? personsInCharge,
     String? attire,
@@ -751,6 +764,7 @@ class SapDetails {
       endTime: endTime ?? this.endTime,
       modality: modality ?? this.modality,
       setting: setting ?? this.setting,
+      offCampusAgreement: offCampusAgreement ?? this.offCampusAgreement,
       venue: venue ?? this.venue,
       personsInCharge: personsInCharge ?? this.personsInCharge,
       attire: attire ?? this.attire,
@@ -789,6 +803,10 @@ class SapDetails {
     if (endTime != null) 'end_time': endTime!.wire,
     if (modality != null) 'modality': modality!.wireName,
     if (setting != null) 'setting': setting!.wireName,
+    // Sent whenever a setting is, because the server compares the two
+    // and rejects a true that is not off-campus as readily as a missing
+    // one that is.
+    if (setting != null) 'off_campus_agreement': offCampusAgreement,
     if (venue != null) 'venue': venue,
     if (personsInCharge != null) 'persons_in_charge': personsInCharge,
     if (attire != null) 'attire': attire,
