@@ -72,6 +72,10 @@ void main() {
         title: 'HACK THE FUTURE: Cybersecurity and Ethical Hacking',
         organizationName: 'Association of Computer Engineering Students',
         course: 'BS Computer Engineering',
+        // Dated so the thirty-day notice is satisfied and the render does
+        // not move with the calendar: with no proposal date the rule
+        // measures from today, and the golden would change daily.
+        proposalDate: DateTime(2026, 9, 20),
         activityDate: DateTime(2026, 10, 28),
         startTime: const SapTime(8, 0),
         endTime: const SapTime(11, 0),

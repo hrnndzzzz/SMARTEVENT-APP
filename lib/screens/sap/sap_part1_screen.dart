@@ -165,6 +165,23 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     }
   }
 
+  /// The university wants a month's notice. The server enforces this only
+  /// for off-campus activities, so the form holds every activity to it
+  /// rather than let a proposal reach the SDS Office too late to act on.
+  static const int _noticeDays = 30;
+
+  /// Days between the proposal and the activity, or null while either
+  /// date is still unset. Counted on whole days so that picking today
+  /// and picking this evening read the same.
+  int? _daysOfNotice(SapDetails d) {
+    final activity = d.activityDate;
+    if (activity == null) return null;
+    final from = d.proposalDate ?? DateTime.now();
+    return DateTime(activity.year, activity.month, activity.day)
+        .difference(DateTime(from.year, from.month, from.day))
+        .inDays;
+  }
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final chosen = await showDatePicker(
@@ -184,6 +201,8 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
       animation: _form,
       builder: (context, _) {
         final d = _form.details;
+        final notice = _daysOfNotice(d);
+        final tooSoon = notice != null && notice < _noticeDays;
 
         return BrutScreen(
           // One of three when it is being filled in as a run, its own
@@ -211,7 +230,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               label: widget.step == null ? 'Save' : 'Next: school support',
               busy: _form.saving,
               busyLabel: 'Saving',
-              onPressed: _editable ? _save : null,
+              onPressed: _editable && !tooSoon ? _save : null,
             ),
           ),
           child: Column(
@@ -227,50 +246,10 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 ),
               const SizedBox(height: 12),
 
-              // The paper's header block. Every one of these is required
-              // at submission, so the form asks for them rather than
-              // letting the attempt fail on four fields at once.
-              BrutTextField(
-                controller: _schoolYear,
-                label: 'School year',
-                hint: '2026-2027',
-                enabled: _editable,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                controller: _departmentType,
-                label: 'Department type',
-                hint: 'College',
-                enabled: _editable,
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 14),
-              BrutTextField(
-                controller: _department,
-                label: 'Department',
-                hint: 'CITE Department',
-                enabled: _editable,
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 14),
-              BrutDateField(
-                label: 'Date of proposal',
-                value: d.proposalDate,
-                hint: 'Pick a date',
-                onTap: _editable ? _pickProposalDate : () {},
-              ),
-              if (d.proposalDate != null &&
-                  d.activityDate != null &&
-                  d.proposalDate!.isAfter(d.activityDate!)) ...[
-                const SizedBox(height: 10),
-                const BrutInlineMessage(
-                  tone: BrutTone.coral,
-                  icon: Icons.error_outline,
-                  text: 'The proposal date cannot come after the activity.',
-                ),
-              ],
-              const SizedBox(height: 20),
-
+              // The activity is what the proposer came to write about, so
+              // the form opens on it. Department type and department are
+              // still sent, taken from the account rather than asked for:
+              // an officer cannot belong to a department they must type.
               BrutTextField(
                 controller: _title,
                 label: 'Activity title',
@@ -289,6 +268,30 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ),
               const SizedBox(height: 14),
               BrutTextField(
+                controller: _schoolYear,
+                label: 'School year',
+                hint: '2026-2027',
+                enabled: _editable,
+              ),
+              const SizedBox(height: 14),
+              BrutDateField(
+                label: 'Date of proposal',
+                value: d.proposalDate,
+                hint: 'Pick a date',
+                onTap: _editable ? _pickProposalDate : () {},
+              ),
+              if (d.proposalDate != null &&
+                  d.activityDate != null &&
+                  d.proposalDate!.isAfter(d.activityDate!)) ...[
+                const SizedBox(height: 10),
+                const BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.error_outline,
+                  text: 'The proposal date cannot come after the activity.',
+                ),
+              ],
+              const SizedBox(height: 14),
+              BrutTextField(
                 controller: _course,
                 label: 'Program / course',
                 hint: 'Bachelor of Science in Computer Engineering',
@@ -303,6 +306,17 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 hint: 'Pick a date',
                 onTap: _editable ? _pickDate : () {},
               ),
+              if (tooSoon) ...[
+                const SizedBox(height: 10),
+                BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.error_outline,
+                  text: notice < 0
+                      ? 'That date has already passed.'
+                      : 'An activity needs $_noticeDays days of notice. '
+                            'This one is ${notice == 0 ? 'today' : notice == 1 ? '1 day away' : '$notice days away'}.',
+                ),
+              ],
               const SizedBox(height: 14),
               Row(
                 children: [
