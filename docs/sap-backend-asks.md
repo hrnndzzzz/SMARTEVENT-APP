@@ -7,6 +7,12 @@ The front end is finished and green against that contract. Everything
 below is a gap found by filling the real paper form, not a redesign
 request.
 
+**Updated 21 Oct 2026, after `73a23b0` (SAP Changes Added).** That change
+landed SDS review, signing, attachments, PDF generation against the real
+V.3 form, and off-campus support. None of asks 1-3 moved, and the app
+has since gained two more, 8 and 9, from the flow notes the adviser
+gave us. Asks 8 and 9 are the ones to read first if you only read two.
+
 ---
 
 ## 1. The flow as the app now does it
@@ -49,7 +55,8 @@ Three things follow from this that differ from the old client:
 
 ## 2. The asks
 
-Ordered by how much they block us. 1-3 are blocking; 4-7 are not.
+Ordered by how much they block us. 1-3 and 8-9 are blocking; 4-7 are
+not. 8 and 9 are new and come from the flow notes, not the paper form.
 
 ### 1. `additional_information` max_length 500 is too small
 
@@ -170,6 +177,52 @@ sort of thing that ends up misspelled on a university document.
 already has the ids, this just saves them a lookup they are not allowed
 to do.
 
+### 8. A review stage between the proposer and the SDS Office
+
+The flow notes say the proposed budget has to be **reviewed by the
+Moderator/Dean before the officer goes to Finance and SDS**. We read
+"Moderator" as the existing adviser role, which should keep this small.
+
+There is nowhere to put it. The states are:
+
+```
+draft -> pending_sap_review -> sds_signed -> approved -> completed
+         (+ revision_requested, rejected)
+```
+
+Nothing sits between the proposer and the SDS Office, so a proposal
+waiting on its moderator is indistinguishable from one nobody has
+touched. "Moderator" and "Dean" exist in the app today only as
+*signatory labels* in Part 5 — names printed on the paper — not as an
+approval gate.
+
+**Ask:** a state before `pending_sap_review`, reachable by the proposer
+and clearable by the adviser, with the usual return-for-changes path.
+Name it whatever fits; `pending_adviser_review` is what we would guess.
+
+If this is more than a small change, say so and we will keep Part 2
+submitting straight to the SDS Office in the meantime — we would rather
+know than build against a stage that is not coming.
+
+### 9. `department` and `department_type` should accept null
+
+The flow notes ask for **no department on the form**, with independent
+organisations in mind: an org that belongs to no department at all.
+
+Both are required and non-empty today:
+
+```python
+department_type: str = Field(min_length=1, max_length=80)
+department:      str = Field(min_length=1, max_length=100)
+```
+
+We have already taken the two inputs off the screen and now send the
+account's own values instead, so nothing is broken right now and this
+is **not urgent**. But an organisation with no department has nothing
+to send, and the server would reject it.
+
+**Ask:** make both nullable, whenever independent orgs become real.
+
 ---
 
 ## 3. What is already proven working
@@ -182,5 +235,6 @@ So you know what not to re-check:
 - All 13 endpoints wired, including the 409 path: on version conflict
   we reload and never retry blind
 - Money stays a decimal string end to end, no float anywhere
-- `off_campus` is rejected by this slice, so the app only offers
-  on-campus and online
+- `off_campus` was rejected by the original slice, so the app still
+  offers on-campus and online only. `73a23b0` added it server side; the
+  client has not caught up yet. Not an ask — ours to do.
