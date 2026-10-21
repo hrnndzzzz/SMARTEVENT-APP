@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import '../../api/export_saver.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
@@ -42,6 +43,8 @@ class SapPart5Screen extends StatefulWidget {
 }
 
 class _SapPart5ScreenState extends State<SapPart5Screen> {
+  bool _printing = false;
+
   late final SapForm _form = widget.form;
 
   @override
@@ -77,6 +80,27 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
         SnackBar(content: Text(_form.error ?? 'Could not record it.')),
       );
     }
+  }
+
+  /// Fetches the printable form and hands it to the share sheet.
+  ///
+  /// Once the SDS Office has signed, this is their signed copy rather
+  /// than a working one: the server stores it and watermarks it. The
+  /// nine on paper print empty either way, which is the point of
+  /// printing it here.
+  Future<void> _printForSignatories() async {
+    setState(() => _printing = true);
+    final file = await _form.printableForm();
+    if (!mounted) return;
+    setState(() => _printing = false);
+
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_form.error ?? 'Nothing to print yet.')),
+      );
+      return;
+    }
+    await ExportSaver.share(file, subject: 'SAS-SDS-FO-020 proposal form');
   }
 
   /// Picks the scan and sends it.
@@ -158,6 +182,30 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                     'it has seen each signed page; the signed scan is the '
                     'evidence, not this list.',
               ),
+              const SizedBox(height: 12),
+
+              // The paper starts here, so the paper is printed from here
+              // rather than from the hub two screens back.
+              BrutButton(
+                label: 'Print for the signatories',
+                icon: Icons.print_outlined,
+                tone: _form.state == SapState.sdsSigned
+                    ? BrutTone.brand
+                    : BrutTone.neutral,
+                busy: _printing,
+                busyLabel: 'Preparing',
+                onPressed: _form.isLocalOnly ? null : _printForSignatories,
+              ),
+              if (_form.state == SapState.sdsSigned) ...[
+                const SizedBox(height: 8),
+                const BrutInlineMessage(
+                  tone: BrutTone.mint,
+                  icon: Icons.verified_outlined,
+                  text:
+                      'The SDS Office has signed. This prints their signed '
+                      'copy, for the nine to sign by hand.',
+                ),
+              ],
               const SizedBox(height: 16),
 
               if (!live) ...[

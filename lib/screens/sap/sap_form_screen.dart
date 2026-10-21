@@ -163,15 +163,24 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     onPressed: form.isLocalOnly ? null : () => _print(form),
                   ),
                   const SizedBox(height: 10),
-                  const BrutInlineMessage(
+                  BrutInlineMessage(
                     tone: BrutTone.neutral,
                     icon: Icons.info_outline,
-                    text:
-                        'The printed copy uses the university\'s own six-page '
-                        'layout, produced by the server so the paper always '
-                        'matches the record. The nine signature slots print '
-                        'empty, to be signed by hand. It stays an unsigned '
-                        'copy even after approval.',
+                    // What comes back depends on the revision: a working
+                    // copy while it is still being filled in, and the
+                    // stored signed form once the SDS Office has signed
+                    // it. The nine on paper print empty either way.
+                    text: form.state == SapState.sdsSigned ||
+                            form.state == SapState.approved ||
+                            form.state == SapState.completed
+                        ? 'This is the signed form the SDS Office stored, '
+                              'watermarked by the server. The nine signature '
+                              'slots print empty, to be signed by hand.'
+                        : 'The printed copy uses the university\'s own '
+                              'six-page layout, produced by the server so the '
+                              'paper always matches the record. The nine '
+                              'signature slots print empty, to be signed by '
+                              'hand.',
                   ),
                   if (form.state == SapState.pendingReview) ...[
                     const SizedBox(height: 18),
