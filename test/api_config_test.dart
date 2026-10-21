@@ -8,6 +8,30 @@ void main() {
     ApiConfig.resetForTest();
   });
 
+  group('the committed fallback', () {
+    // A LAN address was committed here once. It worked on one laptop on
+    // one network and silently hung for everyone else, including in the
+    // test suite: an upload test sat for twenty seconds trying to reach
+    // it before failing.
+    test('is loopback, not somebody\'s machine', () {
+      final fallback = ApiConfig.defaultBaseUrl;
+
+      expect(
+        fallback,
+        anyOf(contains('127.0.0.1'), contains('localhost')),
+        reason:
+            'the default in the repository has to work on every machine; '
+            'point a build elsewhere with --dart-define instead',
+      );
+    });
+
+    test('and is not what a release should ship with', () {
+      // False here means the build fell back, which is never right for
+      // a release and is what the backend-address card warns about.
+      expect(ApiConfig.isConfigured, isFalse);
+    });
+  });
+
   group('normalise', () {
     test('adds http to a bare host and port', () {
       // What anyone reads off a terminal, typed straight in.

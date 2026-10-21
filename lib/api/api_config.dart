@@ -31,9 +31,16 @@ class ApiConfig {
     'SMARTEVENT_API_BASE_URL',
   );
 
-  /// Wireless development server. The phone must share its network.
-  /// Override with SMARTEVENT_API_BASE_URL if the laptop's IP changes.
-  static const String _localDevFallback = 'http://10.122.168.250:8000';
+  /// Used only when nothing was defined at build time. This reaches a
+  /// backend on the developer's own machine, which means the emulator or
+  /// device has to be able to resolve it: either run
+  /// `adb reverse tcp:8000 tcp:8000`, or pass `http://10.0.2.2:8000`
+  /// (Android emulator) or the machine's LAN IP via the define above.
+  ///
+  /// Deliberately loopback rather than anyone's LAN address. A committed
+  /// IP works on one laptop on one network and silently hangs for
+  /// everyone else, which is what it did.
+  static const String _localDevFallback = 'http://127.0.0.1:8000';
 
   /// Set on this device, and preferred over the build-time value when it
   /// is. Null means "use whatever the build was pointed at".
