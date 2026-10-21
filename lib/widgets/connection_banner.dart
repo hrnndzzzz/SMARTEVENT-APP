@@ -54,7 +54,7 @@ class _ConnectionBannerState extends State<ConnectionBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.reachable ?? Reachable.online;
+    final state = context.reachable ?? Reachable.unknown;
 
     if (state != _lastSeen) {
       final previous = _lastSeen;
@@ -180,9 +180,11 @@ class _ConnectionDotState extends State<ConnectionDot>
     final state = context.reachable;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    // Nothing is watching the backend — in a widget test, say — so there
-    // is no state to report.
-    if (state == null) return const SizedBox.shrink();
+    // Nothing is watching the backend — in a widget test, say — or
+    // nothing has been asked of it yet, so there is no state to report.
+    if (state == null || state == Reachable.unknown) {
+      return const SizedBox.shrink();
+    }
 
     if (state == Reachable.reconnecting && !reduceMotion) {
       if (!_blink.isAnimating) _blink.repeat(reverse: true);
@@ -195,6 +197,8 @@ class _ConnectionDotState extends State<ConnectionDot>
       Reachable.online => AppColors.leaf,
       Reachable.offline => AppColors.coral,
       Reachable.reconnecting => AppColors.sun,
+      // Returned above; listed so a new state has to be thought about.
+      Reachable.unknown => AppColors.leaf,
     };
 
     return FadeTransition(

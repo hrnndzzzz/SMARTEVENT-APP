@@ -7,6 +7,13 @@ import 'package:provider/provider.dart';
 import '../api/api_config.dart';
 
 enum Reachable {
+  /// Nothing has been asked of the backend yet, so nothing is known.
+  ///
+  /// This is where every session starts, and where the demo stays: it
+  /// talks to nothing, so there is never an outcome to report. Treating
+  /// it as online was a claim about a server that had not been contacted.
+  unknown,
+
   /// The backend answered the last request. A 403 still counts: the
   /// server is there, it just said no.
   online,
@@ -39,7 +46,7 @@ class Reachability extends ChangeNotifier {
   final http.Client _httpClient;
   final Duration probeEvery;
 
-  Reachable _state = Reachable.online;
+  Reachable _state = Reachable.unknown;
   DateTime? _offlineSince;
   Timer? _timer;
 

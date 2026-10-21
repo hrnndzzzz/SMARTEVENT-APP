@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
+import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/screens/sap/sds_sign_screen.dart';
 import 'package:smartevent/screens/sap/signature_pad.dart';
 import 'package:smartevent/state/sap_form.dart';
@@ -104,6 +105,29 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(captured, isNull);
+    });
+  });
+
+  group('getting there', () {
+    testWidgets('the hub offers it while the office is waiting', (
+      tester,
+    ) async {
+      final form = SapForm(eventId: 'e1')
+        ..adoptForTest(state: SapState.pendingReview);
+
+      await tester.pumpWidget(host(SapFormScreen(form: form)));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Review and sign'), findsOneWidget);
+    });
+
+    testWidgets('and does not while it is still a draft', (tester) async {
+      await tester.pumpWidget(
+        host(SapFormScreen(form: SapForm(eventId: 'e1'))),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Review and sign'), findsNothing);
     });
   });
 

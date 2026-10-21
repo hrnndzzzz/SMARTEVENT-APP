@@ -242,17 +242,29 @@ class _StatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.reachable ?? Reachable.online;
-    final label = switch (state) {
-      Reachable.online => 'Online',
-      Reachable.offline => 'No connection',
-      Reachable.reconnecting => 'Reconnecting',
-    };
-    final detail = switch (state) {
-      Reachable.online => 'The server is answering',
-      Reachable.offline => 'Changes will not save',
-      Reachable.reconnecting => 'Trying the server again',
-    };
+    // The demo talks to nothing, so there is no server to be answering.
+    // Reachability defaults to online when no request has been made, and
+    // in the demo none ever is — which reads as a claim about a server
+    // that was never contacted.
+    final demo = context.watch<AppState>().isDemoMode;
+    final state = context.reachable ?? Reachable.unknown;
+
+    final label = demo
+        ? 'Demo'
+        : switch (state) {
+            Reachable.online => 'Online',
+            Reachable.offline => 'No connection',
+            Reachable.reconnecting => 'Reconnecting',
+            Reachable.unknown => 'Not asked yet',
+          };
+    final detail = demo
+        ? 'Seeded data, nothing is sent'
+        : switch (state) {
+            Reachable.online => 'The server is answering',
+            Reachable.offline => 'Changes will not save',
+            Reachable.reconnecting => 'Trying the server again',
+            Reachable.unknown => 'Nothing has been sent to the server yet',
+          };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

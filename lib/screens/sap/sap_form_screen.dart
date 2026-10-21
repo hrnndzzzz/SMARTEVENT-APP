@@ -11,6 +11,7 @@ import 'sap_part2_screen.dart';
 import 'sap_part3_screen.dart';
 import 'sap_part4_screen.dart';
 import 'sap_part5_screen.dart';
+import 'sds_sign_screen.dart';
 import 'sap_part6_screen.dart';
 
 /// The proposal form, as six parts.
@@ -176,6 +177,16 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     const SizedBox(height: 18),
                     const BrutSectionTitle('SDS Office'),
                     const SizedBox(height: 8),
+                    BrutButton(
+                      label: 'Review and sign',
+                      icon: Icons.draw_outlined,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SdsSignScreen(form: form),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     BrutButton(
                       label: 'Return for revision',
                       icon: Icons.undo,
