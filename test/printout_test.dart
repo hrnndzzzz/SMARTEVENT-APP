@@ -79,6 +79,17 @@ void main() {
       );
     });
 
+    testWidgets('and says why it cannot print with no server', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(SapPart5Screen(form: SapForm())));
+      await tester.pumpAndSettle();
+
+      // A dead control with no reason given is the one thing the rest
+      // of this screen avoids: the upload button explains itself too.
+      expect(find.textContaining('nothing to print while'), findsOneWidget);
+    });
+
     testWidgets('a form with no server behind it cannot print', (
       tester,
     ) async {

@@ -196,6 +196,17 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                 busyLabel: 'Preparing',
                 onPressed: _form.isLocalOnly ? null : _printForSignatories,
               ),
+              if (_form.isLocalOnly) ...[
+                const SizedBox(height: 8),
+                const BrutInlineMessage(
+                  tone: BrutTone.neutral,
+                  icon: Icons.cloud_off,
+                  text:
+                      'The server produces the printed form, so there is '
+                      'nothing to print while this proposal is only on the '
+                      'phone.',
+                ),
+              ],
               if (_form.state == SapState.sdsSigned) ...[
                 const SizedBox(height: 8),
                 const BrutInlineMessage(
