@@ -214,6 +214,72 @@ class SapService {
     });
   }
 
+  /// Section remarks as the server wants them: keyed by wire name, with
+  /// the blank ones dropped. It strips empties itself, so sending them
+  /// only risks tripping the 1000-character check on whitespace.
+  Map<String, String> _sections(Map<SapRemarkSection, String> remarks) => {
+    for (final entry in remarks.entries)
+      if (entry.value.trim().isNotEmpty) entry.key.wireName: entry.value.trim(),
+  };
+
+  /// `PUT /sds-review` — saves the SDS Office's remarks without signing.
+  ///
+  /// Remarks can be written, read by the proposer and revised as often as
+  /// the office likes while the revision is still pending. Signing is a
+  /// separate, final act: see [sdsSign].
+  Future<SapProposal> saveReviewNotes(
+    String eventId, {
+    required int expectedVersion,
+    String overallRemarks = '',
+    Map<SapRemarkSection, String> sectionRemarks = const {},
+  }) {
+    return _guard(() async {
+      final response = await _client.put(
+        '${_base(eventId)}/sds-review',
+        body: {
+          'expected_version': expectedVersion,
+          'overall_remarks': overallRemarks.trim(),
+          'section_remarks': _sections(sectionRemarks),
+        },
+      );
+      return _proposal(response);
+    });
+  }
+
+  /// `POST /sds-sign` — the SDS Office signs the pending revision.
+  ///
+  /// This is the one electronic signature in the whole form; the nine on
+  /// paper stay paper. It locks the revision, moves the state to
+  /// `sds_signed` and stores the signed PDF, so there is no undo: a
+  /// proposal that needs changing afterwards is returned and resubmitted
+  /// as a new revision, which must be signed again.
+  ///
+  /// Throws [ArgumentError] if the drawing is one the server would refuse,
+  /// rather than making the signer draw it a second time to find out.
+  Future<SapProposal> sdsSign(
+    String eventId, {
+    required int expectedVersion,
+    required SapSignature signature,
+    String overallRemarks = '',
+    Map<SapRemarkSection, String> sectionRemarks = const {},
+  }) {
+    final problem = signature.problem;
+    if (problem != null) throw ArgumentError(problem);
+
+    return _guard(() async {
+      final response = await _client.post(
+        '${_base(eventId)}/sds-sign',
+        body: {
+          'expected_version': expectedVersion,
+          'overall_remarks': overallRemarks.trim(),
+          'section_remarks': _sections(sectionRemarks),
+          'signature_strokes': signature.toJson(),
+        },
+      );
+      return _proposal(response);
+    });
+  }
+
   /// `GET /workflow` — the nine slots for the current revision.
   Future<SapWorkflow> workflow(String eventId) {
     return _guard(() async {

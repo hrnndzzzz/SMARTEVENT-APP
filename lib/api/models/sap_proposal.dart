@@ -916,3 +916,82 @@ class SapProposal {
     return [for (final row in rows) Map<String, dynamic>.from(row as Map)];
   }
 }
+
+/// A section of the form the SDS Office can pin a remark to.
+///
+/// The server keeps a fixed set and rejects anything outside it, so the
+/// app offers these and no free-text keys.
+enum SapRemarkSection {
+  activityDetails('activity_details', 'Activity details'),
+  budget('budget', 'Budget'),
+  supportRequests('support_requests', 'School support'),
+  additionalInformation('additional_information', 'Additional information'),
+  clearance('clearance', 'Clearance'),
+  other('other', 'Other');
+
+  const SapRemarkSection(this.wireName, this.label);
+
+  final String wireName;
+  final String label;
+
+  static SapRemarkSection? fromWire(String? value) {
+    for (final s in SapRemarkSection.values) {
+      if (s.wireName == value) return s;
+    }
+    return null;
+  }
+}
+
+/// One point of a drawn signature, normalised to the signing box.
+///
+/// Both coordinates run 0 to 1 so the drawing survives a different
+/// screen size; the server rejects anything outside that range.
+class SapSignaturePoint {
+  const SapSignaturePoint(this.x, this.y);
+
+  final double x;
+  final double y;
+
+  bool get isNormalised => x >= 0 && x <= 1 && y >= 0 && y <= 1;
+
+  Map<String, double> toJson() => {'x': x, 'y': y};
+}
+
+/// A drawn SDS signature: one list of points per stroke of the pen.
+///
+/// The limits here are the server's own. They are checked before sending
+/// because a rejected signature means the signer has to draw it again,
+/// and a 422 does not say which rule was broken.
+class SapSignature {
+  const SapSignature(this.strokes);
+
+  final List<List<SapSignaturePoint>> strokes;
+
+  static const int maxStrokes = 80;
+  static const int maxPoints = 5000;
+
+  int get pointCount =>
+      strokes.fold(0, (total, stroke) => total + stroke.length);
+
+  /// Why the server would refuse this, or null if it would take it.
+  String? get problem {
+    if (strokes.isEmpty) return 'Nothing has been drawn yet.';
+    if (strokes.any((s) => s.isEmpty)) return 'Nothing has been drawn yet.';
+    if (strokes.length > maxStrokes) {
+      return 'That is more than $maxStrokes separate strokes.';
+    }
+    if (pointCount > maxPoints) {
+      return 'The drawing is too detailed to send.';
+    }
+    if (strokes.any((s) => s.any((p) => !p.isNormalised))) {
+      return 'Part of the drawing fell outside the signing box.';
+    }
+    return null;
+  }
+
+  bool get isSendable => problem == null;
+
+  List<List<Map<String, double>>> toJson() => [
+    for (final stroke in strokes) [for (final point in stroke) point.toJson()],
+  ];
+}
