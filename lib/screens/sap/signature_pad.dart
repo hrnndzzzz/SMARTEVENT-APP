@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
@@ -96,10 +97,21 @@ class _SapSignaturePadState extends State<SapSignaturePad> {
         LayoutBuilder(
           builder: (context, constraints) {
             _size = Size(constraints.maxWidth, widget.height);
-            return GestureDetector(
-              onPanStart: (d) => _start(d.localPosition),
-              onPanUpdate: (d) => _extend(d.localPosition),
-              onPanEnd: (_) => _end(),
+            return RawGestureDetector(
+              gestures: {
+                _PadPanRecognizer:
+                    GestureRecognizerFactoryWithHandlers<_PadPanRecognizer>(
+                      _PadPanRecognizer.new,
+                      (r) {
+                        r.onStart = (d) => _start(d.localPosition);
+                        r.onUpdate = (d) => _extend(d.localPosition);
+                        r.onEnd = (_) {
+                          _end();
+                        };
+                        r.onCancel = _end;
+                      },
+                    ),
+              },
               child: BrutSurface(
                 fill: context.palette.surface,
                 radius: AppRadius.controlAll,
@@ -155,6 +167,19 @@ class _SapSignaturePadState extends State<SapSignaturePad> {
       ],
     );
   }
+}
+
+/// A pan that does not give way to the scroll view it sits in.
+///
+/// The pad lives inside a scrollable page. A vertical stroke — the stem
+/// of a letter, most of a signature — is a vertical drag, and the
+/// scrollable wins that contest: the page scrolls and the stroke is
+/// never drawn. Refusing to be rejected keeps the gesture here, which is
+/// what a drawing surface wants. Scrolling past the pad is done from
+/// either side of it.
+class _PadPanRecognizer extends PanGestureRecognizer {
+  @override
+  void rejectGesture(int pointer) => acceptGesture(pointer);
 }
 
 class _SignaturePainter extends CustomPainter {

@@ -185,6 +185,67 @@ void main() {
     });
   });
 
+  group('inside the page it actually lives on', () {
+    // Every other test here puts the pad in a bare Scaffold. On the real
+    // screen it sits in a scroll view, and a vertical stroke is a
+    // vertical drag: the scrollable used to win that contest, so the
+    // page scrolled and the stroke was never drawn. Downstrokes are
+    // most of a signature, so this lost most of one.
+    Future<SapSignature?> drawInScrollView(
+      WidgetTester tester,
+      Offset step,
+    ) async {
+      SapSignature? captured;
+
+      await tester.pumpWidget(
+        host(
+          Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 200),
+                  SapSignaturePad(onChanged: (s) => captured = s),
+                  const SizedBox(height: 1400),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final origin =
+          tester.getTopLeft(find.byType(SapSignaturePad)) +
+          const Offset(40, 60);
+
+      final gesture = await tester.startGesture(origin);
+      for (var i = 0; i < 8; i++) {
+        await gesture.moveBy(step);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+      return captured;
+    }
+
+    testWidgets('a downstroke is kept, not given to the scroll view', (
+      tester,
+    ) async {
+      final signature = await drawInScrollView(tester, const Offset(0, 10));
+
+      expect(signature, isNotNull, reason: 'the page scrolled instead');
+      expect(signature!.strokes, hasLength(1));
+      expect(signature.isSendable, isTrue);
+    });
+
+    testWidgets('and so are the other directions', (tester) async {
+      for (final step in [Offset(10, 0), Offset(8, 6), Offset(-6, 9)]) {
+        final signature = await drawInScrollView(tester, step);
+        expect(signature?.isSendable, isTrue, reason: '$step');
+      }
+    });
+  });
+
   group('the screen', () {
     SapForm pending() {
       final form = SapForm(eventId: 'e1');
