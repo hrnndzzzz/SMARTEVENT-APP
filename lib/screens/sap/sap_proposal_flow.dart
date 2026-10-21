@@ -201,6 +201,12 @@ class SapProposalStatus extends StatelessWidget {
             'You will be told when it has been approved.',
         BrutTone.sun,
       ),
+      SapState.sdsSigned => (
+        'Signed by the SDS Office',
+        'The form is locked and printed. It is going round for the nine '
+            'physical signatures.',
+        BrutTone.sun,
+      ),
       SapState.approved => (
         'Approved',
         'The signed copy is on file. Nothing more to do until the '

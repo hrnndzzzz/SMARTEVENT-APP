@@ -22,6 +22,11 @@ enum SapState {
   draft('draft', 'Draft'),
   pendingReview('pending_sap_review', 'Under review'),
   revisionRequested('revision_requested', 'Returned'),
+
+  /// The SDS Office has signed the pending revision. The revision is
+  /// locked from here, and the printed copy goes out for the physical
+  /// signatures before anyone marks it approved.
+  sdsSigned('sds_signed', 'Signed by SDS'),
   approved('approved', 'Approved'),
   completed('completed', 'Completed'),
 
