@@ -55,7 +55,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('accepting starts the demo as an officer', (tester) async {
+  testWidgets('accepting starts the demo somewhere that can actually do things', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1000));
     final app = AppState();
 
@@ -68,7 +68,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(app.isDemoMode, isTrue);
-    expect(app.currentRole, UserRole.officer);
+    // Not the officer: officers are view-only, so starting there opens
+    // the demo unable to create anything.
+    expect(app.currentRole, UserRole.treasurer);
+    expect(app.currentRole!.canProposeEvents, isTrue);
   });
 
   testWidgets('and the hold still works a second time', (tester) async {

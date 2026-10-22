@@ -195,6 +195,21 @@ class EventDetailScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 _ReadinessNotice(event: event),
               ],
+
+              // Taking your own proposal back, while it is still anyone's
+              // to decide on. Once it has been approved or returned the
+              // decision is the record, and withdrawing it would erase
+              // someone else's.
+              if ((role?.canProposeEvents ?? false) &&
+                  event.status.isPending) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Cancel this proposal',
+                  icon: Icons.undo,
+                  tone: BrutTone.coral,
+                  onPressed: () => _cancelProposal(context, event),
+                ),
+              ],
               const SizedBox(height: 14),
               _ApprovalTimelineCard(event: event),
               // Editing a proposal belongs to whoever may
@@ -736,6 +751,40 @@ class _ReadinessNoticeState extends State<_ReadinessNotice> {
   }
 }
 
+
+
+/// Confirms, then takes the proposal back to draft.
+Future<void> _cancelProposal(BuildContext context, EventItem event) async {
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Take this proposal back?'),
+      content: Text(
+        '"${event.title}" goes back to a draft and leaves the reviewers\' '
+        'queue. Nothing you have written is lost, and you can submit it '
+        'again when it is ready.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Leave it'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Take it back'),
+        ),
+      ],
+    ),
+  );
+  if (yes != true || !context.mounted) return;
+
+  final problem = await context.read<AppState>().cancelProposal(event);
+  if (!context.mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(problem ?? 'Back with you as a draft.')),
+  );
+}
 
 /// Where the proposal form sits, for an event in the offline demo.
 ///

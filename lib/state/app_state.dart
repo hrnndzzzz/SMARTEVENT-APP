@@ -2082,6 +2082,33 @@ class AppState extends ChangeNotifier {
   /// Returns null on success, or an error message. Matches the
   /// backend's real Edit Proposal flow: PATCH the edited fields, then
   /// submit() to actually transition the status server-side.
+  /// Takes a submitted proposal back, so it can be changed or dropped.
+  ///
+  /// Only the proposer, and only while nobody has decided on it: once it
+  /// is approved or returned, the decision is the record and withdrawing
+  /// it would erase someone else's.
+  ///
+  /// There is no backend route for this. The demo does it locally; a
+  /// real session is told so rather than being left to wonder why
+  /// nothing happened.
+  Future<String?> cancelProposal(EventItem event) async {
+    if (!event.status.isPending) {
+      return 'Only a proposal still waiting on a decision can be taken back.';
+    }
+
+    if (_demoMode) {
+      event.status = EventApprovalStatus.draft;
+      event.rejectedBy = null;
+      event.adviserApprovalNote = null;
+      event.adminApprovalNote = null;
+      notifyListeners();
+      return null;
+    }
+
+    return 'Taking a proposal back needs a route the backend does not '
+        'have yet. Ask the SDS Office to return it instead.';
+  }
+
   Future<String?> resubmitEvent(
     EventItem event, {
     required String title,

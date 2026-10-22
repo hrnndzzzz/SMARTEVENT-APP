@@ -107,7 +107,8 @@ class _SignInScreenState extends State<SignInScreen> {
         title: const Text('Access demo mode?'),
         content: const Text(
           'Seeded data, no server. Nothing here leaves the phone.\n\n'
-          'You start as an officer. Settings has a role picker for the '
+          'You start as a treasurer, who can propose events and record '
+          'money. Settings has a role picker for the officer, the '
           'adviser, the SDS Office and the administrators.',
         ),
         actions: [
@@ -124,7 +125,13 @@ class _SignInScreenState extends State<SignInScreen> {
     );
     if (yes != true) return;
 
-    app.enterDemo(role: UserRole.officer);
+    // Not the officer, though that is the first role on the list. An
+    // officer reads everything and writes nothing — which is correct,
+    // and is the view-only access the rubric asks us to confirm — so
+    // starting there means opening the demo unable to create anything.
+    // The treasurer can walk the whole flow; the officer is one tap away
+    // in Settings when its limits are the point.
+    app.enterDemo(role: UserRole.treasurer);
     // The gate that decides welcome-or-app is the route under this one,
     // so changing the state is not enough: without this the app is there
     // and buried under the sign-in screen still on top of it.
