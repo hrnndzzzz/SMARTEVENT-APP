@@ -1,71 +1,104 @@
-# SAP Backend Handoff for the Frontend Team
+# SAP backend and frontend handoff
 
-**Status:** Backend SAP endpoints, storage metadata, review/signing flow, and form PDF generation are implemented in this change set. Frontend SAP screens and API integration remain for the frontend team. Migration/deployment and acceptance checks remain pending. No tests or builds were run, per request.
+Updated: 22 October 2026.
 
-## What the backend now supports
+## Current progress
 
-- The supplied SAS-SDS-FO-020-001 V.3 Word form is stored under `app/templates/`; the PDF renderer fills its controlled three-page PDF layout and leaves non-SDS signatory lines available for hard-copy signatures.
-- Draft SAP data, collection rows, clearance, submission, revision history, and physical signature checkpoints continue to use the existing event-scoped SAP API.
-- Supporting documents are private, separately downloadable files. Categories are `apf`, `pcf`, `appendix`, `roc_coc`, and `other`. Each file is linked to the proposal revision it is intended for; the PDF lists file names, but does not merge the supporting files.
-- Off-campus proposals must set `off_campus_agreement: true`, be submitted at least 30 calendar days before the activity using the server's institution date, and have a `roc_coc` attachment for that revision.
-- SDS staff can save overall and section-specific remarks, return a proposal, or sign the current pending revision with a drawn signature. Remarks are printed on the form and overflow is added on a labeled remarks page.
-- SDS signing stores signer identity, signature strokes, time, signed PDF bytes, and SHA-256 on the revision. The PDF carries a flattened `SIGNED AND APPROVED BY SDS OFFICE` watermark. The signed revision is locked; revisions after return/resubmission require a new signature.
-- The existing physical signatory checkpoint flow remains separate. Final physical-signed scan approval now follows SDS signing.
+The backend fixes cover Python syntax, PDF overflow, returned remarks, signed-revision corrections, validated supporting files, upload concurrency, and PDF query size.
 
-## API contract
+The Flutter SAP form now has an **SDS review and signature** screen with overall/section remarks, a signature pad, PDF sharing, and a correction action. It recognizes **sds_signed** and enables the final scan only in that state. Existing proposal-entry screens remain in place.
 
-All routes below are nested under `/events/{eventId}/sap-proposal` and require an active authenticated account. Mutating calls use `expected_version` to protect against stale screens.
+Validation: the full backend suite now passes: **452 passed, 0 failed** on 22 October 2026. See [Backend test report](BACKEND_TEST_REPORT.md) for module results and limitations. Live storage, deployed PostgreSQL migrations/policies, and visual print layout remain unverified. Prior targeted Dart analysis reported an unresolved local file_picker package; frontend work belongs to the separate frontend team.
 
-| Method and path | Access | Purpose |
-|---|---|---|
-| `POST /` | Authorized event proposer | Create a SAP proposal for a draft event. |
-| `GET /` | Event-scoped user / SDS | Read proposal, version, state, attachments, review summary. |
-| `PATCH /` | Authorized proposer, draft/returned | Update partial `details`; body includes `expected_version`. |
-| `PUT /{collection}` | Authorized proposer, draft/returned | Replace `items` for `program-flow`, `budget-items`, `support-requests`, or `affected-classes`. |
-| `POST /attachments` | Authorized proposer, draft/returned | Multipart form fields: `category`, `file`. PDF/JPEG/PNG, max 10 MB. |
-| `GET /attachments` | Event-scoped user / SDS | List files for the active draft or current revision. |
-| `GET /attachments/{attachmentId}/download` | Event-scoped user / SDS | Returns a short-lived private storage URL and SHA-256. Open/download this separately from the SAP PDF. |
-| `PUT /sds-clearance` | SDS staff | Record clearance JSON for the draft. |
-| `POST /submit` | Authorized proposer | Submit; server validates complete SAP, budget allocation, semester, 30-day rule, and off-campus ROC/COC. |
-| `PUT /sds-review` | SDS staff, pending revision | Save remarks before signing. Body: `expected_version`, `overall_remarks`, and `section_remarks` map. |
-| `POST /return` | SDS staff, pending revision | Return an unsigned revision with required `remarks`. |
-| `POST /sds-sign` | SDS staff, pending revision | Sign with `expected_version`, optional remarks, and required normalized `signature_strokes`. |
-| `GET /pdf?revision_no={n}` | Event-scoped user / SDS | Draft/current PDF. Returns stored signed PDF when the requested revision has been signed. |
-| `GET /workflow` and `POST /workflow/{stepId}/record` | Event-scoped; record is SDS-only | Read and record the existing paper signatory checkpoints. |
-| `POST /final-signed-copy` | SDS staff, SDS-signed revision | Upload the flattened hard-copy signature scan after required paper checkpoints. |
+## State and revision rules
 
-### SDS signature payload
+- Proposer edits are allowed in **draft** and **revision_requested**.
+- Submission creates an immutable revision and sets **pending_sap_review**.
+- SDS can save notes, return the unsigned revision, or sign it.
+- Signing sets **sds_signed**, stores the PDF, signer, time, strokes, and SHA-256, and locks the review.
+- SDS can request a correction using **/revise** while the signed proposal awaits paper approval. The original signed bytes and hash stay in history. The next submission creates a new revision with no inherited signature or checkpoints.
+- Final paper-scan approval follows SDS signing and all existing paper evidence checkpoints. Approved/completed proposals cannot use **/revise**.
 
-```json
+All writes except proposal creation require **expected_version**. A 409 means reload and let the user review the current state before retrying. Do not automatically retry uploads.
+
+## API routes
+
+Base: **/events/{eventId}/sap-proposal**.
+
+| Method / suffix | Access | Request / result |
+| --- | --- | --- |
+| POST base | Authorized proposer | Create SAP for a draft event. |
+| GET base | Event scope or SDS | Current fields, version, attachments, and sds_review metadata. PDF bytes/strokes are not included. |
+| PATCH base | Proposer, editable | expected_version, partial details. |
+| PUT /{collection} | Proposer, editable | expected_version, items. Collections: program-flow, budget-items, support-requests, affected-classes. |
+| PUT /sds-clearance | SDS, editable | Existing clearance payload. |
+| POST /submit | Proposer, editable | expected_version. Complete form/compliance checks still apply. |
+| POST /attachments | Proposer, editable | Multipart **expected_version, category, file**. Upload multiple files sequentially, using the version returned by each successful response. |
+| GET /attachments | Event scope or SDS | Files for the active draft/current revision. Optional revision_no lists historical files. |
+| GET /attachments/{id}/download | Event scope or SDS | Private URL, expiry, SHA-256. Download each supporting document separately. |
+| PUT /sds-review | SDS, pending | expected_version, overall_remarks, section_remarks. |
+| POST /return | SDS, pending | expected_version, nonblank remarks; keeps that revision unsigned. |
+| POST /sds-sign | SDS, pending | expected_version, optional remarks, required signature_strokes. |
+| POST /revise | SDS, signed | expected_version, nonblank remarks; starts an editable correction while retaining the signed revision. |
+| GET /pdf | Event scope or SDS | Latest submitted/reviewed PDF, or a draft when nothing has been submitted. Signed revisions return their stored PDF. |
+| GET /pdf?revision_no=1 | Event scope or SDS | Specific historical revision. |
+| GET /pdf?draft=true | Event scope or SDS | Preview current editable changes. Cannot combine with revision_no or request on a locked proposal. |
+| GET /workflow | Event scope or SDS | Existing paper evidence checkpoints. |
+| POST /workflow/{id}/record | SDS | Existing physical evidence request. |
+| POST /final-signed-copy | SDS, signed | Multipart expected_version, file; all checkpoints and every page of the signed PDF/addenda are required. |
+| GET /final-signed-copy | SDS | Private final-scan download URL. |
+
+### Remarks and signing
+
+Section keys: activity_details, budget, support_requests, additional_information, clearance, other.
+
+Overall remarks: maximum 3,000 characters. Each section remark: maximum 1,000. Explicit empty values clear notes; omitted values in the signing request retain saved notes.
+
+~~~json
 {
   "expected_version": 12,
-  "overall_remarks": "Please revise the projected food budget.",
-  "section_remarks": {"budget": "The meal estimate is above the allowable amount."},
+  "overall_remarks": "Budget reviewed.",
+  "section_remarks": {"budget": "Updated estimate accepted."},
   "signature_strokes": [
     [{"x": 0.08, "y": 0.7}, {"x": 0.3, "y": 0.25}, {"x": 0.6, "y": 0.5}]
   ]
 }
-```
+~~~
 
-Signature `x` and `y` coordinates are normalized from `0` through `1`. Use a canvas, capture strokes as a list of point lists, and keep each point to `{x, y}`. Successful signing changes state to `sds_signed`; fetch `/pdf` to download/print the locked PDF.
+Coordinates are normalized 0–1 from the signature pad's top-left corner. Maximum 80 strokes and 5,000 points. The server uses the authenticated SDS account name. Signing cannot succeed in the frontend's offline/local-only mode.
 
-### Attachment categories
+### Supporting documents
 
-`apf` (Activity Proposal Form), `pcf` (Parent Consent Form), `appendix`, `roc_coc` (required for off-campus), and `other`. Upload each as its own multipart file. The backend accepts PDF, PNG, or JPEG up to 10 MB and returns attachment metadata in proposal responses. Supporting files are not embedded in the printable SAP PDF.
+Categories: apf, pcf, appendix, roc_coc, other.
 
-## States the UI should expect
+Maximum 30 files per draft revision, 10 MB per incoming file. PDFs must be parseable, unencrypted, 1–100 pages, and free from the blocked active-content actions. PNG/JPEG images are decoded and normalized using the existing image helper; their returned hash describes the stored normalized bytes.
 
-`draft` → `pending_sap_review` → `sds_signed` → `approved` → `completed`.
+Uploads run in a worker thread. The database transaction is released before storage calls, and version/state are checked again under the event lock before linking the file. Failed writes attempt cleanup only after checking that the object was not committed.
 
-SDS may return an unsigned pending revision to `revision_requested`; the proposer edits and resubmits, creating a new revision. The signed revision cannot be edited. Show the returned remarks and require refresh before retrying any write that receives HTTP `409` (stale version or invalid state).
+Files belong to a particular revision. A returned/corrected draft starts with its next revision's uploads; old files remain accessible through the historical list. Upload required supporting files again for the corrected draft.
 
-## Frontend work still needed
+### Off-campus submission
 
-- Add a SAP proposal entry point and form UI with collections and off-campus agreement.
-- Add multiple supporting-file selection/upload, attachment listing, and separate download/open actions.
-- Add SDS review UI with remarks, return action, and drawn signature pad; after signing, offer the signed PDF for print/share.
-- Keep physical signature collection/checkpoint actions distinct from the SDS e-signature.
+Set setting to **off_campus** and off_campus_agreement to **true**. The active draft revision must have a roc_coc attachment. The activity must be at least 30 calendar days from the server's institution date; exactly 30 is accepted. Existing allocation, semester, SDS clearance, and compliance checks still apply. Uploading a document does not establish compliance by itself.
 
-## Deployment notes
+## PDF behavior
 
-Apply migration `20261022000100_sap_review_signature_attachments.sql` before deploying the API. Configure the existing private proposal-letter storage bucket and SAP verification URL as for the prior SAP API. The app stores a canonical PDF hash; a downloaded copy can still be modified outside the app.
+The official Word file and its three-page PDF remain controlled assets under app/templates/.
+
+The renderer fills the original pages. Long fields and remarks move to labeled, paginated addenda; program flow, budget rows, support-request details, and affected classes are preserved in full. Addenda carry the revision/footer and, when signed, the SDS watermark. The SDS name/signature are confined to the SDS block; other signatories remain available for paper signing.
+
+Returned unsigned proposals default to their reviewed revision, so comments remain visible. Use **draft=true** to preview edits. After correction of a signed revision, the historical signed PDF remains available; the new draft preview is unsigned and needs a fresh signature after resubmission.
+
+## Remaining frontend integration
+
+The signing/review fixes are wired from Event details → Proposal form → SDS review and signature.
+
+The proposal upload UI still needs to consume the supporting-file endpoints, and the off-campus form controls must send the agreement and ROC/COC fields. These were not part of the targeted review-fix integration.
+
+## Deployment
+
+Apply the existing **20261022000100_sap_review_signature_attachments.sql** migration before deploying this feature if it is not already applied. These fixes introduce no additional database migration.
+
+Keep the existing proposal-letter storage bucket private. Set SAP_VERIFICATION_BASE_URL as before. A stored hash protects the canonical app copy; downloaded PDFs can still be changed with external software.
+
+This backend delivery includes the fixes and test report. Deployment and database migrations remain separate steps; no deployment or database mutation was performed during this repair pass.

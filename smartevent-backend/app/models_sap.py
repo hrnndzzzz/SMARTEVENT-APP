@@ -2,6 +2,7 @@
 import uuid
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, JSON, LargeBinary, UniqueConstraint, CheckConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import deferred
 from app.database import Base
 
 
@@ -99,8 +100,8 @@ class SAPReview(Base):
     revision_id = Column(UUID(as_uuid=True), ForeignKey('sap_revisions.id'), primary_key=True)
     overall_remarks = Column(Text, nullable=False, default='')
     section_remarks = Column(JSON, nullable=False, default=dict)
-    signature_strokes = Column(JSON)
+    signature_strokes = deferred(Column(JSON))
     signed_by = Column(UUID(as_uuid=True), ForeignKey('users.id'))
     signed_at = Column(DateTime(timezone=True))
-    signed_pdf = Column(LargeBinary)
+    signed_pdf = deferred(Column(LargeBinary))
     signed_pdf_sha256 = Column(String(64))

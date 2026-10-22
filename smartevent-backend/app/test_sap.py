@@ -9,9 +9,9 @@ from fastapi import HTTPException
 from app.test_access_management import system
 from app.config import settings
 from app.models import DocumentRouting, Notification
-from app.models_sap import SAPRevision, SAPFinalCopy
+from app.models_sap import SAPRevision, SAPFinalCopy, SAPReview
 from app.schemas_sap import validate_submission
-from app.services.sap_pdf import render_proposal, SLOTS
+from app.services.sap_pdf import render_proposal, signature_slots
 
 
 def fixture_data():
@@ -40,6 +40,7 @@ def sap_system(system, monkeypatch):
     event = resources[0]['events']
     event.status, event.allocated_budget, event.remaining_budget = 'draft', 2500, 2500
     db.commit()
+    monkeypatch.setattr('app.services.sap.institution_today', lambda: date(2026, 9, 27))
     monkeypatch.setattr(settings, 'sap_verification_base_url', 'https://example.org/sap/verify')
     login('treasurer')
     base = f'/events/{event.id}/sap-proposal'
@@ -82,18 +83,29 @@ def checkpoint(ctx, slot):
         'physical_signature_date': date.today().isoformat(), 'remarks': 'SDS checked the paper', 'recorded_on_behalf': True})
 
 
-def test_six_page_clean_print_and_nine_slots():
+def test_official_form_and_addenda_keep_all_data():
     data = fixture_data()
-    pdf = render_proposal(data, 1, 'https://example.org/sap/verify/test-token')
-    reader = PdfReader(BytesIO(pdf))
-    assert len(reader.pages) == 6
+    reader = PdfReader(BytesIO(render_proposal(data, 1, 'https://example.org/sap/verify/test-token')))
+    assert len(reader.pages) >= 3
     text = '\n'.join(page.extract_text() for page in reader.pages)
     assert '145' in text and '2500.00' in text and 'SAS-SDS-FO-020' in text
-    for slot, (position, label) in enumerate(SLOTS, 1):
-        assert f'{slot}. {label}' in text
-    assert 'Scan to verify' in text and len(reader.pages[5].get_contents().get_data()) > 5000
-    assert all(not page.images for page in reader.pages)  # No scanned marks/background.
-    assert 'Date Forwarded' not in text
+    assert len(signature_slots(data['details'])) == 9
+    assert 'https://example.org/sap/verify/test-token' in text
+    assert 'SIGNED AND APPROVED BY SDS OFFICE' not in text
+    assert 'Professional elective' in text and 'Professor B' in text
+    assert all('/Annots' not in page for page in reader.pages)
+
+
+def sign_current(ctx):
+    client, db, users, event, login, base = ctx
+    login('sds_staff')
+    response = client.post(base + '/sds-sign', json={
+        'expected_version': version(client, base),
+        'signature_strokes': [[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]],
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()['state'] == 'sds_signed'
+    return response
 
 
 @pytest.mark.parametrize('case', ['budget', 'end', 'program', 'class', 'offcampus', 'na', 'interruption'])
@@ -172,6 +184,7 @@ def test_hack_future_return_sign_scan_evaluate(sap_system, monkeypatch, outcome)
     assert db.query(DocumentRouting).filter_by(event_id=event.id).count() == 0
     rev = db.query(SAPRevision).filter_by(revision_no=2).one()
     assert client.get('/sap/verify/' + rev.verification_token).json()['approved'] is False
+    sign_current(sap_system)
     uploads = []
     def upload(data, mime, extension, user_id, org_id):
         uploads.append((data, mime, extension, org_id))
@@ -213,11 +226,56 @@ def test_final_scan_requires_all_slots_and_valid_pdf(sap_system):
         assert response.status_code == expected, response.text
 
 
-def test_pdf_overflow_is_rejected_not_truncated():
+def test_pdf_overflow_is_paginated_not_truncated():
     data = fixture_data()
     data['details']['rationale'] = '\n'.join(['Long line'] * 150)
-    with pytest.raises(ValueError, match='six-page'):
-        render_proposal(data, 1)
+    data['collections']['budget-items'] = [{'particulars': f'Budget line {i}', 'amount': '1.00'} for i in range(16)]
+    notes = {'overall_remarks': 'Detailed SDS remark. ' * 140, 'section_remarks': {}}
+    reader = PdfReader(BytesIO(render_proposal(data, 1, review=notes)))
+    text = '\n'.join(page.extract_text() for page in reader.pages)
+    assert len(reader.pages) > 3
+    assert text.count('Long line') == 150
+    # PDF extraction inserts line breaks inside wrapped sentences.
+    assert ' '.join(text.split()).count('Detailed SDS remark.') == 140
+    assert 'Budget line 15' in text
+
+
+def test_signed_revision_correction_preserves_pdf(sap_system):
+    client, db, users, event, login, base = sap_system
+    populate(sap_system)
+    sign_current(sap_system)
+    review = db.query(SAPReview).one()
+    original_pdf, original_hash = review.signed_pdf, review.signed_pdf_sha256
+    login('treasurer')
+    assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 403
+    login('sds_staff')
+    response = client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'})
+    assert response.status_code == 200 and response.json()['state'] == 'revision_requested'
+    assert client.get(base + '/pdf?revision_no=1').content == original_pdf
+    populate(sap_system)
+    assert client.get(base).json()['sds_review'] is None
+    db.refresh(review)
+    assert review.signed_pdf == original_pdf and review.signed_pdf_sha256 == original_hash
+
+
+def test_returned_pdf_keeps_remarks(sap_system):
+    client, db, users, event, login, base = sap_system
+    populate(sap_system)
+    login('sds_staff')
+    response = client.post(base + '/return', json={'expected_version': version(client, base), 'remarks': 'Revise the food budget'})
+    assert response.status_code == 200
+    pdf = client.get(base + '/pdf')
+    text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(pdf.content)).pages)
+    assert 'Revise the food budget' in text
+    assert 'SIGNED AND APPROVED BY SDS OFFICE' not in text
+
+
+@pytest.mark.parametrize('data,mime', [(b'%PDF-not-a-document', 'application/pdf'), (b'\x89PNG\r\n\x1a\ninvalid', 'image/png')])
+def test_supporting_files_reject_invalid_content(data, mime):
+    from app.routers.sap import _validated_attachment
+    with pytest.raises(HTTPException) as caught:
+        _validated_attachment(data, mime)
+    assert caught.value.status_code == 422
 
 
 def test_migration_security_contract():
@@ -283,6 +341,7 @@ def test_private_storage_failure_does_not_approve(sap_system, monkeypatch):
     populate(sap_system)
     for slot in range(1, 10):
         assert checkpoint(sap_system, slot).status_code == 200
+    sign_current(sap_system)
     from app.services.storage import StorageError
     def unavailable(*args):
         raise StorageError('unavailable')
