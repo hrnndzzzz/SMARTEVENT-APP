@@ -4,7 +4,8 @@ import '../state/app_state.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
-import '../widgets/financial_overview.dart';
+import '../widgets/report_charts.dart';
+import '../widgets/report_tiles.dart';
 import 'analytics_sheet.dart';
 import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
@@ -69,6 +70,77 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// The downloads, in a window of their own.
+  ///
+  /// The snapshot first, so what is about to be exported is visible
+  /// before choosing a format, then the three formats as squares.
+  void _openDownloads(BuildContext context, ConsolidatedFinancialReport? report) {
+    BrutSheet.show<void>(
+      context,
+      builder: (sheetContext) => BrutSheet(
+        title: 'Download',
+        subtitle: report == null
+            ? 'Choose a period first for the full report.'
+            : report.period.label,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (report != null) ...[
+              _TotalsCard(report: report),
+              const SizedBox(height: 14),
+              const BrutSectionTitle('This report'),
+              const SizedBox(height: 10),
+              ReportGrid(
+                children: [
+                  for (final (label, icon, format) in [
+                    ('PDF', Icons.picture_as_pdf_outlined, ExportFormat.pdf),
+                    ('CSV', Icons.table_chart_outlined, ExportFormat.csv),
+                    ('Print-ready', Icons.print_outlined, ExportFormat.html),
+                  ])
+                    ReportActionTile(
+                      label: label,
+                      icon: icon,
+                      busy: _exporting,
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        _export(format);
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppLayout.section),
+            ],
+            const BrutSectionTitle('Dashboard snapshot'),
+            const SizedBox(height: 4),
+            const Text(
+              'Where things stand right now, whatever period is chosen.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 10),
+            ReportGrid(
+              children: [
+                for (final (label, icon, format) in [
+                  ('PDF', Icons.picture_as_pdf_outlined, ExportFormat.pdf),
+                  ('CSV', Icons.table_chart_outlined, ExportFormat.csv),
+                ])
+                  ReportActionTile(
+                    label: label,
+                    icon: icon,
+                    busy: _exporting,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _exportDashboard(format);
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// The dashboard snapshot, which takes no period filters.
   Future<void> _exportDashboard(ExportFormat format) async {
     setState(() => _exporting = true);
@@ -107,7 +179,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
         onBack: () => Navigator.of(context).maybePop(),
       ),
       scrollable: false,
-      bottomPadding: 0,
+      // Downloading is one deliberate act, so it is one button in the
+      // corner rather than a fold at the bottom of a long list.
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openDownloads(context, report),
+        tooltip: 'Download',
+        child: const Icon(Icons.download),
+      ),
+      bottomPadding: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -123,44 +202,59 @@ class _ReportsScreenState extends State<ReportsScreen> {
             child: ListView(
               padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
               children: [
-                // The report is what this screen is for, so it opens on
-                // it. The charts and the period controls are folded: both
-                // are things you go to deliberately, and all of it at
-                // once was a screen you had to scroll before you could
-                // read anything.
-                BrutFoldable(
-                  title: 'Charts',
-                  initiallyOpen: false,
+                // Charts first, four of them, two to a row. Each tile
+                // opens the same chart full screen, where there is room
+                // to read it.
+                const BrutSectionTitle('Charts'),
+                const SizedBox(height: 10),
+                ReportGrid(
                   children: [
-                    BrutButton(
+                    for (final chart in ReportChart.all(
+                      budgets: app.categoryBudgets,
+                      spend: app.spendByCategory,
+                      sources: report?.incomeBySource ?? const [],
+                      events: report?.events ?? const [],
+                    ))
+                      ReportChartTile(chart: chart),
+                  ],
+                ),
+                const SizedBox(height: AppLayout.section),
+
+                // The two things that change what the charts are of,
+                // squared the same way as everything else here.
+                const BrutSectionTitle('Narrow it down'),
+                const SizedBox(height: 10),
+                ReportGrid(
+                  children: [
+                    ReportActionTile(
+                      label: 'Period and scope',
+                      icon: Icons.tune,
+                      detail: report == null
+                          ? 'Nothing chosen yet'
+                          : report.period.label,
+                      tone: report == null ? BrutTone.sun : BrutTone.neutral,
+                      onTap: () => BrutSheet.show<void>(
+                        context,
+                        builder: (_) => const BrutSheet(
+                          title: 'Period and scope',
+                          subtitle: 'What the figures cover.',
+                          child: _Filters(),
+                        ),
+                      ),
+                    ),
+                    ReportActionTile(
                       label: 'Organization analytics',
-                      icon: Icons.bar_chart_outlined,
-                      tone: BrutTone.neutral,
-                      onPressed: () => BrutSheet.show<void>(
+                      icon: Icons.insights_outlined,
+                      detail: 'Across the whole organization',
+                      onTap: () => BrutSheet.show<void>(
                         context,
                         builder: (_) => const AnalyticsSheet(),
                       ),
                     ),
-                    const SizedBox(height: AppLayout.between),
-                    AllocationVsActualCard(
-                      budgets: app.categoryBudgets,
-                      spend: app.spendByCategory,
-                    ),
-                    const SizedBox(height: AppLayout.between),
-                    ExpenseDistributionCard(
-                      spendByCategory: app.spendByCategory,
-                    ),
                   ],
                 ),
                 const SizedBox(height: AppLayout.section),
-                BrutFoldable(
-                  title: 'Period and scope',
-                  // Open while there is nothing to show, because then
-                  // choosing a period is the next thing to do.
-                  initiallyOpen: report == null,
-                  children: const [_Filters()],
-                ),
-                const SizedBox(height: 14),
+
                 if (load.isLoading)
                   const Center(
                     child: Padding(
@@ -183,24 +277,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ],
                   _EventsCard(report: report),
                 ],
-                const SizedBox(height: AppLayout.section),
-                // Both downloads under one heading. They were a row, a
-                // divider and a second row, which read as two unrelated
-                // things rather than two of the same thing.
-                BrutFoldable(
-                  title: 'Download',
-                  initiallyOpen: false,
-                  children: [
-                    if (report != null) ...[
-                      _ExportRow(busy: _exporting, onExport: _export),
-                      const SizedBox(height: 14),
-                    ],
-                    _DashboardExportRow(
-                      busy: _exporting,
-                      onExport: _exportDashboard,
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -560,59 +636,7 @@ class _EventsCard extends StatelessWidget {
   }
 }
 
-class _ExportRow extends StatelessWidget {
-  const _ExportRow({required this.busy, required this.onExport});
 
-  final bool busy;
-  final ValueChanged<ExportFormat> onExport;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const BrutSectionTitle('Export'),
-        const SizedBox(height: 4),
-        const Text(
-          'Uses the filters above, so the file matches what is shown. The '
-          'HTML export is print-ready.',
-          style: AppText.caption,
-        ),
-        const SizedBox(height: 12),
-        _FormatButtons(busy: busy, onExport: onExport),
-      ],
-    );
-  }
-}
-
-/// One button per export format, all the same width.
-class _FormatButtons extends StatelessWidget {
-  const _FormatButtons({required this.busy, required this.onExport});
-
-  final bool busy;
-  final ValueChanged<ExportFormat> onExport;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final format in ExportFormat.values) ...[
-          Expanded(
-            child: BrutButton(
-              label: format.label,
-              tone: BrutTone.neutral,
-              size: BrutSize.small,
-              busy: busy,
-              busyLabel: '…',
-              onPressed: () => onExport(format),
-            ),
-          ),
-          if (format != ExportFormat.values.last) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-}
 
 class _NotYetGenerated extends StatelessWidget {
   const _NotYetGenerated();
@@ -641,31 +665,3 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-/// Exporting the dashboard snapshot.
-///
-/// Kept apart from the report export above because it answers a different
-/// question and takes none of the period filters — presenting them together
-/// would imply the dashboard respects them.
-class _DashboardExportRow extends StatelessWidget {
-  const _DashboardExportRow({required this.busy, required this.onExport});
-
-  final bool busy;
-  final ValueChanged<ExportFormat> onExport;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const BrutSectionTitle('Dashboard snapshot'),
-        const SizedBox(height: 4),
-        const Text(
-          'Current totals and counts. Not affected by the filters above.',
-          style: AppText.caption,
-        ),
-        const SizedBox(height: 12),
-        _FormatButtons(busy: busy, onExport: onExport),
-      ],
-    );
-  }
-}
