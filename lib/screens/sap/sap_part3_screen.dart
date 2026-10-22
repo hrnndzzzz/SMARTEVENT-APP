@@ -198,6 +198,28 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
     }
   }
 
+  /// Asks before leaving, and saves a draft if that is what they want.
+  Future<void> _leave(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final leaving = await LeaveProposal.confirm(
+      context,
+      save: () async {
+        // This step holds the additional information, which lives on the
+        // details, and the budget breakdown. Both or neither.
+        final ok =
+            await _form.saveDetails() && await _form.saveBudgetItems();
+        if (!context.mounted) return ok;
+        if (!ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_form.error ?? 'Could not save the draft.')),
+          );
+        }
+        return ok;
+      },
+    );
+    if (leaving) navigator.maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -219,20 +241,21 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
               ? BrutHeader(
                   title: 'Additional Information',
                   eyebrow: 'Part 3',
-                  onBack: () => Navigator.of(context).maybePop(),
+                  onBack: () => _leave(context),
                 )
               : BrutFlowHeader(
                   title: 'Additional Information',
                   flowName: 'Part 3 of 3',
                   currentStep: widget.step!,
-                  onBack: () => Navigator.of(context).maybePop(),
+                  onBack: () => _leave(context),
                   steps: [
                     for (final label in ProposalSteps.labels)
                       BrutStep(label: label),
                   ],
                 ),
+          // One back button, in the header. There were two doing the
+          // same thing, and neither said whether anything was kept.
           footer: BrutFooter(
-            onBack: () => Navigator.of(context).maybePop(),
             child: BrutButton(
               label: widget.step == null ? 'Save' : 'Send to the SDS Office',
               busy: _form.saving,

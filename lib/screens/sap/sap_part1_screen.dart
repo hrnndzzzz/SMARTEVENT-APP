@@ -235,6 +235,25 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     }
   }
 
+  /// Asks before leaving, and saves a draft if that is what they want.
+  Future<void> _leave(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final leaving = await LeaveProposal.confirm(
+      context,
+      save: () async {
+        final ok = await _form.saveDetails();
+        if (!context.mounted) return ok;
+        if (!ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_form.error ?? 'Could not save the draft.')),
+          );
+        }
+        return ok;
+      },
+    );
+    if (leaving) navigator.maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -254,20 +273,21 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ? BrutHeader(
                   title: 'Activity Details',
                   eyebrow: 'Part 1',
-                  onBack: () => Navigator.of(context).maybePop(),
+                  onBack: () => _leave(context),
                 )
               : BrutFlowHeader(
                   title: 'Activity Details',
                   flowName: 'Part 1 of 3',
                   currentStep: widget.step!,
-                  onBack: () => Navigator.of(context).maybePop(),
+                  onBack: () => _leave(context),
                   steps: [
                     for (final label in ProposalSteps.labels)
                       BrutStep(label: label),
                   ],
                 ),
+          // One back button, in the header. There were two doing the
+          // same thing, and neither said whether anything was kept.
           footer: BrutFooter(
-            onBack: () => Navigator.of(context).maybePop(),
             child: BrutButton(
               label: widget.step == null ? 'Save' : 'Next: school support',
               busy: _form.saving,
