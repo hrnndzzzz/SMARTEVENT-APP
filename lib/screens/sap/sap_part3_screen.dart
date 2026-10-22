@@ -266,39 +266,6 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const BrutSectionTitle('Other details'),
-              const SizedBox(height: 6),
-              Text(
-                'The headings a filled form uses. Leave any of them '
-                'blank and they are simply left out.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 12),
-              for (final heading in _otherDetailHeadings) ...[
-                BrutTextField(
-                  controller: _otherDetails[heading]!,
-                  label: heading,
-                  hint: _hintFor(heading),
-                  enabled: _editable,
-                  maxLines: 3,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-              ],
-              if (_otherDetailsLength > _otherDetailsLimit) ...[
-                BrutInlineMessage(
-                  tone: BrutTone.coral,
-                  icon: Icons.error_outline,
-                  text:
-                      'These come to $_otherDetailsLength characters and the '
-                      'server takes $_otherDetailsLimit. Shorten them before '
-                      'submitting.',
-                ),
-                const SizedBox(height: 12),
-              ],
-              const SizedBox(height: 10),
-
               const BrutSectionTitle('Budget breakdown'),
               const SizedBox(height: 8),
               if (_form.budgetItems.isEmpty)
@@ -413,7 +380,43 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
                 icon: Icons.info_outline,
                 text: 'Letters are not issued automatically; this is the plan '
                     'for them.',
+              ),              // Last, not first. Ten long free-text headings opened
+              // this step and buried the breakdown it is named for, which
+              // is also the part with a total that has to agree.
+              const BrutSectionTitle('Other details'),
+              const SizedBox(height: 6),
+              Text(
+                'The headings a filled form uses. Leave any of them '
+                'blank and they are simply left out.',
+                style: AppText.caption,
               ),
+              const SizedBox(height: 12),
+              for (final heading in _otherDetailHeadings) ...[
+                BrutTextField(
+                  controller: _otherDetails[heading]!,
+                  label: heading,
+                  hint: _hintFor(heading),
+                  enabled: _editable,
+                  maxLines: 3,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (_otherDetailsLength > _otherDetailsLimit) ...[
+                BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.error_outline,
+                  text:
+                      'These come to $_otherDetailsLength characters and the '
+                      'server takes $_otherDetailsLimit. Shorten them before '
+                      'submitting.',
+                ),
+                const SizedBox(height: 12),
+              ],
+              const SizedBox(height: 10),
+
+
             ],
           ),
         );
