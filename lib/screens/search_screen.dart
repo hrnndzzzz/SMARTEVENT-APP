@@ -369,8 +369,17 @@ class _ResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Five kinds of result now, not two. A screen was being labelled a
+    // transaction because anything that was not an event fell through
+    // to one.
     final isEvent = result.type == _ResultType.event;
-    final tone = isEvent ? BrutTone.mint : BrutTone.sun;
+    final (kind, tone) = switch (result.type) {
+      _ResultType.event => ('Event', BrutTone.mint),
+      _ResultType.transaction => ('Transaction', BrutTone.sun),
+      _ResultType.category => ('Category', BrutTone.violet),
+      _ResultType.item => ('Item', BrutTone.brand),
+      _ResultType.place => ('Screen', BrutTone.neutral),
+    };
 
     return BrutCard(
       onTap: onTap,
@@ -400,7 +409,7 @@ class _ResultCard extends StatelessWidget {
                   Row(
                     children: [
                       BrutBadge(
-                        label: isEvent ? 'Event' : 'Transaction',
+                        label: kind,
                         tone: tone,
                         mono: true,
                       ),

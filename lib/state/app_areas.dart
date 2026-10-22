@@ -139,7 +139,7 @@ const List<AppArea> appAreas = [
   AppArea(
     id: 'search',
     title: 'Search',
-    blurb: 'Find an event or a transaction',
+    blurb: 'Find anything, or ask where something is',
     icon: Icons.search,
     tone: BrutTone.neutral,
     builder: _search,

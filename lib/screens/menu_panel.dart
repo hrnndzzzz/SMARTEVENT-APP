@@ -100,7 +100,7 @@ class MenuPanel extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Find an event or a transaction',
+                        'Find anything, or ask where something is',
                         style: AppText.body.copyWith(
                           color: context.palette.muted,
                         ),
