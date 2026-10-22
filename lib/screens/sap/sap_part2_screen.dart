@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../theme/palette.dart';
 
 /// Part 2 — School Support (Requests).
 ///
@@ -174,23 +176,36 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
                     'form sent to the office concerned.',
               ),
               const SizedBox(height: 14),
-              for (final type in SapSupportType.values) ...[
-                _SupportTile(
-                  type: type,
-                  request: _requestFor(type),
-                  enabled: _editable,
-                  takesQuantity: _withQuantity.contains(type),
-                  // Every ticked row on the paper has room written
-                  // beside it — "St. Augustine Bldg. AVR", "Podium",
-                  // "additional 100 chairs" — so none of them is only
-                  // a tick.
-                  takesDetail: true,
-                  onToggle: () => _toggle(type),
-                  onQuantity: (q) => _amend(type, quantity: q),
-                  onDetail: (s) => _amend(type, specify: s),
-                ),
-                const SizedBox(height: 8),
-              ],
+
+              // The paper is a grid of tick boxes, and this was eleven
+              // full-width cards stacked down the screen — most of them
+              // holding nothing, because most are not wanted. The grid
+              // is what is being chosen from; what was chosen is filled
+              // in underneath it.
+              _SupportGrid(
+                enabled: _editable,
+                isTicked: (type) => _requestFor(type) != null,
+                onToggle: _toggle,
+              ),
+
+              for (final type in SapSupportType.values)
+                if (_requestFor(type) case final request?) ...[
+                  const SizedBox(height: 10),
+                  _SupportTile(
+                    type: type,
+                    request: request,
+                    enabled: _editable,
+                    takesQuantity: _withQuantity.contains(type),
+                    // Every ticked row on the paper has room written
+                    // beside it — "St. Augustine Bldg. AVR", "Podium",
+                    // "additional 100 chairs" — so none of them is only
+                    // a tick.
+                    takesDetail: true,
+                    onToggle: () => _toggle(type),
+                    onQuantity: (q) => _amend(type, quantity: q),
+                    onDetail: (s) => _amend(type, specify: s),
+                  ),
+                ],
             ],
           ),
         );
@@ -289,6 +304,124 @@ class _SupportTileState extends State<_SupportTile> {
               onChanged: widget.onDetail,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The eleven kinds of support, as a grid to choose from.
+///
+/// The paper is a grid of tick boxes and this screen was eleven
+/// full-width cards stacked down it, most of them empty because most
+/// are not wanted. Choosing happens here; what was chosen is filled in
+/// underneath.
+class _SupportGrid extends StatelessWidget {
+  const _SupportGrid({
+    required this.enabled,
+    required this.isTicked,
+    required this.onToggle,
+  });
+
+  final bool enabled;
+  final bool Function(SapSupportType type) isTicked;
+  final void Function(SapSupportType type) onToggle;
+
+  /// A glyph each, so the grid can be read at a glance rather than
+  /// word by word.
+  static IconData iconFor(SapSupportType type) => switch (type) {
+    SapSupportType.budget => Icons.payments_outlined,
+    SapSupportType.vehicle => Icons.directions_bus_outlined,
+    SapSupportType.food => Icons.restaurant_outlined,
+    SapSupportType.room => Icons.meeting_room_outlined,
+    SapSupportType.sound => Icons.speaker_outlined,
+    SapSupportType.microphone => Icons.mic_none_outlined,
+    SapSupportType.projector => Icons.videocam_outlined,
+    SapSupportType.chairs => Icons.event_seat_outlined,
+    SapSupportType.tables => Icons.table_restaurant_outlined,
+    SapSupportType.diverseNeeds => Icons.accessible_outlined,
+    SapSupportType.other => Icons.more_horiz,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    const columns = 3;
+    final types = SapSupportType.values;
+    final rows = <Widget>[];
+
+    for (var i = 0; i < types.length; i += columns) {
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var c = 0; c < columns; c++) ...[
+                Expanded(
+                  child: i + c < types.length
+                      ? _SupportSquare(
+                          type: types[i + c],
+                          ticked: isTicked(types[i + c]),
+                          enabled: enabled,
+                          onTap: () => onToggle(types[i + c]),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                if (c != columns - 1) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+      );
+      if (i + columns < types.length) rows.add(const SizedBox(height: 8));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
+    );
+  }
+}
+
+/// One square in the grid.
+class _SupportSquare extends StatelessWidget {
+  const _SupportSquare({
+    required this.type,
+    required this.ticked,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final SapSupportType type;
+  final bool ticked;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutCard(
+      tone: ticked ? BrutTone.brand : BrutTone.neutral,
+      onTap: enabled ? onTap : null,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _SupportGrid.iconFor(type),
+            size: 20,
+            color: enabled ? context.palette.ink : context.palette.subtle,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            type.label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.caption.copyWith(
+              fontSize: 10,
+              fontWeight: ticked ? FontWeight.w700 : FontWeight.w500,
+              color: enabled ? context.palette.ink : context.palette.subtle,
+            ),
+          ),
         ],
       ),
     );
