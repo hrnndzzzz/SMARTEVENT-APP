@@ -22,8 +22,8 @@ Status is one of **done**, **in progress**, **todo**, or **blocked**
 | A1 | Hold the heading → "Access demo mode?", start as officer | **done** | P1 |
 | A2 | Role picker in Settings: officer, treasurer, adviser, SDS, admin, super admin | **done** | P1 |
 | A3 | Demo works more than once per launch | **done** | P1 |
-| A4 | SDS role can reach the proposals it reviews — today it lands on an empty Proposal letters screen | **todo** | **P1** |
-| A5 | Adviser role likewise | **todo** | **P1** |
+| A4 | SDS role can reach the proposals it reviews — today it lands on an empty Proposal letters screen | **done** | **P1** |
+| A5 | Adviser role likewise | **done** | **P1** |
 
 A4 and A5 are what stand between us and filming the flow end to end.
 
@@ -31,25 +31,25 @@ A4 and A5 are what stand between us and filming the flow end to end.
 
 | # | What | Status | P |
 |---|---|---|---|
-| B1 | Event status says *which* stage: with the moderator, with SDS, and the rest | todo | P1 |
+| B1 | Event status says *which* stage: with the moderator, with SDS, and the rest | **done** | P1 |
 | B2 | "SmartEvent" wordmark clickable → dashboard; on the dashboard, an easter egg (screen pulses blue/green) | todo | P3 |
-| B3 | "THU / OCT 22" larger, clearer, clickable → event planner | todo | P2 |
-| B4 | "CITE · TREASURER" likewise → account info | todo | P2 |
-| B5 | Notification button: the **bell** shakes, not the square; a new notice fills the box red, pulsing once | todo | P2 |
-| B6 | Account avatar has square corners showing inside the circle — also on Edit profile | todo | P2 |
+| B3 | "THU / OCT 22" larger, clearer, clickable → event planner | **done** | P2 |
+| B4 | "CITE · TREASURER" likewise → account info | **done** | P2 |
+| B5 | Notification button: the **bell** shakes, not the square; a new notice fills the box red, pulsing once | **done** | P2 |
+| B6 | Account avatar has square corners showing inside the circle — also on Edit profile | **done** | P2 |
 | B7 | Floating scan button overlaps the budget row *(found on device; spun off separately)* | in progress | P2 |
 
 ## C. Money
 
 | # | What | Status | P |
 |---|---|---|---|
-| C1 | Allocated / spent / left / pending as separate boxes in a grid | todo | P2 |
-| C2 | Colour-coded green / amber / red by how close to the limit | todo | P2 |
-| C3 | Consider renaming spent and left to inflow and outflow | todo | P3 |
-| C4 | Pending is clickable → expenses | todo | P2 |
-| C5 | Record an expense: drop the receipt and document features, full crosshair, faint grid lines | todo | P2 |
-| C6 | Every category list needs a "create category" | todo | P2 |
-| C7 | Inventory: it is not clear how an item is created — from a receipt, or by hand? Decide and make it obvious | todo | P2 |
+| C1 | Allocated / spent / left / pending as separate boxes in a grid | **done** | P2 |
+| C2 | Colour-coded green / amber / red by how close to the limit | **done** | P2 |
+| C3 | Consider renaming spent and left to inflow and outflow | **declined** — they mean different things; see G12 for the real feature | P3 |
+| C4 | Pending is clickable → expenses | **done** | P2 |
+| C5 | Record an expense: drop the receipt and document features, full crosshair, faint grid lines | **done** | P2 |
+| C6 | Every category list needs a "create category" | **done** | P2 |
+| C7 | Inventory: it is not clear how an item is created — from a receipt, or by hand? Decide and make it obvious | **waiting on you** — not yet tested | P2 |
 
 ## D. Financial reports
 

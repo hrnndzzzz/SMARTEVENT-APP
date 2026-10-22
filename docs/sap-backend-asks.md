@@ -55,8 +55,8 @@ Three things follow from this that differ from the old client:
 
 ## 2. The asks
 
-Ordered by how much they block us. 1-3 and 8-9 are blocking; 4-7 are
-not. 8 and 9 are new and come from the flow notes, not the paper form.
+Ordered by how much they block us. 1-3 and 8-9 are blocking; 4-7 and
+10 are not. 8 and 9 are new and come from the flow notes, not the paper form.
 
 ### 1. `additional_information` max_length 500 is too small
 
@@ -222,6 +222,27 @@ is **not urgent**. But an organisation with no department has nothing
 to send, and the server would reject it.
 
 **Ask:** make both nullable, whenever independent orgs become real.
+
+### 10. A route to withdraw a submitted proposal
+
+The proposer can submit, and the SDS Office can return. There is nothing
+between: once sent, a proposal cannot be taken back by the person who
+sent it. The events API has `submit`, `approve`, `reject` and `delete`,
+and `delete` is not the same thing — it throws the work away.
+
+Our adviser asked for a plain cancel: the proposer realises something is
+wrong, takes it back, fixes it, sends it again.
+
+**Ask:** a route that moves a pending proposal back to `draft` for its
+own proposer, refused once anyone has decided on it. Something like
+`POST /events/{id}/withdraw`.
+
+Refusing after a decision matters: if it were allowed after a return,
+withdrawing would erase the remarks the office had just written.
+
+The app has this working against local state and tells a real session
+plainly that the route does not exist, rather than appearing to do
+nothing.
 
 ---
 
