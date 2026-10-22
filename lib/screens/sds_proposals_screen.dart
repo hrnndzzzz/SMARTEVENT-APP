@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../api/models/sap_proposal.dart';
 import '../state/app_state.dart';
+import '../state/demo_data.dart';
 import '../state/sap_form.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -96,7 +97,12 @@ class _ProposalCard extends StatelessWidget {
           service: app.isDemoMode ? null : app.sapService,
         );
         if (app.isDemoMode) {
-          form.seedLocally(state: _sapStateFor(event.status));
+          form.seedLocally(
+            state: _sapStateFor(event.status),
+            details: DemoProposals.detailsFor(event),
+          );
+          form.setBudgetItems(DemoProposals.budgetFor(event));
+          form.setSupportRequests(DemoProposals.supportFor(event));
         }
         // The summary, not the six-part form. The office reads this and
         // decides; it does not fill it in.

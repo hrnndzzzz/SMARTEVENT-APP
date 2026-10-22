@@ -118,7 +118,7 @@ class _Facts extends StatelessWidget {
     final rows = <(String, String)>[
       if (details.activityDate case final on?) ('Date', _date(on)),
       if (details.startTime != null && details.endTime != null)
-        ('Time', '${details.startTime!.wire} to ${details.endTime!.wire}'),
+        ('Time', '${_clock(details.startTime!)} to ${_clock(details.endTime!)}'),
       if (details.setting case final s?) ('Setting', s.label),
       if (details.modality case final m?) ('Modality', m.label),
       if (details.venue?.isNotEmpty == true) ('Venue', details.venue!),
@@ -155,6 +155,12 @@ class _Facts extends StatelessWidget {
       ),
     );
   }
+
+  /// Hours and minutes. The wire format carries seconds, which nobody
+  /// reading a proposal needs.
+  static String _clock(SapTime at) =>
+      '${at.hour.toString().padLeft(2, '0')}:'
+      '${at.minute.toString().padLeft(2, '0')}';
 
   static String _date(DateTime on) =>
       '${on.year}-${on.month.toString().padLeft(2, '0')}-'

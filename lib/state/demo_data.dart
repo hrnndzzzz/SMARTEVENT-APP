@@ -1,5 +1,6 @@
 import '../api/models/academic.dart';
 import '../api/models/scope.dart';
+import '../api/models/sap_proposal.dart';
 import 'app_state.dart';
 
 /// A whole app's worth of data, with no server behind it.
@@ -258,4 +259,135 @@ abstract final class DemoData {
       readAt: null,
     ),
   ];
+}
+
+/// Proposal content for the seeded events.
+///
+/// The demo had events but nothing on their proposal forms, so the SDS
+/// Office opened a summary of an untitled activity with nothing in it.
+/// These fill the parts a reader needs to decide: what it is, when and
+/// where, what it costs and what it needs.
+abstract final class DemoProposals {
+  /// Everything the summary reads, for one seeded event. Null for an
+  /// event this demo has written nothing for.
+  static SapDetails? detailsFor(EventItem event) {
+    final seeded = _byEvent[event.remoteId];
+    if (seeded == null) return null;
+
+    return SapDetails(
+      title: event.title,
+      organizationName: event.org,
+      schoolYear: event.schoolYear,
+      proposalDate: event.on?.subtract(const Duration(days: 35)),
+      activityDate: event.on,
+      startTime: seeded.start,
+      endTime: seeded.end,
+      modality: SapModality.faceToFace,
+      setting: SapSetting.onCampus,
+      venue: seeded.venue,
+      personsInCharge: seeded.inCharge,
+      expectedStudents: seeded.students,
+      totalBudget: event.budget,
+      rationale: seeded.rationale,
+      objectives: seeded.objectives,
+    );
+  }
+
+  static List<SapBudgetItem> budgetFor(EventItem event) =>
+      _byEvent[event.remoteId]?.budget ?? const [];
+
+  static List<SapSupportRequest> supportFor(EventItem event) =>
+      _byEvent[event.remoteId]?.support ?? const [];
+
+  static const _byEvent = <String, _Seeded>{
+    'demo-ev-1': _Seeded(
+      start: SapTime(8, 0),
+      end: SapTime(17, 0),
+      venue: 'St. Augustine Building, AVR',
+      inCharge: 'Engr. Aileen M. Habaradas, Engr. Glazen M. Perez',
+      students: 145,
+      rationale:
+          'Students have asked for practical security training that the '
+          'curriculum does not cover. A one-day workshop with a working '
+          'practitioner reaches more of them than a semester elective.',
+      objectives:
+          'Recognise common attacks on a live system.\n'
+          'Use the standard tooling without supervision.\n'
+          'Write up findings the way an employer expects.',
+      budget: [
+        SapBudgetItem(particulars: 'Guest speaker honorarium', amount: '2000.00'),
+        SapBudgetItem(particulars: 'Certificates and tokens', amount: '300.00'),
+        SapBudgetItem(particulars: 'Seminar materials', amount: '200.00'),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.room,
+          quantity: 1,
+          specify: 'St. Augustine Bldg. AVR, whole day',
+        ),
+        SapSupportRequest(
+          type: SapSupportType.projector,
+          quantity: 1,
+          specify: 'With HDMI',
+        ),
+        SapSupportRequest(
+          type: SapSupportType.chairs,
+          quantity: 150,
+          specify: 'Additional 150 chairs',
+        ),
+      ],
+    ),
+    'demo-ev-2': _Seeded(
+      start: SapTime(13, 0),
+      end: SapTime(16, 0),
+      venue: 'University Quadrangle',
+      inCharge: 'CITE Student Council',
+      students: 400,
+      rationale:
+          'The opening ceremony is what gathers the department before a '
+          'week of events, and it is where the organisations introduce '
+          'themselves to first years.',
+      objectives: 'Open CITE Week.\nIntroduce each organisation.',
+      budget: [
+        SapBudgetItem(particulars: 'Sound system rental', amount: '8000.00'),
+        SapBudgetItem(particulars: 'Snacks', amount: '4000.00'),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.sound,
+          quantity: 1,
+          specify: 'Outdoor, with two microphones',
+        ),
+        SapSupportRequest(
+          type: SapSupportType.tables,
+          quantity: 8,
+          specify: 'One per organisation',
+        ),
+      ],
+    ),
+  };
+}
+
+class _Seeded {
+  const _Seeded({
+    required this.start,
+    required this.end,
+    required this.venue,
+    required this.inCharge,
+    required this.students,
+    required this.rationale,
+    required this.objectives,
+    required this.budget,
+    required this.support,
+  });
+
+  final SapTime start;
+  final SapTime end;
+  final String venue;
+  final String inCharge;
+  final int students;
+  final String rationale;
+  final String objectives;
+  final List<SapBudgetItem> budget;
+  final List<SapSupportRequest> support;
 }
