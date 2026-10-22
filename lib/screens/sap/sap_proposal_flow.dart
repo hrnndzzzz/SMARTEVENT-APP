@@ -7,6 +7,7 @@ import '../../state/sap_form.dart';
 import '../../theme/app_layout.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import 'sap_cover_screen.dart';
 import 'sap_part1_screen.dart';
 import 'sap_part2_screen.dart';
 import 'sap_part3_screen.dart';
@@ -37,7 +38,27 @@ abstract final class SapProposalFlow {
       return;
     }
 
-    await _openPart1(context, form);
+    // The cover comes first: the header the paper opens with, the two
+    // dates filled in, and the on-or-off-campus question that decides
+    // what the rest of the form will ask for.
+    form.updateDetails(
+      (d) => d.copyWith(
+        schoolYear: d.schoolYear?.isNotEmpty == true
+            ? d.schoolYear
+            : SapCoverScreen.schoolYearFor(DateTime.now()),
+        proposalDate: d.proposalDate ?? DateTime.now(),
+      ),
+    );
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SapCoverScreen(
+          form: form,
+          onBegin: (coverContext) => _openPart1(coverContext, form),
+        ),
+      ),
+    );
   }
 
   static Future<void> _openPart1(BuildContext context, SapForm form) {
