@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'categories_screen.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
@@ -563,6 +564,9 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
+/// Picked in the category dropdown to make one rather than choose one.
+const String newCategorySentinel = '__new_category__';
+
 /// The reviewable fields. Everything OCR read is shown as a starting point,
 /// never as a settled value.
 class _ReviewCard extends StatelessWidget {
@@ -636,6 +640,10 @@ class _ReviewCard extends StatelessWidget {
             onTap: onDateTap,
           ),
           const SizedBox(height: 14),
+          // Making a category used to mean leaving this form, and losing
+          // whatever had been typed into it. The last item opens the
+          // same form the categories screen uses, and the new category
+          // is selected when it comes back.
           BrutDropdown<String>(
             label: 'Category',
             value: categoryId,
@@ -643,8 +651,35 @@ class _ReviewCard extends StatelessWidget {
             items: [
               for (final c in categories)
                 DropdownMenuItem(value: c.id, child: Text(c.name)),
+              const DropdownMenuItem(
+                value: newCategorySentinel,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, size: 16),
+                    SizedBox(width: 6),
+                    Text('New category'),
+                  ],
+                ),
+              ),
             ],
-            onChanged: onCategoryChanged,
+            onChanged: (value) async {
+              if (value != newCategorySentinel) {
+                onCategoryChanged(value);
+                return;
+              }
+
+              final app = context.read<AppState>();
+              final before = {for (final c in app.categories) c.id};
+              await CategoriesScreen.openForm(context);
+              if (!context.mounted) return;
+
+              // Whatever is new is what they just made.
+              final made = app.categories
+                  .where((c) => !before.contains(c.id))
+                  .toList();
+              if (made.length == 1) onCategoryChanged(made.single.id);
+            },
           ),
           const SizedBox(height: 14),
           BrutDropdown<String>(

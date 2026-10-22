@@ -25,7 +25,7 @@ class CategoriesScreen extends StatelessWidget {
     return BrutScreen(
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
-              onPressed: () => _openForm(context),
+              onPressed: () => openForm(context),
               icon: const Icon(Icons.add),
               label: Text('New category', style: AppText.buttonLabel),
             )
@@ -51,7 +51,12 @@ class CategoriesScreen extends StatelessWidget {
     );
   }
 
-  static Future<void> _openForm(BuildContext context, {Category? existing}) {
+  /// Opens the create-or-edit form.
+  ///
+  /// Public because a category is picked in places other than this
+  /// screen — recording an expense, above all — and sending someone off
+  /// to make one meant losing the form they were part-way through.
+  static Future<void> openForm(BuildContext context, {Category? existing}) {
     return BrutSheet.show<void>(
       context,
       builder: (_) => _CategoryForm(existing: existing),
@@ -141,7 +146,7 @@ class _CategoryCard extends StatelessWidget {
                   icon: const Icon(Icons.more_horiz, size: 20),
                   onSelected: (value) {
                     if (value == 'edit') {
-                      CategoriesScreen._openForm(context, existing: category);
+                      CategoriesScreen.openForm(context, existing: category);
                     } else {
                       _confirmDelete(context);
                     }
