@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     supabase_service_key: str | None = Field(default=None, repr=False)
     supabase_receipts_bucket: str = "receipts"
     supabase_proposal_letters_bucket: str = "proposal-letters"
+    sap_verification_base_url: str | None = None
     gemini_api_key: str | None = Field(default=None, repr=False)
     gemini_model: str = "gemini-3.5-flash-lite"
     resend_api_key: str | None = Field(default=None, repr=False)
@@ -40,6 +41,15 @@ class Settings(BaseSettings):
         if "*" in origins and len(origins) != 1:
             raise ValueError("Wildcard origins cannot be combined with explicit origins")
         return ",".join(dict.fromkeys(origins))
+
+    @field_validator('sap_verification_base_url')
+    @classmethod
+    def validate_sap_url(cls, value):
+        if value:
+            parsed = urlsplit(value)
+            if parsed.scheme != 'https' or not parsed.netloc or parsed.username or parsed.query or parsed.fragment:
+                raise ValueError('SAP verification base must be an HTTPS URL without credentials, query or fragment')
+        return value
 
     @model_validator(mode="after")
     def production_security(self):

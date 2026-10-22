@@ -1,4 +1,4 @@
-"""Retry pending/failed registration emails: python -m scripts.deliver_notifications."""
+"""Deliver pending/failed inbox emails: python -m scripts.deliver_notifications."""
 import argparse
 from app.database import SessionLocal
 from app.models import Notification

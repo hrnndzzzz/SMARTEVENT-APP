@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -322,6 +322,8 @@ class EventOut(BaseModel):
     completed_at: datetime | None = None
     completed_by: uuid.UUID | None = None
     event_date: date | None
+    start_time: time | None = None
+    end_time: time | None = None
     estimated_cost: float
     allocated_budget: float
     remaining_budget: float
@@ -815,6 +817,23 @@ class CiteMemberCreate(BaseModel):
         default=None,
         description="Admins may omit this to use their assigned department. Super_Admin must select a department from GET /departments.",
     )
+
+
+class RosterImportError(BaseModel):
+    row: int
+    column: str
+    message: str
+
+
+class RosterImportedMember(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+
+
+class RosterImportOut(BaseModel):
+    filename: str
+    inserted_count: int
+    members: list[RosterImportedMember]
 
 
 class CiteMemberOut(BaseModel):

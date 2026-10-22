@@ -11,7 +11,7 @@ from app.database import Base
 class EventLogistics(Base):
     __tablename__ = "event_logistics"
     __table_args__ = (
-        CheckConstraint("activity_location IN ('on_campus', 'off_campus')", name="logistics_location_check"),
+        CheckConstraint("activity_location IN ('on_campus', 'off_campus', 'online')", name="logistics_location_check"),
         CheckConstraint("transport_mode IN ('none', 'institution', 'third_party')", name="logistics_transport_check"),
     )
     event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), primary_key=True)
