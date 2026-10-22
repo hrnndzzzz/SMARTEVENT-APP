@@ -100,14 +100,19 @@ void main() {
     expect(find.textContaining('needs the modality to be online'), findsOneWidget);
   });
 
-  testWidgets('Part 1 offers all three of the paper settings', (tester) async {
-    await tester.pumpWidget(host(SapPart1Screen(form: blankForm())));
+  testWidgets('Part 1 shows the setting but does not ask again', (
+    tester,
+  ) async {
+    // Choosing happens on the cover, before any of this, because it
+    // decides what the form will ask for. See sap_cover_test.dart.
+    final form = blankForm()
+      ..updateDetails((d) => d.copyWith(setting: SapSetting.onCampus));
+
+    await tester.pumpWidget(host(SapPart1Screen(form: form)));
     await tester.pumpAndSettle();
 
     expect(find.text('In campus'), findsOneWidget);
-    expect(find.text('Off campus'), findsOneWidget);
-    expect(find.text('Online'), findsWidgets);
-    // What off campus then requires is in off_campus_test.dart.
+    expect(find.text('Off campus'), findsNothing);
     expect(
       find.textContaining('separate CHED compliance workflow'),
       findsNothing,

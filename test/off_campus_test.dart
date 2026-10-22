@@ -28,24 +28,17 @@ SapForm formSet(SapSetting setting, {bool acknowledged = false}) {
 }
 
 void main() {
-  testWidgets('off campus is offered at all', (tester) async {
+  // Choosing off campus, and what it then means, is asked on the cover
+  // before the form starts — see sap_cover_test.dart. What is left here
+  // is the part that needs an event to exist: attaching the ROC or COC.
+
+  testWidgets('Part 1 shows which setting was chosen', (tester) async {
     await tester.pumpWidget(
-      host(SapPart1Screen(form: SapForm(eventId: 'e1'))),
+      host(SapPart1Screen(form: formSet(SapSetting.offCampus))),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('Off campus'), findsOneWidget);
-  });
-
-  testWidgets('choosing it spells out what it means', (tester) async {
-    await tester.pumpWidget(host(SapPart1Screen(form: formSet(SapSetting.offCampus))));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('Thirty days of notice'), findsOneWidget);
-    expect(
-      find.textContaining('A signed ROC or COC attached'),
-      findsOneWidget,
-    );
   });
 
   testWidgets('and offers somewhere to attach it', (tester) async {

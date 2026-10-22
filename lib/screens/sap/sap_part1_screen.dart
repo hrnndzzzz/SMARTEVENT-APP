@@ -440,61 +440,29 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ),
               const SizedBox(height: 18),
 
-              SapSingleChoice<SapSetting>(
-                label: 'Setting',
-                options: SapSetting.values,
-                labelOf: (s) => s.label,
-                value: d.setting,
-                enabled: _editable,
-                onChanged: (s) =>
-                    _form.updateDetails((x) => x.copyWith(setting: s)),
-              ),
-              // Off campus carries conditions the other two do not, and
-              // the server refuses the proposal without the
-              // acknowledgement, so the form asks for it here rather
-              // than letting submission fail three parts later.
-              if (d.setting == SapSetting.offCampus) ...[
-                const SizedBox(height: 10),
-                BrutCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Going off campus means all of this:',
-                        style: AppText.cardTitle,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '\u2022  Thirty days of notice, counted from the '
-                        'date of proposal.\n'
-                        '\u2022  A signed ROC or COC attached before it is '
-                        'sent.\n'
-                        '\u2022  The parents\u2019 consent forms on file.',
-                        style: AppText.body,
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: BrutChip(
-                          // No tick glyph: the button label font has
-                          // none, and it renders as an empty box. The
-                          // selected fill says it well enough.
-                          label: d.offCampusAgreement
-                              ? 'Acknowledged'
-                              : 'I acknowledge these',
-                          selected: d.offCampusAgreement,
-                          onTap: _editable
-                              ? () => _form.updateDetails(
-                                  (x) => x.copyWith(
-                                    offCampusAgreement: !x.offCampusAgreement,
-                                  ),
-                                )
-                              : () {},
-                        ),
-                      ),
-                    ],
+              // The setting was chosen on the cover, before any of this,
+              // because it decides what the form will ask for. Shown
+              // here so it is visible where it belongs on the paper, and
+              // changed by going back to the cover rather than asked for
+              // twice in two places.
+              const MonoLabel('Setting'),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                    Icons.place_outlined,
+                    size: 16,
+                    color: context.palette.ink,
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Text(
+                    d.setting?.label ?? 'Not chosen',
+                    style: AppText.cardTitle.copyWith(fontSize: 14),
+                  ),
+                ],
+              ),
+              if (d.setting == SapSetting.offCampus) ...[
+                const SizedBox(height: 14),
                 if (!d.offCampusAgreement) ...[
                   const SizedBox(height: 8),
                   const BrutInlineMessage(
