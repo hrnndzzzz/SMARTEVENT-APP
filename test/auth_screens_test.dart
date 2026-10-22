@@ -146,6 +146,12 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('your organization'), findsOneWidget);
-    expect(find.text('Upload letter'), findsOneWidget);
+    // The control is a round corner button now, like downloading a
+    // report, so its name is its tooltip rather than a visible label.
+    expect(
+      find.byTooltip('Upload letter'),
+      findsOneWidget,
+      reason: 'the adviser may upload',
+    );
   });
 }
