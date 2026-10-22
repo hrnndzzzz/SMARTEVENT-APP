@@ -174,13 +174,19 @@ class MoneyFigures extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var row = 0; row < 2; row++) ...[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: cells[row * 2]),
-              const SizedBox(width: 10),
-              Expanded(child: cells[row * 2 + 1]),
-            ],
+          // IntrinsicHeight, because stretching a Row's children needs a
+          // height to stretch to and this sits in a scrollable, where
+          // there is none. Without it the row cannot lay out and the
+          // screen comes up with the first two figures and nothing else.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: cells[row * 2]),
+                const SizedBox(width: 10),
+                Expanded(child: cells[row * 2 + 1]),
+              ],
+            ),
           ),
           if (row == 0) const SizedBox(height: 10),
         ],

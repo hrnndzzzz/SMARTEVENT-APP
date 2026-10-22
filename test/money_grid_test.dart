@@ -1,5 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartevent/screens/money_screen.dart';
+import 'package:smartevent/state/app_state.dart';
+import 'package:smartevent/state/user_role.dart';
+import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
 
 /// The four figures were one card split by hairlines, which gave the
@@ -36,5 +42,59 @@ void main() {
     }
 
     expect(previous, 2, reason: 'should end red');
+  });
+
+  group('it actually lays out', () {
+    // The colour rule was unit-tested and the layout was not, so a Row
+    // stretching its children inside a scrollable — where there is no
+    // height to stretch to — shipped. The screen came up with the first
+    // two figures and nothing else at all.
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    testWidgets('all four figures are on the screen', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1200));
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: app,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: MoneyFigures(app: app, onPending: () {}),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      for (final label in ['ALLOCATED', 'SPENT', 'LEFT', 'PENDING']) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+    });
+
+    testWidgets('and nothing overflows laying them out', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1200));
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: app,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: MoneyFigures(app: app, onPending: () {}),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.takeException(), isNull);
+    });
   });
 }
