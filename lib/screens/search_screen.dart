@@ -6,9 +6,12 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'event_detail_screen.dart';
+import 'search_destinations.dart';
+import 'inventory_screen.dart';
+import 'categories_screen.dart';
 import '../theme/peso.dart';
 
-enum _ResultType { event, transaction }
+enum _ResultType { event, transaction, category, item, place }
 
 class _SearchResult {
   final _ResultType type;
@@ -20,6 +23,14 @@ class _SearchResult {
   final List<String> tags;
   final EventItem? event;
 
+  /// Where tapping this goes, when it is not an event.
+  final Widget Function()? destination;
+
+  /// Words that should find this but are not worth showing. Someone
+  /// looking for "receipts" should land on the scanner even though the
+  /// screen is called something else.
+  final List<String> also;
+
   _SearchResult({
     required this.type,
     required this.title,
@@ -29,6 +40,8 @@ class _SearchResult {
     this.category,
     this.tags = const [],
     this.event,
+    this.destination,
+    this.also = const [],
   });
 }
 
@@ -79,6 +92,32 @@ class _SearchScreenState extends State<SearchScreen> {
           amount: '-${peso(ex.amount)}',
           category: ex.category,
         ),
+      for (final c in app.categories)
+        _SearchResult(
+          type: _ResultType.category,
+          title: c.name,
+          subtitle: 'Budget category',
+          timestamp: peso(c.allocatedBudget, decimals: 0),
+          destination: () => const CategoriesScreen(),
+        ),
+      for (final item in app.catalog)
+        _SearchResult(
+          type: _ResultType.item,
+          title: item.itemName,
+          subtitle: 'Inventory',
+          timestamp: '${item.quantity} ${item.unit} on hand',
+          destination: () => const InventoryScreen(),
+        ),
+
+      for (final place in SearchDestination.all)
+        _SearchResult(
+          type: _ResultType.place,
+          title: place.title,
+          subtitle: place.about,
+          timestamp: 'Go there',
+          also: place.words,
+          destination: place.open,
+        ),
     ];
 
     final query = _controller.text.trim().toLowerCase();
@@ -96,7 +135,14 @@ class _SearchScreenState extends State<SearchScreen> {
           r.type == _ResultType.event ||
           r.category == _category;
       if (!matchesType || !matchesCategory) return false;
-      if (query.isEmpty) return true;
+      // A place is an answer to a question, not something to browse, so
+      // it only shows once something has been typed.
+      if (query.isEmpty) return r.type != _ResultType.place;
+      if (r.type == _ResultType.place) {
+        return SearchDestination.all
+            .firstWhere((d) => d.title == r.title)
+            .matches(query);
+      }
       return r.title.toLowerCase().contains(query) ||
           r.subtitle.toLowerCase().contains(query);
     }).toList();
@@ -160,15 +206,24 @@ class _SearchScreenState extends State<SearchScreen> {
                                 for (final r in results) ...[
                                   _ResultCard(
                                     result: r,
-                                    onTap: r.event == null
-                                        ? null
-                                        : () => Navigator.of(context).push(
+                                    onTap: switch (r) {
+                                      _ when r.event != null => () =>
+                                          Navigator.of(context).push(
                                             MaterialPageRoute(
                                               builder: (_) => EventDetailScreen(
                                                 event: r.event!,
                                               ),
                                             ),
                                           ),
+                                      _ when r.destination != null => () =>
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  r.destination!(),
+                                            ),
+                                          ),
+                                      _ => null,
+                                    },
                                   ),
                                   const SizedBox(height: 10),
                                 ],
