@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import 'sds_proposals_screen.dart';
 import '../widgets/app_header.dart';
 
 /// Proposal letters.
@@ -72,6 +73,28 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
             _ => 'Letters submitted for your organization’s events.',
           }, style: AppText.caption),
           const SizedBox(height: 14),
+
+          // SDS owns Part 4, the checkpoints, the return, the final scan
+          // and Part 6, all of them reached through an event — and the
+          // role is otherwise held to this screen. Without a way across,
+          // the office could be asked to sign what it could not open.
+          if (role?.isLetterOnly ?? false) ...[
+            BrutListRow(
+              title: 'Proposals',
+              meta: 'Part 4 onwards, and the signing',
+              marker: const BrutIconTile(
+                size: 32,
+                icon: Icons.fact_check_outlined,
+                tone: BrutTone.brand,
+              ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SdsProposalsScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           Expanded(
             child: switch (load) {
               _ when load.isLoading && app.letters.isEmpty => const Center(
