@@ -183,11 +183,17 @@ class ReportChart {
     required this.title,
     required this.explanation,
     required this.build,
+    this.selfTitled = false,
   });
 
   final String title;
   final String explanation;
   final Widget Function(BuildContext context) build;
+
+  /// Whether the chart draws its own heading. Two of these are existing
+  /// cards that do, and a tile putting its own title above them showed
+  /// the same words twice.
+  final bool selfTitled;
 
   static List<ReportChart> all({
     required Map<String, double> budgets,
@@ -198,11 +204,13 @@ class ReportChart {
     ReportChart(
       title: 'Allocation vs actual',
       explanation: 'What each category was given against what it has used.',
+      selfTitled: true,
       build: (_) => AllocationVsActualCard(budgets: budgets, spend: spend),
     ),
     ReportChart(
       title: 'Where it went',
       explanation: 'Approved spending split by category.',
+      selfTitled: true,
       build: (_) => ExpenseDistributionCard(spendByCategory: spend),
     ),
     ReportChart(

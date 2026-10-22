@@ -28,25 +28,32 @@ class ReportChartTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  chart.title,
-                  style: AppText.cardTitle.copyWith(fontSize: 13),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                // Two of these are existing cards that draw their own
+                // heading, and a title here put the same words above
+                // them twice.
+                child: chart.selfTitled
+                    ? const SizedBox.shrink()
+                    : Text(
+                        chart.title,
+                        style: AppText.cardTitle.copyWith(fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
               Icon(Icons.open_in_full, size: 14, color: context.palette.ink),
             ],
           ),
-          const SizedBox(height: 10),
-          // Held to a height so four tiles make an even grid whatever
-          // each chart has to draw.
+          SizedBox(height: chart.selfTitled ? 4 : 10),
+          // Scaled rather than cropped. Held to a height so four tiles
+          // make an even grid, and whatever the chart draws is shrunk to
+          // fit instead of having its bottom cut off.
           SizedBox(
-            height: 132,
-            child: ClipRect(
-              child: OverflowBox(
-                alignment: Alignment.topCenter,
-                maxHeight: double.infinity,
+            height: 150,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 260,
                 child: chart.build(context),
               ),
             ),
