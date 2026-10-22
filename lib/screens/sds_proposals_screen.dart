@@ -6,7 +6,7 @@ import '../state/app_state.dart';
 import '../state/sap_form.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
-import 'sap/sap_form_screen.dart';
+import 'sap/sds_summary_screen.dart';
 
 /// The proposals the SDS Office has work on.
 ///
@@ -98,8 +98,10 @@ class _ProposalCard extends StatelessWidget {
         if (app.isDemoMode) {
           form.seedLocally(state: _sapStateFor(event.status));
         }
+        // The summary, not the six-part form. The office reads this and
+        // decides; it does not fill it in.
         Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => SapFormScreen(form: form)),
+          MaterialPageRoute<void>(builder: (_) => SdsSummaryScreen(form: form)),
         );
       },
       child: Column(
