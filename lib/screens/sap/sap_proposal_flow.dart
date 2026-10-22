@@ -8,9 +8,7 @@ import '../../theme/app_layout.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_cover_screen.dart';
-import 'sap_part1_screen.dart';
-import 'sap_part2_screen.dart';
-import 'sap_part3_screen.dart';
+import 'sap_steps_screen.dart';
 
 /// Filling in a proposal, one part after another.
 ///
@@ -55,62 +53,33 @@ abstract final class SapProposalFlow {
       MaterialPageRoute<void>(
         builder: (_) => SapCoverScreen(
           form: form,
-          onBegin: (coverContext) => _openPart1(coverContext, form),
+          onBegin: (coverContext) => _openSteps(coverContext, form),
         ),
       ),
     );
   }
 
-  static Future<void> _openPart1(BuildContext context, SapForm form) {
+  static Future<void> _openSteps(BuildContext context, SapForm form) {
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SapPart1Screen(
+        builder: (_) => SapStepsScreen(
           form: form,
-          step: 0,
-          onContinue: (partContext) async {
-            await _createEventIfNeeded(partContext, form);
-            if (!partContext.mounted) return;
-            await _openPart2(partContext, form);
-          },
-        ),
-      ),
-    );
-  }
-
-  static Future<void> _openPart2(BuildContext context, SapForm form) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SapPart2Screen(
-          form: form,
-          step: 1,
-          onContinue: (partContext) => _openPart3(partContext, form),
-        ),
-      ),
-    );
-  }
-
-  static Future<void> _openPart3(BuildContext context, SapForm form) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SapPart3Screen(
-          form: form,
-          step: 2,
-          onContinue: (partContext) async {
+          onCreateEvent: (partContext) =>
+              _createEventIfNeeded(partContext, form),
+          onSubmit: (partContext) async {
             final ok = await form.submit();
             if (!partContext.mounted) return;
 
             if (!ok) {
               ScaffoldMessenger.of(partContext).showSnackBar(
-                SnackBar(
-                  content: Text(form.error ?? 'Could not send it.'),
-                ),
+                SnackBar(content: Text(form.error ?? 'Could not send it.')),
               );
               return;
             }
 
             // Out of the three parts entirely: they are not editable
-            // now, so leaving them on the stack to go back into would
-            // be offering something that no longer works.
+            // now, so leaving them to go back into would be offering
+            // something that no longer works.
             Navigator.of(partContext).popUntil((route) => route.isFirst);
             if (partContext.mounted) {
               ScaffoldMessenger.of(partContext).showSnackBar(
