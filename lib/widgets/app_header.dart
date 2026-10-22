@@ -11,6 +11,7 @@ import '../theme/brut.dart';
 import 'account_menu.dart';
 import 'user_avatar.dart';
 import 'connection_banner.dart';
+import 'colour_pulse.dart';
 import 'notification_menu.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
@@ -70,11 +71,23 @@ class AppHeader extends StatelessWidget {
         // One row, three things, all on the same baseline. The role used
         // to sit under the wordmark, which pushed the pill half a line
         // above the two buttons it is supposed to line up with.
+        // The wordmark goes home. On the dashboard, where home already
+        // is, it does the one thing it can usefully do instead of
+        // nothing.
         BrutSurface(
           fill: accent,
           radius: AppRadius.pill,
           shadow: AppShadows.sm,
           padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
+          // Whether it has somewhere to go is a question the navigator
+          // can already answer: anywhere with a route under it is a
+          // screen you arrived at, and the way out is home.
+          semanticLabel: Navigator.of(context).canPop()
+              ? 'Back to the dashboard'
+              : 'SmartEvent',
+          onTap: () => Navigator.of(context).canPop()
+              ? Navigator.of(context).popUntil((route) => route.isFirst)
+              : ColourPulse.show(context),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
