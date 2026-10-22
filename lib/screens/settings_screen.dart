@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_settings.dart';
+import '../state/app_state.dart';
+import '../state/user_role.dart';
+import 'sap/sap_review_demo_screen.dart';
 import '../state/sfx.dart';
 import '../widgets/backend_address_card.dart';
 import '../theme/app_theme.dart';
@@ -66,6 +69,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: settings.reduceMotion,
             onChanged: settings.setReduceMotion,
           ),
+          if (context.watch<AppState>().isDemoMode) ...[
+            const SizedBox(height: 20),
+            const BrutSectionTitle('Demo'),
+            const SizedBox(height: 10),
+            const _DemoRolePicker(),
+            const SizedBox(height: 10),
+            BrutListRow(
+              title: 'Review a proposal',
+              meta: 'The form with a reviewer\'s marks on it',
+              marker: const BrutIconTile(
+                size: 32,
+                icon: Icons.edit_note,
+                tone: BrutTone.mint,
+              ),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SapReviewDemoScreen(),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           const BrutSectionTitle('Backend'),
           const SizedBox(height: 10),
@@ -193,6 +217,72 @@ class _ThemePicker extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(settings.themeMode.explanation, style: AppText.caption),
+      ],
+    );
+  }
+}
+
+/// Which role the demo is being explored as.
+///
+/// The seeded records stay the same; what changes is who is looking at
+/// them. An event reads one way to the officer who proposed it and
+/// another to the office reviewing it, and switching here is how you see
+/// both without signing out.
+class _DemoRolePicker extends StatelessWidget {
+  const _DemoRolePicker();
+
+  /// Every role the app models, in the order the paperwork moves through
+  /// them. Signatory is left out: it reviews in a configured order and
+  /// has nothing seeded to review.
+  static const List<UserRole> _roles = [
+    UserRole.officer,
+    UserRole.treasurer,
+    UserRole.adviser,
+    UserRole.sdsStaff,
+    UserRole.admin,
+    UserRole.superAdmin,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final current = app.currentRole;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // The parent Column stretches its children, which would make
+        // every chip full width and stack them one per row. Align lets
+        // the Wrap size itself so they sit in rows of two or three.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final role in _roles)
+                // BrutChip paints into a Container with an alignment and
+                // no width, and that fills whatever it is given — so in a
+                // Wrap every chip would take the full row. IntrinsicWidth
+                // holds each one to its own label.
+                IntrinsicWidth(
+                  child: BrutChip(
+                    label: role.label,
+                    selected: role == current,
+                    onTap: () => context.read<AppState>().switchDemoRole(role),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        BrutInlineMessage(
+          tone: BrutTone.neutral,
+          icon: Icons.swap_horiz,
+          text:
+              'Looking at the same seeded records as '
+              '${current?.label ?? 'nobody'}. Nothing is sent anywhere.',
+        ),
       ],
     );
   }

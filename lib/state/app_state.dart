@@ -2398,6 +2398,19 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Swaps which role the demo is being explored as.
+  ///
+  /// The seeded data stays: an event looks different to an officer, an
+  /// adviser and the SDS Office, and switching between them on the same
+  /// records is the point. Does nothing outside the demo, so a real
+  /// session can never change its own role.
+  void switchDemoRole(UserRole role) {
+    if (!_demoMode || role == currentRole) return;
+    currentAccount = DemoData.account(role);
+    currentRole = role;
+    notifyListeners();
+  }
+
   /// Bridges `/auth/me` into the local account model.
   ///
   /// Returns an error message when the role is unrecognized, so the caller
