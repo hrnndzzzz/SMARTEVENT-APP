@@ -338,6 +338,7 @@ class ApiClient {
       status,
       _messageFor(status, detail),
       fieldErrors: _fieldErrorsFor(detail),
+      detail: detail,
     );
   }
 
@@ -411,10 +412,23 @@ class DemoUnavailable implements Exception {
 }
 
 class ApiException implements Exception {
-  ApiException(this.statusCode, this.message, {this.fieldErrors = const {}});
+  ApiException(
+    this.statusCode,
+    this.message, {
+    this.fieldErrors = const {},
+    this.detail,
+  });
 
   final int statusCode;
   final String message;
+
+  /// The backend's own `detail`, as it was parsed.
+  ///
+  /// [message] and [fieldErrors] cover the two shapes FastAPI sends by
+  /// default. Some routes send a structured object instead — the roster
+  /// import answers a bad workbook with every bad row — and flattening
+  /// that to one sentence throws away the part worth showing.
+  final Object? detail;
 
   /// Field name -> validation message, populated for 422 responses.
   final Map<String, String> fieldErrors;

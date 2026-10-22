@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../api/models/roster_import.dart';
+import '../api/api_client.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_layout.dart';
@@ -135,16 +138,130 @@ class _RosterTab extends StatelessWidget {
         Positioned(
           right: 0,
           bottom: AppLayout.gutter,
-          child: FloatingActionButton.extended(
-            onPressed: () => BrutSheet.show<void>(
-              context,
-              builder: (_) => const _AddRosterSheet(),
-            ),
-            icon: const Icon(Icons.person_add_alt),
-            label: Text('Add to roster', style: AppText.buttonLabel),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // A roster arrives as a spreadsheet far more often than one
+              // name at a time, and the route for it was already there
+              // with nothing calling it.
+              FloatingActionButton(
+                heroTag: 'roster-import',
+                onPressed: () => _importRoster(context),
+                tooltip: 'Upload a roster',
+                child: const Icon(Icons.upload_file),
+              ),
+              const SizedBox(width: 10),
+              FloatingActionButton.extended(
+                heroTag: 'roster-add',
+                onPressed: () => BrutSheet.show<void>(
+                  context,
+                  builder: (_) => const _AddRosterSheet(),
+                ),
+                icon: const Icon(Icons.person_add_alt),
+                label: Text('Add to roster', style: AppText.buttonLabel),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Picks a workbook and sends it.
+///
+/// A refusal names every bad row rather than stopping at the first, so
+/// it opens a sheet listing them instead of a one-line snackbar: a
+/// roster of two hundred with four bad emails needs those four pointed
+/// at, not a count of them.
+Future<void> _importRoster(BuildContext context) async {
+  final picked = await FilePicker.pickFiles(
+    dialogTitle: 'Choose the roster workbook',
+    type: FileType.custom,
+    allowedExtensions: const ['xlsx'],
+  );
+  final file = picked.firstOrNull;
+  if (file == null || !context.mounted) return;
+
+  final bytes = await file.readAsBytes();
+  if (!context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final result = await context.read<AppState>().importRoster(
+      bytes: bytes,
+      filename: file.name,
+    );
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          '${result.insertedCount} '
+          '${result.insertedCount == 1 ? 'person' : 'people'} added. '
+          'They can create an account now.',
+        ),
+      ),
+    );
+  } on RosterImportRejected catch (rejected) {
+    if (!context.mounted) return;
+    await BrutSheet.show<void>(
+      context,
+      builder: (_) => _RosterErrorsSheet(errors: rejected.errors),
+    );
+  } on ArgumentError catch (error) {
+    messenger.showSnackBar(SnackBar(content: Text('${error.message}')));
+  } catch (error) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          error is ApiException ? error.message : 'Could not read that file.',
+        ),
+      ),
+    );
+  }
+}
+
+/// Every row the workbook got wrong.
+class _RosterErrorsSheet extends StatelessWidget {
+  const _RosterErrorsSheet({required this.errors});
+
+  final List<RosterRowError> errors;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutSheet(
+      title: 'Nothing was added',
+      subtitle:
+          'The whole workbook is checked before any of it goes on, so '
+          'fix these and upload it again.',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final error in errors) ...[
+            BrutCard(
+              tone: BrutTone.coral,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MonoLabel('Row ${error.row} · ${error.column}', fontSize: 10),
+                  const SizedBox(height: 4),
+                  Text(error.message, style: AppText.body),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 4),
+          BrutInlineMessage(
+            tone: BrutTone.neutral,
+            icon: Icons.table_chart_outlined,
+            text:
+                'The columns it looks for: '
+                '${RosterWorkbook.headers.join(', ')}.',
+          ),
+        ],
+      ),
     );
   }
 }

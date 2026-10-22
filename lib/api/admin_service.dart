@@ -1,5 +1,6 @@
 import '../state/user_role.dart';
 import 'api_client.dart';
+import 'models/roster_import.dart';
 import 'models/admin.dart';
 import 'models/scope.dart';
 import 'models/user_profile.dart';
@@ -60,6 +61,40 @@ class AdminService {
       },
     );
     return RosterEntry.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// `POST /cite-members/import` — a whole roster from one workbook.
+  ///
+  /// The server validates all of it before inserting any of it, so a bad
+  /// row means nothing was added and every bad row is named. That comes
+  /// back as [RosterImportRejected] rather than a single message,
+  /// because a roster of two hundred with four bad emails needs those
+  /// four pointed at.
+  ///
+  /// Throws [ArgumentError] when the file is one the server would refuse
+  /// outright, rather than spending the upload to find out.
+  Future<RosterImportResult> importRoster({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final problem = RosterWorkbook.problemWith(filename, bytes.length);
+    if (problem != null) throw ArgumentError(problem);
+
+    try {
+      final response = await _client.upload(
+        '/cite-members/import',
+        field: 'file',
+        bytes: bytes,
+        filename: filename,
+        contentType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      return RosterImportResult.fromJson(response as Map<String, dynamic>);
+    } on ApiException catch (error) {
+      final rejected = RosterImportRejected.from(error.detail ?? const <String, Object?>{});
+      if (rejected != null) throw rejected;
+      rethrow;
+    }
   }
 
   /// Role and position only — name and email are **not** editable, because

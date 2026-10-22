@@ -5,6 +5,7 @@ import '../api/category_service.dart';
 import '../api/models/academic.dart';
 import '../api/models/admin.dart';
 import '../api/admin_service.dart';
+import '../api/models/roster_import.dart';
 import '../api/models/category.dart';
 import '../api/models/income.dart';
 import '../api/models/inventory.dart';
@@ -612,6 +613,27 @@ class AppState extends ChangeNotifier {
     } catch (error) {
       return _messageForFailure(error);
     }
+  }
+
+  /// Puts a whole roster on from one workbook.
+  ///
+  /// Returns the result on success. A workbook the server would not take
+  /// comes back as [RosterImportRejected], carrying every bad row, so the
+  /// caller can show them rather than one flattened sentence.
+  ///
+  /// The roster is reloaded afterwards rather than having the new rows
+  /// pushed onto it: the import can add two hundred, and what the list
+  /// should show is whatever the server now holds.
+  Future<RosterImportResult> importRoster({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final result = await _adminService.importRoster(
+      bytes: bytes,
+      filename: filename,
+    );
+    await loadRoster();
+    return result;
   }
 
   Future<String?> updateRosterEntry(
