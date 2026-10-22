@@ -87,19 +87,27 @@ class HomeScreen extends StatelessWidget {
             icon: Icons.calendar_month_outlined,
             onTap: () => BrutSheet.show<void>(
               context,
-              builder: (_) => BrutSheet(
+              builder: (sheetContext) => BrutSheet(
                 title: 'Planner',
                 subtitle: 'Everything with a date on it.',
-                child: EventCalendar(
-                  events: app.events,
-                  onOpen: (event) {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => EventDetailScreen(event: event),
-                      ),
-                    );
-                  },
+                // The calendar is a ListView, which wants all the height
+                // there is; the sheet sizes itself to its content, which
+                // offers none. Unbounded inside a sheet means nothing
+                // renders at all, so it is given most of the screen and
+                // scrolls inside that.
+                child: SizedBox(
+                  height: MediaQuery.sizeOf(sheetContext).height * 0.62,
+                  child: EventCalendar(
+                    events: app.events,
+                    onOpen: (event) {
+                      Navigator.of(sheetContext).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => EventDetailScreen(event: event),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
