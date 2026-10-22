@@ -7,6 +7,9 @@ import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../theme/palette.dart';
+import '../widgets/account_menu.dart';
+import '../widgets/event_calendar.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_progress_bar.dart';
 import 'event_detail_screen.dart';
@@ -74,8 +77,32 @@ class HomeScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppLayout.section),
-          MonoLabel(
-            '${_days[now.weekday - 1]} / ${_months[now.month - 1]} ${now.day}',
+          // The date opens the planner and the scope line opens the
+          // account: both were small grey captions that looked like
+          // decoration, so both now carry a chevron and a tap target.
+          _HeaderLine(
+            label:
+                '${_days[now.weekday - 1]} / ${_months[now.month - 1]} '
+                '${now.day}',
+            icon: Icons.calendar_month_outlined,
+            onTap: () => BrutSheet.show<void>(
+              context,
+              builder: (_) => BrutSheet(
+                title: 'Planner',
+                subtitle: 'Everything with a date on it.',
+                child: EventCalendar(
+                  events: app.events,
+                  onOpen: (event) {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => EventDetailScreen(event: event),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -84,7 +111,11 @@ class HomeScreen extends StatelessWidget {
           ),
           if (AppHeader.scopeLineFor(app) case final scope?) ...[
             const SizedBox(height: 6),
-            MonoLabel(scope),
+            _HeaderLine(
+              label: scope,
+              icon: Icons.badge_outlined,
+              onTap: () => AccountMenu.show(context),
+            ),
           ],
           const SizedBox(height: AppLayout.section),
 
@@ -436,6 +467,50 @@ class _RecordButton extends StatelessWidget {
         Icons.document_scanner_outlined,
         size: 28,
         color: AppColors.ink,
+      ),
+    );
+  }
+}
+
+/// One of the two lines framing the greeting.
+///
+/// Both used to be plain mono captions, which read as decoration and
+/// hid what they lead to: the date opens the planner, the scope line
+/// opens the account. Bigger, with an icon and a chevron, and a tap
+/// target tall enough for a thumb.
+class _HeaderLine extends StatelessWidget {
+  const _HeaderLine({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = context.palette.ink;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.controlAll,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: ink),
+              const SizedBox(width: 6),
+              MonoLabel(label, fontSize: 13, color: ink),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_right, size: 16, color: ink),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -206,16 +206,24 @@ class _BellWithBadgeState extends State<_BellWithBadge>
         else
           AnimatedBuilder(
             animation: _controller,
-            builder: (context, child) {
+            builder: (context, _) {
               final p = _phase(_controller.value);
               // Three shakes across the swell, fading in and out at the
               // ends so it never starts or stops with a jolt.
               final envelope = p == 0 ? 0.0 : math.sin(p * math.pi);
-              final angle =
-                  math.sin(p * math.pi * 6) * 0.14 * envelope;
-              return Transform.rotate(angle: angle, child: child);
+              final angle = math.sin(p * math.pi * 6) * 0.14 * envelope;
+
+              // The bell rings; the box it sits in does not. Rotating the
+              // whole button turned the square, which read as the
+              // interface wobbling rather than something arriving. The
+              // box pulses red once instead, on the same swell.
+              return _RingingBell(
+                angle: angle,
+                flush: envelope,
+                count: count,
+                onPressed: () => NotificationMenu.show(context),
+              );
             },
-            child: bell,
           ),
         Positioned(
           right: -5,
@@ -274,3 +282,47 @@ class _Badge extends StatelessWidget {
   }
 }
 
+/// The bell mid-ring: the icon turns, the box flushes red, the square
+/// stays square.
+class _RingingBell extends StatelessWidget {
+  const _RingingBell({
+    required this.angle,
+    required this.flush,
+    required this.count,
+    required this.onPressed,
+  });
+
+  /// Radians to turn the bell by, this frame.
+  final double angle;
+
+  /// 0 to 1 across the swell, for how red the box is.
+  final double flush;
+
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final resting = BrutTone.neutral.fill(context);
+
+    return BrutSurface(
+      onTap: onPressed,
+      semanticLabel: 'Notifications, $count unread',
+      fill: Color.lerp(resting, AppColors.coral, flush * 0.85) ?? resting,
+      radius: AppRadius.controlAll,
+      shadow: AppShadows.sm,
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
+      child: Transform.rotate(
+        angle: angle,
+        child: Icon(
+          Icons.notifications_none,
+          size: 38 * 0.45,
+          color: palette.ink,
+        ),
+      ),
+    );
+  }
+}

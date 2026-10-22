@@ -84,15 +84,25 @@ class UserAvatar extends StatelessWidget {
       );
     }
 
-    return Container(
+    // Clipped and bordered separately, on purpose. A Container with a
+    // circular shape clips the child and then paints its border over the
+    // result, and the child still fills the square underneath — which
+    // left the corners showing through at the edge of the circle.
+    return SizedBox(
       width: size,
       height: size,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.ink, width: 2),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipOval(child: inner),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.ink, width: 2),
+            ),
+          ),
+        ],
       ),
-      child: inner,
     );
   }
 }
