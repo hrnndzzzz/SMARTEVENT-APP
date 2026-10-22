@@ -39,7 +39,10 @@ class MoneyScreen extends StatelessWidget {
           const SizedBox(height: AppLayout.section),
           const Text('Money', style: AppText.display),
           const SizedBox(height: AppLayout.section),
-          _Strip(app: app),
+          MoneyFigures(
+            app: app,
+            onPending: () => _go(context, const ExpensesScreen()),
+          ),
           const SizedBox(height: AppLayout.tight),
           _UsedBar(app: app),
           const SizedBox(height: AppLayout.section),
@@ -101,43 +104,136 @@ class MoneyScreen extends StatelessWidget {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 }
 
-/// Four figures, split by rules, the way a summary card reads.
-class _Strip extends StatelessWidget {
-  const _Strip({required this.app});
+/// The four figures, as four boxes.
+///
+/// They were one orange card split by hairlines, which gave equal weight
+/// to a number that is only context (what was allocated) and a number
+/// that is a warning (how little is left). Separate boxes, each coloured
+/// by what it is actually saying.
+///
+/// Spent and Left are not inflow and outflow. Inflow and outflow are
+/// money arriving and money leaving; these are budget consumed and
+/// budget remaining, which is a different question and the one a
+/// treasurer is asking here.
+class MoneyFigures extends StatelessWidget {
+  const MoneyFigures({
+    super.key,
+    required this.app,
+    required this.onPending,
+  });
 
   final AppState app;
 
+  /// Pending is a queue, so it goes somewhere. The others are totals.
+  final VoidCallback onPending;
+
+  /// Green while there is room, amber as it tightens, red when it is
+  /// nearly gone. The thresholds are the same ones the progress bar on
+  /// this screen already uses, so the two never disagree.
+  static BrutTone toneForUsed(double fraction) => switch (fraction) {
+    >= 0.9 => BrutTone.coral,
+    >= 0.7 => BrutTone.sun,
+    _ => BrutTone.mint,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final figures = [
-      ('Allocated', '${peso(app.totalAllocated, decimals: 0)}'),
-      ('Spent', '${peso(app.totalExpended, decimals: 0)}'),
-      ('Left', '${peso(app.remainingBalance, decimals: 0)}'),
-      ('Pending', '${app.pendingExpenses.length}'),
+    final allocated = app.totalAllocated;
+    final spent = app.totalExpended;
+    final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
+    final pending = app.pendingExpenses.length;
+
+    final cells = <_Figure>[
+      _Figure(
+        label: 'Allocated',
+        value: peso(allocated, decimals: 0),
+        // Context, not a verdict: what was given, before any judgement
+        // about how it is going.
+        tone: BrutTone.neutral,
+      ),
+      _Figure(
+        label: 'Spent',
+        value: peso(spent, decimals: 0),
+        tone: toneForUsed(used),
+      ),
+      _Figure(
+        label: 'Left',
+        value: peso(app.remainingBalance, decimals: 0),
+        tone: toneForUsed(used),
+      ),
+      _Figure(
+        label: 'Pending',
+        value: '$pending',
+        tone: pending == 0 ? BrutTone.neutral : BrutTone.sun,
+        onTap: onPending,
+        hint: pending == 0 ? null : 'Waiting on a decision',
+      ),
     ];
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var row = 0; row < 2; row++) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: cells[row * 2]),
+              const SizedBox(width: 10),
+              Expanded(child: cells[row * 2 + 1]),
+            ],
+          ),
+          if (row == 0) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+/// One of the four.
+class _Figure extends StatelessWidget {
+  const _Figure({
+    required this.label,
+    required this.value,
+    required this.tone,
+    this.onTap,
+    this.hint,
+  });
+
+  final String label;
+  final String value;
+  final BrutTone tone;
+  final VoidCallback? onTap;
+
+  /// A second line, when the figure needs one.
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
     return BrutCard(
-      tone: BrutTone.orange,
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-      child: Row(
+      tone: tone,
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < figures.length; i++) ...[
-            Expanded(
-              child: Column(
-                children: [
-                  Text(
-                    figures[i].$2,
-                    style: AppText.moneyLarge.copyWith(fontSize: 17),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  MonoLabel(figures[i].$1, fontSize: 9),
-                ],
-              ),
-            ),
-            if (i != figures.length - 1)
-              Container(width: 2, height: 36, color: context.palette.ink),
+          Row(
+            children: [
+              Expanded(child: MonoLabel(label, fontSize: 10)),
+              if (onTap != null)
+                Icon(Icons.chevron_right, size: 16, color: context.palette.ink),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: AppText.moneyLarge.copyWith(fontSize: 22),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (hint case final line?) ...[
+            const SizedBox(height: 4),
+            Text(line, style: AppText.caption.copyWith(fontSize: 11)),
           ],
         ],
       ),
