@@ -60,6 +60,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
             'Stock changes only through recorded movements.',
             style: AppText.caption,
           ),
+          const SizedBox(height: 2),
+
+          // Where items come from was explained only on the empty
+          // screen, so anyone with a list in front of them could not
+          // tell whether an item was theirs to make or something the
+          // system had produced. Kept to one line: this sits above the
+          // list, and the keyboard has to fit under it.
+          const Text(
+            'They come from completing a purchase, or you add one by hand.',
+            style: AppText.caption,
+          ),
           const SizedBox(height: 12),
           const _FilterBar(),
           const SizedBox(height: 8),
@@ -174,7 +185,9 @@ class _ItemCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               if (item.isDraft)
-                const BrutBadge(label: 'Unconfirmed draft', tone: BrutTone.sun),
+                // Says where it came from, not only what state it is in:
+                // "draft" alone does not tell you a purchase made it.
+                const BrutBadge(label: 'From a purchase', tone: BrutTone.sun),
               if (item.isLowStock)
                 BrutBadge(
                   label: 'Low stock (≤ ${item.lowStockThreshold})',
