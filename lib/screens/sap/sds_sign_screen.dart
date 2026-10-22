@@ -125,8 +125,8 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
             eyebrow: 'SDS Office',
             onBack: () => Navigator.of(context).maybePop(),
           ),
+          // One back button, in the header, as on the three steps.
           footer: BrutFooter(
-            onBack: () => Navigator.of(context).maybePop(),
             child: BrutButton(
               label: 'Sign the proposal',
               icon: Icons.draw_outlined,
