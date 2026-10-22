@@ -16,6 +16,11 @@ import '../theme/palette.dart';
 /// "which way is the menu" is on screen rather than something you have to
 /// remember.
 class PageIndicator extends StatelessWidget {
+  /// Where the marker is solid and where it falls away. See
+  /// [_Segment._markerForImpl].
+  static Gradient markerFor(int position, int count, Color colour) =>
+      _Segment._markerForImpl(position, count, colour);
+
   const PageIndicator({
     super.key,
     required this.current,
@@ -73,6 +78,8 @@ class PageIndicator extends StatelessWidget {
                   icon: _icons[i % _icons.length],
                   active: i == current,
                   bar: bar,
+                  position: i,
+                  count: labels.length,
                   onTap: () => onGo(i),
                 ),
               ),
@@ -89,8 +96,32 @@ class _Segment extends StatelessWidget {
     required this.icon,
     required this.active,
     required this.bar,
+    required this.position,
+    required this.count,
     required this.onTap,
   });
+
+  /// Where the marker is solid and where it falls away.
+  ///
+  /// Solid along the outside edge of the bar and fading towards the
+  /// middle: the first destination holds its left, the last holds its
+  /// right, and anything between them fades at both ends. It points
+  /// outward to the edge you are nearest, instead of sitting as a flat
+  /// block that looks the same wherever it lands.
+  static Gradient _markerForImpl(int position, int count, Color colour) {
+    final soft = colour.withValues(alpha: 0.35);
+
+    if (count <= 1) {
+      return LinearGradient(colors: [soft, colour, soft]);
+    }
+    if (position == 0) {
+      return LinearGradient(colors: [colour, soft]);
+    }
+    if (position == count - 1) {
+      return LinearGradient(colors: [soft, colour]);
+    }
+    return LinearGradient(colors: [soft, colour, soft]);
+  }
 
   final String label;
   final IconData icon;
@@ -99,6 +130,9 @@ class _Segment extends StatelessWidget {
   /// What this sits on, so the foreground can be measured against it
   /// rather than assumed.
   final Color bar;
+
+  final int position;
+  final int count;
 
   final VoidCallback onTap;
 
@@ -127,7 +161,9 @@ class _Segment extends StatelessWidget {
                 : AppMotion.press,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
-              color: active ? chosen : Colors.transparent,
+              gradient: active
+                  ? PageIndicator.markerFor(position, count, chosen)
+                  : null,
               borderRadius: BorderRadius.circular(10),
             ),
             // The glyph carries the place and the word underneath names

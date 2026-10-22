@@ -46,14 +46,17 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
         role.hasOperationalAccess;
 
     return BrutScreen(
+      // A round button in the corner, the same as downloading a report
+      // and scanning a receipt: the one action on the screen, where a
+      // thumb already is, rather than a wide bar across the bottom.
       floatingActionButton: canUpload
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
               onPressed: () => BrutSheet.show<void>(
                 context,
                 builder: (_) => const _UploadSheet(),
               ),
-              icon: const Icon(Icons.upload_file),
-              label: Text('Upload letter', style: AppText.buttonLabel),
+              tooltip: 'Upload letter',
+              child: const Icon(Icons.upload_file),
             )
           : null,
       topBar: AppHeader(

@@ -21,7 +21,49 @@ class RiskScreen extends StatefulWidget {
   State<RiskScreen> createState() => _RiskScreenState();
 }
 
+/// How to order the flagged list.
+///
+/// There is no severity on a flagged expense — only a reason, as free
+/// text — so nothing here pretends to rank by how bad something is.
+/// These sort by what the record actually holds. A real severity would
+/// have to come from the backend.
+enum FlagOrder {
+  newest('Newest'),
+  largest('Largest'),
+  reason('By reason');
+
+  const FlagOrder(this.label);
+
+  final String label;
+
+  /// A copy, ordered. The list it is given is left alone.
+  List<RemoteExpense> apply(List<RemoteExpense> flagged) {
+    final sorted = [...flagged];
+    switch (this) {
+      case FlagOrder.newest:
+        sorted.sort((a, b) {
+          final left = a.expenseDate ?? a.createdAt;
+          final right = b.expenseDate ?? b.createdAt;
+          return right.compareTo(left);
+        });
+      case FlagOrder.largest:
+        sorted.sort((a, b) => b.amount.compareTo(a.amount));
+      case FlagOrder.reason:
+        // Same reasons together, and the ones with no reason last
+        // rather than first, where they would push the rest down.
+        sorted.sort((a, b) {
+          final left = a.flagReason ?? '\uffff';
+          final right = b.flagReason ?? '\uffff';
+          return left.compareTo(right);
+        });
+    }
+    return sorted;
+  }
+}
+
 class _RiskScreenState extends State<RiskScreen> {
+  FlagOrder _order = FlagOrder.newest;
+
   @override
   void initState() {
     super.initState();
@@ -34,7 +76,7 @@ class _RiskScreenState extends State<RiskScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.flaggedLoad;
-    final flagged = app.flaggedExpenses;
+    final flagged = _order.apply(app.flaggedExpenses);
 
     return BrutScreen(
       topBar: AppHeader(
@@ -52,7 +94,27 @@ class _RiskScreenState extends State<RiskScreen> {
             'prompt to look, not a finding.',
             style: AppText.caption,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+          if (flagged.length > 1) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final order in FlagOrder.values)
+                    IntrinsicWidth(
+                      child: BrutChip(
+                        label: order.label,
+                        selected: order == _order,
+                        onTap: () => setState(() => _order = order),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           Expanded(
             child: switch (load) {
               _ when load.isLoading && flagged.isEmpty => const Center(
