@@ -88,7 +88,10 @@ class _CaptureScreenState extends State<CaptureScreen>
   bool _failed = false;
   String? _failure;
 
-  PaperShape _shape = PaperShape.receipt;
+  /// Receipts are what this screen is for. The choice between a strip
+  /// and an A4 sheet was a control on the viewfinder that nothing ever
+  /// set to anything but the strip, and a wrong guess crops the photo.
+  static const PaperShape _shape = PaperShape.receipt;
   bool _torchOn = false;
   bool _torchBusy = false;
   bool _busy = false;
@@ -329,8 +332,6 @@ class _CaptureScreenState extends State<CaptureScreen>
           child: Column(
             children: [
               _Header(
-                shape: _shape,
-                onShape: (s) => setState(() => _shape = s),
                 onBack: () {
                   _teardown();
                   Navigator.of(context).maybePop();
@@ -451,14 +452,8 @@ Future<Uint8List> _cropToGuide(Uint8List bytes, double ratio) async {
 
 /// Back, the step and what is being shot, and the shape toggle.
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.shape,
-    required this.onShape,
-    required this.onBack,
-  });
+  const _Header({required this.onBack});
 
-  final PaperShape shape;
-  final ValueChanged<PaperShape> onShape;
   final VoidCallback onBack;
 
   @override
@@ -519,71 +514,12 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          _ShapeToggle(shape: shape, onChanged: onShape),
         ],
       ),
     );
   }
 }
 
-/// Receipt or document. Two shapes, so a segmented pair.
-class _ShapeToggle extends StatelessWidget {
-  const _ShapeToggle({required this.shape, required this.onChanged});
-
-  final PaperShape shape;
-  final ValueChanged<PaperShape> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Paper shape',
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.pill,
-          border: Border.all(color: Colors.white, width: 2),
-        ),
-        padding: const EdgeInsets.all(2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final option in PaperShape.values)
-              Semantics(
-                inMutuallyExclusiveGroup: true,
-                selected: option == shape,
-                button: true,
-                child: GestureDetector(
-                  onTap: () => onChanged(option),
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: option == shape
-                          ? AppColors.orange
-                          : Colors.transparent,
-                      borderRadius: AppRadius.pill,
-                    ),
-                    child: Text(
-                      option.label.toUpperCase(),
-                      style: AppText.monoLabel.copyWith(
-                        fontSize: 11,
-                        color: option == shape
-                            ? AppColors.ink
-                            : Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// How far along the scan is. Capture, then check and save.
 class _StepBars extends StatelessWidget {
@@ -815,11 +751,11 @@ class _ScrimPainter extends CustomPainter {
       old.width != width || old.height != height;
 }
 
-/// The frame: an outline and four corner brackets.
+/// The frame: a closed outline, with thirds ruled faintly inside it.
 ///
 /// Dashed while the camera is still coming up, solid once it is live.
 /// Neither state claims the paper has been found — nothing here looks
-/// for it.
+/// for it, and the thirds are for squaring up by eye, not a detection.
 class _GuidePainter extends CustomPainter {
   const _GuidePainter({required this.live});
 
@@ -839,25 +775,32 @@ class _GuidePainter extends CustomPainter {
       _dashed(canvas, rect, outline);
     }
 
-    final bracket = Paint()
+    // Thirds, faintly. They are for squaring the paper up against
+    // something straight; at this weight they do not compete with the
+    // receipt underneath.
+    if (live) {
+      final rule = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = Colors.white.withValues(alpha: 0.18);
+
+      for (var i = 1; i < 3; i++) {
+        final x = size.width * i / 3;
+        final y = size.height * i / 3;
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), rule);
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), rule);
+      }
+    }
+
+    // A closed frame rather than four corner brackets. The brackets left
+    // the long sides of a receipt unmarked, which is the edge that is
+    // hardest to line up.
+    final border = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round
-      ..color = AppColors.orange;
-    const arm = 32.0;
-    // On the outline now rather than outside it: at this size there is
-    // no room beyond the frame to put them.
-    const out = 0.0;
-    for (final (dx, dy, sx, sy) in [
-      (0.0, 0.0, 1.0, 1.0),
-      (size.width, 0.0, -1.0, 1.0),
-      (0.0, size.height, 1.0, -1.0),
-      (size.width, size.height, -1.0, -1.0),
-    ]) {
-      final origin = Offset(dx - out * sx, dy - out * sy);
-      canvas.drawLine(origin, origin + Offset(arm * sx, 0), bracket);
-      canvas.drawLine(origin, origin + Offset(0, arm * sy), bracket);
-    }
+      ..strokeJoin = StrokeJoin.round
+      ..color = AppColors.orange.withValues(alpha: live ? 1.0 : 0.6);
+    canvas.drawRect(rect.deflate(2), border);
   }
 
   void _dashed(Canvas canvas, Rect rect, Paint paint) {
