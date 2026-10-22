@@ -6,6 +6,7 @@ import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../theme/palette.dart';
 import 'sap_form_fields.dart';
 
 /// Part 1 — Activity Details.
@@ -314,6 +315,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               // the form opens on it. Department type and department are
               // still sent, taken from the account rather than asked for:
               // an officer cannot belong to a department they must type.
+              _FieldGroup(
+                title: 'The activity',
+                tone: BrutTone.brand,
+                hint: 'What it is called, and whose it is',
+              ),
               BrutTextField(
                 controller: _title,
                 label: 'Activity title',
@@ -364,6 +370,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ),
               const SizedBox(height: 14),
 
+              _FieldGroup(
+                title: 'When',
+                tone: BrutTone.sun,
+                hint: 'And how it is being held',
+              ),
               BrutDateField(
                 label: 'Activity date',
                 value: d.activityDate,
@@ -532,6 +543,10 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ],
               const SizedBox(height: 14),
 
+              _FieldGroup(
+                title: 'Where and who',
+                tone: BrutTone.mint,
+              ),
               BrutTextField(
                 controller: _venue,
                 label: 'Venue',
@@ -560,6 +575,10 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               // they arrive, joined with commas — unlike the core values,
               // which it title-cases. So the stored value has to be the
               // wording the paper uses, not a snake_case key.
+              _FieldGroup(
+                title: 'What kind of activity',
+                tone: BrutTone.violet,
+              ),
               SapMultiChoice<String>(
                 label: 'Activity type',
                 options: const [
@@ -616,6 +635,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 14),
+              _FieldGroup(
+                title: 'Why it is being held',
+                tone: BrutTone.brand,
+                hint: 'The case for it, and what it is meant to achieve',
+              ),
               BrutTextField(
                 controller: _rationale,
                 label: 'Rationale',
@@ -678,6 +702,10 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               _ProgramFlowEditor(form: _form, enabled: _editable),
               const SizedBox(height: 20),
 
+              _FieldGroup(
+                title: 'Safety',
+                tone: BrutTone.coral,
+              ),
               BrutTextField(
                 controller: _emergency,
                 label: 'Emergency plan',
@@ -687,6 +715,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 14),
+              _FieldGroup(
+                title: 'Money',
+                tone: BrutTone.mint,
+                hint: 'The total here; the breakdown comes in step three',
+              ),
               BrutTextField(
                 controller: _budget,
                 label: 'Budget',
@@ -847,6 +880,61 @@ class _ProgramFlowSheetState extends State<_ProgramFlowSheet> {
                     ),
                   )
                 : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A heading over a run of related fields.
+///
+/// Part 1 is twenty-odd fields in one column, which is what our
+/// professor meant by cluttered: the eye has nothing to hold on to and
+/// no sense of how much is left. Grouping them by what they are about —
+/// and giving each group its own colour down the side — turns one long
+/// list into six short ones.
+class _FieldGroup extends StatelessWidget {
+  const _FieldGroup({required this.title, required this.tone, this.hint});
+
+  final String title;
+  final BrutTone tone;
+
+  /// What the group is for, when the name alone does not say.
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 22, bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The colour is the whole point, so it is a solid bar rather
+          // than a tint behind the words, which the dark theme washes
+          // out.
+          Container(
+            width: 5,
+            height: hint == null ? 20 : 34,
+            margin: const EdgeInsets.only(right: 10, top: 2),
+            decoration: BoxDecoration(
+              color: tone.fill(context),
+              borderRadius: AppRadius.controlAll,
+              border: Border.all(color: context.palette.ink, width: 1.5),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title, style: AppText.cardTitle.copyWith(fontSize: 15)),
+                if (hint case final line?) ...[
+                  const SizedBox(height: 2),
+                  Text(line, style: AppText.caption.copyWith(fontSize: 11)),
+                ],
+              ],
+            ),
           ),
         ],
       ),
