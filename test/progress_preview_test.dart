@@ -40,7 +40,7 @@ void main() {
               children: [
                 for (final (title, stage) in const [
                   ('Programming Bootcamp for Freshmen', EventStage.drafting),
-                  ('Hackathon 2026: Code for Campus', EventStage.waiting),
+                  ('Hackathon 2026: Code for Campus', EventStage.withSds),
                   ('Industry Immersion Talk', EventStage.returned),
                   ('CITE Week: Opening Ceremony', EventStage.approved),
                 ]) ...[

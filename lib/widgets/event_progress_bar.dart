@@ -17,10 +17,12 @@ import '../theme/palette.dart';
 /// Amber means someone else has it. Green means it is through.
 enum EventStage {
   drafting('Drafting', 0),
-  waiting('With the reviewers', 1),
   returned('Back with you', 1),
-  approved('Approved', 2),
-  completed('Completed', 3);
+  withModerator('With the moderator', 2),
+  withSds('With the SDS Office', 3),
+  withSignatories('With the signatories', 4),
+  approved('Approved', 5),
+  completed('Completed', 5);
 
   const EventStage(this.label, this.reached);
 
@@ -30,33 +32,39 @@ enum EventStage {
   /// enum's own member, hence the name.
   final int reached;
 
-  static const int segments = 4;
+  static const int segments = 5;
 
   BrutTone get tone => switch (this) {
     EventStage.drafting => BrutTone.neutral,
-    EventStage.waiting => BrutTone.sun,
     EventStage.returned => BrutTone.coral,
-    EventStage.approved => BrutTone.mint,
-    EventStage.completed => BrutTone.mint,
+    EventStage.withModerator ||
+    EventStage.withSds ||
+    EventStage.withSignatories => BrutTone.sun,
+    EventStage.approved || EventStage.completed => BrutTone.mint,
   };
 
   /// What the person looking at it should do, if anything.
   String get note => switch (this) {
     EventStage.drafting => 'Not submitted yet',
-    EventStage.waiting => 'Nothing for you to do',
     EventStage.returned => 'Needs a change from you',
+    EventStage.withModerator => 'Waiting on your moderator',
+    EventStage.withSds => 'Waiting on the SDS Office',
+    EventStage.withSignatories => 'Out for the nine signatures',
     EventStage.approved => 'Ready to run',
     EventStage.completed => 'Closed out',
   };
 
-  /// The three pending stages all read as "with the reviewers": which
-  /// desk it is sitting on is the reviewers' business, and the proposer
-  /// can do nothing differently for any of them.
+  /// Each desk is named rather than collapsed into "with the reviewers".
+  ///
+  /// The proposer can do nothing differently whichever desk has it, which
+  /// was the old argument for saying nothing. But they can see that it
+  /// moved, and a proposal that sat with the moderator for a week is a
+  /// different thing from one that reached the SDS Office yesterday.
   static EventStage of(EventApprovalStatus status) => switch (status) {
     EventApprovalStatus.draft => EventStage.drafting,
-    EventApprovalStatus.pendingAdviser => EventStage.waiting,
-    EventApprovalStatus.pendingAdmin => EventStage.waiting,
-    EventApprovalStatus.pendingInstitutional => EventStage.waiting,
+    EventApprovalStatus.pendingAdviser => EventStage.withModerator,
+    EventApprovalStatus.pendingAdmin => EventStage.withSds,
+    EventApprovalStatus.pendingInstitutional => EventStage.withSignatories,
     EventApprovalStatus.rejected => EventStage.returned,
     EventApprovalStatus.approved => EventStage.approved,
     EventApprovalStatus.completed => EventStage.completed,
