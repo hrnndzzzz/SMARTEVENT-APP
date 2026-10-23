@@ -10,6 +10,7 @@ from app.test_access_management import system
 from app.schemas_sap import Details, BudgetItem, validate_submission
 from app.models_sap import SAPRevision
 from app.services.sap_pdf import render_proposal
+from app.main import app
 
 
 @pytest.mark.parametrize('length', [1500, 4000])
@@ -80,3 +81,36 @@ def test_invalid_budget_quantity_rejected(quantity):
 def test_invalid_unit_cost_rejected(cost):
     with pytest.raises(ValidationError):
         BudgetItem.model_validate({'particulars': 'Snacks', 'amount': '1.00', 'unit_cost': cost})
+
+
+def test_every_sap_success_response_has_a_schema():
+    spec = app.openapi()
+    checked = 0
+    for path, operations in spec['paths'].items():
+        for method, operation in operations.items():
+            if not set(operation.get('tags', [])) & {'SAP', 'SAP verification'}:
+                continue
+            for status, response in operation['responses'].items():
+                if not status.startswith('2'):
+                    continue
+                content = response.get('content', {})
+                if path.endswith('/pdf'):
+                    assert 'application/json' not in content
+                    assert content['application/pdf']['schema'] == {'type': 'string', 'format': 'binary'}
+                else:
+                    assert content['application/json']['schema'], (method, path)
+            checked += 1
+    assert checked >= 20
+    collections = spec['components']['schemas']['SAPCollectionsOut']['properties']
+    assert set(collections) == {'budget-items', 'program-flow', 'support-requests', 'affected-classes'}
+
+
+def test_response_schema_preserves_empty_draft_and_nested_money(sap_system):
+    client, _, _, _, _, base = sap_system
+    empty = client.get(base).json()
+    assert empty['details'] == {}
+    assert empty['clearance'] is None and empty['evaluation'] is None and empty['sds_review'] is None
+    assert empty['collections']['budget-items'] == []
+    result = populate(sap_system)
+    assert isinstance(result['details']['total_budget'], str)
+    assert isinstance(result['collections']['budget-items'][0]['amount'], str)

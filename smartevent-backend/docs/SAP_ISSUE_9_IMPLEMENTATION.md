@@ -35,3 +35,7 @@ changes are authorized merely by running local tests.
 - Schema inspection confirms review/attachment tables exist despite absent migration ledger entry; notification payload does not exist.
 
 - Task 2 complete: budget tests RED (extra fields rejected) then GREEN (15 core tests); existing 31 SAP tests passed with new fields. Budget addendum has four columns; totals remain authoritative.
+
+- Task 3 complete: OpenAPI regression RED (empty response schema) then GREEN; 48 SAP/core tests and full backend 469 passed. Existing dependency deprecation warnings remain.
+- PDF boundary sample rendered with Poppler and visually checked on pages 4-6: 16 maximum-length budget rows, maximum money, quantity 100000, and 4000 information characters fit across addenda. Sample under ignored tmp/pdfs.
+- Ruling: no staging project or local PostgreSQL installation is available. Keep production unchanged; provide opt-in PostgreSQL checks and deployment instructions. Real controlled-recipient email verification remains a deployment gate.

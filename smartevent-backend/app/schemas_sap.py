@@ -1,5 +1,5 @@
 """SAS-SDS-FO-020 version 001: local Manila schedules and paper evidence."""
-from datetime import date, time
+from datetime import date, time, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -214,3 +214,105 @@ class ReviewNotesWrite(Version):
         if any(key not in allowed or not isinstance(text, str) or len(text) > 1000 for key, text in value.items()):
             raise ValueError('Section remarks contain an unsupported section or exceed 1000 characters')
         return {key: text.strip() for key, text in value.items() if text.strip()}
+
+
+# Response models are separate from writes: drafts may contain only a few details.
+# Routes exclude unset fields so reading legacy rows never invents stored values.
+SAPState = Literal['draft', 'pending_sap_review', 'revision_requested', 'sds_signed',
+                   'approved', 'completed', 'rejected']
+
+
+class SAPCollectionsOut(BaseModel):
+    program_flow: list[ProgramItem] = Field(alias='program-flow')
+    budget_items: list[BudgetItem] = Field(alias='budget-items')
+    support_requests: list[SupportRequest] = Field(alias='support-requests')
+    affected_classes: list[AffectedClass] = Field(alias='affected-classes')
+
+
+class SAPAttachmentOut(BaseModel):
+    id: UUID
+    category: str
+    display_name: str
+    file_name: str
+    content_type: str
+    sha256: str
+    uploaded_at: str
+
+
+class SAPReviewOut(BaseModel):
+    overall_remarks: str
+    section_remarks: dict[str, str]
+    signed_by: UUID | None
+    signed_at: str | None
+    signed_pdf_sha256: str | None
+
+
+class SAPEvaluationOut(BaseModel):
+    outcome: Literal['conducted', 'canceled']
+    remarks: str
+    evaluated_by: UUID
+    evaluated_at: datetime
+
+
+class SAPProposalOut(BaseModel):
+    id: UUID
+    event_id: UUID
+    state: SAPState
+    version: int
+    revision_no: int
+    return_remarks: str | None
+    form_code: str
+    form_version: str
+    details: PartialDetails
+    clearance: Clearance | None
+    collections: SAPCollectionsOut
+    attachments: list[SAPAttachmentOut]
+    sds_review: SAPReviewOut | None
+    evaluation: SAPEvaluationOut | None
+
+
+class SAPCheckpointEvidenceOut(BaseModel):
+    signer_name: str
+    signer_reference: str
+    assigned_user_id: UUID | None
+    physical_signature_date: date
+    remarks: str
+    recorded_on_behalf: bool
+
+
+class SAPCheckpointOut(BaseModel):
+    id: UUID
+    slot: int
+    position: str
+    display_label: str
+    revision_no: int
+    status: Literal['recorded', 'pending']
+    actionable: bool
+    evidence: SAPCheckpointEvidenceOut | None
+    recorded_by: UUID | None
+    recorded_at: datetime | None
+
+
+class SAPWorkflowOut(BaseModel):
+    state: SAPState
+    revision_no: int
+    version: int
+    completed_count: int
+    total_count: int
+    steps: list[SAPCheckpointOut]
+
+
+class SAPDownloadOut(BaseModel):
+    url: str
+    expires_in: int
+    sha256: str
+
+
+class SAPVerificationOut(BaseModel):
+    proposal_id: UUID
+    form_code: str
+    form_version: str
+    revision_no: int
+    approval_state: SAPState | Literal['superseded']
+    approved: bool
+    verified_at: datetime
