@@ -65,6 +65,8 @@ class ProgramItem(StrictModel):
 
 class BudgetItem(StrictModel):
     particulars: str = Field(min_length=1, max_length=120)
+    quantity: int = Field(default=1, ge=1, le=100000, strict=True)
+    unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
 
 

@@ -7,7 +7,9 @@ from pydantic import ValidationError
 
 from app.test_sap import sap_system, fixture_data, populate, version
 from app.test_access_management import system
-from app.schemas_sap import Details
+from app.schemas_sap import Details, BudgetItem, validate_submission
+from app.models_sap import SAPRevision
+from app.services.sap_pdf import render_proposal
 
 
 @pytest.mark.parametrize('length', [1500, 4000])
@@ -38,3 +40,43 @@ def test_information_over_limit_rejected_by_draft_and_submission(sap_system):
     data = fixture_data()['details'] | {'additional_information': info}
     with pytest.raises(ValidationError):
         Details.model_validate(data)
+
+
+def test_budget_quantity_and_cost_round_trip_without_recalculating_amount(sap_system):
+    data = fixture_data()
+    row = {'particulars': 'Snacks', 'quantity': 150, 'unit_cost': '10.00', 'amount': '2500.00'}
+    data['collections']['budget-items'] = [row]
+    result = populate(sap_system, data)
+    client, db, _, _, _, base = sap_system
+    assert result['collections']['budget-items'] == [row]
+    assert client.get(base).json()['collections']['budget-items'] == [row]
+    assert db.query(SAPRevision).one().snapshot['collections']['budget-items'] == [row]
+    response = client.get(base + '/pdf')
+    text = '\n'.join(p.extract_text() for p in PdfReader(BytesIO(response.content)).pages)
+    for value in ('Particulars', 'Quantity', 'Unit cost', 'Amount', 'Snacks', '150', '10.00', '2500.00'):
+        assert value in text
+    # Display-only quantity/cost do not change the authoritative amount check.
+    data['details']['total_budget'] = '1500.00'
+    with pytest.raises(ValueError, match='exactly equal'):
+        validate_submission(data['details'], data['collections'], data['clearance'])
+
+
+def test_legacy_budget_defaults_and_printout():
+    row = BudgetItem.model_validate({'particulars': 'Legacy', 'amount': '12.50'})
+    assert row.quantity == 1 and row.unit_cost is None
+    data = fixture_data()
+    data['collections']['budget-items'] = [{'particulars': 'Legacy', 'amount': '12.50'}]
+    text = '\n'.join(p.extract_text() for p in PdfReader(BytesIO(render_proposal(data, 'DRAFT'))).pages[3:])
+    assert 'Legacy' in text and '12.50' in text and 'None' not in text
+
+
+@pytest.mark.parametrize('quantity', [0, -1, 1.5, 100001, True])
+def test_invalid_budget_quantity_rejected(quantity):
+    with pytest.raises(ValidationError):
+        BudgetItem.model_validate({'particulars': 'Snacks', 'amount': '1.00', 'quantity': quantity})
+
+
+@pytest.mark.parametrize('cost', ['-0.01', '1.001', '10000000000.00', 'NaN', 'Infinity'])
+def test_invalid_unit_cost_rejected(cost):
+    with pytest.raises(ValidationError):
+        BudgetItem.model_validate({'particulars': 'Snacks', 'amount': '1.00', 'unit_cost': cost})

@@ -7,7 +7,7 @@ from pypdf import PdfReader, PdfWriter
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, LongTable, TableStyle
 
 
 TEMPLATE = Path(__file__).parents[1] / 'templates' / 'SAS-SDS-FO-020-001-STUDENT-ACTIVITY-PROPOSAL-FORM-V.3.pdf'
@@ -167,8 +167,7 @@ def _overlay(snapshot, revision, verification_url, review, signer_name, signatur
             budget_rows = collections.get('budget-items', [])
             if budget_rows:
                 _text(canvas, 'See Budget breakdown addendum', 90, 532, 210, style=SMALL)
-                overflow.append(('Budget breakdown', '\n'.join(
-                    f"{item.get('particulars', '')}: PHP {item.get('amount', '')}" for item in budget_rows)))
+                overflow.append(('Budget breakdown', budget_rows))
             if requests:
                 overflow.append(('School support requests', '\n'.join(
                     f"{item.get('type', '')} | Quantity: {item.get('quantity', '')} | {item.get('specify', '')}"
@@ -250,7 +249,23 @@ def render_proposal(snapshot, revision, verification_url=None, *, review=None, s
         heading = ParagraphStyle('sap-heading', parent=BODY, fontName='Helvetica-Bold', fontSize=11, leading=14)
         story = [_paragraph(f'SAP revision {revision} - Form addenda', heading), Spacer(1, 12)]
         for label, value in overflow:
-            story.extend([_paragraph(label, heading), Spacer(1, 5), _paragraph(value), Spacer(1, 12)])
+            story.extend([_paragraph(label, heading), Spacer(1, 5)])
+            if label == 'Budget breakdown' and isinstance(value, list):
+                rows = [[_paragraph(name) for name in ('Particulars', 'Quantity', 'Unit cost (PHP)', 'Amount (PHP)')]]
+                rows.extend([_paragraph(item.get('particulars', '')),
+                             _paragraph(str(item.get('quantity', 1))),
+                             _paragraph('' if item.get('unit_cost') is None else str(item['unit_cost'])),
+                             _paragraph(str(item.get('amount', '')))] for item in value)
+                table = LongTable(rows, colWidths=[230, 50, 94, 94], repeatRows=1, hAlign='LEFT')
+                table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                                           ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+                                           ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
+                                           ('TOPPADDING', (0, 0), (-1, -1), 5),
+                                           ('BOTTOMPADDING', (0, 0), (-1, -1), 5)]))
+                story.append(table)
+            else:
+                story.append(_paragraph(value))
+            story.append(Spacer(1, 12))
         footer = lambda canvas, document: _footer(canvas, revision, verification_url, signed)
         doc.build(story, onFirstPage=footer, onLaterPages=footer)
         for page in PdfReader(BytesIO(appendix.getvalue())).pages:

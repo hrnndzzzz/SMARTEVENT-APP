@@ -33,3 +33,5 @@ changes are authorized merely by running local tests.
 
 - Task 1 complete: baseline 31 passed; information tests RED (500 limit) then GREEN (3 passed). PDF extraction excludes repeating page footers.
 - Schema inspection confirms review/attachment tables exist despite absent migration ledger entry; notification payload does not exist.
+
+- Task 2 complete: budget tests RED (extra fields rejected) then GREEN (15 core tests); existing 31 SAP tests passed with new fields. Budget addendum has four columns; totals remain authoritative.
