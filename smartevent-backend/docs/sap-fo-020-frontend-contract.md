@@ -1,5 +1,10 @@
 # SAS-SDS-FO-020 (001): backend and frontend contract
 
+> For issue #9's current limits, budget fields and response schemas, see
+> [the release handoff](SAP_ISSUE_9_HANDOFF.md). For the later SDS electronic
+> signing and attachment flow, see [the implementation handoff](SAP_FRONTEND_IMPLEMENTATION_HANDOFF.md).
+> Historical first-slice descriptions below do not override those additions.
+
 ## Authority and scope
 
 This workflow tracks **nine physical signatures**, not electronic signatures.

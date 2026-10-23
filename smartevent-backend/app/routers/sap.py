@@ -15,6 +15,8 @@ from app.dependencies import require_active_account
 from app.models import User, DocumentRouting, Approval
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation, SAPAttachment, SAPReview
 from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS
+from app.schemas_sap import (SAPProposalOut, SAPWorkflowOut, SAPAttachmentOut,
+                             SAPDownloadOut, SAPVerificationOut)
 from app.services import sap, storage
 from app.services.sap_pdf import render_proposal
 from app.services.closure import institution_today, ensure_post_requirements
@@ -76,7 +78,7 @@ def _validated_attachment(data, content_type):
 
 
 
-@router.post('', status_code=201)
+@router.post('', status_code=201, response_model=SAPProposalOut, response_model_exclude_unset=True)
 def create(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, existing = sap.load(db, event_id, user, write=True, proposer=True, required=False)
     if existing or event.status != 'draft':
@@ -91,13 +93,13 @@ def create(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(r
     return sap.save(db, event, proposal, user, 'sap_created')
 
 
-@router.get('')
+@router.get('', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def get(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
     return sap.output(db, proposal)
 
 
-@router.patch('')
+@router.patch('', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def update(event_id: UUID, payload: DraftWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, proposer=True)
     sap.check_version(proposal, payload.expected_version, editable=True)
@@ -112,7 +114,7 @@ def update(event_id: UUID, payload: DraftWrite, db: Session = Depends(get_db), u
     return sap.save(db, event, proposal, user, 'sap_details_updated')
 
 
-@router.post('/attachments', status_code=201)
+@router.post('/attachments', status_code=201, response_model=SAPProposalOut, response_model_exclude_unset=True)
 def upload_attachment(event_id: UUID, expected_version: int = Form(..., ge=1), category: str = Form(...),
                       file: UploadFile = File(...), db: Session = Depends(get_db),
                       user: User = Depends(require_active_account)):
@@ -147,7 +149,7 @@ def upload_attachment(event_id: UUID, expected_version: int = Form(..., ge=1), c
         raise
 
 
-@router.get('/attachments')
+@router.get('/attachments', response_model=list[SAPAttachmentOut], response_model_exclude_unset=True)
 def list_attachments(event_id: UUID, revision_no: int | None = Query(None, ge=1), db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
     rev_no = revision_no or (proposal.revision_no + 1 if proposal.state in {'draft', 'revision_requested'} else proposal.revision_no)
@@ -156,7 +158,7 @@ def list_attachments(event_id: UUID, revision_no: int | None = Query(None, ge=1)
              'content_type': row.content_type, 'sha256': row.sha256, 'uploaded_at': row.uploaded_at.isoformat()} for row in rows]
 
 
-@router.get('/attachments/{attachment_id}/download')
+@router.get('/attachments/{attachment_id}/download', response_model=SAPDownloadOut, response_model_exclude_unset=True)
 def attachment_download(event_id: UUID, attachment_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
     row = db.query(SAPAttachment).filter_by(id=attachment_id, proposal_id=proposal.id).first()
@@ -168,7 +170,7 @@ def attachment_download(event_id: UUID, attachment_id: UUID, db: Session = Depen
         raise HTTPException(503, 'Private storage is unavailable') from None
 
 
-@router.put('/sds-review')
+@router.put('/sds-review', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def review_notes(event_id: UUID, payload: ReviewNotesWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
@@ -186,7 +188,7 @@ def review_notes(event_id: UUID, payload: ReviewNotesWrite, db: Session = Depend
     return sap.save(db, event, proposal, user, 'sap_review_notes_saved')
 
 
-@router.post('/sds-sign')
+@router.post('/sds-sign', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def sign_revision(event_id: UUID, payload: SDSReviewWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
@@ -211,7 +213,7 @@ def sign_revision(event_id: UUID, payload: SDSReviewWrite, db: Session = Depends
     return sap.save(db, event, proposal, user, 'sap_revision_signed', notify=True)
 
 
-@router.post('/revise')
+@router.post('/revise', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def revise_signed(event_id: UUID, payload: ReturnWrite, db: Session = Depends(get_db),
                   user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
@@ -223,7 +225,7 @@ def revise_signed(event_id: UUID, payload: ReturnWrite, db: Session = Depends(ge
     return sap.save(db, event, proposal, user, 'sap_signed_revision_correction_requested', notify=True)
 
 
-@router.put('/sds-clearance')
+@router.put('/sds-clearance', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def clearance(event_id: UUID, payload: ClearanceWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version, editable=True)
@@ -231,7 +233,7 @@ def clearance(event_id: UUID, payload: ClearanceWrite, db: Session = Depends(get
     return sap.save(db, event, proposal, user, 'sap_clearance_updated')
 
 
-@router.post('/submit')
+@router.post('/submit', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def submit(event_id: UUID, payload: Version, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, proposer=True)
     sap.check_version(proposal, payload.expected_version, editable=True)
@@ -240,13 +242,13 @@ def submit(event_id: UUID, payload: Version, db: Session = Depends(get_db), user
     return sap.submit(db, event, proposal, user, settings.sap_verification_base_url)
 
 
-@router.get('/workflow')
+@router.get('/workflow', response_model=SAPWorkflowOut, response_model_exclude_unset=True)
 def workflow(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
     return sap.workflow(db, proposal)
 
 
-@router.post('/workflow/{step_id}/record')
+@router.post('/workflow/{step_id}/record', response_model=SAPWorkflowOut, response_model_exclude_unset=True)
 def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
@@ -292,7 +294,7 @@ def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session 
     return sap.workflow(db, proposal)
 
 
-@router.post('/return')
+@router.post('/return', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def return_proposal(event_id: UUID, payload: ReturnWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
@@ -310,7 +312,7 @@ def return_proposal(event_id: UUID, payload: ReturnWrite, db: Session = Depends(
     return sap.save(db, event, proposal, user, 'sap_returned', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
 
 
-@router.get('/pdf')
+@router.get('/pdf', response_class=Response, responses={200: {'content': {'application/pdf': {'schema': {'type': 'string', 'format': 'binary'}}}}})
 def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool = False, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
     if draft and (revision_no or proposal.state not in {'draft', 'revision_requested'}):
@@ -329,7 +331,7 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
     return Response(data, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="SAP-{event_id}-r{number}.pdf"', 'Cache-Control': 'private, no-store'})
 
 
-@router.post('/final-signed-copy', status_code=201)
+@router.post('/final-signed-copy', status_code=201, response_model=SAPProposalOut, response_model_exclude_unset=True)
 def final_copy(event_id: UUID, expected_version: int = Form(..., ge=1), file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     if user.role != 'sds_staff':
         raise HTTPException(403, 'Only SDS staff may upload physical signature evidence')
@@ -381,7 +383,7 @@ def final_copy(event_id: UUID, expected_version: int = Form(..., ge=1), file: Up
         raise
 
 
-@router.get('/final-signed-copy')
+@router.get('/final-signed-copy', response_model=SAPDownloadOut, response_model_exclude_unset=True)
 def signed_copy(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user, sds=True)
     rev = sap.revision(db, proposal)
@@ -394,7 +396,7 @@ def signed_copy(event_id: UUID, db: Session = Depends(get_db), user: User = Depe
         raise HTTPException(503, 'Private storage is unavailable') from None
 
 
-@router.post('/evaluation')
+@router.post('/evaluation', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def evaluate(event_id: UUID, payload: EvaluationWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
@@ -412,7 +414,7 @@ def evaluate(event_id: UUID, payload: EvaluationWrite, db: Session = Depends(get
     return sap.save(db, event, proposal, user, 'sap_evaluated', notify=True, details={'outcome': payload.outcome, 'remarks': payload.remarks})
 
 
-@router.put('/{collection}')
+@router.put('/{collection}', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def replace_collection(event_id: UUID, collection: str, payload: CollectionWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     model = COLLECTIONS.get(collection)
     if model is None:
@@ -429,7 +431,7 @@ def replace_collection(event_id: UUID, collection: str, payload: CollectionWrite
     return sap.save(db, event, proposal, user, 'sap_collection_replaced')
 
 
-@public_router.get('/sap/verify/{token}')
+@public_router.get('/sap/verify/{token}', response_model=SAPVerificationOut)
 def verify(token: str, response: Response, db: Session = Depends(get_db)):
     response.headers['Cache-Control'] = 'no-store'
     if len(token) != 43:
