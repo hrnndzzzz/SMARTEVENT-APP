@@ -6,13 +6,14 @@ Tracking: [GitHub issue #9](https://github.com/hrnndzzzz/SMARTEVENT-APP/issues/9
 
 ## Current status
 
-**Release 1 is implemented and committed. Release 2 is implemented locally and
-under verification. Neither release has been merged or deployed.**
+**Both releases are implemented and committed. The complete backend suite passes.
+Independent review found no actionable issues. Pull requests are being prepared;
+neither release has been merged or deployed.**
 
 | Release | Branch | Status |
 | --- | --- | --- |
 | 1: form limits, budget fields, API schemas | `fix/sap-backend-core` | Committed through `65d53f3`; 469 backend tests passed |
-| 2: withdrawal and notifications | `feat/sap-withdrawal-notifications` | Builds on Release 1; local changes and focused tests complete; final verification/review pending |
+| 2: withdrawal and notifications | `feat/sap-withdrawal-notifications` | Implementation committed in `2153bf6`; full suite passed; independent review complete |
 
 Working checkout: `SMARTEVENT-APP/sap-issue9`.
 Starting point: `develop` at `9e076d7` in `SMARTEVENT-APP - Copy`.
@@ -60,6 +61,7 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
 | Release 1 SAP and new core tests | 48 passed |
 | Release 1 entire backend suite | 469 passed |
 | Release 2 withdrawal and notification tests | 29 passed |
+| Final combined backend suite | 498 passed, 3 PostgreSQL checks skipped |
 | PostgreSQL-specific checks without test database configured | 3 explicitly skipped; **not verified on PostgreSQL** |
 | PDF visual check | Rendered and inspected addenda with 4,000 information characters, 16 maximum-length budget rows, quantity 100000, and maximum money values |
 
@@ -73,9 +75,9 @@ the working checkout. They are verification artifacts, not committed user data.
 
 ## Remaining before merge
 
-- [ ] Run the full backend suite on the final combined changes.
-- [ ] Complete an independent code review and resolve important findings.
-- [ ] Finish Release 2 frontend/deployment instructions and commit the changes.
+- [x] Run the full backend suite on the final combined changes: 498 passed.
+- [x] Complete an independent code review: no actionable findings.
+- [x] Finish Release 2 frontend/deployment instructions and commit the changes.
 - [ ] Open separate pull requests: Release 1 into `develop`; Release 2 initially
   based on Release 1, then retarget after Release 1 merges.
 

@@ -56,8 +56,6 @@ hyphens with underscores. On 409, reload before retrying. The client must update
 its information limit and budget editing/parsing separately; backend deployment
 alone does not change those controls.
 
-## Release checks
-
 ## Release 2: withdrawal
 
 `POST /events/{event_id}/sap-proposal/withdraw` accepts
