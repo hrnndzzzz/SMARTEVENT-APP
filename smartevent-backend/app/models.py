@@ -78,6 +78,7 @@ class Notification(Base):
     kind = Column(String(50), nullable=False)
     title = Column(String(200), nullable=False)
     body = Column(Text, nullable=False)
+    payload = Column(JSONB, nullable=True)
     read_at = Column(DateTime(timezone=True), nullable=True)
     email_status = Column(String(20), nullable=False, default="pending")
     email_attempts = Column(Integer, nullable=False, default=0)

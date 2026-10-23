@@ -39,3 +39,19 @@ changes are authorized merely by running local tests.
 - Task 3 complete: OpenAPI regression RED (empty response schema) then GREEN; 48 SAP/core tests and full backend 469 passed. Existing dependency deprecation warnings remain.
 - PDF boundary sample rendered with Poppler and visually checked on pages 4-6: 16 maximum-length budget rows, maximum money, quantity 100000, and 4000 information characters fit across addenda. Sample under ignored tmp/pdfs.
 - Ruling: no staging project or local PostgreSQL installation is available. Keep production unchanged; provide opt-in PostgreSQL checks and deployment instructions. Real controlled-recipient email verification remains a deployment gate.
+
+- Task 4 complete: withdrawal tests RED (405, missing endpoint) then GREEN (19 passed). Metadata copies preserve uploader/time and private file references; unsigned review records block withdrawal even with empty notes.
+- Task 5 complete: notification tests RED (missing payload) then GREEN; 29 combined follow-up tests passed. CLI generated additive JSONB migration. Three opt-in PostgreSQL tests skip without SAP_TEST_POSTGRES_URL; real lock/migration checks remain unverified.
+- User-requested README_SAP_PROGRESS.md created with completed work and remaining deployment/frontend tasks.
+
+- Final verification: entire backend suite 498 passed, 3 PostgreSQL checks skipped,
+  187 existing dependency warnings. No test failures.
+- Independent review of 9e076d7..2153bf6: no actionable findings. Reviewer checked
+  connected API/schema/service/PDF paths, immutable history, transaction boundaries,
+  notification delivery, migration and tests; no code changes requested.
+- Final ruling on external checks: PostgreSQL runtime locking/migrations, deployed
+  access policies, staging and real email delivery are unverified deployment gates.
+  SQLite and mocked email results do not certify them. Deploying before those checks
+  risks environment-specific failures; draft PRs will state this limitation.
+- Remote develop advanced to c741291 during work, but its tree is identical to
+  9e076d7. No content integration or additional feature changes are needed.
