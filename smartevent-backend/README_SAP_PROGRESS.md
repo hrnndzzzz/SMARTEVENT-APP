@@ -7,13 +7,18 @@ Tracking: [GitHub issue #9](https://github.com/hrnndzzzz/SMARTEVENT-APP/issues/9
 ## Current status
 
 **Both releases are implemented and committed. The complete backend suite passes.
-Independent review found no actionable issues. Pull requests are being prepared;
+Independent review found no actionable issues. Both draft pull requests are open;
 neither release has been merged or deployed.**
 
 | Release | Branch | Status |
 | --- | --- | --- |
 | 1: form limits, budget fields, API schemas | `fix/sap-backend-core` | Committed through `65d53f3`; 469 backend tests passed |
 | 2: withdrawal and notifications | `feat/sap-withdrawal-notifications` | Implementation committed in `2153bf6`; full suite passed; independent review complete |
+
+Review order: [Release 1 — PR #11](https://github.com/hrnndzzzz/SMARTEVENT-APP/pull/11),
+then [Release 2 — PR #12](https://github.com/hrnndzzzz/SMARTEVENT-APP/pull/12).
+PR #12 targets Release 1's branch until PR #11 merges; retarget it to `develop`
+afterward. Both remain drafts for integration/deployment review.
 
 Working checkout: `SMARTEVENT-APP/sap-issue9`.
 Starting point: `develop` at `9e076d7` in `SMARTEVENT-APP - Copy`.
@@ -78,7 +83,7 @@ the working checkout. They are verification artifacts, not committed user data.
 - [x] Run the full backend suite on the final combined changes: 498 passed.
 - [x] Complete an independent code review: no actionable findings.
 - [x] Finish Release 2 frontend/deployment instructions and commit the changes.
-- [ ] Open separate pull requests: Release 1 into `develop`; Release 2 initially
+- [x] Open separate pull requests: Release 1 into `develop`; Release 2 initially
   based on Release 1, then retarget after Release 1 merges.
 
 ## Remaining before deployment
