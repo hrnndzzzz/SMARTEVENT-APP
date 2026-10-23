@@ -296,6 +296,7 @@ class NotificationOut(BaseModel):
     kind: str
     title: str
     body: str
+    payload: dict[str, str | int] | None = None
     read_at: datetime | None
     email_status: Literal["pending", "sent", "failed"]
     created_at: datetime

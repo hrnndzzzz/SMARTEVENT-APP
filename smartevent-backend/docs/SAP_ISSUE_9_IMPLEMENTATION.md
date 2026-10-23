@@ -39,3 +39,7 @@ changes are authorized merely by running local tests.
 - Task 3 complete: OpenAPI regression RED (empty response schema) then GREEN; 48 SAP/core tests and full backend 469 passed. Existing dependency deprecation warnings remain.
 - PDF boundary sample rendered with Poppler and visually checked on pages 4-6: 16 maximum-length budget rows, maximum money, quantity 100000, and 4000 information characters fit across addenda. Sample under ignored tmp/pdfs.
 - Ruling: no staging project or local PostgreSQL installation is available. Keep production unchanged; provide opt-in PostgreSQL checks and deployment instructions. Real controlled-recipient email verification remains a deployment gate.
+
+- Task 4 complete: withdrawal tests RED (405, missing endpoint) then GREEN (19 passed). Metadata copies preserve uploader/time and private file references; unsigned review records block withdrawal even with empty notes.
+- Task 5 complete: notification tests RED (missing payload) then GREEN; 29 combined follow-up tests passed. CLI generated additive JSONB migration. Three opt-in PostgreSQL tests skip without SAP_TEST_POSTGRES_URL; real lock/migration checks remain unverified.
+- User-requested README_SAP_PROGRESS.md created with completed work and remaining deployment/frontend tasks.
