@@ -332,6 +332,14 @@ class SapForm extends ChangeNotifier {
   Future<bool> submit() =>
       _write((s, v) => s.submit(_eventId!, expectedVersion: v));
 
+  /// Takes an unreviewed proposal back to draft.
+  ///
+  /// Refused with a 409 once the SDS Office has started on it, which
+  /// `_write` surfaces as the error text the server sent — the way back
+  /// is a return for changes at that point, not a withdrawal.
+  Future<bool> withdraw() =>
+      _write((s, v) => s.withdraw(_eventId!, expectedVersion: v));
+
   SapWorkflow? _workflow;
   SapWorkflow? get workflow => _workflow;
 

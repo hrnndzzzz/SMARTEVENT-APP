@@ -197,6 +197,27 @@ class SapService {
     });
   }
 
+  /// `POST /withdraw` — the proposer takes an unreviewed proposal back
+  /// to draft so they can change or drop it.
+  ///
+  /// The server refuses with 409 once the SDS Office has started: a
+  /// review row or any recorded checkpoint closes the door, and the way
+  /// back is then a return for changes, not a withdrawal. It keeps the
+  /// revision number and re-stages the attachments for the next submit,
+  /// so nothing already submitted is erased.
+  Future<SapProposal> withdraw(
+    String eventId, {
+    required int expectedVersion,
+  }) {
+    return _guard(() async {
+      final response = await _client.post(
+        '${_base(eventId)}/withdraw',
+        body: {'expected_version': expectedVersion},
+      );
+      return _proposal(response);
+    });
+  }
+
   /// `POST /return` — sends it back for revision. The comment is required
   /// and must not be blank; resubmission creates a new revision, and old
   /// signatures are never carried across.

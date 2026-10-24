@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import 'event_detail_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
@@ -135,6 +136,18 @@ class _NoticeCard extends StatelessWidget {
 
   final AppNotice notice;
 
+  /// The event this notice points at, if it is loaded. A notice can
+  /// outlive its event, and the id is no use on its own, so a miss
+  /// simply leaves the card unopenable.
+  EventItem? _target(BuildContext context) {
+    final id = notice.eventId;
+    if (id == null) return null;
+    for (final event in context.read<AppState>().events) {
+      if (event.remoteId == id) return event;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BrutCard(
@@ -142,14 +155,30 @@ class _NoticeCard extends StatelessWidget {
       // whole signal, so no dot is needed on top of it.
       shadow: notice.isUnread ? AppShadows.base : AppShadows.none,
       padding: const EdgeInsets.all(14),
-      onTap: notice.isUnread
+      // Reading it and opening it are the same tap. A workflow notice
+      // names its event, so it goes there; anything else just reads.
+      onTap: notice.isUnread || _target(context) != null
           ? () async {
               final messenger = ScaffoldMessenger.of(context);
-              final error = await context.read<AppState>().markNoticeRead(
-                notice,
-              );
-              if (error != null) {
-                messenger.showSnackBar(SnackBar(content: Text(error)));
+              final navigator = Navigator.of(context);
+              final event = _target(context);
+
+              if (notice.isUnread) {
+                final error = await context.read<AppState>().markNoticeRead(
+                  notice,
+                );
+                if (error != null) {
+                  messenger.showSnackBar(SnackBar(content: Text(error)));
+                  return; // Don't navigate away from a failure.
+                }
+              }
+
+              if (event != null) {
+                navigator.push(
+                  MaterialPageRoute(
+                    builder: (_) => EventDetailScreen(event: event),
+                  ),
+                );
               }
             }
           : null,

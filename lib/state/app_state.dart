@@ -2110,9 +2110,14 @@ class AppState extends ChangeNotifier {
   /// is approved or returned, the decision is the record and withdrawing
   /// it would erase someone else's.
   ///
-  /// There is no backend route for this. The demo does it locally; a
-  /// real session is told so rather than being left to wonder why
-  /// nothing happened.
+  /// Backed by `POST .../sap-proposal/withdraw`, which the backend added
+  /// on 24 Oct. It keeps the submitted revision and re-stages the
+  /// attachments, so withdrawing loses nothing; the server is the one
+  /// that decides whether the SDS Office has started, and its refusal is
+  /// shown as it wrote it.
+  ///
+  /// Only SAP events have this route. An event on the plain workflow has
+  /// no withdrawal, and gets told that rather than a 404.
   Future<String?> cancelProposal(EventItem event) async {
     if (!event.status.isPending) {
       return 'Only a proposal still waiting on a decision can be taken back.';
@@ -2127,8 +2132,29 @@ class AppState extends ChangeNotifier {
       return null;
     }
 
-    return 'Taking a proposal back needs a route the backend does not '
-        'have yet. Ask the SDS Office to return it instead.';
+    final id = event.remoteId;
+    if (id == null) return 'This event has no real backend record yet.';
+
+    try {
+      // The version has to come from the server: withdrawing is a
+      // mutation like any other, and a stale number is refused.
+      final current = await sapService.fetch(id);
+      await sapService.withdraw(id, expectedVersion: current.version);
+      event.status = EventApprovalStatus.draft;
+      event.rejectedBy = null;
+      event.adviserApprovalNote = null;
+      event.adminApprovalNote = null;
+      notifyListeners();
+      return null;
+    } on SapUnavailable {
+      return 'This event does not use the SAP form, and the plain '
+          'workflow has no way to take a proposal back. Ask the SDS '
+          'Office to return it instead.';
+    } on SapVersionConflict catch (conflict) {
+      return conflict.message;
+    } on ApiException catch (error) {
+      return error.message;
+    }
   }
 
   Future<String?> resubmitEvent(

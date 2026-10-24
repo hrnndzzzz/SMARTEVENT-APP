@@ -389,4 +389,79 @@ void main() {
       ]);
     });
   });
+
+  group('withdrawal', () {
+    // POST .../sap-proposal/withdraw, added by the backend on 24 Oct.
+    // The proposer takes an unreviewed proposal back to draft.
+
+    test('sends only the version, to the withdraw path', () async {
+      final service = serviceReturning({...aggregate, 'state': 'draft'});
+
+      await service.withdraw('e1', expectedVersion: 3);
+
+      expect(sent.single.method, 'POST');
+      expect(
+        sent.single.url.path,
+        endsWith('/events/e1/sap-proposal/withdraw'),
+      );
+      expect(bodyOf(), {'expected_version': 3});
+    });
+
+    test('comes back as a draft with the revision intact', () async {
+      // The server keeps revision_no and re-stages the attachments, so
+      // withdrawing is not a discard: the submitted revision survives.
+      final service = serviceReturning({
+        ...aggregate,
+        'state': 'draft',
+        'version': 4,
+        'revision_no': 1,
+      });
+
+      final proposal = await service.withdraw('e1', expectedVersion: 3);
+
+      expect(proposal.state, SapState.draft);
+      expect(proposal.revisionNo, 1);
+      expect(proposal.version, 4, reason: 'the write bumped the version');
+    });
+
+    test('a started review is refused, and the reason is kept', () async {
+      final service = serviceReturning({
+        'detail': 'SDS review has started; request a return for changes',
+      }, status: 409);
+
+      // Not swallowed into a generic failure: this message is the only
+      // thing that tells the proposer to ask for a return instead.
+      await expectLater(
+        service.withdraw('e1', expectedVersion: 3),
+        throwsA(
+          isA<SapVersionConflict>().having(
+            (e) => e.message,
+            'message',
+            contains('request a return for changes'),
+          ),
+        ),
+      );
+    });
+
+    test('a decided proposal is refused by the server, not the client',
+        () async {
+      final service = serviceReturning({
+        'detail': 'Only an unreviewed pending proposal can be withdrawn',
+      }, status: 409);
+
+      await expectLater(
+        service.withdraw('e1', expectedVersion: 3),
+        throwsA(isA<SapVersionConflict>()),
+      );
+    });
+
+    test('an event with no SAP proposal reads as unavailable', () async {
+      final service = serviceReturning({'detail': 'Not Found'}, status: 404);
+
+      await expectLater(
+        service.withdraw('e1', expectedVersion: 3),
+        throwsA(isA<SapUnavailable>()),
+      );
+    });
+  });
 }
