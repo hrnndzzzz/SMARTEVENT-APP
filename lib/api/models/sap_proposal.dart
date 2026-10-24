@@ -276,20 +276,59 @@ class SapProgramFlowItem {
 /// sum through a Dart `double` is how you get a 422 that nobody can
 /// explain.
 class SapBudgetItem {
-  const SapBudgetItem({required this.particulars, required this.amount});
+  const SapBudgetItem({
+    required this.particulars,
+    required this.amount,
+    this.quantity = 1,
+    this.unitCost,
+  });
 
   final String particulars;
+
+  /// What the row sums to, and the figure the server checks against the
+  /// total. It is authoritative: the backend does not work it out from
+  /// quantity and unit cost, so a row can state all three and they are
+  /// not required to agree arithmetically — the paper sometimes rounds.
   final String amount;
+
+  /// How many. The paper's breakdown reads "Snacks · 150 · 10.00 ·
+  /// 1,500.00"; before this existed the 150 and the 10.00 were flattened
+  /// into the particulars text and the printed form stopped matching.
+  final int quantity;
+
+  /// Cost of one, as a decimal string. Null where the paper gives only a
+  /// total, which is most rows.
+  final String? unitCost;
 
   factory SapBudgetItem.fromJson(Map<String, dynamic> json) => SapBudgetItem(
     particulars: (json['particulars'] as String?) ?? '',
     amount: (json['amount'] ?? '0').toString(),
+    // Rows saved before these existed come back without them, and the
+    // server does not backfill: a missing quantity means one.
+    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+    unitCost: json['unit_cost'] == null
+        ? null
+        : json['unit_cost'].toString(),
   );
 
   Map<String, dynamic> toJson() => {
     'particulars': particulars,
+    'quantity': quantity,
+    if (unitCost != null) 'unit_cost': unitCost,
     'amount': amount,
   };
+
+  SapBudgetItem copyWith({
+    String? particulars,
+    String? amount,
+    int? quantity,
+    String? unitCost,
+  }) => SapBudgetItem(
+    particulars: particulars ?? this.particulars,
+    amount: amount ?? this.amount,
+    quantity: quantity ?? this.quantity,
+    unitCost: unitCost ?? this.unitCost,
+  );
 }
 
 /// One Part 2 request.

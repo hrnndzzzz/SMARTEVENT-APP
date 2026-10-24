@@ -75,8 +75,27 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
     _ => 'Who is photographing it, and what for',
   };
 
+  /// One breakdown row, as the paper prints it.
+  ///
+  /// Quantity and unit cost are left out when they say nothing — one of
+  /// something, at a price the paper never gave — so an ordinary row
+  /// still reads as a single figure.
+  String _budgetLine(SapBudgetItem item) {
+    final amount = _peso(_centavos(item.amount));
+    final unit = item.unitCost;
+
+    if (item.quantity <= 1 && unit == null) return amount;
+    if (unit == null) return '${item.quantity} · $amount';
+    return '${item.quantity} × ${_peso(_centavos(unit))} · $amount';
+  }
+
   /// What the backend will take for this whole part.
-  static const int _otherDetailsLimit = 500;
+  ///
+  /// Raised from 500 to 4000 by the backend on 24 Oct, which is what
+  /// made a real proposal fillable: the two filled forms we measured run
+  /// about 1,500 characters across the ten headings, so 500 refused them
+  /// outright.
+  static const int _otherDetailsLimit = 4000;
 
   late final Map<String, TextEditingController> _otherDetails = {
     for (final heading in _otherDetailHeadings)
@@ -277,7 +296,10 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
               for (var i = 0; i < _form.budgetItems.length; i++) ...[
                 SapRowCard(
                   title: _form.budgetItems[i].particulars,
-                  subtitle: _peso(_centavos(_form.budgetItems[i].amount)),
+                  // The paper's row reads across: how many, at what each,
+                  // coming to what. Showing only the total hid the two
+                  // columns the office checks the arithmetic against.
+                  subtitle: _budgetLine(_form.budgetItems[i]),
                   onRemove: _editable
                       ? () => _form.setBudgetItems(
                           [..._form.budgetItems]..removeAt(i),
@@ -434,11 +456,15 @@ class _BudgetLineSheet extends StatefulWidget {
 
 class _BudgetLineSheetState extends State<_BudgetLineSheet> {
   final _particulars = TextEditingController();
+  final _quantity = TextEditingController();
+  final _unitCost = TextEditingController();
   final _amount = TextEditingController();
 
   @override
   void dispose() {
     _particulars.dispose();
+    _quantity.dispose();
+    _unitCost.dispose();
     _amount.dispose();
     super.dispose();
   }
@@ -470,6 +496,42 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 12),
+          // The paper's own columns. Quantity and unit cost are what the
+          // row shows; amount is what the office checks against the
+          // total, so the server treats it as authoritative and does not
+          // work it out from the other two.
+          Row(
+            children: [
+              Expanded(
+                child: BrutTextField(
+                  controller: _quantity,
+                  label: 'Quantity',
+                  hint: '150',
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: BrutTextField(
+                  controller: _unitCost,
+                  label: 'Unit cost',
+                  hint: '10.00',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Both optional. Leave them out for a row the paper gives only '
+            'a total for.',
+            style: AppText.caption.copyWith(fontSize: 11),
+          ),
+          const SizedBox(height: 12),
           BrutTextField(
             controller: _amount,
             label: 'Amount',
@@ -488,6 +550,13 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
                       // double, so the decimal the server compares is the
                       // one the user wrote.
                       amount: _amount.text.trim().replaceAll(',', ''),
+                      // Blank means one of the thing, which is what the
+                      // server defaults to as well.
+                      quantity:
+                          int.tryParse(_quantity.text.trim()) ?? 1,
+                      unitCost: _unitCost.text.trim().isEmpty
+                          ? null
+                          : _unitCost.text.trim().replaceAll(',', ''),
                     ),
                   )
                 : null,

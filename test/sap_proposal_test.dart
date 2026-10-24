@@ -59,7 +59,7 @@ void main() {
         {'start': '08:00:00', 'end': '11:00:00', 'activity': 'Seminar'},
       ],
       'budget-items': [
-        {'particulars': 'Speaker', 'amount': '2000.00'},
+        {'particulars': 'Speaker', 'quantity': 1, 'amount': '2000.00'},
       ],
       'support-requests': [
         {'type': 'projector', 'quantity': 1, 'specify': ''},
@@ -175,8 +175,12 @@ void main() {
       expect(sent.single.url.path, '/events/e1/sap-proposal/budget-items');
       expect(bodyOf()['expected_version'], 4);
       expect((bodyOf()['items'] as List).length, 2);
+      // quantity goes on every row, including the ordinary one. The
+      // server defaults it to 1 and stores it either way, so sending it
+      // makes the payload say what the row will actually be.
       expect((bodyOf()['items'] as List).first, {
         'particulars': 'Speaker',
+        'quantity': 1,
         'amount': '2000.00',
       });
     });

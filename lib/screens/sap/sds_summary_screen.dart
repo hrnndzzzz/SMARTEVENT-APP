@@ -203,15 +203,31 @@ class _Money extends StatelessWidget {
             const SizedBox(height: 10),
             for (final item in lines) ...[
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(item.particulars, style: AppText.body),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.particulars, style: AppText.body),
+                        // The two columns the office checks the
+                        // arithmetic against, when the row gives them.
+                        if (item.quantity > 1 || item.unitCost != null)
+                          Text(
+                            item.unitCost == null
+                                ? '${item.quantity}'
+                                : '${item.quantity} × '
+                                      '${peso(double.tryParse(item.unitCost!) ?? 0)}',
+                            style: AppText.caption.copyWith(fontSize: 11),
+                          ),
+                      ],
+                    ),
                   ),
                   Text(peso(double.tryParse(item.amount) ?? 0),
                       style: AppText.body),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
             ],
             if (!agrees) ...[
               const SizedBox(height: 8),
