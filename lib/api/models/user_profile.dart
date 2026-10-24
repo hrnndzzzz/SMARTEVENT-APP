@@ -66,4 +66,18 @@ class UserProfile {
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'full_name': fullName,
+    'email': email,
+    'role': role,
+    'position': position,
+    'department_id': departmentId,
+    'organization_id': organizationId,
+    'is_active': isActive,
+    'is_suspended': isSuspended,
+    'must_change_password': mustChangePassword,
+    'created_at': createdAt.toUtc().toIso8601String(),
+  };
 }

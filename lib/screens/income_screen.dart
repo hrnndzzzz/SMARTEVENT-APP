@@ -37,7 +37,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.incomesLoad;
-    final canRecord = app.currentRole?.canRecordFinance ?? false;
+    final canRecord =
+        !context.watch<AppState>().isOfflineViewing &&
+        (app.currentRole?.canRecordFinance ?? false);
 
     return BrutScreen(
       floatingActionButton: canRecord
@@ -50,9 +52,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
               label: Text('Record income', style: AppText.buttonLabel),
             )
           : null,
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(

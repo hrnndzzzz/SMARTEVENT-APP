@@ -33,7 +33,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.catalogLoad;
-    final canManage = app.currentRole?.canManageCatalog ?? false;
+    final canManage =
+        !context.watch<AppState>().isOfflineViewing &&
+        (app.currentRole?.canManageCatalog ?? false);
 
     return BrutScreen(
       floatingActionButton: canManage
@@ -46,9 +48,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               label: Text('New item', style: AppText.buttonLabel),
             )
           : null,
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(

@@ -28,7 +28,9 @@ class EventsHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final role = app.currentRole;
-    final canPropose = role?.canProposeEvents ?? false;
+    final canPropose =
+        !context.watch<AppState>().isOfflineViewing &&
+        (role?.canProposeEvents ?? false);
 
     final latest = app.events.isEmpty ? null : app.events.first;
     final pending = app.events.where((e) => e.status.isPending).length;

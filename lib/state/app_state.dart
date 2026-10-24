@@ -1,4 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+import '../offline/offline_store.dart';
+import '../offline/offline_sync.dart';
+import '../api/api_config.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
 import '../api/category_service.dart';
@@ -412,22 +417,181 @@ class ExpenseEntry {
 class AppState extends ChangeNotifier {
   /// [reachability], when given, is told whether the backend answered
   /// after every request. Optional so a test can build a plain AppState.
-  AppState({Reachability? reachability}) {
-    _apiClient = ApiClient(
-      onReachability: reachability?.report,
-      onSessionExpired: _onSessionExpired,
-    );
+  AppState({Reachability? reachability, ApiClient? apiClient}) {
+    _apiClient = apiClient ?? ApiClient(onReachability: reachability?.report);
+    _apiClient.onSessionExpired = _onSessionExpired;
+    _apiClient.onChanged = notifyListeners;
+    offlineSync = OfflineSync(_apiClient)..addListener(notifyListeners);
+    _apiClient.onMutation = () {
+      unawaited(offlineSync.refreshAfterMutation());
+    };
+    _reachability = reachability;
+    reachability?.addListener(_connectionChanged);
+    ApiConfig.beforeServerChange = signOut;
   }
 
-  /// The token stopped being accepted, so this client is signed out
-  /// whether or not anyone has said so yet.
-  ///
-  /// Showing the last data that loaded is the worst of the options: the
-  /// figures are real, they are wrong, and nothing on screen says which.
-  /// Signing out sends the gate back to the welcome screen with a line
-  /// explaining why, and the next sign-in starts clean.
+  late final OfflineSync offlineSync;
+  Reachability? _reachability;
+  bool _revalidating = false;
+  bool _restoringSession = false;
+  int _sessionGeneration = 0;
+  int _navigationGeneration = 0;
+  int get navigationGeneration => _navigationGeneration;
+  void _connectionChanged() {
+    if (!_restoringSession &&
+        _reachability?.isOnline == true &&
+        isOfflineViewing &&
+        !requiresOnlineSignIn) {
+      unawaited(retryOfflinePreparation());
+    }
+  }
+
+  Future<void> retryOfflinePreparation() async {
+    if (_revalidating ||
+        _restoringSession ||
+        _demoMode ||
+        currentAccount == null ||
+        !offlineSync.foreground)
+      return;
+    _revalidating = true;
+    final generation = _sessionGeneration;
+    try {
+      final profile = await _authService.getCurrentUser();
+      if (generation != _sessionGeneration) return;
+      if (!profile.isActive ||
+          profile.isSuspended ||
+          profile.mustChangePassword ||
+          userRoleFromWire(profile.role) == null) {
+        await signOut();
+        return;
+      }
+      await _rememberProfile(profile);
+      _applyProfile(profile);
+      await _loadSignedInData();
+      await offlineSync.prepare();
+    } on ApiException catch (error) {
+      if (error.isForbidden) await signOut();
+    } on NetworkException {
+      // Keep the saved viewer and its last successful downloads.
+    } on SessionChanged {
+      // Logout or a server change superseded this request.
+    } finally {
+      _revalidating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<DownloadedFile> downloadedFile(String reference) =>
+      _apiClient.storedFile(reference);
+
+  @override
+  void dispose() {
+    _reachability?.removeListener(_connectionChanged);
+    if (ApiConfig.beforeServerChange == signOut)
+      ApiConfig.beforeServerChange = null;
+    offlineSync.removeListener(notifyListeners);
+    offlineSync.dispose();
+    _apiClient.onChanged = null;
+    _apiClient.onSessionExpired = null;
+    super.dispose();
+  }
+
+  bool get isOfflineViewing => !_demoMode && _apiClient.readOnly;
+  bool get requiresOnlineSignIn => _apiClient.requiresSignIn;
+  Map<String, DateTime> get offlineSavedDates {
+    const labels = {
+      'events': 'Events',
+      'expenses': 'Expenses',
+      'incomes': 'Income',
+      'inventory': 'Inventory',
+      'receipts': 'Receipts',
+      'categories': 'Categories',
+      'reports': 'Reports',
+      'analytics': 'Dashboard',
+      'notifications': 'Notifications',
+      'proposal-letters': 'Proposal letters',
+    };
+    final dates = <String, DateTime>{};
+    for (final entry in _apiClient.readStamps.entries) {
+      if (!entry.value.fromCache) continue;
+      final parts = Uri.parse(entry.key).pathSegments;
+      final label = parts.isEmpty ? null : labels[parts.first];
+      if (label == null) continue;
+      final saved = entry.value.savedAt;
+      if (dates[label] == null || saved.isBefore(dates[label]!))
+        dates[label] = saved;
+    }
+    return dates;
+  }
+
+  String? offlineStorageError;
+
+  Future<void> _openOfflineStore() async {
+    if (_apiClient.offlineStore != null ||
+        kIsWeb ||
+        ![
+          TargetPlatform.android,
+          TargetPlatform.iOS,
+        ].contains(defaultTargetPlatform))
+      return;
+    try {
+      _apiClient.offlineStore = await OfflineStore.open();
+      final prepared = await _apiClient.offlineStore!.metadata('prepared_at');
+      if (prepared is String)
+        offlineSync.lastCompleted = DateTime.tryParse(prepared);
+    } catch (_) {
+      offlineStorageError = 'Offline storage is unavailable on this device.';
+    }
+  }
+
+  Future<void> _rememberProfile(UserProfile profile) async {
+    if (!profile.isActive ||
+        profile.isSuspended ||
+        profile.mustChangePassword) {
+      await _apiClient.offlineStore?.clear();
+      return;
+    }
+    await _openOfflineStore();
+    final previous = _apiClient.offlineStore?.session;
+    if (previous != null &&
+        previous.scope !=
+            OfflineSession(_apiClient.baseUrl, profile.toJson()).scope) {
+      _sessionGeneration++;
+      _apiClient.invalidateSession();
+      offlineSync.cancel();
+      offlineSync.lastCompleted = null;
+      _clearRecords();
+    }
+    await _apiClient.offlineStore?.activate(
+      _apiClient.baseUrl,
+      profile.toJson(),
+    );
+    _apiClient.readOnly = false;
+    _apiClient.requiresSignIn = false;
+  }
+
+  Future<bool> _restoreOfflineViewer() async {
+    if (!_apiClient.hasOfflineSession) return false;
+    final profile = UserProfile.fromJson(
+      _apiClient.offlineStore!.session!.profile,
+    );
+    if (!profile.isActive ||
+        profile.isSuspended ||
+        profile.mustChangePassword ||
+        _applyProfile(profile) != null)
+      return false;
+    _apiClient.readOnly = true;
+    await _loadSignedInData();
+    return true;
+  }
+
+  /// An expired token retains the verified saved account in read-only mode.
   void _onSessionExpired() {
     if (_demoMode) return;
+    if (_apiClient.hasOfflineSession) {
+      Future.microtask(notifyListeners);
+      return;
+    }
     if (currentAccount == null && currentRole == null) return;
     _sessionExpiredNotice = true;
     // Deferred: this fires from inside a response handler, which can be
@@ -466,6 +630,7 @@ class AppState extends ChangeNotifier {
     }
     if (error is ApiException) return error.message;
     if (error is NetworkException) return error.message;
+    if (error is OfflineUnavailable) return error.message;
     return 'Unexpected problem handling the server response: $error';
   }
 
@@ -493,6 +658,28 @@ class AppState extends ChangeNotifier {
       await load();
       state.status = LoadStatus.ready;
     } catch (error) {
+      if (error is ApiException && (error.isForbidden || error.isNotFound)) {
+        if (state == categoriesLoad) categories = [];
+        if (state == eventsLoad) events.clear();
+        if (state == expensesLoad) expenses.clear();
+        if (state == noticesLoad) {
+          notices = [];
+          unreadNoticeCount = 0;
+        }
+        if (state == rosterLoad) roster = [];
+        if (state == usersLoad) managedUsers = [];
+        if (state == auditLoad) auditLog = [];
+        if (state == dashboardLoad) {
+          dashboard = null;
+          spendingTrends = [];
+        }
+        if (state == flaggedLoad) flaggedExpenses = [];
+        if (state == financialReportLoad) financialReport = null;
+        if (state == lettersLoad) letters = [];
+        if (state == catalogLoad) catalog = [];
+        if (state == incomesLoad) incomes = [];
+        if (state == receiptsLoad) receipts = [];
+      }
       state
         ..status = LoadStatus.failed
         ..error = _messageForFailure(error)
@@ -533,6 +720,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> markNoticeRead(AppNotice notice) async {
+    if (isOfflineViewing) return null;
     if (!notice.isUnread) return null;
 
     // Exploring: mark it here, because there is nobody to tell.
@@ -1269,9 +1457,9 @@ class AppState extends ChangeNotifier {
   /// Readiness, or nothing to say while exploring. The notice that
   /// shows this is already silent when the route is missing, so a demo
   /// that cannot ask simply says nothing rather than going red.
-  Future<EventReadiness> eventReadiness(String eventId) =>
-      _demoMode ? Future.error(const FeatureUnavailable()) :
-      _complianceService.readiness(eventId);
+  Future<EventReadiness> eventReadiness(String eventId) => _demoMode
+      ? Future.error(const FeatureUnavailable())
+      : _complianceService.readiness(eventId);
 
   /// Turns a stored file reference into something an image can load.
   Future<String> resolveFile(String reference) =>
@@ -1440,6 +1628,17 @@ class AppState extends ChangeNotifier {
     categoriesLoad,
     eventsLoad,
     expensesLoad,
+    noticesLoad,
+    rosterLoad,
+    usersLoad,
+    auditLoad,
+    dashboardLoad,
+    flaggedLoad,
+    financialReportLoad,
+    lettersLoad,
+    catalogLoad,
+    incomesLoad,
+    receiptsLoad,
   ];
 
   bool get isLoadingAnyModule => _moduleLoads.any((s) => s.isLoading);
@@ -2361,7 +2560,11 @@ class AppState extends ChangeNotifier {
       if (problem != null) return problem;
 
       // Only now is the account allowed to read anything else.
-      if (!mustSetPassword) await _loadSignedInData();
+      if (!mustSetPassword) {
+        await _rememberProfile(profile);
+        await _loadSignedInData();
+        unawaited(offlineSync.prepare());
+      }
       notifyListeners();
       return null;
     } catch (error) {
@@ -2465,6 +2668,8 @@ class AppState extends ChangeNotifier {
   /// Returns an error message when the role is unrecognized, so the caller
   /// can refuse the sign-in instead of proceeding with a guessed one.
   String? _applyProfile(UserProfile profile) {
+    if (!profile.isActive || profile.isSuspended)
+      return 'This account no longer has access.';
     final role = userRoleFromWire(profile.role);
     if (role == null) return _unknownRoleMessage;
 
@@ -2519,17 +2724,38 @@ class AppState extends ChangeNotifier {
   /// or the account may have been suspended since — so `GET /auth/me` is
   /// what actually decides. Called once at startup.
   Future<void> restoreSession() async {
+    _restoringSession = true;
+    final generation = _sessionGeneration;
     try {
+      await _openOfflineStore();
+      if (_apiClient.offlineStore?.session != null &&
+          !_apiClient.hasOfflineSession) {
+        await _apiClient.offlineStore!.clear();
+        await _apiClient.setToken(null);
+      }
       final token = await _apiClient.restoreToken();
-      if (token == null) return;
+      if (generation != _sessionGeneration) return;
+      if (await _restoreOfflineViewer()) {
+        if (generation != _sessionGeneration) return;
+        sessionChecked = true;
+        notifyListeners();
+      }
+      if (token == null) {
+        _apiClient.requiresSignIn = true;
+        await _restoreOfflineViewer();
+        return;
+      }
 
       final UserProfile profile;
       try {
         profile = await _authService.getCurrentUser();
+        if (generation != _sessionGeneration) return;
       } catch (error) {
         // Same as sign-in: a stored token for an account that still owes a
         // password change is valid, it just cannot read its profile yet.
         if (_isPasswordSetupRefusal(error)) {
+          await _apiClient.offlineStore?.clear();
+          _clearRecords();
           _passwordSetupRequired = true;
           return;
         }
@@ -2539,22 +2765,30 @@ class AppState extends ChangeNotifier {
       if (_applyProfile(profile) != null) {
         // Role this build can't model — don't restore into a guessed
         // permission set.
-        await _apiClient.setToken(null);
+        await signOut();
         return;
       }
+      await _rememberProfile(profile);
       await _loadSignedInData();
-    } on ApiException {
+    } on ApiException catch (error) {
+      if (error.isUnauthorized || error.isServerError) {
+        if (await _restoreOfflineViewer()) return;
+      } else if (error.isForbidden) {
+        await signOut();
+      }
       // Expired, revoked, or the account is suspended. The token is dead
       // weight now, so drop it and let the user sign in again.
       await _apiClient.setToken(null);
     } on NetworkException {
-      // Offline at launch. The token may still be perfectly good once
-      // there's a network, so keep it stored and just show sign-in.
+      await _restoreOfflineViewer();
+    } on SessionChanged {
+      // A newer sign-in or explicit sign-out owns the current session.
     } catch (_) {
       // Malformed stored value or an unreadable profile response. Don't
       // let a bad token wedge startup.
       await _apiClient.setToken(null);
     } finally {
+      _restoringSession = false;
       sessionChecked = true;
       notifyListeners();
     }
@@ -2573,17 +2807,24 @@ class AppState extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    final generation = ++_sessionGeneration;
+    offlineSync.cancel();
+    _apiClient.invalidateSession();
     try {
       await _authService.login(email: email, password: password);
 
       final UserProfile profile;
       try {
         profile = await _authService.getCurrentUser();
+        if (generation != _sessionGeneration)
+          return 'The account changed. Sign in again.';
       } catch (error) {
         // A temporary-password account authenticates fine but cannot read
         // its own profile until the password is set. That is a successful
         // sign-in that routes to password setup, not a failure.
         if (_isPasswordSetupRefusal(error)) {
+          await _apiClient.offlineStore?.clear();
+          _clearRecords();
           _passwordSetupRequired = true;
           notifyListeners();
           return null;
@@ -2594,16 +2835,24 @@ class AppState extends ChangeNotifier {
       _passwordSetupRequired = false;
       final roleProblem = _applyProfile(profile);
       if (roleProblem != null) {
-        await _apiClient.setToken(null);
+        await signOut();
         return roleProblem;
       }
 
       // SDS Staff and Officers still sign in; what they may reach is
       // decided by role capabilities, not by blocking authentication.
+      await _rememberProfile(profile);
       await _loadSignedInData();
       notifyListeners();
+      unawaited(offlineSync.prepare());
       return null;
     } catch (error) {
+      if (generation == _sessionGeneration &&
+          error is ApiException &&
+          error.isForbidden &&
+          _apiClient.offlineStore?.session?.profile['email'] == email) {
+        await signOut();
+      }
       return _messageForFailure(error);
     }
   }
@@ -2681,23 +2930,59 @@ class AppState extends ChangeNotifier {
   /// account signing in on this device can never see the previous one's
   /// data. There is no backend logout endpoint — the JWT simply stops
   /// being held.
-  ///
-  /// `inventory` and `notifications` are still local mock lists rather than
-  /// user-scoped backend data, so they are left alone here; they get
-  /// cleared once those modules are actually wired.
   Future<void> signOut() async {
+    _sessionGeneration++;
+    offlineSync.cancel();
+    _apiClient.invalidateSession();
+    offlineSync.lastCompleted = null;
     _demoMode = false;
     _apiClient.demoMode = false;
     currentAccount = null;
     currentRole = null;
     _passwordSetupRequired = false;
+    _clearRecords();
+    notifyListeners();
+    await _authService.logout();
+    await _apiClient.offlineStore?.clear();
+  }
+
+  void _clearRecords() {
+    _navigationGeneration++;
     categories = [];
     events.clear();
     expenses.clear();
+    notices = [];
+    unreadNoticeCount = 0;
+    roster = [];
+    managedUsers = [];
+    auditLog = [];
+    dashboard = null;
+    spendingTrends = [];
+    flaggedExpenses = [];
+    financialReport = null;
+    letters = [];
+    catalog = [];
+    incomes = [];
+    receipts = [];
+    departments = [];
+    organizations = [];
+    knownSchoolYears = [];
+    schoolYearFilter = null;
+    showOnlyMissingSchoolYear = false;
+    catalogDraftFilter = null;
+    catalogEventFilter = null;
+    catalogMissingEventOnly = false;
+    incomeEventFilter = null;
+    receiptEventFilter = null;
+    receiptStatusFilter = null;
+    receiptFlaggedOnly = false;
+    reportPeriod = ReportPeriod.monthly;
+    reportReferenceDate = null;
+    reportSchoolYear = null;
+    reportSemester = null;
+    reportEventScope = null;
     for (final state in _moduleLoads) {
       state.reset();
     }
-    notifyListeners();
-    await _authService.logout();
   }
 }

@@ -48,6 +48,18 @@ class SapService {
   SapService(this._client);
 
   final ApiClient _client;
+  bool get isReadOnly => !_client.canWriteRemote;
+  Future<DownloadedFile> attachmentFile(String eventId, String attachmentId) =>
+      _client.storedFile(
+        '',
+        linkPath: '${_base(eventId)}/attachments/$attachmentId/download',
+        owner: '/events/$eventId',
+      );
+  Future<DownloadedFile> finalScanFile(String eventId) => _client.storedFile(
+    '',
+    linkPath: '${_base(eventId)}/final-signed-copy',
+    owner: '/events/$eventId',
+  );
 
   String _base(String eventId) => '/events/$eventId/sap-proposal';
 
@@ -81,8 +93,9 @@ class SapService {
       SapProposal.fromJson(Map<String, dynamic>.from(response as Map));
 
   /// `POST base` — starts a draft on an event that has none.
-  Future<SapProposal> create(String eventId) =>
-      _guard(() async => _proposal(await _client.post(_base(eventId), body: const {})));
+  Future<SapProposal> create(String eventId) => _guard(
+    () async => _proposal(await _client.post(_base(eventId), body: const {})),
+  );
 
   /// `GET base` — the current working aggregate.
   Future<SapProposal> fetch(String eventId) =>
@@ -184,10 +197,7 @@ class SapService {
 
   /// `POST /submit` — freezes the snapshot and PDF and creates all nine
   /// checkpoints. A 409 here usually carries readiness blockers.
-  Future<SapProposal> submit(
-    String eventId, {
-    required int expectedVersion,
-  }) {
+  Future<SapProposal> submit(String eventId, {required int expectedVersion}) {
     return _guard(() async {
       final response = await _client.post(
         '${_base(eventId)}/submit',

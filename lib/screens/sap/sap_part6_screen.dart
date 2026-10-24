@@ -81,7 +81,7 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
                     label: 'Record evaluation',
                     busy: _form.saving,
                     busyLabel: 'Saving',
-                    onPressed: _valid ? _record : null,
+                    onPressed: !_form.isReadOnly && _valid ? _record : null,
                   ),
                 ),
           child: Column(
@@ -100,6 +100,7 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
                 )
               else ...[
                 SapSingleChoice<SapEvaluationOutcome>(
+                  enabled: !_form.isReadOnly,
                   label: 'Outcome',
                   options: SapEvaluationOutcome.values,
                   labelOf: (o) => o.label,
@@ -130,7 +131,7 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
                 controller: _remarks,
                 label: 'Remarks',
                 hint: 'Activity completed; reports to follow.',
-                enabled: !_recorded,
+                enabled: !_form.isReadOnly && !_recorded,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => setState(() {}),

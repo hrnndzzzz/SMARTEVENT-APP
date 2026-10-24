@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../api/export_saver.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -40,6 +41,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
 
     // SDS reads school-wide but uploads nothing; Officers reach none of it.
     final canUpload =
+        !app.isOfflineViewing &&
         role != null &&
         role.canAccessProposalLetters &&
         !role.isLetterOnly &&
@@ -59,9 +61,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
               child: const Icon(Icons.upload_file),
             )
           : null,
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
@@ -173,7 +173,42 @@ class _LetterCard extends StatelessWidget {
             style: AppText.caption.copyWith(fontSize: 10),
           ),
           const SizedBox(height: 6),
-          const MonoLabel('Copy the link to open the document'),
+          TextButton.icon(
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open document'),
+            onPressed: () async {
+              try {
+                final file = await context.read<AppState>().downloadedFile(
+                  letter.documentUrl,
+                );
+                await ExportSaver.share(file, subject: letter.title);
+              } catch (error) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('$error')));
+              }
+            },
+          ),
+          if (context.watch<AppState>().currentRole == UserRole.sdsStaff)
+            TextButton.icon(
+              icon: const Icon(Icons.picture_as_pdf),
+              label: const Text('Open final signed scan'),
+              onPressed: () async {
+                try {
+                  final file = await context
+                      .read<AppState>()
+                      .sapService
+                      .finalScanFile(letter.eventId);
+                  await ExportSaver.share(file, subject: letter.title);
+                } catch (error) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('$error')));
+                }
+              },
+            ),
         ],
       ),
     );

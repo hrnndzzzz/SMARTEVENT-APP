@@ -113,7 +113,9 @@ class SapForm extends ChangeNotifier {
   /// Parts 1 to 3 are the proposer's, and only while the proposal is a
   /// draft or has been returned.
   bool get canEditProposerParts =>
-      isLocalOnly || (_proposal?.isProposerEditable ?? true);
+      !isReadOnly && (isLocalOnly || (_proposal?.isProposerEditable ?? true));
+
+  bool get isReadOnly => _service?.isReadOnly ?? false;
 
   /// Loads the proposal, creating the draft if the event has none.
   Future<void> load() async {
@@ -140,14 +142,16 @@ class SapForm extends ChangeNotifier {
       try {
         p = await service.fetch(_eventId!);
       } on SapUnavailable {
+        if (isReadOnly) rethrow;
         p = await service.create(_eventId!);
       }
       _adopt(p);
-      _applySeed();
+      if (!isReadOnly) _applySeed();
       _localOnly = false;
     } on SapUnavailable {
       // The backend predates this slice. Keep whatever is typed.
-      _localOnly = true;
+      _localOnly = !isReadOnly;
+      if (isReadOnly) _error = 'This proposal has not been downloaded.';
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -190,31 +194,37 @@ class SapForm extends ChangeNotifier {
   // --- local edits ---------------------------------------------------------
 
   void updateDetails(SapDetails Function(SapDetails) change) {
+    if (isReadOnly) return;
     _details = change(_details);
     notifyListeners();
   }
 
   void setProgramFlow(List<SapProgramFlowItem> items) {
+    if (isReadOnly) return;
     _programFlow = [...items];
     notifyListeners();
   }
 
   void setBudgetItems(List<SapBudgetItem> items) {
+    if (isReadOnly) return;
     _budgetItems = [...items];
     notifyListeners();
   }
 
   void setSupportRequests(List<SapSupportRequest> items) {
+    if (isReadOnly) return;
     _supportRequests = [...items];
     notifyListeners();
   }
 
   void setAffectedClasses(List<SapAffectedClass> items) {
+    if (isReadOnly) return;
     _affectedClasses = [...items];
     notifyListeners();
   }
 
   void setClearance(SapClearance? value) {
+    if (isReadOnly) return;
     _clearance = value;
     notifyListeners();
   }
@@ -256,7 +266,14 @@ class SapForm extends ChangeNotifier {
     if (classes.isNotEmpty) await saveAffectedClasses();
   }
 
-  Future<bool> _write(Future<SapProposal> Function(SapService, int) call) async {
+  Future<bool> _write(
+    Future<SapProposal> Function(SapService, int) call,
+  ) async {
+    if (isReadOnly) {
+      _error = 'Viewing saved data. Connect and sign in before making changes.';
+      notifyListeners();
+      return false;
+    }
     final service = _service;
     if (service == null || _eventId == null) {
       _localOnly = true;
@@ -296,13 +313,19 @@ class SapForm extends ChangeNotifier {
   );
 
   Future<bool> saveProgramFlow() => _write(
-    (s, v) =>
-        s.replaceProgramFlow(_eventId!, expectedVersion: v, items: _programFlow),
+    (s, v) => s.replaceProgramFlow(
+      _eventId!,
+      expectedVersion: v,
+      items: _programFlow,
+    ),
   );
 
   Future<bool> saveBudgetItems() => _write(
-    (s, v) =>
-        s.replaceBudgetItems(_eventId!, expectedVersion: v, items: _budgetItems),
+    (s, v) => s.replaceBudgetItems(
+      _eventId!,
+      expectedVersion: v,
+      items: _budgetItems,
+    ),
   );
 
   Future<bool> saveSupportRequests() => _write(
@@ -416,6 +439,10 @@ class SapForm extends ChangeNotifier {
   /// wins. Empty until [loadAttachments] has run once.
   List<SapAttachment> get attachments => List.unmodifiable(_attachments);
   List<SapAttachment> _attachments = const [];
+  Future<DownloadedFile> attachmentFile(String attachmentId) async {
+    if (_service == null || _eventId == null) throw const OfflineUnavailable();
+    return _service.attachmentFile(_eventId!, attachmentId);
+  }
 
   /// Whether the ROC or COC the server insists on for an off-campus
   /// submission is already attached.
@@ -585,7 +612,8 @@ class SapForm extends ChangeNotifier {
 
   /// Sends the proposal back for revision. The comment is required.
   Future<bool> returnForRevision(String remarks) => _write(
-    (s, v) => s.returnForRevision(_eventId!, expectedVersion: v, remarks: remarks),
+    (s, v) =>
+        s.returnForRevision(_eventId!, expectedVersion: v, remarks: remarks),
   );
 
   Future<bool> evaluate({

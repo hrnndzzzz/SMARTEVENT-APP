@@ -40,16 +40,16 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final role = app.currentRole;
-    final canReview = role?.canReview ?? false;
+    final canReview =
+        !context.watch<AppState>().isOfflineViewing &&
+        (role?.canReview ?? false);
     final pending = app.pendingExpenses;
     final handled = app.expenses
         .where((e) => e.status != ExpenseStatus.pending)
         .toList();
 
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

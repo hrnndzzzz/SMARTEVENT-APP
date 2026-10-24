@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_cover_screen.dart';
 import 'sap_steps_screen.dart';
+import 'sap_form_screen.dart';
 
 /// Filling in a proposal, one part after another.
 ///
@@ -24,6 +25,13 @@ abstract final class SapProposalFlow {
   static Future<void> start(BuildContext context, SapForm form) async {
     await form.load();
     if (!context.mounted) return;
+
+    if (form.isReadOnly) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => SapFormScreen(form: form)),
+      );
+      return;
+    }
 
     _fillFromAccount(context, form);
 

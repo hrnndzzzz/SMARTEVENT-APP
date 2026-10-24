@@ -45,6 +45,7 @@ class ApiConfig {
   /// Set on this device, and preferred over the build-time value when it
   /// is. Null means "use whatever the build was pointed at".
   static String? _override;
+  static Future<void> Function()? beforeServerChange;
 
   /// Whether a base URL was supplied at build time. False means the build
   /// is pointing at the local development fallback, which is never right
@@ -91,6 +92,7 @@ class ApiConfig {
         'It should look like 192.168.1.5:8000.',
       );
     }
+    if (cleaned != baseUrl) await beforeServerChange?.call();
     _override = cleaned;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -103,6 +105,7 @@ class ApiConfig {
 
   /// Goes back to the address the build was made with.
   static Future<void> clearOverride() async {
+    if (baseUrl != defaultBaseUrl) await beforeServerChange?.call();
     _override = null;
     try {
       final prefs = await SharedPreferences.getInstance();

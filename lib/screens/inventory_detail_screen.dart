@@ -92,8 +92,12 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     final role = app.currentRole;
 
     final canMove =
-        (role?.canRecordInventoryMovements ?? false) && item.isUsable;
-    final canManage = role?.canManageCatalog ?? false;
+        !context.watch<AppState>().isOfflineViewing &&
+        (role?.canRecordInventoryMovements ?? false) &&
+        item.isUsable;
+    final canManage =
+        !context.watch<AppState>().isOfflineViewing &&
+        (role?.canManageCatalog ?? false);
 
     return BrutScreen(
       header: BrutHeader(

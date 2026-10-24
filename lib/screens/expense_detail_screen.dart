@@ -80,6 +80,7 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
     // Own approved expense or an administrator, with at least one asset
     // line to confirm. The API re-checks ownership regardless.
     final canComplete =
+        !context.watch<AppState>().isOfflineViewing &&
         expense.canStartPurchaseCompletion &&
         (role?.canRecordFinance ?? false) &&
         _assetLines.isNotEmpty;
