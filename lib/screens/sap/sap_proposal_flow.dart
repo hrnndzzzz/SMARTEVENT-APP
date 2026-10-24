@@ -145,9 +145,12 @@ abstract final class SapProposalFlow {
   /// Which organization an event belongs to is a fact about the account,
   /// not a choice per event: a JPSSITE officer proposes for JPSSITE.
   ///
-  /// Only Admin and Super Admin may list organizations, so for everyone
-  /// else the name cannot be resolved and the field stays typed. That is
-  /// a gap in `/auth/me`, which returns ids without names.
+  /// The organization comes from `/auth/me`, which has named it since
+  /// 24 Oct — so this now works for the student officers who actually
+  /// fill the form, not only for the Admins who may list organizations.
+  ///
+  /// The department still has no name on `/auth/me`, so it is resolved
+  /// through the list and stays typed for everyone who cannot read it.
   static void _fillFromAccount(BuildContext context, SapForm form) {
     final AppState app;
     try {
@@ -160,10 +163,14 @@ abstract final class SapProposalFlow {
     if (account == null) return;
     if ((form.details.organizationName ?? '').isNotEmpty) return;
 
-    final org = app.organizations
-        .where((o) => o.id == account.organizationId)
-        .map((o) => o.name)
-        .firstOrNull;
+    // The account's own name for it first; the list is only a fallback
+    // for an older backend that sends the id alone.
+    final org = (account.organizationName?.isNotEmpty ?? false)
+        ? account.organizationName
+        : app.organizations
+              .where((o) => o.id == account.organizationId)
+              .map((o) => o.name)
+              .firstOrNull;
     final department = app.departments
         .where((d) => d.id == account.departmentId)
         .map((d) => d.name)

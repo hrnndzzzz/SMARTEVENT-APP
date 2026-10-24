@@ -309,6 +309,11 @@ class Account {
   final String? departmentId;
   final String? organizationId;
 
+  /// The organization's own name, from `/auth/me`. It is here because an
+  /// account below Admin may not list organizations and so cannot look
+  /// its own id up. Null against a backend older than 24 Oct.
+  final String? organizationName;
+
   /// Job title (President, Secretary, …). Never affects permissions.
   final String? position;
 
@@ -325,6 +330,7 @@ class Account {
     this.department = Department.systemWide,
     this.departmentId,
     this.organizationId,
+    this.organizationName,
     this.position,
     this.isSuspended = false,
     this.mustChangePassword = false,
@@ -1564,13 +1570,24 @@ class AppState extends ChangeNotifier {
     _ => EventApprovalStatus.draft,
   };
 
-  /// The organization's name, when this account can read the list.
+  /// The organization's name, where this account can honestly give one.
   ///
-  /// Only Admin and Super Admin may call `/organizations`, so for everyone
-  /// else this is empty rather than a guess — an event card simply omits
-  /// the line instead of claiming an organization it cannot verify.
+  /// Only Admin and Super Admin may call `/organizations`. Everyone else
+  /// can still name their own organization, since `/auth/me` has sent it
+  /// since 24 Oct — and a scoped account only ever sees its own events
+  /// anyway, so that covers their whole list.
+  ///
+  /// Anything still unresolved stays empty rather than becoming a guess:
+  /// an event card omits the line instead of claiming an organization it
+  /// cannot verify.
   String _organizationNameFor(String? organizationId) {
     if (organizationId == null) return '';
+    final mine = currentAccount;
+    if (mine != null &&
+        mine.organizationId == organizationId &&
+        (mine.organizationName?.isNotEmpty ?? false)) {
+      return mine.organizationName!;
+    }
     return organizations
             .where((o) => o.id == organizationId)
             .map((o) => o.name)
@@ -2501,6 +2518,7 @@ class AppState extends ChangeNotifier {
       role: role,
       departmentId: profile.departmentId,
       organizationId: profile.organizationId,
+      organizationName: profile.organizationName,
       position: profile.position,
       isSuspended: profile.isSuspended,
       mustChangePassword: profile.mustChangePassword,

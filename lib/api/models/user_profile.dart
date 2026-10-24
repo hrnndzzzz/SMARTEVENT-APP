@@ -25,6 +25,18 @@ class UserProfile {
   final String? departmentId;
   final String? organizationId;
 
+  /// The organization's name, sent alongside the id since 24 Oct.
+  ///
+  /// This matters because only Admin and above may call
+  /// `/organizations`: before this field, a student officer could not
+  /// turn their own [organizationId] into a name, and the SAP form's
+  /// Part 1 opened blank for exactly the people who fill it in.
+  ///
+  /// There is no `department_name` yet, so a department still has to be
+  /// resolved through the list, and still only by an account that may
+  /// read it.
+  final String? organizationName;
+
   final bool isActive;
 
   /// Access revoked by an administrator. Takes effect on the next request
@@ -45,6 +57,7 @@ class UserProfile {
     required this.position,
     required this.departmentId,
     required this.organizationId,
+    this.organizationName,
     required this.isActive,
     required this.isSuspended,
     required this.mustChangePassword,
@@ -60,6 +73,7 @@ class UserProfile {
       position: json['position'] as String?,
       departmentId: json['department_id'] as String?,
       organizationId: json['organization_id'] as String?,
+      organizationName: json['organization_name'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       isSuspended: json['is_suspended'] as bool? ?? false,
       mustChangePassword: json['must_change_password'] as bool? ?? false,
