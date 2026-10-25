@@ -55,7 +55,7 @@ class HomeScreen extends StatelessWidget {
     final app = context.watch<AppState>();
     final now = DateTime.now();
     final name = app.currentAccount?.name.split(' ').first ?? 'there';
-    final canRecord = app.currentRole?.canRecordFinance ?? false;
+    final canRecord = app.mayRecordFinance;
 
     final allocated = app.totalAllocated;
     final remaining = app.remainingBalance;

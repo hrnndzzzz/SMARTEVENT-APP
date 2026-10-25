@@ -1,5 +1,6 @@
 import 'api_client.dart';
 import 'models/registration_result.dart';
+import 'models/account_permissions.dart';
 import 'models/user_profile.dart';
 
 /// Backend auth, matching `smartevent-backend/app/routers/auth.py`.
@@ -47,12 +48,17 @@ class AuthService {
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
-  /// Role explanation for the signed-in account. Descriptive metadata for
-  /// display — it is not a per-record `canEdit`/`canDelete` API, so never
-  /// gate an action on it.
-  Future<Map<String, dynamic>> getPermissions() async {
+  /// What this account may do, as the server sees it.
+  ///
+  /// Still not a per-record `canEdit`/`canDelete` API — a record's own
+  /// owner and state decide that, and the API has the last word either
+  /// way. It is the account-wide capability: whether to offer the action
+  /// at all, which the app used to answer from the role name alone.
+  Future<AccountPermissions> getPermissions() async {
     final response = await _client.get('/auth/permissions');
-    return (response as Map).cast<String, dynamic>();
+    return AccountPermissions.fromJson(
+      (response as Map).cast<String, dynamic>(),
+    );
   }
 
   /// `POST /auth/register` — roster-based self-registration.

@@ -37,7 +37,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.incomesLoad;
-    final canRecord = app.currentRole?.canRecordFinance ?? false;
+    final canRecord = app.mayRecordFinance;
 
     return BrutScreen(
       floatingActionButton: canRecord

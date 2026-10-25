@@ -75,13 +75,14 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
   Widget build(BuildContext context) {
     final expense = widget.expense;
     final remote = expense.remote;
-    final role = context.watch<AppState>().currentRole;
+    final app = context.watch<AppState>();
 
-    // Own approved expense or an administrator, with at least one asset
-    // line to confirm. The API re-checks ownership regardless.
+    // Own approved expense, with at least one asset line to confirm, and
+    // only for whoever the server says may record money. The API
+    // re-checks ownership regardless.
     final canComplete =
         expense.canStartPurchaseCompletion &&
-        (role?.canRecordFinance ?? false) &&
+        app.mayRecordFinance &&
         _assetLines.isNotEmpty;
 
     return BrutScreen(

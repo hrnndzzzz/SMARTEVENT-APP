@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../theme/brut.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
 import '../api/category_service.dart';
 import '../api/models/academic.dart';
+import '../api/models/account_permissions.dart';
 import '../api/models/admin.dart';
 import '../api/admin_service.dart';
 import '../api/models/roster_import.dart';
@@ -147,6 +149,21 @@ extension EventApprovalStatusInfo on EventApprovalStatus {
       this == EventApprovalStatus.approved ||
       this == EventApprovalStatus.rejected ||
       this == EventApprovalStatus.completed;
+
+  /// The colour a badge for this status should carry.
+  ///
+  /// Here rather than at each badge because a screen that picked its own
+  /// got it wrong: the search results painted every status mint, so a
+  /// draft and a returned proposal both read as good news.
+  BrutTone get tone => switch (this) {
+    EventApprovalStatus.approved ||
+    EventApprovalStatus.completed => BrutTone.mint,
+    EventApprovalStatus.rejected => BrutTone.coral,
+    EventApprovalStatus.pendingAdviser ||
+    EventApprovalStatus.pendingAdmin ||
+    EventApprovalStatus.pendingInstitutional => BrutTone.sun,
+    EventApprovalStatus.draft => BrutTone.neutral,
+  };
 }
 
 class EventItem {
@@ -2524,8 +2541,65 @@ class AppState extends ChangeNotifier {
       mustChangePassword: profile.mustChangePassword,
     );
     currentRole = role;
+    // The role is the fallback from here on, not the answer. The server's
+    // own view arrives separately and may be narrower or wider.
+    _permissions = null;
     return null;
   }
+
+  /// What the server says this account may do. Null until it answers, and
+  /// null for good against a backend with no such endpoint.
+  AccountPermissions? _permissions;
+  AccountPermissions? get permissions => _permissions;
+
+  /// Stands in for the server's reply. The real one arrives through
+  /// [_loadPermissions], which builds its own client and so cannot be
+  /// pointed at a fake from a test.
+  @visibleForTesting
+  set permissionsForTest(AccountPermissions? value) {
+    _permissions = value;
+    notifyListeners();
+  }
+
+  /// Asks the server what the account may do.
+  ///
+  /// Deliberately quiet: a failure here is not a failed sign-in. The app
+  /// keeps the role's built-in defaults, which is what it did before this
+  /// endpoint was consulted at all, so the worst case is the behaviour we
+  /// already shipped.
+  Future<void> _loadPermissions() async {
+    if (_demoMode) return;
+    try {
+      final answer = await _authService.getPermissions();
+      // A reply about someone else is worse than no reply: it would gate
+      // this session on another account's capabilities.
+      if (answer.role.isNotEmpty &&
+          userRoleFromWire(answer.role) != currentRole) {
+        return;
+      }
+      _permissions = answer;
+      notifyListeners();
+    } on ApiException {
+      // Older backend, or the endpoint is closed to this role.
+    }
+  }
+
+  /// Whether to offer proposing an event at all.
+  ///
+  /// The server first, the role only when the server has no opinion. An
+  /// Officer who is President may propose, which no role name can say,
+  /// and that is exactly why this is not read off [currentRole].
+  bool get mayProposeEvents =>
+      _permissions?.canProposeEvents ??
+      (currentRole?.canProposeEvents ?? false);
+
+  /// Whether to offer recording money.
+  ///
+  /// The backend's hierarchy work makes this Treasurer-only, where the
+  /// app's own rule also allowed administrators. Following the server
+  /// means an admin stops being shown a button that answers 403.
+  bool get mayRecordFinance =>
+      _permissions?.canRecordFinance ?? (currentRole?.canRecordFinance ?? false);
 
   /// Categories first: expense rows resolve their category name against
   /// the loaded category list, so loading them in the other order would
@@ -2537,6 +2611,10 @@ class AppState extends ChangeNotifier {
     // Temporary-password accounts are restricted server-side until they set
     // a real one, so these calls would only collect 403s.
     if (mustSetPassword) return;
+
+    // Before the modules, because it decides what the screens they fill
+    // are allowed to offer.
+    await _loadPermissions();
 
     // SDS Staff reaches proposal letters and nothing else. Loading the
     // operational modules would just collect 403s on screens that role

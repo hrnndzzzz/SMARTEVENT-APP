@@ -27,7 +27,7 @@ class MoneyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final canRecord = app.currentRole?.canRecordFinance ?? false;
+    final canRecord = app.mayRecordFinance;
 
     return BrutScreen(
       topBar: AppHeader(

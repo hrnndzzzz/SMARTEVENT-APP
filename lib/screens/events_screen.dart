@@ -55,10 +55,10 @@ class _EventsScreenState extends State<EventsScreen> {
                 onChanged: (v) => setState(() => _calendar = v),
               ),
               const SizedBox(width: AppLayout.tight),
-              // Officers are read-only and SDS has no event access, so
-              // only roles that may actually propose get this.
-              if (context.watch<AppState>().currentRole?.canProposeEvents ??
-                  false)
+              // SDS has no event access, and most Officers are
+              // read-only — but the server decides which, since an
+              // Officer who is President may propose.
+              if (context.watch<AppState>().mayProposeEvents)
                 BrutButton(
                   label: 'New',
                   icon: Icons.add,
@@ -118,7 +118,7 @@ class _EventsScreenState extends State<EventsScreen> {
                           : 'No events yet',
                       hint: filtered
                           ? 'Clear the filter to see every event.'
-                          : (app.currentRole?.canProposeEvents ?? false)
+                          : app.mayProposeEvents
                           ? 'Tap New to submit one.'
                           : null,
                     ),

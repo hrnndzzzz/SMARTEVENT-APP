@@ -190,8 +190,7 @@ class EventDetailScreen extends StatelessWidget {
               // asked. A button called Before approval answered nothing
               // until you pressed it; this says the first blocker and
               // then offers to go and clear it.
-              if ((role?.canProposeEvents ?? false) ||
-                  (role?.canReview ?? false)) ...[
+              if (app.mayProposeEvents || (role?.canReview ?? false)) ...[
                 const SizedBox(height: 14),
                 _ReadinessNotice(event: event),
               ],
@@ -200,8 +199,7 @@ class EventDetailScreen extends StatelessWidget {
               // to decide on. Once it has been approved or returned the
               // decision is the record, and withdrawing it would erase
               // someone else's.
-              if ((role?.canProposeEvents ?? false) &&
-                  event.status.isPending) ...[
+              if (app.mayProposeEvents && event.status.isPending) ...[
                 const SizedBox(height: 14),
                 BrutButton(
                   label: 'Cancel this proposal',
@@ -254,7 +252,7 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                 ),
               ],
-              if ((role?.canProposeEvents ?? false) &&
+              if (app.mayProposeEvents &&
                   event.status == EventApprovalStatus.rejected) ...[
                 const SizedBox(height: 14),
                 BrutButton(
