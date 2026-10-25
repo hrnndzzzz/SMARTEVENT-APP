@@ -17,8 +17,9 @@ No proposal is auto-approved. The proposer cannot approve or reject it.
 
 Access rules:
   - Operational readers see only their assigned organization/department;
-    Super Admin has global access. Officers have view-only access.
-  - The treasurer/adviser who proposed an event, or an administrator, can edit it while it's
+    Super Admin has global access; Admin spans its department. President,
+    Vice President and Secretary positions grant Officers owner-only proposal access.
+  - An authorized proposer who owns an event, or an administrator, can edit it while it's
     still a draft OR rejected (editing a rejected event and resubmitting
     is how an officer fixes and retries a proposal — this restarts the
     approval chain via _initial_pending_status, same rule as above).
@@ -39,6 +40,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -48,6 +50,7 @@ from app.dependencies import (
     assert_record_scope,
     assert_owner_or_admin,
     require_operational_read,
+    require_event_proposer,
     require_role,
     resolve_organization_id,
     scope_query_by_department,
@@ -85,8 +88,8 @@ def _get_event_or_404(db: Session, event_id: uuid.UUID) -> Event:
 
 
 def _assert_event_owner_scope(event: Event, db: Session, current_user: User, action: str) -> None:
-    assert_owner_or_admin(event.proposed_by, current_user, action)
-    assert_record_scope(current_user, event)
+    assert_owner_or_admin(event.proposed_by, current_user, action, owner_roles={"adviser", "treasurer", "officer"})
+    assert_record_scope(current_user, event, allow_officer_read=True)
 
 
 def _next_step_order(db: Session, event_id: uuid.UUID) -> int:
@@ -134,7 +137,7 @@ def _initial_pending_status(proposer_role: str) -> str:
 def create_event(
     payload: EventCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     # If the client is creating straight into review (not saving a
     # draft first), route it through the same creator-skip logic as
@@ -148,16 +151,16 @@ def create_event(
         category = db.query(Category).filter(Category.id == payload.category_id).first()
         if category is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category_id does not match any existing category")
-        assert_record_scope(current_user, category)
+        assert_record_scope(current_user, category, allow_officer_read=True)
 
-    if current_user.role in {"adviser", "treasurer", "admin"}:
+    if current_user.role in {"adviser", "treasurer", "admin", "officer"}:
         department_id = current_user.department_id
         if payload.department_id is not None and payload.department_id != department_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only create events in your assigned department.",
             )
-        assert_department_scope(current_user, department_id)
+        assert_department_scope(current_user, department_id, allow_officer_read=True)
     else:
         department_id = payload.department_id or (category.department_id if category else None)
 
@@ -290,7 +293,7 @@ def update_event(
     event_id: uuid.UUID,
     payload: EventUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     event = _get_event_or_404(db, event_id)
     _assert_event_owner_scope(event, db, current_user, "edit")
@@ -309,7 +312,7 @@ def update_event(
         category = db.query(Category).filter(Category.id == category_id).first()
         if category is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category_id does not match any existing category")
-        assert_record_scope(current_user, category)
+        assert_record_scope(current_user, category, allow_officer_read=True)
         target_department_id = updates.get("department_id", event.department_id)
         if category.organization_id != event.organization_id:
             raise HTTPException(status_code=400, detail="Event and category must share an organization")
@@ -344,7 +347,7 @@ def update_event(
 def submit_event(
     event_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     """
     Moves a draft into review, OR resubmits a previously rejected event
@@ -450,7 +453,7 @@ def reject_event(
 def delete_event(
     event_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     event = _get_event_or_404(db, event_id)
     _assert_event_owner_scope(event, db, current_user, "delete")
@@ -464,6 +467,10 @@ def delete_event(
             ),
         )
 
-    db.delete(event)
-    db.commit()
+    try:
+        db.delete(event)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="This draft is referenced by other records and cannot be deleted") from exc
     return None

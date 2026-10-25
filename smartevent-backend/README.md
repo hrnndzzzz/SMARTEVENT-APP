@@ -14,7 +14,7 @@ mean its Create/Edit/Delete or other action is already available in the app.
 | Document | Purpose |
 |---|---|
 | [Frontend README](FRONTEND_README.md) | Screens, buttons, forms, permissions and acceptance tests covering all 89 currently registered API operations. |
-| [Roles and permissions](ROLES_AND_PERMISSIONS.md) | Hierarchy, scope, officer read-only policy and account administration. |
+| [Roles and permissions](ROLES_AND_PERMISSIONS.md) | Hierarchy, scope, position capabilities and account administration. |
 | [Core features](CORE_SYSTEM_FEATURES.md) | Registration, notifications, academic metadata and exports. |
 | [Financial management](FINANCIAL_MANAGEMENT.md) | Fund sources, receipt duplication/review, reports and historical import. |
 | [Inventory management](INVENTORY_MANAGEMENT.md) | Event links, typed movements, purchase completion and legacy repairs. |
@@ -148,7 +148,7 @@ test. There is no public Create Super Admin API.
 
 1. Super Admin logs in and changes the temporary password.
 2. Super Admin creates departments/organizations and Admin/SDS accounts.
-3. Organization Admin adds approved Adviser/Treasurer/Officer roster entries.
+3. Department Admin adds approved Adviser/Treasurer/Officer roster entries.
 4. Members register with roster email and chosen password, then verify OTP.
 5. Eligible verified members activate automatically; role/name/scope come from
    the roster, not a self-selected elevated role.
@@ -157,21 +157,23 @@ test. There is no public Create Super Admin API.
 
 | Role | Access |
 |---|---|
-| super_admin | Global operations, department/organization/Admin/SDS provisioning, transfers, account access and audit. |
-| admin | Assigned organization/department administration, roster/member access, categories/catalog, finances and independent review. |
-| adviser | Scoped reading, own event proposals, independent event/expense/receipt review, movements and letters. |
+| super_admin | Global administration, department/organization/Admin/SDS provisioning, transfers, account access and audit; financial viewing/review, no financial recording. |
+| admin | Dean/department administration across its organizations, roster/member access, categories/catalog and independent review; financial viewing/review, no financial recording. |
+| adviser | Adviser or Moderator: scoped reading, own event proposals, independent event/expense/receipt review, movements and letters. |
 | treasurer | Scoped reading, own proposals, income/expenses, own pending-expense receipts, purchase completion, movements and letters. |
-| officer | Scoped operational read-only access, reports and exports; own password changes and notification read actions remain allowed. |
+| officer | Organization reading, reports and exports; President, Vice President and Secretary can also manage own eligible proposals and letters. |
 | sds_staff | School-wide proposal-letter reading and personal account/inbox; no operational events, finances, inventory or reports. |
 
-Sharing a department does not grant cross-organization access. Account transfers
+Admins access their department's organizations; other members access only their
+own organization. Account transfers
 do not transfer historical records. Suspension blocks existing tokens on
 subsequent requests; restoration does not bypass verification/password setup.
 
 POST /auth/login takes application/x-www-form-urlencoded fields username
 (email) and password, not JSON. Protected calls use Authorization: Bearer
 <access_token>. Load GET /auth/me after login and route mandatory-password users
-to setup; GET /auth/permissions describes duties. There is no refresh-token
+to setup; GET /auth/permissions describes duties and returns position plus
+can_propose_events/can_record_finance booleans. There is no refresh-token
 or server-side logout endpoint.
 
 No reviewer, including Super Admin, may approve/reject their own event, expense
@@ -207,13 +209,14 @@ The frontend must expose category CRUD, not just a dropdown.
 
 ### Events: two-stage approval
 
-Treasurer/Adviser/Admin/Super Admin can propose events; Officers cannot.
+Treasurer/Adviser/Admin/Super Admin and Officers holding President, Vice President
+or Secretary positions can propose events. Other Officers remain read-only.
 New events require consecutive school year (e.g. 2026-2027), semester
 (1st, 2nd, summer) and scope (departmental, organizational). Year filtering/
 lookup and administrator legacy-metadata repair exist. Metadata cannot be cleared.
 
 ~~~text
-Treasurer/Admin/Super Admin: draft -> pending_adviser -> pending_admin -> approved
+Eligible Officer/Treasurer/Admin/Super Admin: draft -> pending_adviser -> pending_admin -> approved
 Adviser:                   draft -> pending_admin -> approved
 Pending stage -> rejected -> edit -> resubmit (history retained)
 ~~~
@@ -231,8 +234,8 @@ transition endpoint.
 
 ### Expenses, receipts and OCR
 
-Treasurer/Admin/Super Admin create pending expenses with asset/consumable lines.
-Owners/administrators edit/delete eligible pending records. Independent
+Only Treasurer creates pending expenses with asset/consumable lines and edits or
+deletes their own eligible pending records. Independent
 Adviser/Admin/Super Admin approves/rejects in a SINGLE review step, unlike events.
 Approval checks category and linked event budgets; database triggers deduct them.
 
@@ -308,7 +311,7 @@ can read letters; SDS/Super Admin have school-wide visibility. Officers have no
 letter access; SDS cannot approve events.
 
 Super Admin provisions departments/organizations/Admin/SDS and transfers accounts.
-Organization Admin manages roster/member roles, positions and suspension.
+Department Admin manages roster/member roles, positions and suspension across its organizations.
 Claimed roster entries are managed through user access, not unclaimed-entry
 editing/deletion. Administrative audit history is read-only and scoped.
 

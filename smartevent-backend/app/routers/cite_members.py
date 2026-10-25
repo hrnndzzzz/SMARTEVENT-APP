@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import assert_record_scope, assert_department_scope, require_role, resolve_department_id, resolve_organization_id
+from app.dependencies import assert_record_scope, assert_department_scope, require_role, resolve_department_id, resolve_organization_id, scope_query_by_department
 from app.models import CiteMember, Organization, User
 from app.schemas import CiteMemberCreate, CiteMemberOut, CiteMemberUpdate
 from app.services.access_audit import record_access_change
@@ -77,14 +77,15 @@ def list_cite_members(
             query = query.filter(CiteMember.organization_id == organization_id)
     else:
         assert_record_scope(current_user, current_user)
-        if organization_id is not None and organization_id != current_user.organization_id:
-            raise HTTPException(status_code=403, detail="You can only list your assigned organization")
+        if organization_id is not None:
+            resolve_organization_id(db, current_user, organization_id, current_user.department_id)
+            query = query.filter(CiteMember.organization_id == organization_id)
         if department_id is not None and department_id != current_user.department_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only list members in your assigned department.",
             )
-        query = query.filter(CiteMember.department_id == current_user.department_id, CiteMember.organization_id == current_user.organization_id)
+        query = scope_query_by_department(query, CiteMember.department_id, current_user)
 
     if claimed is not None:
         query = query.filter(
@@ -119,7 +120,10 @@ def update_cite_member(
     before = {"role": member.role, "position": member.position, "organization_id": str(member.organization_id)}
     for field, value in updates.items():
         setattr(member, field, value)
-    record_access_change(db, current_user, "roster.updated", member, {"before": before})
+    record_access_change(db, current_user, "roster.updated", member, {
+        "before": before,
+        "after": {"role": member.role, "position": member.position, "organization_id": str(member.organization_id)},
+    })
     db.commit()
     db.refresh(member)
     return member

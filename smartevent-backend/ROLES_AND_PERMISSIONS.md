@@ -9,13 +9,17 @@ The institution appoints a school IT administrator as **Super Admin**. Account
 credentials should belong to that appointed staff member. The software cannot
 select the person who holds this responsibility.
 
-Super Admin -> Organization Admin -> Adviser / Treasurer / Officer.
+Organization hierarchy: Dean (Admin) -> Adviser / Moderator (Adviser) -> President -> other officers.
+Super Admin is the platform administrator. Treasurer is a financial responsibility,
+not an additional supervisory rank. Adviser and Moderator have identical permissions.
 SDS Staff has a separate oversight role for proposal letters.
 
 Each organization belongs to one department. Each Admin, Adviser, Treasurer,
 and Officer account belongs to one organization and that organization's department.
-Several organizations can belong to the same department. Sharing a department
-does not grant access to another organization's records.
+Admins manage every organization in their assigned department; their stored
+organization remains the default for creating records. Adviser, Treasurer and
+Officer access remains limited to their own organization. Selected organizations
+must belong to the Admin's department. Missing assignments fail closed.
 
 Super Admin is the only role with global operational access. SDS Staff can read
 proposal letters across the school, but cannot read events, finances, inventory,
@@ -23,30 +27,39 @@ reports, user accounts, rosters, or administrative audit history.
 
 ## Duties and permissions
 
-| Action | Super Admin | Organization Admin | Adviser | Treasurer | Officer | SDS Staff |
+| Action | Super Admin | Department Admin / Dean | Adviser / Moderator | Treasurer | Officer | SDS Staff |
 |---|---|---|---|---|---|---|
 | Create departments and organizations | Yes | No | No | No | No | No |
 | Create Admin and SDS accounts | Yes | No | No | No | No | No |
-| Manage unclaimed member roster | All | Own organization | No | No | No | No |
-| List/manage registered member access | All | Own organization's Adviser/Treasurer/Officer accounts | No | No | No | No |
+| Manage unclaimed member roster | All | Own department | No | No | No | No |
+| List/manage registered member access | All | Own department's Adviser/Treasurer/Officer accounts | No | No | No | No |
 | Transfer accounts to another organization | Yes | No | No | No | No | No |
-| Read operational data, reports, analytics | All | Own organization | Own organization | Own organization | Own organization | No |
-| Create/update/delete budget categories | All | Own organization | No | No | No | No |
-| Create event proposals | All | Own organization | Own organization | Own organization | No | No |
-| Edit/submit/delete draft events | All | Own organization | Own drafts | Own drafts | No | No |
-| Approve/reject events and expenses | Others' submissions | Others' organization submissions | Others' organization submissions | No | No | No |
-| Record income and expenses | All | Own organization | No | Own organization | No | No |
-| Edit/delete pending expenses and attach receipts | All | Own organization | No | Own pending expenses | No | No |
-| Create/edit/delete inventory catalog and confirm drafts | All | Own organization | No | No | No | No |
-| Record inventory movements | All | Own organization | Own organization | Own organization | No | No |
-| Upload proposal letters | All | Own organization | Own organization | Own organization | No | No |
-| Read proposal letters | All | Own organization | Own organization | Own organization | No | All |
-| Read administrative audit history | All | Own organization | No | No | No | No |
+| Read operational data, reports, analytics | All | Own department | Own organization | Own organization | Own organization | No |
+| Create/update/delete budget categories | All | Own department | No | No | No | No |
+| Create event proposals | All | Own department | Own organization | Own organization | President, Vice President, Secretary only | No |
+| Edit/submit/delete eligible events | All | Own department | Own proposals | Own proposals | Those three positions, own proposals only | No |
+| Approve/reject events and expenses | Others' submissions | Others' department submissions | Others' organization submissions | No | No | No |
+| Record income and expenses | No | No | No | Own organization | No | No |
+| Edit/delete pending expenses, receipts, OCR, purchase completion | No | No | No | Own eligible transactions | No | No |
+| Create/edit/delete inventory catalog and confirm drafts | All | Own department | No | No | No | No |
+| Record inventory movements | All | Own department | Own organization | Own organization | No | No |
+| Upload proposal letters | All | Own department | Own organization | Own organization | Those three positions, own draft/rejected proposals only | No |
+| Read proposal letters | All | Own department | Own organization | Own organization | Those three positions, own proposals only | All |
+| Read administrative audit history | All | Own department | No | No | No | No |
 
-The officer role is read-only regardless of position (President, Secretary, etc.).
-A Treasurer needs the separate treasurer role to record finances. Officer
-password changes and password recovery remain allowed as account self-service.
-The shared write restriction runs on every protected operational router.
+President, Vice President and Secretary retain `role=officer` and gain proposal
+access based on their administrator-managed `position`. Matching ignores case and
+collapses whitespace. All other positions (including missing titles, Auditor,
+PRO, committee heads and year representatives) remain operational readers.
+No position grants finance, inventory, administration or review permissions.
+Only `role=treasurer` can record finances, including receipts, OCR and purchase
+completion. Admin/Super Admin/Adviser retain financial viewing and independent
+review. Personal password and notification actions remain available.
+
+Qualifying Officers create drafts or submit directly to `pending_adviser`, then
+Adviser/Moderator review advances to `pending_admin` and Admin review approves.
+Owners edit draft/rejected proposals, resubmit them, and delete drafts subject to
+references. Rejection/resubmission history and no-self-review rules remain intact.
 
 No role, including Super Admin, can approve or reject its own submissions.
 Record ownership is stored on the record; transferring an account does not
@@ -59,11 +72,12 @@ transfer historical events, expenses, categories, or inventory.
    HTTP route that creates Super Admins.
 2. Super Admin creates departments (POST /departments) and organizations
    (POST /organizations), or uses existing migration organizations.
-3. Super Admin creates an organization administrator with
+3. Super Admin creates a department administrator with
    POST /auth/register/admin, providing both department_id and
    organization_id. Admins cannot create other Admin or SDS accounts.
 4. Admin adds Adviser, Treasurer, and Officer roster entries with
-   POST /cite-members. Its organization and department are used by default.
+   POST /cite-members. Its organization and department are used by default;
+   Admin may select another organization in its department.
    Super Admin must specify both. Users register with their roster email and
    password; the role and organization come from the roster.
 5. Change unclaimed roster roles/positions with PATCH /cite-members/{id}.
@@ -89,9 +103,17 @@ and recovery remain institution-controlled maintenance operations.
 Administrative account changes, roster changes, and department/organization
 creation write audit records in the same database transaction. Read these using
 GET /audit-logs?limit=100&offset=0. There are no audit edit/delete routes.
-GET /auth/permissions describes the authenticated user's role and duties.
+GET /auth/permissions describes the authenticated user's role and duties, plus
+`position`, `can_propose_events`, and `can_record_finance` boolean fields. These
+are effective capabilities, so clients must not infer proposal access from role
+alone. Managed position changes synchronize claimed roster records and include
+the old/new positions in audit history. Existing tokens use current stored access.
 
 ## Database rollout
+
+This hierarchy change requires no new migration or automatic account reassignment.
+Existing Admin accounts now have department-wide access; assign them only to the
+intended department. Existing position assignments determine Officer capabilities.
 
 Apply migrations 001 through 003 if needed, then apply
 [004_roles_and_organizations.sql](scripts/004_roles_and_organizations.sql) in the
@@ -118,6 +140,7 @@ authorize direct client access to database tables.
 
 Run .venv\Scripts\python.exe -m pytest -q -p no:cacheprovider app.
 Authorization tests use an isolated in-memory database and do not contact
-Supabase. They verify real list/detail isolation between organizations sharing
-a department, officer write denial across registered routes, account suspension,
-role changes with existing tokens, user transfers, audit visibility, and self-review.
+Supabase. They verify member organization isolation, department-wide Admin access,
+qualifying Officer proposal ownership/lifecycle, Treasurer-only financial writes,
+other Officer write denial, suspension, position/role changes with existing tokens,
+user transfers, audit visibility, and self-review.

@@ -75,23 +75,28 @@ be included in diagnostic logs or analytics.
 
 | Role | Required navigation | Write controls |
 |---|---|---|
-| `super_admin` | Dashboard, Categories, Events, Expenses, Income, Receipts, Inventory, Reports, Proposal Letters, Departments, Organizations, Accounts, Roster, Audit, Notifications, Profile | All supported administrative/operational actions, still subject to states and no self-review. |
-| `admin` | Operational modules above plus own organization's Roster, Accounts, Audit, Notifications, Profile | Category/catalog CRUD, member access administration, finance/event actions within assigned organization. No create Admin/SDS, school setup, or transfers. |
+| `super_admin` | Dashboard, Categories, Events, Expenses, Income, Receipts, Inventory, Reports, Proposal Letters, Departments, Organizations, Accounts, Roster, Audit, Notifications, Profile | Global administration and independent review; no financial recording, still subject to states and no self-review. |
+| `admin` | Operational modules above plus department Roster, Accounts, Audit, Notifications, Profile | Category/catalog CRUD, member administration, events and independent review across its department's organizations. Financial viewing/review only. No create Admin/SDS, school setup, or transfers. |
 | `adviser` | Dashboard, Categories, Events, Expenses, Income, Receipts, Inventory, Reports, Proposal Letters, Notifications, Profile | Own event proposals, independent review, inventory movements, proposal-letter upload. No category/catalog CRUD or finance recording. |
 | `treasurer` | Same operational navigation as Adviser | Own event proposals, record income/expenses, own pending-expense editing/receipt actions, own purchase completion, movements, letters. No approval or catalog/category CRUD. |
-| `officer` | Dashboard, Categories, Events, Expenses, Income, Receipts, Inventory, Reports, Notifications, Profile | Operational read-only. No Create/Edit/Delete/Submit/Approve/Upload/stock-movement controls. Own password changes and notification mark-read remain allowed. No proposal-letter access. |
+| `officer` | Dashboard, Categories, Events, Expenses, Income, Receipts, Inventory, Reports, Notifications, Profile; Proposal Letters for qualifying positions | President, Vice President and Secretary can create/manage own eligible proposals and their letters. Other positions remain read-only. No financial/inventory/admin/review writes. Personal password and notification actions remain allowed. |
 | `sds_staff` | Proposal Letters, Notifications, Profile | Read school-wide proposal letters only; no operational dashboard, events, finance, inventory, reports, or administrative screens. |
 
-Organization and department scope are both enforced. Organizations sharing a
-department cannot see each other's records. Scope comes from `/auth/me`; do not
-offer arbitrary organization selectors to ordinary users. Super Admin has global
+Organization and department scope are both enforced. Admin accesses all
+organizations in its assigned department; other members access only their own
+organization. Scope comes from `/auth/me`; do not offer arbitrary organization
+selectors to ordinary members. Super Admin has global
 access, but some list routes do not provide organization query filters: do not
 invent server-side filters. Department/organization lookup endpoints are for
 Admin/Super Admin; non-admin operational forms use the account's scope and
 already-accessible records instead of calling forbidden lookup endpoints.
 
-Position labels such as President or Secretary do not override the officer's
-read-only role. A Treasurer must actually have `role=treasurer`.
+Use the effective `can_propose_events` and `can_record_finance` booleans from
+`GET /auth/permissions` to offer controls. President, Vice President and Secretary
+extend `role=officer` with proposal access; case and whitespace are normalized.
+Adviser and Moderator both use `role=adviser` with identical permissions.
+A Treasurer must actually have `role=treasurer`; only that role records financial
+transactions. Admin's stored organization is its default, not its access boundary.
 
 ## 3. Account, registration and notifications
 
@@ -102,7 +107,7 @@ read-only role. A Treasurer must actually have `role=treasurer`.
 | Resend verification | `POST /auth/resend-otp` | Email. Explain invalid/expired OTP without destroying registration progress. |
 | Login | `POST /auth/login` | Email in form field `username`, password in `password`; save returned access token securely. |
 | Profile/session | `GET /auth/me` | Name, email, role, position, organization/department IDs, activation/suspension and password-setup status. |
-| Role explanation | `GET /auth/permissions` | Display the current role's duties/scope; use route rules for actual action gating. |
+| Role explanation | `GET /auth/permissions` | Existing role/scope/responsibility/permissions plus `position`, `can_propose_events`, `can_record_finance`; use these effective flags and record ownership/state for controls. |
 | Change/setup password | `POST /auth/change-password` | `current_password`, `new_password`; mandatory first-login flow when `must_change_password=true`. |
 | Forgot password | `POST /auth/forgot-password` | Email request screen; avoid exposing account enumeration through extra client assumptions. |
 | Reset password | `POST /auth/reset-password` | Email, `otp_code`, `new_password`. |
@@ -172,7 +177,7 @@ Use these exact values:
 - Event scope: `departmental`, `organizational`.
 
 ```text
-Treasurer/Admin/Super Admin proposal:
+Qualifying Officer/Treasurer/Admin/Super Admin proposal:
 draft -> pending_adviser -> pending_admin -> approved
 Adviser proposal:
 draft -> pending_admin -> approved
@@ -182,7 +187,8 @@ Either pending stage -> rejected -> edit -> resubmit (history retained)
 Legacy `pending` means awaiting adviser review. Initial review stage is based
 on the original proposer, including resubmission by an administrator. No proposal
 is auto-approved. Admin-origin proposals need an independent adviser and another
-Admin/Super Admin for final approval. Officers cannot propose events.
+Admin/Super Admin for final approval. President, Vice President and Secretary can
+propose as Officers; all other Officer positions remain read-only.
 
 Show both pending states separately in lists and dashboard counts. Do not show
 Approve to an Admin while an event is waiting for adviser approval. Do not show
@@ -202,17 +208,17 @@ receipt preview + flags + review/history + purchase-completion entry point.
 |---|---|---|
 | List | `GET /expenses` | Operational readers; event/status search is local unless a backend filter is added. |
 | View detail | `GET /expenses/{expense_id}` | Accessible expense. |
-| Create Expense | `POST /expenses` | Treasurer/Admin/Super Admin. Creates pending expense. |
+| Create Expense | `POST /expenses` | Treasurer only. Creates pending expense. |
 | View line items | `GET /expenses/{expense_id}/items` | Include classification, amount, quantity, unit, converted inventory ID. |
-| Edit Expense | `PATCH /expenses/{expense_id}` | Treasurer's own pending expense or scoped administrator. Items are NOT editable through this PATCH. |
-| Delete Expense | `DELETE /expenses/{expense_id}` | Own pending expense or administrator; recorded receipts block deletion. Use review/rejection instead. |
+| Edit Expense | `PATCH /expenses/{expense_id}` | Treasurer's own pending expense. Items are NOT editable through this PATCH. |
+| Delete Expense | `DELETE /expenses/{expense_id}` | Treasurer's own pending expense; recorded receipts block deletion. Use review/rejection instead. |
 | Approve Expense | `POST /expenses/{expense_id}/approve` | Independent Adviser/Admin/Super Admin, pending only; optional `remarks`. |
 | Reject Expense | `POST /expenses/{expense_id}/reject` | Same independent review policy; optional `remarks`. |
 | Approval history | `GET /expenses/{expense_id}/approvals` | Timeline of decisions and remarks. |
 | Scan receipt before saving | `POST /expenses/scan-receipt` | Finance writers; multipart `file`; inspect/correct returned OCR data before Create Expense. |
-| Upload expense receipt | `POST /expenses/{expense_id}/receipt` | Own pending expense or administrator; multipart `file`; returns updated expense. |
-| Parse OCR text | `POST /expenses/{expense_id}/parse-receipt` | Own pending expense or administrator; JSON `raw_text` from on-device OCR; returns updated expense. |
-| Complete asset purchase | `POST /expenses/{expense_id}/complete-purchase` | Own approved expense or administrator; see section 9. |
+| Upload expense receipt | `POST /expenses/{expense_id}/receipt` | Treasurer's own pending expense; multipart `file`; returns updated expense. |
+| Parse OCR text | `POST /expenses/{expense_id}/parse-receipt` | Treasurer's own pending expense; JSON `raw_text` from on-device OCR; returns updated expense. |
+| Complete asset purchase | `POST /expenses/{expense_id}/complete-purchase` | Treasurer's own approved expense; see section 9. |
 
 Create form: category, event, description/purpose, total amount, expense date,
 optional receipt metadata/URL, itemized lines. Each line has `name`, `amount`
@@ -241,7 +247,7 @@ options; the team can choose one user flow without exposing two confusing scan b
 
 | UI action | API | Permission/state |
 |---|---|---|
-| Record Income | `POST /incomes` | Treasurer/Admin/Super Admin; no separate approval endpoint. |
+| Record Income | `POST /incomes` | Treasurer only; no separate approval endpoint. |
 | Income ledger/detail selection | `GET /incomes` | Operational readers; optional `event_id` filter. Detail may use the selected list row: no single-income GET exists. |
 
 Required form: `event_id`, `source` (actual payer/source description),
@@ -264,10 +270,10 @@ similar-receipt comparison + pending-review queue.
 
 | UI action | API | Permission/state |
 |---|---|---|
-| Record/update receipt metadata | `POST /receipts` | Treasurer's own transaction or administrator; exactly ONE `expense_id` or `income_id`. Backend upserts the transaction's receipt subject to immutability rules, not generic unrestricted editing. |
+| Record/update receipt metadata | `POST /receipts` | Treasurer's own transaction only; exactly ONE `expense_id` or `income_id`. Backend upserts the transaction's receipt subject to immutability rules, not generic unrestricted editing. |
 | List/filter | `GET /receipts` | `event_id`, `flagged_only`, `review_status` (`clear`, `pending`, `cleared`, `rejected`). |
 | Detail/comparison | `GET /receipts/{receipt_id}` | Load accessible IDs from `similar_receipt_ids` for comparison. |
-| Upload receipt image | `POST /receipts/{receipt_id}/upload` | Own transaction or administrator; multipart `file`; requires an existing receipt ID. |
+| Upload receipt image | `POST /receipts/{receipt_id}/upload` | Treasurer's own transaction only; multipart `file`; requires an existing receipt ID. |
 | Clear/reject similar receipt | `POST /receipts/{receipt_id}/review` | Independent Adviser/Admin/Super Admin; pending review only; `decision` = `cleared` or `rejected`, `reason` minimum 10 characters. |
 
 Metadata fields: `receipt_url` (HTTP(S)), required nonblank `purpose`, optional
@@ -439,9 +445,9 @@ advertise these as backend-generated reports without an agreed extension.
 
 | UI action | API | Permission/state |
 |---|---|---|
-| List letters | `GET /proposal-letters` | Treasurer/Adviser/Admin scoped; Super Admin and SDS school-wide. Officers have no access. |
+| List letters | `GET /proposal-letters` | Treasurer/Adviser organization; Admin department; Super Admin and SDS school-wide. Qualifying Officers see letters for their own events only. |
 | View/open letter | `GET /proposal-letters/{letter_id}` | Show title, event ID, submitted-by ID, time; preview/open returned `document_url`. |
-| Upload Letter | `POST /proposal-letters` | Treasurer/Adviser/Admin/Super Admin; multipart `event_id`, `title`, `file`. PDF/JPEG/PNG, maximum 10 MB. |
+| Upload Letter | `POST /proposal-letters` | Treasurer/Adviser/Admin/Super Admin and qualifying Officers; Officers upload only to own draft/rejected events. Multipart `event_id`, `title`, `file`. PDF/JPEG/PNG, maximum 10 MB. |
 
 SDS must have a standalone letter list/detail screen without calling forbidden
 event/finance APIs. Letter upload is separate from event submission/approval;
@@ -453,7 +459,7 @@ SDS cannot approve events. No letter Edit/Delete/review-status endpoints exist.
 |---|---|---|
 | Department lookup | `GET /departments` | Admin assigned department; Super Admin all departments. |
 | Create Department | `POST /departments` | Super Admin; `code`, `name`, optional `description`. |
-| Organization lookup | `GET /organizations` | Admin assigned organization; Super Admin all organizations. |
+| Organization lookup | `GET /organizations` | Admin all organizations in its department; Super Admin all organizations. |
 | Create Organization | `POST /organizations` | Super Admin; `code`, `name`, `department_id`. |
 | Create organization Admin | `POST /auth/register/admin` | Super Admin; `full_name`, `email`, `organization_id`, `department_id`, optional `position`. Temporary password email; no password field in this request. |
 | Create SDS account | `POST /auth/register/sds` | Super Admin; `full_name`, `email`, optional `position`; temporary-password setup. |
@@ -461,7 +467,7 @@ SDS cannot approve events. No letter Edit/Delete/review-status endpoints exist.
 | Add roster entry | `POST /cite-members` | Admin/Super Admin; `full_name`, `email`, member `role`, optional position, scope as required. This is not an activated account. |
 | Edit unclaimed roster | `PATCH /cite-members/{member_id}` | Member role/position; organization transfer only Super Admin. Name/email are NOT editable via this PATCH. |
 | Delete unclaimed roster | `DELETE /cite-members/{member_id}` | Admin/Super Admin; claimed entries cannot be deleted. |
-| Registered accounts | `GET /users` | Admin manages assigned organization's member accounts; Super Admin broader access. Filters: `department_id`, `organization_id`, `is_active`, `is_suspended`. |
+| Registered accounts | `GET /users` | Admin manages member accounts throughout its department; Super Admin broader access. Filters: `department_id`, `organization_id`, `is_active`, `is_suspended`. |
 | Change access / Suspend / Restore / Transfer | `PATCH /users/{user_id}/access` | Member role, position, `is_suspended`; transfer via `organization_id` only Super Admin. |
 | Repair Admin assignment | `PATCH /users/{user_id}/department` | Super Admin; BOTH `department_id` and `organization_id`; separate legacy repair UI if needed. |
 | Audit history | `GET /audit-logs` | Admin scoped; Super Admin global; `limit`, `offset`. Read-only action/entity/actor/time/details. |

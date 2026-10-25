@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Organization, User
+from app.rbac_policy import can_propose_events, can_record_finance
 from app.security import decode_access_token
 
 
@@ -35,8 +36,16 @@ VALID_ROLES = {
 ADMIN_ROLES = {"admin", "super_admin"}
 SCOPED_OPERATIONAL_ROLES = {"adviser", "treasurer"}
 SCOPED_READ_ROLES = SCOPED_OPERATIONAL_ROLES | {"officer"}
-FINANCIAL_ROLES = ADMIN_ROLES | {"treasurer"}
 APPROVER_ROLES = ADMIN_ROLES | {"adviser"}
+
+# Match registered route templates so future endpoints never inherit an exception.
+OFFICER_PROPOSAL_WRITES = {
+    ("POST", "/events"),
+    ("PATCH", "/events/{event_id}"),
+    ("DELETE", "/events/{event_id}"),
+    ("POST", "/events/{event_id}/submit"),
+    ("POST", "/proposal-letters"),
+}
 
 
 def get_current_user(
@@ -117,9 +126,12 @@ def enforce_read_only(
     request: Request,
     user: User = Depends(require_active_account),
 ) -> User:
-    """Allow officers only safe HTTP methods when this dependency is used."""
+    """Officer writes are limited to explicitly authorized proposal routes."""
     user = ensure_account_ready_for_app(user)
     if user.role == "officer" and request.method not in ("GET", "HEAD", "OPTIONS"):
+        route = request.scope.get("route")
+        if can_propose_events(user) and (request.method, getattr(route, "path", None)) in OFFICER_PROPOSAL_WRITES:
+            return user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Role '{user.role}' has read-only access. {request.method} requests are forbidden.",
@@ -127,16 +139,24 @@ def enforce_read_only(
     return user
 
 
+def require_event_proposer(user: User = Depends(require_active_account)) -> User:
+    user = ensure_account_ready_for_app(user)
+    ensure_operational_assignment(user)
+    if not can_propose_events(user):
+        raise HTTPException(status_code=403, detail="Your role and position do not permit event proposals")
+    return user
+
+
 def require_financial_access(
     user: User = Depends(require_active_account),
 ) -> User:
-    """Permit financial execution only for Treasurer/Admin/Super Admin."""
+    """Financial recording belongs exclusively to the Treasurer."""
     user = ensure_account_ready_for_app(user)
     ensure_operational_assignment(user)
-    if user.role not in FINANCIAL_ROLES:
+    if not can_record_finance(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Financial access restricted to treasurer, admin, or super_admin",
+            detail="Financial recording is restricted to the treasurer",
         )
     return user
 
@@ -253,9 +273,9 @@ def scope_query_by_department(
 ):
     """Restrict a query using explicit department and organization FKs.
 
-    Super Admins retain global visibility. Admins and other operational
-    readers must have both assignments, and the query is narrowed to
-    that organization within its department. This helper is for models such as ``Event`` and
+    Super Admins retain global visibility. Admins see assigned records across
+    their department; other operational readers see only their organization.
+    Both account assignments are required. This helper is for models such as ``Event`` and
     ``Expense`` that carry their own ``department_id`` rather than only an
     owner FK.
     """
@@ -279,6 +299,8 @@ def scope_query_by_department(
     if organization_id is None:
         raise HTTPException(status_code=403, detail="Your account has no organization assigned")
     model = department_column.class_
+    if current_user.role == "admin":
+        return query.filter(department_column == current_user.department_id, model.organization_id.is_not(None))
     return query.filter(
         department_column == current_user.department_id,
         model.organization_id == organization_id,
@@ -286,10 +308,14 @@ def scope_query_by_department(
 
 
 def assert_record_scope(user: User, record, *, allow_officer_read: bool = False) -> None:
-    """Authorize both department and organization; missing ownership denies access."""
+    """Admins span their department; members stay in their own organization."""
     user = ensure_account_ready_for_app(user)
     assert_department_scope(user, record.department_id, allow_officer_read=allow_officer_read)
     if user.role == "super_admin":
+        return
+    if getattr(record, "organization_id", None) is None:
+        raise HTTPException(status_code=403, detail="This record has no organization assigned")
+    if user.role == "admin":
         return
     organization_id = getattr(user, "organization_id", None)
     if organization_id is None or organization_id != getattr(record, "organization_id", None):
@@ -309,7 +335,12 @@ def resolve_organization_id(
     db: Session, user: User, requested_id: uuid.UUID | None, department_id: uuid.UUID | None,
 ) -> uuid.UUID:
     """Resolve an existing organization and verify its parent department."""
-    if user.role != "super_admin":
+    if user.role == "admin":
+        ensure_operational_assignment(user)
+        requested_id = requested_id or user.organization_id
+        if department_id != user.department_id:
+            raise HTTPException(status_code=403, detail="Use your assigned department")
+    elif user.role != "super_admin":
         assigned_id = getattr(user, "organization_id", None)
         if assigned_id is None or (requested_id is not None and requested_id != assigned_id):
             raise HTTPException(status_code=403, detail="Use your assigned organization")
@@ -317,6 +348,8 @@ def resolve_organization_id(
     if requested_id is None:
         raise HTTPException(status_code=400, detail="organization_id is required")
     organization = db.query(Organization).filter(Organization.id == requested_id).first()
+    if organization is not None and user.role == "admin" and organization.department_id != user.department_id:
+        raise HTTPException(status_code=403, detail="Use an organization in your assigned department")
     if organization is None or organization.department_id != department_id:
         raise HTTPException(status_code=400, detail="Organization must exist in the selected department")
     return organization.id

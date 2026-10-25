@@ -26,9 +26,9 @@ Budget check on approval:
     triggers are still what actually perform the deductions.
 
 Access rules:
-    - Super Admin sees all expenses; admins, advisers, treasurers, and
-        officers see only expenses in their own department.
-  - The Treasurer who recorded an expense (or an admin) can edit/delete
+  - Super Admin sees all expenses; Admin spans its department; other members
+    see expenses only in their own organization.
+  - Only the Treasurer who recorded an expense can edit/delete
     it while it's still pending.
   - Only advisers/admins can approve or reject a pending expense.
   - The submitter cannot approve or reject their own expense.
@@ -358,7 +358,7 @@ def update_expense(
     expense_id: uuid.UUID,
     payload: ExpenseUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     expense = _get_expense_or_404(db, expense_id)
     _assert_expense_owner_scope(expense, db, current_user, "edit")
@@ -547,7 +547,7 @@ async def upload_receipt(
     expense_id: uuid.UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     """
     Uploads a receipt photo to Supabase Storage and saves the resulting
@@ -614,7 +614,7 @@ def parse_receipt(
     expense_id: uuid.UUID,
     payload: ReceiptParseRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     """
     Takes raw OCR text (already extracted on-device by the Flutter app)
@@ -682,7 +682,7 @@ def parse_receipt(
 def delete_expense(
     expense_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     expense = _get_expense_or_404(db, expense_id)
     _assert_expense_owner_scope(expense, db, current_user, "delete")

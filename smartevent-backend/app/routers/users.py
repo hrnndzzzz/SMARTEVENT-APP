@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import assert_record_scope, require_role, resolve_organization_id
+from app.dependencies import assert_record_scope, require_role, resolve_organization_id, scope_query_by_department
 from app.models import CiteMember, Department, Organization, User
 from app.schemas import UserAccessUpdate, UserDepartmentUpdate, UserOut
 from app.services.access_audit import record_access_change
@@ -35,16 +35,15 @@ def list_users(
             query = query.filter(User.organization_id == organization_id)
     else:
         assert_record_scope(current_user, current_user)
-        if organization_id is not None and organization_id != current_user.organization_id:
-            raise HTTPException(status_code=403, detail="You can only list your assigned organization")
+        if organization_id is not None:
+            resolve_organization_id(db, current_user, organization_id, current_user.department_id)
+            query = query.filter(User.organization_id == organization_id)
         if department_id is not None and department_id != current_user.department_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only list users in your assigned department.",
             )
-        query = query.filter(
-            User.department_id == current_user.department_id,
-            User.organization_id == current_user.organization_id,
+        query = scope_query_by_department(query, User.department_id, current_user).filter(
             User.role.in_(["adviser", "treasurer", "officer"]),
         )
 
@@ -132,6 +131,7 @@ def update_user_access(
         updates["organization_id"] = organization.id
     before = {
         "role": target.role, "is_suspended": target.is_suspended,
+        "position": target.position,
         "organization_id": str(target.organization_id), "department_id": str(target.department_id),
     }
     for field, value in updates.items():
@@ -147,7 +147,7 @@ def update_user_access(
         member.organization_id = target.organization_id
     record_access_change(db, current_user, "user.access_changed", target, {
         "before": before,
-        "after": {key: str(getattr(target, key)) for key in before},
+        "after": {key: getattr(target, key) if key == "position" else str(getattr(target, key)) for key in before},
     })
     db.commit()
     db.refresh(target)

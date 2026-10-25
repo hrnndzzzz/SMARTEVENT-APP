@@ -17,7 +17,7 @@ def list_organizations(db: Session = Depends(get_db), current_user: User = Depen
     query = db.query(Organization)
     if current_user.role != "super_admin":
         assert_record_scope(current_user, current_user)
-        query = query.filter(Organization.id == current_user.organization_id)
+        query = query.filter(Organization.department_id == current_user.department_id)
     return query.order_by(Organization.name).all()
 
 

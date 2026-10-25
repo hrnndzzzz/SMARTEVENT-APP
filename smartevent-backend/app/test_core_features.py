@@ -175,10 +175,12 @@ def test_legacy_year_repair_is_admin_only_scoped_and_audited(system):
     login("admin")
     assert client.post(f"/events/{event.id}/approve", json={}).status_code == 409
     assert len(client.get("/events?missing_school_year=true").json()) == 1
-    assert client.patch(f"/events/{resources[1]['events'].id}/academic-metadata", json=payload).status_code == 403
+    resources[1]["events"].school_year = None
+    db.commit()
+    assert client.patch(f"/events/{resources[1]['events'].id}/academic-metadata", json=payload).status_code == 200
     assert client.patch(endpoint, json=payload).status_code == 200
     assert client.patch(endpoint, json=payload).status_code == 409
-    assert db.query(AuditLog).filter(AuditLog.action == "event.academic_metadata_repaired").count() == 1
+    assert db.query(AuditLog).filter(AuditLog.action == "event.academic_metadata_repaired").count() == 2
 
 
 @pytest.mark.parametrize("format,content_type", [("pdf", "application/pdf"), ("csv", "text/csv"), ("html", "text/html")])

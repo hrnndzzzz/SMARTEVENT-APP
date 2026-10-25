@@ -15,7 +15,7 @@ backend version against Supabase.
 
 ## Purchase workflow (important behavior change)
 
-1. Treasurer/Admin records an event-linked expense with asset line items and its
+1. Treasurer records an event-linked expense with asset line items and its
    purpose-bearing receipt. Each line can record quantity and unit. The line's
    `amount` is its financial line total, not an automatically multiplied unit price.
 2. An independent Adviser/Admin/Super Admin approves the expense through the
@@ -64,8 +64,9 @@ operational inventory access.
 }
 ```
 
-Organization-scoped admins inherit their organization/department. Super Admin
-supplies both IDs. `event_id` is required, even for a zero-stock catalog item.
+Department Admins inherit their department and default organization, and may
+select another organization in that department. Super Admin supplies both IDs.
+`event_id` is required, even for a zero-stock catalog item.
 Positive starting stock produces a corresponding opening movement in the same
 commit. Valid initial types are `opening_balance`, `acquisition`, or `donation`;
 `purchase` cannot be used to bypass the completed-purchase workflow.

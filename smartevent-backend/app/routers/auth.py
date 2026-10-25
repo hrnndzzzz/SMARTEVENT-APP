@@ -70,8 +70,8 @@ def _expired(value):
 
 @router.get("/permissions")
 def read_permissions(current_user: User = Depends(require_active_account)):
-    from app.rbac_policy import ROLE_POLICY
-    return {"role": current_user.role, **ROLE_POLICY[current_user.role]}
+    from app.rbac_policy import effective_role_policy
+    return effective_role_policy(current_user)
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)

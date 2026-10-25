@@ -1,10 +1,10 @@
 """Exercise authorization with real records in an isolated SQLite database."""
 
 from datetime import date
+import re
 from uuid import uuid4
 
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.dialects.postgresql import JSONB
@@ -102,14 +102,15 @@ def system():
 
 @pytest.mark.parametrize("role", ["admin", "adviser", "treasurer", "officer"])
 @pytest.mark.parametrize("module", ["categories", "events", "expenses", "inventory", "incomes"])
-def test_lists_exclude_other_organization_in_same_department(system, role, module):
+def test_lists_apply_department_admin_or_member_organization_scope(system, role, module):
     client, db, users, orgs, resources, login = system
     login(role)
     response = client.get("/" + module)
     assert response.status_code == 200
-    assert [row["id"] for row in response.json()] == [str(resources[0][module].id)]
+    expected = resources if role == "admin" else resources[:1]
+    assert {row["id"] for row in response.json()} == {str(record[module].id) for record in expected}
     if module != "incomes":
-        assert client.get(f"/{module}/{resources[1][module].id}").status_code == 403
+        assert client.get(f"/{module}/{resources[1][module].id}").status_code == (200 if role == "admin" else 403)
 
 
 def test_super_admin_sees_both_organizations_and_report_boundaries(system):
@@ -124,18 +125,25 @@ def test_super_admin_sees_both_organizations_and_report_boundaries(system):
     assert [row["event_id"] for row in report.json()["events"]] == [str(resources[0]["events"].id)]
 
 
-def test_officer_cannot_use_any_registered_operational_write_route(system):
+@pytest.mark.parametrize("position", [None, "President", "Vice President", "Secretary"])
+def test_officer_cannot_use_unrelated_operational_write_routes(system, position):
     client, db, users, orgs, resources, login = system
+    users["officer"].position = position
+    db.commit()
     login("officer")
     checked = []
-    for route in app.routes:
-        if not isinstance(route, APIRoute) or route.path.startswith("/notifications") or (route.path.startswith("/auth/") and route.path not in
+    for route_path, operations in app.openapi()["paths"].items():
+        if route_path.startswith("/notifications") or (route_path.startswith("/auth/") and route_path not in
                                                ("/auth/register/admin", "/auth/register/sds")):
             continue
-        for method in route.methods & {"POST", "PUT", "PATCH", "DELETE"}:
-            path = route.path
-            for parameter in route.param_convertors:
-                path = path.replace("{" + parameter + "}", str(uuid4()))
+        for method in {operation.upper() for operation in operations} & {"POST", "PUT", "PATCH", "DELETE"}:
+            if position and (method, route_path) in {
+                ("POST", "/events"), ("PATCH", "/events/{event_id}"),
+                ("DELETE", "/events/{event_id}"), ("POST", "/events/{event_id}/submit"),
+                ("POST", "/proposal-letters"),
+            }:
+                continue
+            path = re.sub(r"\{[^}]+\}", lambda _: str(uuid4()), route_path)
             response = client.request(method, path, json={})
             assert response.status_code == 403, (method, path, response.text)
             checked.append((method, path))
@@ -156,7 +164,7 @@ def test_catalog_changes_require_administrator(system, role):
                              "transaction_type": "donation", "reason": "Donated chair"}).status_code == 403
 
 
-def test_admin_cannot_promote_to_admin_or_manage_other_organization(system):
+def test_admin_cannot_promote_or_transfer_but_can_manage_department_members(system):
     client, db, users, orgs, resources, login = system
     login("admin")
     endpoint = f"/users/{users['officer'].id}/access"
@@ -166,7 +174,7 @@ def test_admin_cannot_promote_to_admin_or_manage_other_organization(system):
     assert client.patch(f"/users/{users['admin'].id}/access", json={"is_suspended": True}).status_code == 403
     users["officer"].organization_id = orgs[1].id
     db.commit()
-    assert client.patch(endpoint, json={"is_suspended": True}).status_code == 403
+    assert client.patch(endpoint, json={"is_suspended": True}).status_code == 200
 
 
 def test_role_change_updates_roster_and_existing_token_permissions(system):
@@ -249,8 +257,8 @@ def test_audit_visibility_is_scoped_and_permissions_are_exposed(system):
     login("admin")
     logs = client.get("/audit-logs")
     assert logs.status_code == 200
-    assert len(logs.json()) == 1
-    assert logs.json()[0]["organization_id"] == str(orgs[0].id)
+    assert len(logs.json()) == 2
+    assert {row["organization_id"] for row in logs.json()} == {str(org.id) for org in orgs}
     login("officer")
     assert client.get("/audit-logs").status_code == 403
     assert client.get("/auth/permissions").json()["permissions"] == ["Read operational records, reports, and analytics"]
