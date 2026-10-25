@@ -10,8 +10,6 @@ point, working API call, permission/state checks, loading/error/success feedback
 and a refreshed screen. A list-only screen is not complete when that module
 also supports Create, Edit, Delete, Review, Upload, or another action.
 
-In particular, the Categories screen MUST include **Create Category**, **Edit**,
-and **Delete** for Admin/Super Admin, not only a category dropdown elsewhere.
 
 This document and the four feature handoffs supersede older workflow/roadmap
 examples in the main README. The deployed `/openapi.json` and `/docs`, request

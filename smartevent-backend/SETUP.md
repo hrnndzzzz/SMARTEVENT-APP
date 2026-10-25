@@ -1,7 +1,7 @@
 # SMARTEVENT Backend — Local Setup
 
 Before using the current backend, apply the database migration and account setup
-in [Roles and permissions](ROLES_AND_PERMISSIONS.md). Admin registration now
+in [Roles and permissions](ROLES_AND_PERMISSIONS.md) and [Security review](SECURITY_REVIEW.md). Admin registration now
 requires a department and organization; all Officer accounts are read-only.
 
 Get the API running on `localhost` and take it for a test drive.
@@ -30,20 +30,7 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 
-pip install -r requirements.txt
-```
-
-If there's no `requirements.txt` yet, install directly:
-
-```bash
-pip install fastapi "uvicorn[standard]" sqlalchemy psycopg2-binary \
-  pydantic-settings "python-jose[cryptography]" "pwdlib[argon2]" email-validator
-```
-
-Then freeze it for the team:
-
-```bash
-pip freeze > requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 ## Database migrations
@@ -51,7 +38,13 @@ pip freeze > requirements.txt
 Apply each unapplied SQL migration in `scripts/` through the Supabase SQL
 Editor before using the corresponding backend features. In particular, run
 `scripts/002_otp_registration_purpose.sql` to allow registration OTP rows in
-an existing database.
+an existing database. Apply `008_security_hardening.sql` before deploying this version; production configuration and private file access are covered in the security review.
+
+If authentication returns `503` and the server log reports SQLSTATE `42703`, the
+database is missing columns required by this version. Run
+[repair_auth_schema.sql](scripts/repair_auth_schema.sql) in the Supabase SQL Editor
+to add the three authentication fields, then retry. This repair does not complete
+the production security rollout in script 008.
 
 ---
 
@@ -63,7 +56,7 @@ Create a `.env` file in the project root (same folder as `app/`):
 DATABASE_URL=<ask a teammate for the Supabase pooled connection string>
 JWT_SECRET_KEY=<any long random string — must match across the team for shared testing>
 JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=1440
+JWT_EXPIRE_MINUTES=60
 RESEND_API_KEY=<your Resend API key>
 RESEND_FROM_EMAIL="SMARTEVENT <onboarding@resend.dev>"
 RESEND_TEST_EMAIL=<email address used for your Resend account>
@@ -103,8 +96,13 @@ Both endpoints accept the same filters:
 ## 4. Run the server
 
 ```bash
-uvicorn app.main:app --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
+
+Use the project interpreter explicitly on Windows. A copied `.venv` can retain
+console launchers pointing to its original folder, even when the prompt shows
+`(.venv)`. Recreate virtual environments after moving a project; the command above
+avoids stale launchers. On macOS/Linux use `.venv/bin/python -m uvicorn app.main:app --reload`.
 
 You should see `Application startup complete.` in the terminal.
 

@@ -33,7 +33,6 @@ def queue_registration_confirmation(db, user):
 
 
 def deliver_notification(db, notification_id):
-    # A row lock serializes immediate delivery and scheduled retries.
     notification = db.query(Notification).filter(Notification.id == notification_id).with_for_update().first()
     if notification is None or notification.email_status == "sent":
         return
@@ -42,11 +41,10 @@ def deliver_notification(db, notification_id):
     notification.email_attempts += 1
     try:
         send_email(user.email, notification.title, notification.body,
-                   idempotency_key=f"registration-confirmation/{notification.id}")
+                   idempotency_key=f"{'registration-confirmation' if notification.kind == 'registration_confirmation' else notification.kind}/{notification.id}")
         notification.email_status = "sent"
         notification.email_sent_at = datetime.now(timezone.utc)
     except Exception:
-        # Provider failures are retryable; no secrets/provider errors are exposed to clients.
         notification.email_status = "failed"
-        logger.warning("Registration confirmation email delivery failed for notification %s", notification.id)
+        logger.warning("Email delivery failed for notification %s", notification.id)
     db.commit()

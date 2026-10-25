@@ -1,25 +1,8 @@
-"""
-Manual Super Admin account creation — run this directly, NOT through
-the API. This exists specifically so future school IT staff (after
-graduation) can create their own admin account without needing an
-existing admin's token or hand-writing raw SQL with an Argon2 hash.
-
-Usage (from the project root, with the venv active and .env present):
-
-    python -m scripts.create_super_admin
-
-It will prompt for a full name and email, create the account with a
-fresh OTP as its temporary password (same as every other account in
-this system), and email that OTP via the same Resend config the
-rest of the app uses — see RESEND_API_KEY / RESEND_FROM_EMAIL in .env.
-
-Requires direct database access (the same DATABASE_URL the app uses)
-and Resend to already be configured — this is a maintenance tool
-run on a machine that already has the project's .env, not something
-exposed to the internet.
-"""
+"""Create a Super Admin with python -m scripts.create_super_admin."""
 
 import sys
+from pydantic import EmailStr, TypeAdapter, ValidationError
+from sqlalchemy import func
 
 from app.database import SessionLocal
 from app.models import User
@@ -29,15 +12,19 @@ from app.services.email import EmailError
 
 def main() -> None:
     full_name = input("Full name: ").strip()
-    email = input("Email: ").strip()
+    email = input("Email: ").strip().lower()
 
-    if not full_name or not email:
-        print("Full name and email are both required.", file=sys.stderr)
+    try:
+        email = TypeAdapter(EmailStr).validate_python(email)
+        if not 1 <= len(full_name) <= 150 or len(email) > 150:
+            raise ValueError
+    except (ValidationError, ValueError):
+        print("A valid full name and email are required.", file=sys.stderr)
         sys.exit(1)
 
     db = SessionLocal()
     try:
-        existing = db.query(User).filter(User.email == email).first()
+        existing = db.query(User).filter(func.lower(User.email) == email).first()
         if existing:
             print(f"A user with email '{email}' already exists.", file=sys.stderr)
             sys.exit(1)

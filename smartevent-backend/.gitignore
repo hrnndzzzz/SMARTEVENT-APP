@@ -6,3 +6,9 @@ venv/
 .vscode/
 .idea/
 *.egg-info/
+
+# Generated local artifacts
+/tmp/
+node_modules/
+.pytest_cache/
+/supabase/.temp/

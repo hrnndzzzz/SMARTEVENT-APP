@@ -1,49 +1,12 @@
-"""
-CRUD + approval workflow for expenses, following the same shape as
-events.py. Reuses the `approvals` table (entity_type="expense") for
-the same review-timeline pattern.
-
-Status flow:
-    pending --approve--> approved   (DB trigger deducts category budget)
-              \\--reject--> rejected
-
-There's no "draft" state for expenses — an expense is created once
-money has actually been spent and someone is recording/claiming it, so
-it starts straight at "pending" and goes to a reviewer from there.
-
-Budget check on approval:
-    remaining_budget (on both the expense's category AND, if set, its
-    event) only ever changes via database triggers
-    (fn_deduct_category_balance / fn_deduct_event_budget), which fire
-    when status flips to 'approved' — this router never sets either
-    remaining_budget directly. But nothing stops those triggers from
-    running a category or event negative if two big expenses land
-    back-to-back. So before approving, this router checks
-    expense.amount against BOTH category.remaining_budget and (when
-    expense.event_id is set) event.remaining_budget, and blocks with a
-    409 if either would be overdrawn. This is a belt-and-suspenders
-    check on top of the triggers, not a replacement for them — the
-    triggers are still what actually perform the deductions.
-
-Access rules:
-  - Super Admin sees all expenses; Admin spans its department; other members
-    see expenses only in their own organization.
-  - Only the Treasurer who recorded an expense can edit/delete
-    it while it's still pending.
-  - Only advisers/admins can approve or reject a pending expense.
-  - The submitter cannot approve or reject their own expense.
-"""
-
 import uuid
 import hashlib
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.config import settings
 from app.dependencies import (
-    assert_department_scope,
     assert_record_scope,
     assert_not_self_review,
     assert_owner_or_admin,
@@ -61,6 +24,7 @@ from app.models import (
     Expense,
     ExpenseItem,
     Receipt,
+    Organization,
     User,
 )
 from app.schemas import (
@@ -75,24 +39,25 @@ from app.schemas import (
     PurchaseCompletion,
 )
 from app.services.purchase_completion import complete_purchase
+from app.services.approvals import record_decision
 from app.services.ocr import ReceiptParseError, parse_receipt_image, parse_receipt_text
-from app.services.storage import StorageError, prepare_image_for_upload, upload_receipt_image
+from app.services.storage import StorageError, canonical_file_url, prepare_image_for_upload, upload_receipt_image
 from app.services.receipt_validation import sync_expense_receipt, assert_receipt_review_complete, receipt_for_transaction
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
 
-def _get_expense_or_404(db: Session, expense_id: uuid.UUID) -> Expense:
-    expense = db.query(Expense).filter(Expense.id == expense_id).with_for_update().first()
+def _get_expense_or_404(db: Session, expense_id: uuid.UUID, *, lock: bool = False) -> Expense:
+    query = db.query(Expense).filter(Expense.id == expense_id)
+    if lock:
+        query = query.with_for_update()
+    expense = query.first()
     if expense is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found")
     return expense
 
 
 def _get_category_or_400(db: Session, category_id: uuid.UUID) -> Category:
-    # A FK violation from the DB would also catch a bad category_id, but
-    # that surfaces as an ugly 500 (as you saw with events). Checking
-    # here first gives a clean 400 instead.
     category = db.query(Category).filter(Category.id == category_id).first()
     if category is None:
         raise HTTPException(
@@ -104,7 +69,6 @@ def _get_category_or_400(db: Session, category_id: uuid.UUID) -> Category:
 
 def _assert_expense_owner_scope(
     expense: Expense,
-    db: Session,
     current_user: User,
     action: str,
     *,
@@ -114,59 +78,7 @@ def _assert_expense_owner_scope(
     assert_record_scope(current_user, expense)
 
 
-def _next_step_order(db: Session, expense_id: uuid.UUID) -> int:
-    count = (
-        db.query(Approval)
-        .filter(Approval.entity_type == "expense", Approval.entity_id == expense_id)
-        .count()
-    )
-    return count + 1
-
-
-def _record_decision(
-    db: Session,
-    expense: Expense,
-    decision: str,
-    reviewer: User,
-    remarks: str | None,
-) -> None:
-    approval = Approval(
-        entity_type="expense",
-        entity_id=expense.id,
-        step_order=_next_step_order(db, expense.id),
-        reviewer_id=reviewer.id,
-        decision=decision,
-        remarks=remarks,
-        decided_at=datetime.now(timezone.utc),
-    )
-    db.add(approval)
-
-
-# NOTE: this route must be declared before any "/{expense_id}..." route
-# below, or FastAPI will try to parse "scan-receipt" as a UUID for
-# expense_id and return 422 instead of reaching this handler — same
-# gotcha as GET /inventory/low-stock in inventory.py.
-@router.post("/scan-receipt", response_model=ScanReceiptResponse, status_code=status.HTTP_200_OK)
-async def scan_receipt(
-    file: UploadFile = File(...),
-    current_user: User = Depends(require_financial_access),
-):
-    """
-    "Snap first, fill later": takes a receipt photo BEFORE any Expense
-    exists, uploads it to Storage, and asks Gemini Vision to read it —
-    merchant, date, total, and itemized line items (each tagged
-    asset/consumable). Returns that data directly; nothing is written
-    to the database here, not even an Expense row.
-
-    The officer reviews/corrects the returned fields in the app, then
-    calls POST /expenses separately with the final values — referencing
-    the receipt_url this endpoint already uploaded, so the photo isn't
-    lost even if they abandon the form partway through.
-
-    This is the image-based counterpart to POST /expenses/{id}/parse-receipt,
-    which stays in place for the text-based (ML Kit) flow — see the
-    module docstring in app/services/ocr.py for why both exist.
-    """
+async def _read_receipt_image(file: UploadFile):
     allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}
     if file.content_type not in allowed_types:
         raise HTTPException(
@@ -177,41 +89,57 @@ async def scan_receipt(
             ),
         )
 
-    raw_bytes = await file.read()
+    raw_bytes = await file.read(10 * 1024 * 1024 + 1)
 
-    max_size_bytes = 10 * 1024 * 1024  # 10MB
-    if len(raw_bytes) > max_size_bytes:
+    max_size_bytes = 10 * 1024 * 1024
+    if not raw_bytes or len(raw_bytes) > max_size_bytes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File too large. Maximum size is 10MB",
+            detail="Receipt image must be between 1 byte and 10MB",
         )
 
     try:
         processed_bytes, content_type = prepare_image_for_upload(raw_bytes)
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Could not process the uploaded image: {exc}",
+            detail="Could not process the uploaded image",
         )
 
+    return raw_bytes, processed_bytes, content_type
+
+
+@router.post("/scan-receipt", response_model=ScanReceiptResponse, status_code=status.HTTP_200_OK)
+async def scan_receipt(
+    file: UploadFile = File(...),
+    organization_id: uuid.UUID | None = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_financial_access),
+):
+    selected_id = organization_id or current_user.organization_id
+    organization = db.query(Organization).filter(Organization.id == selected_id).first()
+    if organization is None:
+        raise HTTPException(400, "Select an existing organization for this receipt")
+    resolve_organization_id(db, current_user, selected_id, organization.department_id)
+    if current_user.role != "super_admin" and current_user.department_id != organization.department_id:
+        raise HTTPException(403, "Receipt organization must belong to your assigned department")
+    _, processed_bytes, content_type = await _read_receipt_image(file)
+
     try:
-        receipt_url = upload_receipt_image(processed_bytes, content_type)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
-    except StorageError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+        receipt_url = upload_receipt_image(processed_bytes, content_type, current_user.id, organization.id)
+    except RuntimeError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Receipt service is unavailable")
+    except StorageError:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Receipt storage upload failed")
 
     try:
         parsed = parse_receipt_image(processed_bytes, content_type)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
-    except ReceiptParseError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Could not reach the receipt parsing service: {exc}",
-        )
+    except RuntimeError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Receipt service is unavailable")
+    except ReceiptParseError:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Receipt parsing failed")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Receipt parsing service is unavailable")
 
     return ScanReceiptResponse(
         receipt_url=receipt_url,
@@ -265,8 +193,14 @@ def create_expense(
     if category.organization_id != organization_id or (event is not None and event.organization_id != organization_id):
         raise HTTPException(status_code=400, detail="Expense, category, and event must share an organization")
 
-    if payload.receipt and payload.receipt_url and str(payload.receipt.receipt_url) != str(payload.receipt_url):
-        raise HTTPException(422, "receipt_url and receipt.receipt_url must match")
+    if payload.receipt and payload.receipt_url:
+        try:
+            urls = [canonical_file_url(str(url), settings.supabase_receipts_bucket)
+                    for url in (payload.receipt.receipt_url, payload.receipt_url)]
+        except ValueError:
+            raise HTTPException(422, "Receipt URL must identify a valid receipt object")
+        if urls[0] != urls[1]:
+            raise HTTPException(422, "receipt_url and receipt.receipt_url must match")
     expense = Expense(
         organization_id=organization_id,
         department_id=department_id,
@@ -280,8 +214,7 @@ def create_expense(
         status="pending",
     )
     db.add(expense)
-    db.flush()  # assigns expense.id without committing, so the items
-                # below can reference it in the same commit
+    db.flush()
 
     for item in payload.items:
         db.add(
@@ -360,8 +293,8 @@ def update_expense(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_financial_access),
 ):
-    expense = _get_expense_or_404(db, expense_id)
-    _assert_expense_owner_scope(expense, db, current_user, "edit")
+    expense = _get_expense_or_404(db, expense_id, lock=True)
+    _assert_expense_owner_scope(expense, current_user, "edit")
 
     if expense.status != "pending":
         raise HTTPException(
@@ -376,7 +309,7 @@ def update_expense(
             if field in updates and updates[field] != getattr(expense, field):
                 raise HTTPException(409, "Event, amount, and date are immutable after a receipt is recorded")
     if "receipt_url" in updates:
-        if updates["receipt_url"] is None and receipt_for_transaction(db, expense):
+        if updates["receipt_url"] is None and recorded_receipt:
             raise HTTPException(409, "A recorded receipt cannot be detached")
         if updates["receipt_url"] is not None:
             updates["receipt_url"] = str(updates["receipt_url"])
@@ -443,9 +376,9 @@ def approve_expense(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("adviser", "admin")),
 ):
-    expense = db.query(Expense).filter(Expense.id == expense_id).with_for_update().first()
-    if expense is None:
-        raise HTTPException(404, "Expense not found")
+    expense = _get_expense_or_404(db, expense_id, lock=True)
+    assert_record_scope(current_user, expense)
+    assert_not_self_review(expense.recorded_by, current_user)
 
     if expense.status != "pending":
         raise HTTPException(
@@ -453,8 +386,6 @@ def approve_expense(
             detail=f"Expense is '{expense.status}' — only pending expenses can be approved",
         )
 
-    assert_record_scope(current_user, expense)
-    assert_not_self_review(expense.recorded_by, current_user)
     assert_receipt_review_complete(db, expense)
     if db.query(ExpenseItem).filter(ExpenseItem.expense_id == expense.id, ExpenseItem.category == "asset").first():
         if not db.query(Receipt).filter(Receipt.expense_id == expense.id).first():
@@ -462,8 +393,6 @@ def approve_expense(
 
     category = db.query(Category).filter(Category.id == expense.category_id).with_for_update().first()
     if category is None:
-        # Shouldn't happen (category_id is validated on create), but the
-        # category could theoretically be deleted between then and now.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This expense's category no longer exists",
@@ -484,10 +413,6 @@ def approve_expense(
             ),
         )
 
-    # Same guard as the category check above, but for the event's own
-    # allocated_budget — a separate, narrower pool than the category.
-    # Not every expense is tied to an event (event_id is nullable), so
-    # this only runs when one is set.
     if expense.event_id is not None:
         event = db.query(Event).filter(Event.id == expense.event_id).with_for_update().first()
         if event is None:
@@ -510,8 +435,8 @@ def approve_expense(
                 ),
             )
 
-    _record_decision(db, expense, "approved", current_user, payload.remarks)
-    expense.status = "approved"  # DB triggers deduct category AND event remaining_budget on this flip
+    record_decision(db, "expense", expense.id, "approved", current_user, payload.remarks)
+    expense.status = "approved"
     db.commit()
     db.refresh(expense)
     return expense
@@ -524,7 +449,9 @@ def reject_expense(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("adviser", "admin")),
 ):
-    expense = _get_expense_or_404(db, expense_id)
+    expense = _get_expense_or_404(db, expense_id, lock=True)
+    assert_record_scope(current_user, expense)
+    assert_not_self_review(expense.recorded_by, current_user)
 
     if expense.status != "pending":
         raise HTTPException(
@@ -532,10 +459,7 @@ def reject_expense(
             detail=f"Expense is '{expense.status}' — only pending expenses can be rejected",
         )
 
-    assert_record_scope(current_user, expense)
-    assert_not_self_review(expense.recorded_by, current_user)
-
-    _record_decision(db, expense, "rejected", current_user, payload.remarks)
+    record_decision(db, "expense", expense.id, "rejected", current_user, payload.remarks)
     expense.status = "rejected"
     db.commit()
     db.refresh(expense)
@@ -549,18 +473,8 @@ async def upload_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_financial_access),
 ):
-    """
-    Uploads a receipt photo to Supabase Storage and saves the resulting
-    URL onto this expense's receipt_url.
-
-    This is separate from POST .../parse-receipt: this route stores the
-    photo itself, parse-receipt turns OCR text (extracted from that
-    photo on the phone, by ML Kit) into structured fields. They can be
-    called in either order, but uploading the photo first is the
-    natural flow.
-    """
-    expense = _get_expense_or_404(db, expense_id)
-    _assert_expense_owner_scope(expense, db, current_user, "attach a receipt to")
+    expense = _get_expense_or_404(db, expense_id, lock=True)
+    _assert_expense_owner_scope(expense, current_user, "attach a receipt to")
 
     if expense.status != "pending":
         raise HTTPException(
@@ -568,42 +482,28 @@ async def upload_receipt(
             detail="Only pending expenses can have a receipt attached",
         )
 
-    allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Unsupported file type '{file.content_type}'. "
-                f"Allowed: {', '.join(sorted(allowed_types))}"
-            ),
-        )
-
-    raw_bytes = await file.read(10 * 1024 * 1024 + 1)
-
-    max_size_bytes = 10 * 1024 * 1024  # 10MB
-    if len(raw_bytes) > max_size_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File too large. Maximum size is 10MB",
-        )
+    existing_receipt = receipt_for_transaction(db, expense)
+    if existing_receipt and existing_receipt.review_status in {"cleared", "rejected"}:
+        raise HTTPException(409, "Reviewed receipt evidence is immutable")
+    raw_bytes, processed_bytes, content_type = await _read_receipt_image(file)
+    digest = hashlib.sha256(raw_bytes).hexdigest()
+    db.query(Organization).filter(Organization.id == expense.organization_id).with_for_update().first()
+    duplicates = db.query(Receipt).filter(Receipt.organization_id == expense.organization_id,
+        Receipt.file_sha256 == digest)
+    if existing_receipt:
+        duplicates = duplicates.filter(Receipt.id != existing_receipt.id)
+    if duplicates.first():
+        raise HTTPException(409, "This receipt file has already been recorded")
 
     try:
-        processed_bytes, content_type = prepare_image_for_upload(raw_bytes)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Could not process the uploaded image: {exc}",
-        )
-
-    try:
-        receipt_url = upload_receipt_image(processed_bytes, content_type)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
-    except StorageError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+        receipt_url = upload_receipt_image(processed_bytes, content_type, current_user.id, expense.organization_id)
+    except RuntimeError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Receipt service is unavailable")
+    except StorageError:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Receipt storage upload failed")
 
     expense.receipt_url = receipt_url
-    sync_expense_receipt(db, expense, current_user, file_sha256=hashlib.sha256(raw_bytes).hexdigest())
+    sync_expense_receipt(db, expense, current_user, file_sha256=digest)
     db.commit()
     db.refresh(expense)
     return expense
@@ -616,18 +516,8 @@ def parse_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_financial_access),
 ):
-    """
-    Takes raw OCR text (already extracted on-device by the Flutter app)
-    and asks Gemini to turn it into structured fields, saved onto this
-    expense's ocr_merchant/ocr_date/ocr_amount.
-
-    If the scanned total disagrees with the officer-entered `amount` by
-    more than the tolerance below, the expense is auto-flagged — this is
-    separate from (and happens earlier than) the over-budget check that
-    runs at approval time.
-    """
-    expense = _get_expense_or_404(db, expense_id)
-    _assert_expense_owner_scope(expense, db, current_user, "attach a receipt scan to")
+    expense = _get_expense_or_404(db, expense_id, lock=True)
+    _assert_expense_owner_scope(expense, current_user, "attach a receipt scan to")
 
     if expense.status != "pending":
         raise HTTPException(
@@ -637,19 +527,12 @@ def parse_receipt(
 
     try:
         parsed = parse_receipt_text(payload.raw_text)
-    except RuntimeError as exc:
-        # Missing/misconfigured API key — an ops problem, not the
-        # caller's fault, so 503 rather than 400/422.
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
-    except ReceiptParseError as exc:
-        # Gemini responded but not in the shape we asked for.
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
-    except Exception as exc:
-        # Network/auth/rate-limit errors from the Gemini SDK itself.
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Could not reach the receipt parsing service: {exc}",
-        )
+    except RuntimeError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Receipt service is unavailable")
+    except ReceiptParseError:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Receipt parsing failed")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Receipt parsing service is unavailable")
 
     expense.ocr_merchant = parsed["merchant"]
     expense.ocr_date = parsed["date"]
@@ -658,9 +541,6 @@ def parse_receipt(
         sync_expense_receipt(db, expense, current_user)
 
     if parsed["amount"] is not None:
-        # Flag if the scanned total is off by more than ₱5 or 3%,
-        # whichever is bigger — small OCR/rounding noise shouldn't flag,
-        # a genuinely different amount should.
         tolerance = max(5.0, float(expense.amount) * 0.03)
         if abs(parsed["amount"] - float(expense.amount)) > tolerance:
             expense.is_flagged = True
@@ -684,8 +564,8 @@ def delete_expense(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_financial_access),
 ):
-    expense = _get_expense_or_404(db, expense_id)
-    _assert_expense_owner_scope(expense, db, current_user, "delete")
+    expense = _get_expense_or_404(db, expense_id, lock=True)
+    _assert_expense_owner_scope(expense, current_user, "delete")
 
     if expense.status != "pending":
         raise HTTPException(
@@ -704,5 +584,5 @@ def delete_expense(
 def complete_expense_purchase(expense_id: uuid.UUID, payload: PurchaseCompletion,
                               db: Session = Depends(get_db),
                               current_user: User = Depends(require_financial_access)):
-    expense = _get_expense_or_404(db, expense_id)
+    expense = _get_expense_or_404(db, expense_id, lock=True)
     return complete_purchase(db, expense, payload, current_user)

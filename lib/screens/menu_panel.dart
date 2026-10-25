@@ -1,0 +1,176 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../state/app_areas.dart';
+import '../state/app_state.dart';
+import '../theme/app_layout.dart';
+import '../theme/app_theme.dart';
+import '../theme/brut.dart';
+import '../theme/palette.dart';
+
+/// The menu, one swipe right of the dashboard.
+///
+/// Full-width bands rather than a grid of cards: there is no hierarchy
+/// to express here, just a list of places, and a band gives the name room
+/// to be read at a glance while the colour does the finding.
+///
+/// Dashboard and Events are not on it. They are the two screens either
+/// side of this one, and a menu entry that takes you where a swipe
+/// already takes you is the duplication that made the old app a pile.
+class MenuPanel extends StatelessWidget {
+  const MenuPanel({super.key, this.onClose});
+
+  /// Returns to the dashboard. Null when the panel is a page in a swipe
+  /// view that handles its own back gesture.
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final areas = menuAreasFor(app.currentRole);
+
+    return Scaffold(
+      backgroundColor: context.palette.canvas,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppLayout.gutter,
+                AppLayout.contentPadding,
+                AppLayout.gutter,
+                AppLayout.between,
+              ),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        MonoLabel('Menu'),
+                        SizedBox(height: 2),
+                        Text('Everywhere else', style: AppText.titleBig),
+                      ],
+                    ),
+                  ),
+                  if (onClose != null)
+                    BrutIconButton(
+                      icon: Icons.close,
+                      label: 'Back to the dashboard',
+                      onPressed: onClose,
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.only(
+                  bottom:
+                      MediaQuery.viewPaddingOf(context).bottom +
+                      AppLayout.section,
+                ),
+                itemCount: areas.length,
+                itemBuilder: (context, i) =>
+                    _Band(area: areas[i], index: i + 1, app: app),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Band extends StatelessWidget {
+  const _Band({required this.area, required this.index, required this.app});
+
+  final AppArea area;
+  final int index;
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = area.badge?.call(app);
+    final fill = area.tone.fill(context);
+    final on = context.foregroundOn(fill);
+
+    return GestureDetector(
+      onTap: () =>
+          Navigator.of(context).push(MaterialPageRoute(builder: area.builder)),
+      behavior: HitTestBehavior.opaque,
+      child: Semantics(
+        label: area.title,
+        button: true,
+        child: Container(
+          decoration: BoxDecoration(
+            color: fill,
+            border: Border(bottom: context.side),
+          ),
+          padding: const EdgeInsets.fromLTRB(
+            AppLayout.gutter,
+            18,
+            AppLayout.gutter,
+            18,
+          ),
+          child: Row(
+            children: [
+              // The number is the position in the list, which is the one
+              // thing about a band that is true regardless of role.
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: on, width: 1.5),
+                ),
+                child: Text(
+                  '$index',
+                  style: AppText.number.copyWith(fontSize: 11, color: on),
+                ),
+              ),
+              const SizedBox(width: AppLayout.between),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      area.title,
+                      style: AppText.display.copyWith(
+                        fontSize: 26,
+                        color: on,
+                        height: 1.05,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      area.blurb,
+                      style: AppText.caption.copyWith(color: on),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppLayout.tight),
+              if (count != null && count > 0) ...[
+                Text(
+                  '$count',
+                  style: AppText.moneyLarge.copyWith(fontSize: 22, color: on),
+                ),
+                const SizedBox(width: AppLayout.between),
+              ],
+              Icon(Icons.arrow_outward, size: 22, color: on),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

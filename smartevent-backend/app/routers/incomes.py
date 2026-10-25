@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.dependencies import (
-    assert_department_scope,
     assert_record_scope,
     require_financial_access,
     require_operational_read,

@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 try:
     from app.database import get_db
-    from app.dependencies import get_current_user, require_active_account
+    from app.dependencies import require_active_account
     from app.main import app
 except ModuleNotFoundError as exc:  # pragma: no cover - guidance for placement
     pytest.skip(
@@ -30,6 +30,9 @@ class EmptyQuery:
     """Small query double for routes whose authorization has already passed."""
 
     def filter(self, *args, **kwargs):
+        return self
+
+    def with_for_update(self, *args, **kwargs):
         return self
 
     def join(self, *args, **kwargs):

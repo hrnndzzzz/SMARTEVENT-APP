@@ -1,6 +1,5 @@
 """Organization ownership and administrator lookup."""
 
-import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db

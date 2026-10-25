@@ -1,10 +1,8 @@
 """Core workflows use isolated records and mocked email, never the live database."""
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
 import pytest
 from app.test_access_management import system
 from app.models import AuditLog, CiteMember, Notification, OtpToken, User
-from app.security import create_access_token
 from app.services.otp import hash_otp_code
 from app.services.notifications import deliver_notification
 from app.services.report_exports import render_export
@@ -101,7 +99,9 @@ def test_self_registration_roster_and_otp_gate(system, monkeypatch):
     payload = {"email": member.email, "password": "Password123!"}
     response = client.post("/auth/register", json=payload)
     assert response.status_code == 201, response.text
-    assert response.json()["is_active"] is False and response.json()["role"] == "officer"
+    assert response.json()["is_active"] is False
+    assert not {"id", "full_name", "role", "position", "department_id", "organization_id"} & response.json().keys()
+    assert db.query(User).filter(User.email == member.email).one().role == "officer"
     assert len(sent) == 1
     assert client.post("/auth/login", data={"username": member.email, "password": payload["password"]}).status_code == 403
     assert client.post("/auth/register", json=payload).status_code == 400
@@ -110,12 +110,16 @@ def test_self_registration_roster_and_otp_gate(system, monkeypatch):
 def test_resend_invalidates_old_code_and_failed_send_rolls_back(system, monkeypatch):
     client, db, *_ = system
     user, member, old = pending_registration(system)
+    old.created_at = datetime.now(timezone.utc) - timedelta(minutes=2)
+    db.commit()
     monkeypatch.setattr("app.routers.auth.generate_otp_code", lambda: "654321")
     monkeypatch.setattr("app.routers.auth.send_otp_email", lambda *a, **k: None)
     assert client.post("/auth/resend-otp", json={"email": user.email}).status_code == 200
     assert old.used_at is not None
     assert verify(client, user).status_code == 400
     fresh = db.query(OtpToken).filter(OtpToken.used_at.is_(None)).one()
+    fresh.created_at = datetime.now(timezone.utc) - timedelta(minutes=2)
+    db.commit()
     def fail(*a, **k):
         raise RuntimeError("offline")
     monkeypatch.setattr("app.routers.auth.send_otp_email", fail)

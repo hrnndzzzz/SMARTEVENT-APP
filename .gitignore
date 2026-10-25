@@ -46,12 +46,22 @@ app.*.map.json
 /android/app/release
 
 .env
+# Backups too: a timestamped copy is still the whole file.
+.env.*
+!.env.example
 .venv/
 venv/
 __pycache__/
 *.pyc
-.venv/
-venv/
 .vscode/
 .idea/
 *.egg-info/
+
+# Local-only credential notes for the demo accounts.
+.local-*.txt
+
+# Generated backend artifacts
+node_modules/
+.pytest_cache/
+/smartevent-backend/tmp/
+/smartevent-backend/supabase/.temp/

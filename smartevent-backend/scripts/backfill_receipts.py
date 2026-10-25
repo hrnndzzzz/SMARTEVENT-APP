@@ -2,6 +2,7 @@
 import argparse
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy import func
 from app.database import SessionLocal
 from app.models import Expense, Receipt, User
 from app.schemas import ReceiptDetails
@@ -15,7 +16,7 @@ def main():
     parser.add_argument("--actor-email", required=True, help="Active Super Admin for scope checks/audit")
     args = parser.parse_args()
     with SessionLocal() as db:
-        actor = db.query(User).filter(User.email == args.actor_email, User.role == "super_admin",
+        actor = db.query(User).filter(func.lower(User.email) == args.actor_email.strip().casefold(), User.role == "super_admin",
             User.is_active.is_(True), User.is_suspended.is_(False), User.must_change_password.is_(False)).first()
         if actor is None:
             parser.error("An active, fully provisioned Super Admin is required")

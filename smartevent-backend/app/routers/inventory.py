@@ -1,36 +1,11 @@
-"""
-CRUD for physical inventory items (chairs, extension cords, tarpaulins,
-markers, etc.) plus a transaction log for every change in stock.
-
-Design note — no DB trigger for quantity (unlike categories):
-    categories.remaining_budget is only ever touched by the
-    fn_deduct_category_balance trigger. There's no equivalent trigger
-    on inventory_transactions in the current schema, so this router
-    updates Inventory.quantity itself, in the same commit as the
-    InventoryTransaction row that explains the change. If a DB trigger
-    for this gets added later, remove the manual quantity update below
-    to avoid double-counting.
-
-Access rules:
-    - Super Admin can view all items. Admins and other scoped roles see
-        only items in their own department.
-  - Only admins can CREATE, UPDATE (metadata), or DELETE items —
-    same reasoning as categories: these define the org's actual
-    physical inventory, not something any officer should redefine.
-  - Adviser/Treasurer transactions are limited to items in their own
-    department.
-"""
-
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import (
-    assert_department_scope,
     assert_record_scope,
     require_operational_read,
     require_role,
@@ -62,10 +37,16 @@ def _event_for_item(db, event_id, user, organization_id, department_id):
     return event
 
 
-def _get_item_or_404(db: Session, inventory_id: uuid.UUID) -> Inventory:
-    item = db.query(Inventory).filter(Inventory.id == inventory_id).first()
+def _get_item_or_404(db: Session, inventory_id: uuid.UUID, *, lock: bool = False) -> Inventory:
+    query = db.query(Inventory).filter(Inventory.id == inventory_id)
+    item = query.first()
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventory item not found")
+    if lock:
+        db.query(Organization).filter(Organization.id == item.organization_id).with_for_update().first()
+        item = query.populate_existing().with_for_update().first()
+        if item is None:
+            raise HTTPException(404, "Inventory item not found")
     return item
 
 
@@ -99,7 +80,7 @@ def create_item(
         event_id=payload.event_id,
         item_name=payload.item_name,
         description=payload.description,
-        quantity=payload.quantity,
+        quantity=0,
         unit=payload.unit,
         low_stock_threshold=payload.low_stock_threshold,
         location=payload.location,
@@ -124,11 +105,6 @@ def list_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_operational_read),
 ):
-    """
-    is_draft=true is the review queue for catalog items created by
-    documented purchase completion from asset expense lines.
-    Omit the param entirely to see everything, draft or not.
-    """
     query = scope_query_by_department(
         db.query(Inventory), Inventory.department_id, current_user
     )
@@ -142,8 +118,6 @@ def list_items(
     return query.order_by(Inventory.item_name).all()
 
 
-# NOTE: this route must be declared before GET /{inventory_id}, or
-# FastAPI will try to parse "low-stock" as a UUID and 422 instead.
 @router.get("/low-stock", response_model=list[InventoryOut])
 def list_low_stock_items(
     db: Session = Depends(get_db),
@@ -177,14 +151,7 @@ def confirm_draft_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    """
-    Admin review step for items auto-created by approve_expense from a
-    scanned 'asset' receipt line. Flips is_draft to False — everything
-    else about the item (name, quantity, etc.) is left as-is; if it
-    needs correcting, use PATCH /{inventory_id} either before or after
-    confirming, they're independent actions.
-    """
-    item = _get_item_or_404(db, inventory_id)
+    item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
 
     if not item.is_draft:
@@ -221,7 +188,7 @@ def list_item_transactions(
 def repair_transaction_metadata(inventory_id: uuid.UUID, transaction_id: uuid.UUID,
                                  payload: InventoryTransactionRepair, db: Session = Depends(get_db),
                                  current_user: User = Depends(require_role("admin"))):
-    item = _get_item_or_404(db, inventory_id)
+    item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
     _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id)
     row = db.query(InventoryTransaction).filter(InventoryTransaction.id == transaction_id,
@@ -256,7 +223,7 @@ def update_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    item = _get_item_or_404(db, inventory_id)
+    item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
 
     updates = payload.model_dump(exclude_unset=True)
@@ -271,7 +238,6 @@ def update_item(
         raise HTTPException(409, "Assign a legacy item's event before editing it")
 
     if "item_name" in updates and updates["item_name"] != item.item_name:
-        db.query(Organization).filter(Organization.id == item.organization_id).with_for_update().first()
         name_taken = (
             db.query(Inventory)
             .filter(func.lower(Inventory.item_name) == updates["item_name"].lower(), Inventory.id != inventory_id,
@@ -299,7 +265,7 @@ def delete_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
-    item = _get_item_or_404(db, inventory_id)
+    item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
 
     in_use = (
@@ -337,9 +303,7 @@ def create_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
 ):
-    item = db.query(Inventory).filter(Inventory.id == inventory_id).with_for_update().first()
-    if item is None:
-        raise HTTPException(404, "Inventory item not found")
+    item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
     if item.event_id is None:
         raise HTTPException(409, "Assign the legacy inventory item's intended event first")
@@ -348,15 +312,11 @@ def create_transaction(
     if payload.transaction_type == "purchase":
         raise HTTPException(409, "Purchased stock must use POST /expenses/{expense_id}/complete-purchase")
 
-    if payload.event_id is not None:
-        event = db.query(Event).filter(Event.id == payload.event_id).first()
-        if event is None:
-            raise HTTPException(status_code=400, detail="Event does not exist")
-        assert_record_scope(current_user, event)
-        if event.organization_id != item.organization_id or event.department_id != item.department_id:
-            raise HTTPException(status_code=400, detail="Inventory and event must share an organization")
+    _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id)
 
     new_quantity = item.quantity + payload.change_qty
+    if new_quantity > 2**31 - 1:
+        raise HTTPException(409, "Stock quantity exceeds the database limit")
     if payload.transaction_type == "return":
         net_issued = db.query(func.coalesce(func.sum(InventoryTransaction.change_qty), 0)).filter(
             InventoryTransaction.inventory_id == item.id, InventoryTransaction.event_id == payload.event_id,
@@ -383,7 +343,6 @@ def create_transaction(
     )
     db.add(transaction)
 
-    item.quantity = new_quantity  # manual update — see module docstring
     record_access_change(db, current_user, "inventory.movement_recorded", item,
         {"event_id": str(payload.event_id), "transaction_type": payload.transaction_type, "change_qty": payload.change_qty})
 

@@ -1,4 +1,4 @@
-"""Administrative user listing and Admin department assignment."""
+"""Administrative account and assignment management."""
 
 import uuid
 
@@ -8,10 +8,18 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import assert_record_scope, require_role, resolve_organization_id, scope_query_by_department
 from app.models import CiteMember, Department, Organization, User
-from app.schemas import UserAccessUpdate, UserDepartmentUpdate, UserOut
+from app.schemas import SignatoryOut, UserAccessUpdate, UserDepartmentUpdate, UserOut
 from app.services.access_audit import record_access_change
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/signatories", response_model=list[SignatoryOut])
+def list_signatories(db: Session = Depends(get_db), current_user: User = Depends(require_role("admin"))):
+    return db.query(User).filter(
+        User.role == "signatory", User.is_active.is_(True),
+        User.is_suspended.is_(False), User.must_change_password.is_(False),
+    ).order_by(User.full_name, User.id).all()
 
 
 @router.get(
@@ -117,9 +125,9 @@ def update_user_access(
         if "organization_id" in updates:
             raise HTTPException(status_code=403, detail="Only Super Admin can transfer an account")
     new_role = updates.get("role", target.role)
-    if new_role == "sds_staff":
+    if new_role in {"sds_staff", "signatory"}:
         if "organization_id" in updates:
-            raise HTTPException(status_code=422, detail="SDS staff does not belong to an organization")
+            raise HTTPException(status_code=422, detail="School reviewers do not belong to an organization")
         updates["department_id"] = None
         updates["organization_id"] = None
     else:
@@ -134,13 +142,12 @@ def update_user_access(
         "position": target.position,
         "organization_id": str(target.organization_id), "department_id": str(target.department_id),
     }
+    member = db.query(CiteMember).filter(CiteMember.claimed_by_user_id == target.id).first()
+    if member is not None and new_role not in member_roles:
+        raise HTTPException(status_code=409, detail="Roster accounts must retain an adviser, treasurer, or officer role")
     for field, value in updates.items():
         setattr(target, field, value)
-    # Keep the claimed roster consistent; public registration never chooses a role.
-    member = db.query(CiteMember).filter(CiteMember.claimed_by_user_id == target.id).first()
     if member is not None:
-        if new_role not in member_roles:
-            raise HTTPException(status_code=409, detail="Roster accounts must retain an adviser, treasurer, or officer role")
         member.role = target.role
         member.position = target.position
         member.department_id = target.department_id

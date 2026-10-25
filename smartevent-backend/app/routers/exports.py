@@ -10,7 +10,7 @@ from app.models import User
 from app.routers.analytics import get_dashboard
 from app.routers.reports import get_event_report, get_category_report, get_consolidated_financial_report
 from app.schemas import Semester, EventScope
-from app.services.report_exports import render_export
+from app.services.report_exports import render_export, summary_section, income_source_section, financial_sections
 
 router = APIRouter(prefix="/reports", tags=["report downloads"])
 ExportFormat = Literal["csv", "pdf", "html"]
@@ -19,19 +19,6 @@ EXPORT_RESPONSES = {200: {"description": "Downloadable report or print-ready HTM
     "text/csv": {"schema": {"type": "string"}},
     "text/html": {"schema": {"type": "string"}},
 }}}
-
-
-def summary_section(report, excluded=()):
-    values = report.model_dump(mode="json")
-    return ("Summary", ["Field", "Value"], [
-        [key.replace("_", " ").title(), value] for key, value in values.items()
-        if key not in excluded and not isinstance(value, (dict, list))])
-
-
-def income_source_section(report):
-    return ("Income by source (excludes pending/rejected receipt reviews)",
-            ["Type", "Source", "Count", "Income (PHP)"],
-            [[s.source_type, s.source, s.income_count, s.total_income] for s in report.income_by_source])
 
 
 @router.get("/dashboard/export", response_class=Response, responses=EXPORT_RESPONSES)
@@ -75,8 +62,4 @@ def export_financial(period: Literal["weekly", "monthly", "school_year", "semest
                      current_user: User = Depends(require_operational_read)):
     report = get_consolidated_financial_report(period=period, reference_date=reference_date,
         school_year=school_year, semester=semester, event_scope=event_scope, db=db, current_user=current_user)
-    sections = [summary_section(report),
-                ("Events", ["Event", "School year", "Semester", "Scope", "Income (PHP)", "Expenses (PHP)", "Balance (PHP)"],
-                 [[e.title, e.school_year, e.semester, e.event_scope, e.total_income, e.total_expenses, e.net_balance] for e in report.events])]
-    sections.append(income_source_section(report))
-    return render_export("SMARTEVENT Financial Report", sections, format, "smartevent-financial-report")
+    return render_export("SMARTEVENT Financial Report", financial_sections(report), format, "smartevent-financial-report")

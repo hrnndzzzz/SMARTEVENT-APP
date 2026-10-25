@@ -1,7 +1,4 @@
--- Apply after migrations 001-003 in Supabase SQL Editor before deploying.
--- Existing department-scoped records receive a migration organization for
--- that department. Review these assignments before creating multiple student
--- organizations within a department. Rows without a department stay unassigned.
+-- Apply after 001-003. Review legacy organization assignments before scoped use.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS organizations (
@@ -62,7 +59,6 @@ BEGIN
         role IN ('super_admin', 'admin', 'adviser', 'treasurer', 'officer', 'sds_staff')
     ) NOT VALID;
 
-    -- Catalog names are unique within an organization, not across the school.
     FOR c IN SELECT conrelid::regclass AS table_name, conname FROM pg_constraint p
         WHERE p.contype = 'u' AND p.conrelid IN ('categories'::regclass, 'inventory'::regclass)
         AND cardinality(p.conkey) = 1 AND EXISTS (
@@ -77,8 +73,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_category_organization_name ON categories (o
 CREATE UNIQUE INDEX IF NOT EXISTS uq_inventory_organization_name ON inventory (organization_id, lower(item_name));
 CREATE INDEX IF NOT EXISTS idx_audit_organization_created ON audit_logs (organization_id, created_at DESC);
 
--- NOT VALID preserves legacy unassigned rows for administrator repair, while
--- these checks apply immediately to all inserts and updated rows.
+-- NOT VALID preserves legacy rows; new writes must satisfy the scope checks.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_role_scope_check' AND conrelid = 'users'::regclass) THEN

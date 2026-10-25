@@ -1,17 +1,4 @@
-"""
-Read-only aggregate views over the data the other routers already
-manage. Nothing here writes anything — every endpoint is a query,
-built from the same tables (categories, events, expenses, inventory)
-you already have full CRUD on elsewhere.
-
-Access: Super Admin sees global aggregates; admins, advisers, treasurers,
-and officers see aggregates restricted to their own department. SDS staff
-has no operational analytics access.
-"""
-
-from datetime import datetime, timezone
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -88,16 +75,10 @@ def get_dashboard(
 
 @router.get("/spending-trends", response_model=list[SpendingTrendPoint])
 def get_spending_trends(
-    months: int = 6,
+    months: int = Query(6, ge=1, le=120),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_operational_read),
 ):
-    """
-    Total APPROVED expense spending per calendar month, most recent
-    `months` months (default 6). Only approved expenses count — a
-    pending or rejected expense hasn't actually cost the org anything
-    yet, so including it would overstate real spending.
-    """
     month_expr = func.date_trunc("month", Expense.created_at)
 
     expense_query = scope_query_by_department(
@@ -122,7 +103,7 @@ def get_spending_trends(
             total_amount=float(row.total),
             expense_count=row.count,
         )
-        for row in reversed(rows)  # oldest-to-newest, natural chart order
+        for row in reversed(rows)
     ]
 
 
@@ -131,15 +112,6 @@ def get_flagged_expenses(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("adviser", "treasurer", "admin")),
 ):
-    """
-    Every expense currently flagged (is_flagged=True) — set by the OCR
-    amount-mismatch check in POST /expenses/{id}/parse-receipt when the
-    scanned receipt total disagrees with the entered amount. (Note:
-    over-budget conditions are handled separately, by blocking approval
-    outright with a 409 in approve_expense — they don't set is_flagged.)
-    This is your Threat Analysis Engine's actual review surface: OCR
-    mismatches an adviser/admin should look at before approving.
-    """
     query = scope_query_by_department(
         db.query(Expense), Expense.department_id, current_user
     )

@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS ix_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS ix_notifications_pending_email ON notifications(created_at)
     WHERE email_status IN ('pending', 'failed');
--- These are private API-owned messages, not publicly readable Supabase rows.
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE events ADD COLUMN IF NOT EXISTS school_year VARCHAR(9);

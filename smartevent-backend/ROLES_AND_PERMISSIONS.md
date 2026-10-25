@@ -13,6 +13,7 @@ Organization hierarchy: Dean (Admin) -> Adviser / Moderator (Adviser) -> Preside
 Super Admin is the platform administrator. Treasurer is a financial responsibility,
 not an additional supervisory rank. Adviser and Moderator have identical permissions.
 SDS Staff has a separate oversight role for proposal letters.
+Signatories have a separate institutional review role, not general operational access.
 
 Each organization belongs to one department. Each Admin, Adviser, Treasurer,
 and Officer account belongs to one organization and that organization's department.
@@ -25,12 +26,12 @@ Super Admin is the only role with global operational access. SDS Staff can read
 proposal letters across the school, but cannot read events, finances, inventory,
 reports, user accounts, rosters, or administrative audit history.
 
-## Duties and permissions
+## Operational and SDS duties
 
 | Action | Super Admin | Department Admin / Dean | Adviser / Moderator | Treasurer | Officer | SDS Staff |
 |---|---|---|---|---|---|---|
 | Create departments and organizations | Yes | No | No | No | No | No |
-| Create Admin and SDS accounts | Yes | No | No | No | No | No |
+| Create Admin, SDS and Signatory accounts | Yes | No | No | No | No | No |
 | Manage unclaimed member roster | All | Own department | No | No | No | No |
 | List/manage registered member access | All | Own department's Adviser/Treasurer/Officer accounts | No | No | No | No |
 | Transfer accounts to another organization | Yes | No | No | No | No | No |
@@ -46,6 +47,7 @@ reports, user accounts, rosters, or administrative audit history.
 | Upload proposal letters | All | Own department | Own organization | Own organization | Those three positions, own draft/rejected proposals only | No |
 | Read proposal letters | All | Own department | Own organization | Own organization | Those three positions, own proposals only | All |
 | Read administrative audit history | All | Own department | No | No | No | No |
+| Configure institutional event routing | All eligible events | Own department | No | No | No | No |
 
 President, Vice President and Secretary retain `role=officer` and gain proposal
 access based on their administrator-managed `position`. Matching ignores case and
@@ -57,9 +59,34 @@ completion. Admin/Super Admin/Adviser retain financial viewing and independent
 review. Personal password and notification actions remain available.
 
 Qualifying Officers create drafts or submit directly to `pending_adviser`, then
-Adviser/Moderator review advances to `pending_admin` and Admin review approves.
+Adviser/Moderator review advances to `pending_admin`; Admin review then advances
+to the existing institutional routing. Assigned Signatories retain final approval.
 Owners edit draft/rejected proposals, resubmit them, and delete drafts subject to
 references. Rejection/resubmission history and no-self-review rules remain intact.
+
+For SAP proposals, the same qualifying Officers can prepare their own draft or
+returned Parts 1–3, manage supporting attachments, and submit to the existing SAP
+paper workflow. SDS-only clearance, signing, paper evidence and closeout powers
+remain separate. Private proposal-letter links require the same event ownership.
+
+## Signatory duties and institutional review
+
+The `signatory` role is provisioned only by Super Admin through
+`POST /auth/register/signatory`. It has no organization/department assignment.
+After mandatory password setup, an Admin/Super Admin may assign it to an event's
+ordered route. See [Phase 1 implementation](PHASE_1_IMPLEMENTATION.md) for the
+complete workflow, migration and frontend contract.
+
+- Read only assigned current-round events, approval/routing history and their
+  proposal letters while the event is `pending_institutional_review`.
+- Approve/reject only the next assigned institutional step. All steps must approve
+  in sequence before the event becomes `approved`; a rejection starts revision.
+- No event editing, proposal uploads, finances, inventory, reports, roster or
+  general administration. Personal account/password/inbox actions remain available.
+- No institution-review bypass for Admin or Super Admin. Their event approval
+  advances `pending_admin` to `pending_institutional_review`, not `approved`.
+- Resubmission retains history and opens a new review round. Signatory access ends
+  when the event leaves institutional review. Routes cannot change mid-review.
 
 No role, including Super Admin, can approve or reject its own submissions.
 Record ownership is stored on the record; transferring an account does not
@@ -74,7 +101,7 @@ transfer historical events, expenses, categories, or inventory.
    (POST /organizations), or uses existing migration organizations.
 3. Super Admin creates a department administrator with
    POST /auth/register/admin, providing both department_id and
-   organization_id. Admins cannot create other Admin or SDS accounts.
+   organization_id. Admins cannot create other Admin, SDS or Signatory accounts.
 4. Admin adds Adviser, Treasurer, and Officer roster entries with
    POST /cite-members. Its organization and department are used by default;
    Admin may select another organization in its department.
@@ -95,7 +122,7 @@ transfer historical events, expenses, categories, or inventory.
    requires both organization and department IDs.
 
 Accounts on the member roster retain one of its three member roles.
-Administrative and SDS accounts use separate provisioning routes. Users cannot
+Administrative, SDS and Signatory accounts use separate provisioning routes. Users cannot
 alter their own role, scope, or suspension through administrative endpoints.
 Super Admin account access cannot be changed through these endpoints; bootstrap
 and recovery remain institution-controlled maintenance operations.
@@ -117,7 +144,9 @@ intended department. Existing position assignments determine Officer capabilitie
 
 Apply migrations 001 through 003 if needed, then apply
 [004_roles_and_organizations.sql](scripts/004_roles_and_organizations.sql) in the
-Supabase SQL Editor before starting this backend version.
+Supabase SQL Editor as part of the historical setup. Also apply remaining
+unapplied scripts 005–008, then the [Phase 1 migration](supabase/migrations/20261004005904_phase1_institutional_routing_compliance.sql)
+before starting the current backend. Do not blindly repeat already-applied SQL.
 
 Migration 004 adds organization ownership, suspension, scope indexes, and role
 constraints. It creates a clearly named migration organization for each existing
@@ -135,6 +164,24 @@ repaired, but it checks new inserts and updates immediately.
 The backend authenticates application JWTs and enforces this policy for API
 requests. This migration does not replace existing Supabase RLS policies or
 authorize direct client access to database tables.
+
+## Phase 2/3 attendance and closeout permissions
+
+| Action | Authorized role and stage |
+|---|---|
+| Maintain the participating roster | Scoped Admin/Super Admin; draft/rejected only. No student accounts. |
+| Assign or correct parallel activities | Scoped Admin/Super Admin/Adviser; draft/rejected or completed. Requires equivalent objectives, instructions and reason. |
+| Generate/print attendance | Scoped Admin/Super Admin/Adviser; approved/completed; active attending roster only. |
+| Upload/verify signed attendance | Scoped Admin/Super Admin/Adviser; approved/completed. |
+| Mark the activity completed | Scoped Admin/Super Admin/Adviser; approved only, actual date not before the activity or in the future. |
+| Add/upload/verify post-activity student work and reports | Scoped Admin/Super Admin/Adviser; completed only. |
+| Upload/verify alternative work | Scoped Admin/Super Admin/Adviser; approved/completed. |
+
+Treasurer, Officer, SDS Staff and Signatory do not receive these student/closeout
+permissions. Treasurer retains own pre-activity logistics uploads. Officer remains
+read-only; Signatory reviews only the next assigned institutional step. Printing
+does not change attendance or approvals. `completed` records the end of an event;
+derived closeout `CLOSED` requires verified evidence and can reopen on replacement.
 
 ## Verification
 

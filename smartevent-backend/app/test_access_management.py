@@ -19,6 +19,7 @@ from app.models import (
     IncomeRecord, Inventory, Organization, User,
 )
 from app.security import create_access_token
+from app.models_compliance import EventLogistics
 
 
 @compiles(JSONB, "sqlite")
@@ -33,6 +34,14 @@ def system():
     def enable_foreign_keys(connection, record):
         connection.execute("PRAGMA foreign_keys=ON")
     Base.metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("""
+            CREATE TRIGGER apply_inventory_movement AFTER INSERT ON inventory_transactions
+            BEGIN
+                UPDATE inventory SET quantity = quantity + NEW.change_qty,
+                    updated_at = CURRENT_TIMESTAMP WHERE id = NEW.inventory_id;
+            END
+        """)
     db = sessionmaker(bind=engine)()
     original = app.dependency_overrides.copy()
     app.dependency_overrides[get_db] = lambda: db
@@ -46,12 +55,12 @@ def system():
     db.add_all(organizations)
     db.flush()
     accounts = {}
-    for role in ("super_admin", "admin", "adviser", "treasurer", "officer", "sds_staff"):
+    for role in ("super_admin", "admin", "adviser", "treasurer", "officer", "sds_staff", "signatory"):
         account = User(
             full_name=role, email=role + "@example.com", password_hash="unused",
             role=role, is_active=True, must_change_password=False,
-            department_id=department.id if role not in ("super_admin", "sds_staff") else None,
-            organization_id=organizations[0].id if role not in ("super_admin", "sds_staff") else None,
+            department_id=department.id if role not in ("super_admin", "sds_staff", "signatory") else None,
+            organization_id=organizations[0].id if role not in ("super_admin", "sds_staff", "signatory") else None,
         )
         db.add(account)
         accounts[role] = account
@@ -70,6 +79,7 @@ def system():
         )
         db.add(event_record)
         db.flush()
+        db.add(EventLogistics(event_id=event_record.id, activity_location="on_campus", destination="Campus", transport_mode="none"))
         expense = Expense(
             organization_id=organization.id, department_id=department.id, category_id=category.id,
             event_id=event_record.id, description="Supplies", amount=10, expense_date=date.today(),
@@ -134,13 +144,18 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
     checked = []
     for route_path, operations in app.openapi()["paths"].items():
         if route_path.startswith("/notifications") or (route_path.startswith("/auth/") and route_path not in
-                                               ("/auth/register/admin", "/auth/register/sds")):
+                                               ("/auth/register/admin", "/auth/register/sds", "/auth/register/signatory")):
             continue
         for method in {operation.upper() for operation in operations} & {"POST", "PUT", "PATCH", "DELETE"}:
             if position and (method, route_path) in {
                 ("POST", "/events"), ("PATCH", "/events/{event_id}"),
                 ("DELETE", "/events/{event_id}"), ("POST", "/events/{event_id}/submit"),
                 ("POST", "/proposal-letters"),
+                ("POST", "/events/{event_id}/sap-proposal"),
+                ("PATCH", "/events/{event_id}/sap-proposal"),
+                ("PUT", "/events/{event_id}/sap-proposal/{collection}"),
+                ("POST", "/events/{event_id}/sap-proposal/attachments"),
+                ("POST", "/events/{event_id}/sap-proposal/submit"),
             }:
                 continue
             path = re.sub(r"\{[^}]+\}", lambda _: str(uuid4()), route_path)
@@ -202,7 +217,7 @@ def test_suspension_blocks_existing_token_and_registration_reactivation(system):
     assert client.patch(endpoint, json={"is_suspended": True}).status_code == 200
     client.headers["Authorization"] = "Bearer " + officer_token
     assert client.get("/categories").status_code == 401
-    assert client.post("/auth/verify-otp", json={"email": users["officer"].email, "otp_code": "123456"}).status_code == 403
+    assert client.post("/auth/verify-otp", json={"email": users["officer"].email, "otp_code": "123456"}).status_code == 400
     login("admin")
     assert client.patch(endpoint, json={"is_suspended": False}).status_code == 200
     client.headers["Authorization"] = "Bearer " + officer_token

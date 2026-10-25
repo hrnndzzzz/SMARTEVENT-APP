@@ -1,9 +1,11 @@
 """Position capabilities and Dean scope, exercised through real isolated routes."""
 
 import pytest
+from datetime import date
 
 from app.models import AuditLog, CiteMember, Department, Event, EventProposalLetter, Organization
 from app.test_access_management import system
+from app.test_file_access import signer
 
 
 def proposal(org, **changes):
@@ -29,6 +31,10 @@ def test_lead_officers_can_manage_own_proposal_and_complete_review(system, posit
     assert created.status_code == 201, created.text
     path = "/events/" + created.json()["id"]
     assert created.json()["proposed_by"] == str(users["officer"].id)
+    login("admin")
+    assert client.put(path + "/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
+    assert client.put(path + "/logistics", json={"activity_location": "on_campus", "destination": "Campus", "transport_mode": "none"}).status_code == 200
+    login("officer")
     assert client.patch(path, json={"title": "Revised proposal"}).status_code == 200
     assert client.post(path + "/submit").json()["status"] == "pending_adviser"
     assert client.patch(path, json={"title": "Too late"}).status_code == 409
@@ -42,9 +48,12 @@ def test_lead_officers_can_manage_own_proposal_and_complete_review(system, posit
     login("adviser")
     assert client.post(path + "/approve", json={}).json()["status"] == "pending_admin"
     login("admin")
+    assert client.post(path + "/approve", json={}).json()["status"] == "pending_institutional_review"
+    login("signatory")
     assert client.post(path + "/approve", json={}).json()["status"] == "approved"
+    login("admin")
     assert [row["decision"] for row in client.get(path + "/approvals").json()] == [
-        "rejected", "resubmitted", "approved", "approved",
+        "rejected", "resubmitted", "approved", "approved", "approved",
     ]
 
 
@@ -101,7 +110,7 @@ def test_officer_letters_are_limited_to_owned_editable_proposals(system, monkeyp
 
     def upload(target):
         return client.post("/proposal-letters", data={"event_id": str(target), "title": "Proposal letter"},
-                           files={"file": ("letter.pdf", b"%PDF-1.4 test", "application/pdf")})
+                           files={"file": ("letter.pdf", b"%PDF-1.4 test\n%%EOF", "application/pdf")})
 
     response = upload(event_id)
     assert response.status_code == 201, response.text
@@ -166,6 +175,7 @@ def test_dean_reads_all_department_organizations_and_creates_in_selected_organiz
     event = resources[1]["events"]
     event.status = "pending_admin"
     db.commit()
+    assert client.put(f"/events/{event.id}/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
     assert client.post(f"/events/{event.id}/approve", json={}).status_code == 200
     assert client.get(f"/reports/event/{event.id}").status_code == 200
 
@@ -285,3 +295,81 @@ def test_permissions_describe_effective_capabilities(system, role, position, pro
     assert data["position"] == position
     assert data["can_propose_events"] is propose
     assert data["can_record_finance"] is finance
+
+
+@pytest.mark.parametrize("position", ["President", "Vice President", "Secretary"])
+def test_lead_officers_can_prepare_and_submit_owned_sap_without_sds_powers(system, monkeypatch, position):
+    from app.config import settings
+    from app.test_sap import fixture_data
+
+    client, db, users, orgs, resources, login = system
+    event = resources[0]["events"]
+    event.status, event.proposed_by = "draft", users["officer"].id
+    event.allocated_budget = event.remaining_budget = 2500
+    officer_position(system, position)
+    monkeypatch.setattr(settings, "sap_verification_base_url", "https://example.org/sap/verify")
+    monkeypatch.setattr("app.services.sap.institution_today", lambda: date(2026, 9, 27))
+    base = f"/events/{event.id}/sap-proposal"
+    created = client.post(base)
+    assert created.status_code == 201, created.text
+
+    def version():
+        return client.get(base).json()["version"]
+
+    data = fixture_data()
+    response = client.patch(base, json={"expected_version": version(), "details": data["details"]})
+    assert response.status_code == 200, response.text
+    for collection, items in data["collections"].items():
+        response = client.put(base + "/" + collection, json={"expected_version": version(), "items": items})
+        assert response.status_code == 200, response.text
+    assert client.put(base + "/sds-clearance", json={"expected_version": version(), "clearance": data["clearance"]}).status_code == 403
+    login("sds_staff")
+    response = client.put(base + "/sds-clearance", json={"expected_version": version(), "clearance": data["clearance"]})
+    assert response.status_code == 200, response.text
+    login("officer")
+    response = client.post(base + "/submit", json={"expected_version": version()})
+    assert response.status_code == 200, response.text
+    assert response.json()["state"] == "pending_sap_review"
+    assert client.patch(base, json={"expected_version": version(), "details": data["details"]}).status_code == 409
+
+
+def test_lead_officer_cannot_prepare_another_proposers_sap(system):
+    client, db, users, orgs, resources, login = system
+    event = resources[0]["events"]
+    event.status = "draft"
+    officer_position(system, "President")
+    assert client.post(f"/events/{event.id}/sap-proposal").status_code == 403
+
+
+def test_lead_officer_private_letter_access_is_owner_only(system, signer):
+    from app.config import settings
+    client, db, users, orgs, resources, login = system
+    resources[0]["events"].proposed_by = users["officer"].id
+    references = []
+    for index in (0, 1):
+        if index == 1:
+            resources[index]["events"].organization_id = orgs[0].id
+        url = f"{settings.supabase_url}/storage/v1/object/proposal-letters/{orgs[0].id}/{users['officer'].id}/{index}.pdf"
+        references.append(url)
+        db.add(EventProposalLetter(event_id=resources[index]["events"].id, title="Private letter",
+                                   document_url=url, submitted_by=users["officer"].id))
+    officer_position(system, "President")
+    own = client.get("/files", params={"reference": references[0]})
+    assert own.status_code == 200, own.text
+    assert client.get("/files", params={"reference": references[1]}).status_code == 404
+
+
+def test_dean_roster_import_accepts_other_cite_organizations_and_rejects_other_departments(system):
+    from app.test_roster_import import member, upload
+    client, db, users, orgs, resources, login = system
+    login("admin")
+    response = upload(client, [member("other-org@example.com", **{"Organization Full Name": "Organization B"})])
+    assert response.status_code == 201, response.text
+    department = Department(code="EXTERNAL", name="External")
+    db.add(department)
+    db.flush()
+    db.add(Organization(code="EXTERNAL", name="External Organization", department_id=department.id))
+    db.commit()
+    response = upload(client, [member("external@example.com", **{"Department": "External", "Organization Full Name": "External Organization"})])
+    assert response.status_code == 422, response.text
+    assert db.query(CiteMember).filter_by(email="external@example.com").first() is None

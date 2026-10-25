@@ -18,10 +18,10 @@ from app.schemas import (
 )
 from app.routers.reports import (
     _calendar_window,
-    _render_financial_report_pdf,
     get_consolidated_financial_report,
 )
 from app.routers import reports as reports_router
+from app.services.report_exports import render_export, financial_sections
 
 
 def test_income_requires_event_source_purpose_and_positive_amount():
@@ -122,7 +122,7 @@ def test_financial_report_pdf_has_valid_pdf_structure():
         ],
     )
 
-    pdf_bytes = _render_financial_report_pdf(report)
+    pdf_bytes = render_export("SMARTEVENT Financial Report", financial_sections(report), "pdf", "smartevent-financial-report").body
 
     assert pdf_bytes.startswith(b"%PDF-")
     assert b"%%EOF" in pdf_bytes[-32:]

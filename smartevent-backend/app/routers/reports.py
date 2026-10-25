@@ -1,52 +1,30 @@
-"""
-Consolidated, single-call financial reports — the "exportable
-liquidation reports and expense breakdowns" from the capstone scope.
-Each endpoint pulls together data that otherwise requires several
-separate calls (category + its expenses, or event + its expenses) into
-one response shaped for reading/printing as a report, not for further
-API composition.
-
-Access: Super Admin sees global reports; admins, advisers, treasurers, and
-officers see reports restricted to their own department. SDS staff has no
-report access.
-"""
-
 import uuid
 import calendar
-from html import escape
-from io import BytesIO
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT, TA_RIGHT
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.database import get_db
 from app.dependencies import (
-    assert_department_scope,
     assert_record_scope,
     require_operational_read,
     scope_query_by_department,
 )
 from app.models import Category, Event, Expense, IncomeRecord, Receipt, User
 from app.services.academic_year import validate_school_year
+from app.services.report_exports import render_export, financial_sections
 from app.schemas import (
     CategoryReport,
     ConsolidatedFinancialReport,
     EventReport,
     EventScope,
     FinancialEventSummary,
-    IncomeOut,
     Semester,
     IncomeSourceSummary,
 )
@@ -308,148 +286,9 @@ def get_consolidated_financial_report(
     )
 
 
-def _render_financial_report_pdf(report: ConsolidatedFinancialReport) -> bytes:
-    buffer = BytesIO()
-    document = SimpleDocTemplate(
-        buffer,
-        pagesize=landscape(A4),
-        rightMargin=15 * mm,
-        leftMargin=15 * mm,
-        topMargin=14 * mm,
-        bottomMargin=14 * mm,
-        title="SMARTEVENT Consolidated Financial Report",
-        author="SMARTEVENT",
-    )
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "ReportTitle",
-        parent=styles["Title"],
-        alignment=TA_LEFT,
-        textColor=colors.HexColor("#17324D"),
-        fontSize=18,
-        leading=22,
-        spaceAfter=4,
-    )
-    meta_style = ParagraphStyle(
-        "ReportMeta",
-        parent=styles["Normal"],
-        textColor=colors.HexColor("#526273"),
-        fontSize=9,
-        leading=13,
-    )
-    cell_style = ParagraphStyle(
-        "ReportCell",
-        parent=styles["Normal"],
-        fontSize=8,
-        leading=10,
-    )
-    amount_style = ParagraphStyle(
-        "ReportAmount",
-        parent=cell_style,
-        alignment=TA_RIGHT,
-    )
-
-    filters = [f"Period: {report.period.replace('_', ' ').title()}"]
-    if report.start_date and report.end_date:
-        filters.append(f"Dates: {report.start_date.isoformat()} to {report.end_date.isoformat()}")
-    if report.school_year:
-        filters.append(f"School year: {report.school_year}")
-    if report.semester:
-        filters.append(f"Semester: {report.semester}")
-    if report.event_scope:
-        filters.append(f"Event scope: {report.event_scope.title()}")
-
-    story = [
-        Paragraph("SMARTEVENT Financial Report", title_style),
-        Paragraph(" | ".join(filters), meta_style),
-        Spacer(1, 8 * mm),
-    ]
-    headings = ["Event", "Scope", "School year", "Semester", "Income", "Approved expenses", "Net balance"]
-    rows = [[Paragraph(label, cell_style) for label in headings]]
-    for event in report.events:
-        rows.append(
-            [
-                Paragraph(escape(event.title), cell_style),
-                Paragraph(event.event_scope or "-", cell_style),
-                Paragraph(event.school_year or "-", cell_style),
-                Paragraph(event.semester or "-", cell_style),
-                Paragraph(f"PHP {event.total_income:,.2f}", amount_style),
-                Paragraph(f"PHP {event.total_expenses:,.2f}", amount_style),
-                Paragraph(f"PHP {event.net_balance:,.2f}", amount_style),
-            ]
-        )
-
-    rows.append(
-        [
-            Paragraph("TOTAL", cell_style),
-            "",
-            "",
-            "",
-            Paragraph(f"PHP {report.total_income:,.2f}", amount_style),
-            Paragraph(f"PHP {report.total_expenses:,.2f}", amount_style),
-            Paragraph(f"PHP {report.net_balance:,.2f}", amount_style),
-        ]
-    )
-    if report.unassigned_expense_total:
-        rows.append(
-            [
-                Paragraph("Unassigned expenses", cell_style),
-                "",
-                "",
-                "",
-                "",
-                Paragraph(f"PHP {report.unassigned_expense_total:,.2f}", amount_style),
-                "",
-            ]
-        )
-
-    table = Table(
-        rows,
-        colWidths=[66 * mm, 25 * mm, 28 * mm, 22 * mm, 32 * mm, 38 * mm, 32 * mm],
-        repeatRows=1,
-        hAlign="LEFT",
-    )
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#17324D")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EAF0F4")),
-                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-                ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#233746")),
-                ("ALIGN", (4, 0), (-1, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#C9D3DC")),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F5F8FA")]),
-            ]
-        )
-    )
-    story.append(table)
-    story.append(Spacer(1, 6 * mm))
-    story.append(Paragraph(f"Income held for receipt review or rejected: PHP {report.withheld_income_total:,.2f} ({report.withheld_income_count} records)", meta_style))
-    if report.income_by_source:
-        story.append(Paragraph("Income by source", styles["Heading2"]))
-        for source in report.income_by_source:
-            story.append(Paragraph(f"{escape(source.source_type)} / {escape(source.source)}: PHP {source.total_income:,.2f} ({source.income_count} records)", meta_style))
-    summary_style = ParagraphStyle("ReportSummary", parent=meta_style, alignment=TA_RIGHT)
-    story.append(
-        Paragraph(
-            f"Unassigned expenses included: PHP {report.unassigned_expense_total:,.2f}",
-            summary_style,
-        )
-    )
-    document.build(story)
-    return buffer.getvalue()
-
-
 @router.get(
     "/financial.pdf",
-    response_class=StreamingResponse,
+    response_class=Response,
     responses={200: {"content": {"application/pdf": {}}}},
     summary="Download a consolidated financial report as PDF",
 )
@@ -471,9 +310,4 @@ def download_consolidated_financial_report(
         db=db,
         current_user=current_user,
     )
-    pdf_bytes = _render_financial_report_pdf(report)
-    return StreamingResponse(
-        BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="smartevent-financial-report.pdf"'},
-    )
+    return render_export("SMARTEVENT Financial Report", financial_sections(report), "pdf", "smartevent-financial-report")

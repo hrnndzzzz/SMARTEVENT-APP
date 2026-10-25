@@ -1,4 +1,4 @@
-"""Read-only department lookup for account and roster setup in Swagger."""
+"""Department administration."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
