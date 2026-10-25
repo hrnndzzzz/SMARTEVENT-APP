@@ -449,11 +449,23 @@ class BrutBadge extends StatelessWidget {
             ),
             const SizedBox(width: 6),
           ],
-          Text(
-            mono ? label.toUpperCase() : label,
-            style: mono
-                ? AppText.monoLabel.copyWith(color: foreground)
-                : AppText.buttonLabel.copyWith(fontSize: 11, color: foreground),
+          // A badge is normally a word or two and sizes to its text. Some
+          // labels are a sentence — "Rejected by <name>" — and where the
+          // badge sits in a bounded row it would otherwise paint straight
+          // through the edge of the card it is on. Ellipsis is a worse
+          // label but a readable screen.
+          Flexible(
+            child: Text(
+              mono ? label.toUpperCase() : label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: mono
+                  ? AppText.monoLabel.copyWith(color: foreground)
+                  : AppText.buttonLabel.copyWith(
+                      fontSize: 11,
+                      color: foreground,
+                    ),
+            ),
           ),
         ],
       ),

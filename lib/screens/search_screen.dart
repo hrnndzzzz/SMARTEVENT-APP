@@ -385,9 +385,15 @@ class _ResultCard extends StatelessWidget {
       onTap: onTap,
       radius: AppRadius.rowAll,
       padding: EdgeInsets.zero,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      // The stripe is sized by stretching to the row, and the row sits in
+      // a list that offers unbounded height — so without this the stretch
+      // asks for an infinite height and the card lays out invalid. Debug
+      // builds assert; a release build has no such warning and simply
+      // draws it wrong.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           // The kind of record as a stripe, so a mixed list can be read by
           // colour before it is read by word.
           Container(
@@ -446,16 +452,23 @@ class _ResultCard extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        for (final tag in result.tags)
-                          BrutBadge(label: tag, tone: BrutTone.mint),
+                          for (final tag in result.tags)
+                          BrutBadge(
+                            label: tag,
+                            // The status's own colour. Every tag used to
+                            // be mint, so "Draft" and "Rejected by …"
+                            // both read as approved.
+                            tone: result.event?.status.tone ?? BrutTone.mint,
+                          ),
                       ],
                     ),
                   ],
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
