@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/event_detail_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
@@ -92,12 +93,43 @@ String _when(DateTime at) {
 class _NotificationMenu extends StatelessWidget {
   const _NotificationMenu();
 
-  Future<void> _markRead(BuildContext context, AppNotice notice) async {
+  /// Reading it and opening it are the same tap.
+  ///
+  /// A workflow notice names the event it is about, so it goes there.
+  /// Anything else — a registration confirmation, or a notice raised
+  /// before the backend attached payloads — only reads.
+  Future<void> _openOrRead(BuildContext context, AppNotice notice) async {
     final messenger = ScaffoldMessenger.of(context);
-    final error = await context.read<AppState>().markNoticeRead(notice);
-    if (error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(error)));
+    final navigator = Navigator.of(context);
+    final app = context.read<AppState>();
+    final event = _eventFor(app, notice);
+
+    if (notice.isUnread) {
+      final error = await app.markNoticeRead(notice);
+      if (error != null) {
+        messenger.showSnackBar(SnackBar(content: Text(error)));
+        return; // Don't navigate away from a failure.
+      }
     }
+
+    if (event == null) return;
+    // The panel is a dialog over the app; it has to go before the event
+    // can be pushed, or the event opens behind it.
+    navigator.pop();
+    navigator.push(
+      MaterialPageRoute<void>(builder: (_) => EventDetailScreen(event: event)),
+    );
+  }
+
+  /// The event a notice points at, when it is loaded. A notice can
+  /// outlive its event, so a miss simply leaves the row unopenable.
+  static EventItem? _eventFor(AppState app, AppNotice notice) {
+    final id = notice.eventId;
+    if (id == null) return null;
+    for (final event in app.events) {
+      if (event.remoteId == id) return event;
+    }
+    return null;
   }
 
   Future<void> _markAllRead(BuildContext context, List<AppNotice> rows) async {
@@ -182,7 +214,7 @@ class _NotificationMenu extends StatelessWidget {
                               onDismissed: () => shelf.dismiss(rows[i].id),
                               child: _NoticeRow(
                                 notice: rows[i],
-                                onTap: () => _markRead(context, rows[i]),
+                                onTap: () => _openOrRead(context, rows[i]),
                               ),
                             ),
                             if (i != rows.length - 1)
