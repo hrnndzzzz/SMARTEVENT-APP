@@ -1,5 +1,6 @@
 import '../api/models/academic.dart';
 import '../api/models/inventory.dart';
+import '../api/models/proposal_letter.dart';
 import '../api/models/scope.dart';
 import '../api/models/sap_proposal.dart';
 import 'app_state.dart';
@@ -189,6 +190,48 @@ abstract final class DemoData {
       proposedBy: 'demo-account',
     ),
   ];
+
+  /// Letters submitted for events.
+  ///
+  /// Reading these is the SDS Staff role's only permission, so an empty
+  /// list made that whole role look broken: signing in as the office
+  /// landed on "No letters yet" and there was nothing else it could
+  /// reach.
+  ///
+  /// The stored value is a storage path rather than an https link. The
+  /// screen shows it as text to copy and never fetches it, and a URL to
+  /// a host that does not exist would read as a working link.
+  static List<ProposalLetter> letters() {
+    final now = DateTime.now();
+    return [
+      ProposalLetter(
+        id: 'demo-let-1',
+        eventId: 'demo-ev-1',
+        title: 'Request for approval — HACK THE FUTURE',
+        documentUrl: 'proposal-letters/demo-ev-1/request-for-approval.pdf',
+        submittedBy: 'demo-user-treasurer',
+        createdAt: now.subtract(const Duration(days: 6)),
+      ),
+      ProposalLetter(
+        id: 'demo-let-2',
+        eventId: 'demo-ev-2',
+        title: 'Letter of intent — CITE Week',
+        documentUrl: 'proposal-letters/demo-ev-2/letter-of-intent.pdf',
+        submittedBy: 'demo-user-officer',
+        createdAt: now.subtract(const Duration(days: 20)),
+      ),
+      // A photographed letter, so the list shows both document kinds and
+      // the icon that goes with each.
+      ProposalLetter(
+        id: 'demo-let-3',
+        eventId: 'demo-ev-3',
+        title: 'Endorsement — Industry Immersion Talk',
+        documentUrl: 'proposal-letters/demo-ev-3/endorsement-signed.jpg',
+        submittedBy: 'demo-user-adviser',
+        createdAt: now.subtract(const Duration(days: 2)),
+      ),
+    ];
+  }
 
   /// Equipment the organization holds, so the Inventory screen is not
   /// empty in a demo — and so the low-stock and none-left filters have

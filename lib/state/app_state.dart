@@ -2494,6 +2494,7 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(DemoData.expenses());
     catalog = DemoData.catalog();
+    letters = DemoData.letters();
     notices = DemoData.notices();
     unreadNoticeCount = notices.where((n) => n.isUnread).length;
 
