@@ -1,4 +1,5 @@
 import '../api/models/academic.dart';
+import '../api/models/inventory.dart';
 import '../api/models/scope.dart';
 import '../api/models/sap_proposal.dart';
 import 'app_state.dart';
@@ -188,6 +189,79 @@ abstract final class DemoData {
       proposedBy: 'demo-account',
     ),
   ];
+
+  /// Equipment the organization holds, so the Inventory screen is not
+  /// empty in a demo — and so the low-stock and none-left filters have
+  /// something to find. Two are linked to events, which is the link the
+  /// moderator asked about; one deliberately is not.
+  static List<RemoteInventoryItem> catalog() {
+    final now = DateTime.now();
+    RemoteInventoryItem item({
+      required String id,
+      required String name,
+      required String description,
+      required int quantity,
+      required String unit,
+      required int lowStock,
+      required String location,
+      String? eventId,
+    }) => RemoteInventoryItem(
+      id: id,
+      itemName: name,
+      description: description,
+      quantity: quantity,
+      unit: unit,
+      lowStockThreshold: lowStock,
+      location: location,
+      isDraft: false,
+      eventId: eventId,
+      departmentId: 'demo-dept-1',
+      organizationId: 'demo-org-1',
+      createdAt: now.subtract(const Duration(days: 30)),
+      updatedAt: now.subtract(const Duration(days: 2)),
+    );
+
+    return [
+      item(
+        id: 'demo-inv-1',
+        name: 'Folding tables',
+        description: 'Six-foot trestle tables for registration desks.',
+        quantity: 12,
+        unit: 'pcs',
+        lowStock: 4,
+        location: 'CITE stockroom',
+        eventId: 'demo-ev-2',
+      ),
+      item(
+        id: 'demo-inv-2',
+        name: 'Wireless microphone',
+        description: 'Handheld, with receiver and spare batteries.',
+        quantity: 3,
+        unit: 'sets',
+        lowStock: 4,
+        location: 'AV cabinet',
+        eventId: 'demo-ev-1',
+      ),
+      item(
+        id: 'demo-inv-3',
+        name: 'Extension cords',
+        description: 'Ten metres, three-gang.',
+        quantity: 0,
+        unit: 'pcs',
+        lowStock: 2,
+        location: 'AV cabinet',
+      ),
+      item(
+        id: 'demo-inv-4',
+        name: 'Certificate paper',
+        description: 'A4 parchment, for the nine printed signatures.',
+        quantity: 240,
+        unit: 'sheets',
+        lowStock: 50,
+        location: 'CITE stockroom',
+      ),
+    ];
+  }
 
   /// Enough spending to make the budget figures move, including one
   /// flagged row so that screen is not empty either.

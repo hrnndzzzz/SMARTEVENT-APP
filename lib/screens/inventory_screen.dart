@@ -126,6 +126,11 @@ class _FilterBar extends StatelessWidget {
     // Both of these are administrator work queues, not general filters.
     final isAdmin = app.currentRole?.isAdministrator ?? false;
 
+    // Without them there is one chip, already selected, filtering
+    // nothing — a control that cannot be used or unused. The status bar
+    // below is the only filter anyone else has.
+    if (!isAdmin) return const SizedBox.shrink();
+
     return BrutChipBar(
       children: [
         BrutChip(
@@ -188,7 +193,14 @@ class _ItemCard extends StatelessWidget {
                 // Says where it came from, not only what state it is in:
                 // "draft" alone does not tell you a purchase made it.
                 const BrutBadge(label: 'From a purchase', tone: BrutTone.sun),
-              if (item.isLowStock)
+              // None left is its own state, not a low one. isLowStock is
+              // true at zero, so the badge used to call an empty shelf
+              // low stock while the filter above counted it as none
+              // left — the badge and the filter disagreeing about the
+              // same row.
+              if (item.quantity <= 0)
+                const BrutBadge(label: 'None left', tone: BrutTone.coral)
+              else if (item.isLowStock)
                 BrutBadge(
                   label: 'Low stock (≤ ${item.lowStockThreshold})',
                   tone: BrutTone.coral,
