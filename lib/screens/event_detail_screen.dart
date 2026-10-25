@@ -200,7 +200,17 @@ class EventDetailScreen extends StatelessWidget {
               // to decide on. Once it has been approved or returned the
               // decision is the record, and withdrawing it would erase
               // someone else's.
-              if (app.mayProposeEvents && event.status.isPending) ...[
+              //
+              // Your own: this asked only whether the account may propose
+              // at all, so a reviewer opening someone else's submission
+              // was offered the withdrawal — which the server refuses,
+              // since the route is the proposer's. Where the proposer is
+              // not known at all the capability is still the best guess,
+              // rather than hiding the action from the person whose
+              // proposal it is.
+              if ((isOwnProposal || event.proposedBy == null) &&
+                  app.mayProposeEvents &&
+                  event.status.isPending) ...[
                 const SizedBox(height: 14),
                 BrutButton(
                   label: 'Cancel this proposal',

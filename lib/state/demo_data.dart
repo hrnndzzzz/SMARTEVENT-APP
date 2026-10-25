@@ -24,7 +24,13 @@ abstract final class DemoData {
   /// that can see the most without being an administrator, so the fewest
   /// screens are empty.
   static Account account(UserRole role) => Account(
-    id: 'demo-account',
+    // One id per role, not one for the demo.
+    //
+    // Every role shared 'demo-account' and every seeded event is
+    // proposed by the treasurer, so the self-review guard — nobody
+    // decides on their own proposal — fired for the adviser too. No
+    // role could review anything, which is the whole two-stage flow.
+    id: 'demo-account-${role.name}',
     name: switch (role) {
       UserRole.sdsStaff => 'Demo SDS Staff',
       UserRole.adviser => 'Demo Adviser',
@@ -134,7 +140,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.organizational,
-      proposedBy: 'demo-account',
+      proposedBy: 'demo-account-treasurer',
     ),
     EventItem(
       remoteId: 'demo-ev-2',
@@ -147,7 +153,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.departmental,
-      proposedBy: 'demo-account',
+      proposedBy: 'demo-account-treasurer',
     ),
     EventItem(
       remoteId: 'demo-ev-3',
@@ -161,7 +167,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.organizational,
-      proposedBy: 'demo-account',
+      proposedBy: 'demo-account-treasurer',
     ),
     EventItem(
       remoteId: 'demo-ev-4',
@@ -174,7 +180,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.departmental,
-      proposedBy: 'demo-account',
+      proposedBy: 'demo-account-treasurer',
     ),
     EventItem(
       remoteId: 'demo-ev-5',
@@ -187,7 +193,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.departmental,
-      proposedBy: 'demo-account',
+      proposedBy: 'demo-account-treasurer',
     ),
   ];
 
