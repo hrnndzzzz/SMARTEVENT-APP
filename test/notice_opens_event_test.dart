@@ -12,11 +12,11 @@ import 'package:smartevent/widgets/notification_menu.dart';
 
 /// Built and unreachable is not built.
 ///
-/// The deep-link from a workflow notice was first written into
-/// NotificationsScreen, which nothing in the app opens — the fourth
-/// screen in this project to be written, tested and left with no way in.
-/// The panel below the bell is what people actually tap, so the way in
-/// gets a test of its own.
+/// The deep-link from a workflow notice was first written into a
+/// notifications screen nothing in the app opened — the fourth screen in
+/// this project to be written, tested and left with no way in. That
+/// screen is gone now; the panel below the bell is what people actually
+/// tap, so the way in gets a test of its own.
 void main() {
   Widget host(AppState app) => MultiProvider(
     providers: [
