@@ -237,6 +237,9 @@ abstract final class DemoData {
           'the nine signatures.',
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       readAt: null,
+      // Named, so tapping it opens the event the way a real workflow
+      // notice does. Without this the demo cannot show that at all.
+      payload: const {'event_id': 'demo-ev-1', 'action': 'sap_cleared'},
     ),
     AppNotice(
       id: 'demo-n-2',
@@ -248,6 +251,7 @@ abstract final class DemoData {
           'affected classes in the morning.',
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
       readAt: null,
+      payload: const {'event_id': 'demo-ev-3', 'action': 'sap_returned'},
     ),
     AppNotice(
       id: 'demo-n-3',
