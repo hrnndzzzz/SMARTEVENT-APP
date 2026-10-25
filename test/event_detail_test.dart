@@ -61,4 +61,56 @@ void main() {
     expect(find.textContaining('Rejected by Adviser'), findsWidgets);
     expect(find.textContaining('null'), findsNothing);
   });
+
+  EventItem at(EventApprovalStatus status) => EventItem(
+    title: 'Hack the Future',
+    org: 'ACPES',
+    date: '10/28/2026',
+    budget: '\u20b12,500.00',
+    status: status,
+  );
+
+  /// Taking a proposal back puts it in draft. The adviser chip asked
+  /// whether the event was NOT in adviser review, which a draft also
+  /// satisfies \u2014 so withdrawing ticked the adviser step green, claiming
+  /// a decision nobody had made.
+  group('the adviser stage is past it, not merely out of it', () {
+    Future<void> show(WidgetTester tester, EventApprovalStatus status) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(400, 1400);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(host(at(status)));
+      await tester.pump();
+    }
+
+    testWidgets('a draft has not passed adviser review', (tester) async {
+      await show(tester, EventApprovalStatus.draft);
+
+      expect(
+        find.byIcon(Icons.check_circle),
+        findsNothing,
+        reason: 'nothing has been decided on a draft',
+      );
+    });
+
+    testWidgets('waiting on the adviser is shown as waiting', (tester) async {
+      await show(tester, EventApprovalStatus.pendingAdviser);
+
+      expect(find.byIcon(Icons.hourglass_top), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle), findsNothing);
+    });
+
+    testWidgets('with the admin, the adviser is done', (tester) async {
+      await show(tester, EventApprovalStatus.pendingAdmin);
+
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.byIcon(Icons.hourglass_top), findsOneWidget);
+    });
+
+    testWidgets('approved ticks both', (tester) async {
+      await show(tester, EventApprovalStatus.approved);
+
+      expect(find.byIcon(Icons.check_circle), findsNWidgets(2));
+    });
+  });
 }

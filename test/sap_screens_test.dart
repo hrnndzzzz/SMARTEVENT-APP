@@ -1,6 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:provider/provider.dart';
+import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
+import 'package:smartevent/api/sap_service.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/screens/sap/sap_part1_screen.dart';
 import 'package:smartevent/screens/sap/sap_part2_screen.dart';
@@ -8,12 +15,34 @@ import 'package:smartevent/screens/sap/sap_part3_screen.dart';
 import 'package:smartevent/screens/sap/sap_part4_screen.dart';
 import 'package:smartevent/screens/sap/sap_part5_screen.dart';
 import 'package:smartevent/screens/sap/sap_part6_screen.dart';
+import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 
 /// With no service the form is local-only, which is exactly the state the
 /// screens have to work in until the backend slice lands.
 SapForm blankForm() => SapForm(eventId: 'e1');
+
+/// A form wired to a backend that answers 404 for this event's proposal.
+///
+/// Local-only for a different reason than [blankForm]: there is a server,
+/// it is reachable, and it has nothing for this event. The hub has to say
+/// which of the two it is rather than blaming the backend either way.
+Future<SapForm> formWithAbsentProposal() async {
+  final client = MockClient(
+    (_) async => http.Response(
+      jsonEncode({'detail': 'Not Found'}),
+      404,
+      headers: {'content-type': 'application/json'},
+    ),
+  );
+  final form = SapForm(
+    eventId: 'e1',
+    service: SapService(ApiClient(httpClient: client)),
+  );
+  await form.load();
+  return form;
+}
 
 Widget host(Widget child) =>
     MaterialApp(theme: AppTheme.light(), home: child);
@@ -31,13 +60,35 @@ void main() {
     expect(find.text('Evaluation'), findsOneWidget);
   });
 
-  testWidgets('the hub says nothing is saved while the routes are absent', (
+  testWidgets('the demo hub says the demo is why, not the backend', (
     tester,
   ) async {
     await tester.pumpWidget(host(SapFormScreen(form: blankForm())));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('stays on this phone'), findsOneWidget);
+    // It used to say the backend had no proposal-form routes, which is
+    // not true of the demo and is no longer true of the backend.
+    expect(find.textContaining('Demo mode'), findsOneWidget);
+    expect(find.textContaining('no proposal-form routes'), findsNothing);
+  });
+
+  testWidgets('a real backend with no proposal says that instead', (
+    tester,
+  ) async {
+    final form = await formWithAbsentProposal();
+
+    // This one needs the provider: with a service the hub spins on its
+    // first frame, and the spinner reads AppSettings for reduced motion.
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => AppSettings(),
+        child: host(SapFormScreen(form: form)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('no proposal on the server'), findsOneWidget);
+    expect(find.textContaining('Demo mode'), findsNothing);
   });
 
   testWidgets('Part 1 draws the paper\'s fields', (tester) async {
@@ -157,7 +208,8 @@ void main() {
     await tester.pumpWidget(host(SapPart3Screen(form: form)));
     await tester.pumpAndSettle();
 
-    expect(find.text('₱2500.00'), findsOneWidget);
+    // Grouped, as the paper writes it and as every other screen does.
+    expect(find.text('₱2,500.00'), findsOneWidget);
   });
 
   testWidgets('Part 3 flags a total that disagrees with Part 1', (

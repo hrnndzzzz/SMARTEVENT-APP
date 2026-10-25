@@ -123,12 +123,17 @@ class _SapFormScreenState extends State<SapFormScreen> {
                   const SizedBox(height: 40),
                 ] else ...[
                   if (form.isLocalOnly)
-                    const BrutInlineMessage(
+                    BrutInlineMessage(
                       tone: BrutTone.sun,
                       icon: Icons.cloud_off,
-                      text:
-                          'This backend has no proposal-form routes yet, so '
-                          'everything here stays on this phone until it does.',
+                      // Two different causes, and guessing the wrong one
+                      // is how a message stops being believed: the demo
+                      // has no server at all, while a running backend
+                      // refusing this proposal is about this event.
+                      text: form.isDemo
+                          ? 'Demo mode: nothing here leaves the phone.'
+                          : 'This event has no proposal on the server, so '
+                                'everything here stays on this phone.',
                     ),
                   if (form.isStale)
                     const BrutInlineMessage(

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
+import 'package:smartevent/theme/peso.dart';
 
 /// The paper's breakdown reads across: Snacks · 150 · 10.00 · 1,500.00.
 ///
@@ -8,6 +9,8 @@ import 'package:smartevent/api/models/sap_proposal.dart';
 /// stopped matching the paper. The backend took them on 24 Oct; this is
 /// the client's half.
 void main() {
+  _moneyFormat();
+
   group('on the wire', () {
     test('a full row carries all four columns', () {
       const row = SapBudgetItem(
@@ -100,5 +103,22 @@ void main() {
     );
 
     expect(row.toJson()['amount'], '25.00');
+  });
+}
+
+/// The breakdown row and the SDS summary show the same figures, and used
+/// to disagree: Part 3 had its own peso helper with no thousands
+/// separator, so one screen read 1500.00 where the other, and the paper,
+/// read 1,500.00.
+void _moneyFormat() {
+  group('money reads the same everywhere', () {
+    test('thousands are grouped, as the paper writes them', () {
+      expect(peso(1500), '\u20b11,500.00');
+      expect(peso(35550), '\u20b135,550.00');
+    });
+
+    test('centavos survive', () {
+      expect(peso(99.99), '\u20b199.99');
+    });
   });
 }

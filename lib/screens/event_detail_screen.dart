@@ -342,7 +342,16 @@ class _ApprovalStatusCard extends StatelessWidget {
                 Expanded(
                   child: _StageChip(
                     label: 'Adviser review',
-                    done: event.status != EventApprovalStatus.pendingAdviser,
+                    // Past it, not merely not in it. A draft is not in
+                    // adviser review either, and used to tick green here
+                    // the moment a proposal was taken back.
+                    done: switch (event.status) {
+                      EventApprovalStatus.pendingAdmin ||
+                      EventApprovalStatus.pendingInstitutional ||
+                      EventApprovalStatus.approved ||
+                      EventApprovalStatus.completed => true,
+                      _ => false,
+                    },
                     current: event.status == EventApprovalStatus.pendingAdviser,
                   ),
                 ),

@@ -101,6 +101,11 @@ class SapForm extends ChangeNotifier {
   bool _localOnly = false;
   bool get isLocalOnly => _localOnly || _service == null;
 
+  /// There is no service at all — the offline demo. Separate from
+  /// [isLocalOnly] because the two have different causes and a screen
+  /// should not tell a demo user that the backend is missing routes.
+  bool get isDemo => _service == null;
+
   /// Someone else changed the proposal while this screen was open. The
   /// contract is explicit that the answer is to reload, never to resend.
   bool _stale = false;

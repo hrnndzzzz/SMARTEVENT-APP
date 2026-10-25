@@ -5,6 +5,7 @@ import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../theme/peso.dart';
 import 'sap_form_fields.dart';
 
 /// Part 3 — Additional Information.
@@ -160,8 +161,14 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
     return whole * 100 + frac;
   }
 
+  /// Centavos in, the app's own money format out.
+  ///
+  /// The arithmetic stays in whole centavos — the backend compares exact
+  /// decimals — but the thousands separator has to match the rest of the
+  /// app and the paper, which writes 1,500.00.
   static String _peso(int centavos) =>
-      '₱${(centavos ~/ 100)}.${(centavos % 100).toString().padLeft(2, '0')}';
+      '₱${grouped(centavos ~/ 100, decimals: 0)}'
+      '.${(centavos % 100).toString().padLeft(2, '0')}';
 
   Future<void> _save() async {
     _form.updateDetails(
