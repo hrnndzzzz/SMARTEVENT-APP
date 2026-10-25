@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
+import 'package:smartevent/state/app_state.dart';
+import 'package:smartevent/state/demo_data.dart';
 import 'package:smartevent/theme/peso.dart';
 
 /// The paper's breakdown reads across: Snacks · 150 · 10.00 · 1,500.00.
@@ -10,6 +12,7 @@ import 'package:smartevent/theme/peso.dart';
 /// the client's half.
 void main() {
   _moneyFormat();
+  _demoRows();
 
   group('on the wire', () {
     test('a full row carries all four columns', () {
@@ -119,6 +122,49 @@ void _moneyFormat() {
 
     test('centavos survive', () {
       expect(peso(99.99), '\u20b199.99');
+    });
+  });
+}
+
+/// The demo is what a panel sees. Rows with only a total cannot show the
+/// quantity and unit cost columns at all, so at least one seeded row has
+/// to carry them — and every row's columns still have to agree with its
+/// stated amount, or the demo shows arithmetic that does not add up.
+void _demoRows() {
+  group('the seeded breakdowns', () {
+    test('show the paper\'s columns somewhere', () {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final rows = [
+        for (final event in app.events) ...DemoProposals.budgetFor(event),
+      ];
+
+      expect(rows, isNotEmpty);
+      expect(
+        rows.where((r) => r.quantity > 1 && r.unitCost != null),
+        isNotEmpty,
+        reason: 'otherwise the demo cannot show the columns at all',
+      );
+      expect(
+        rows.where((r) => r.quantity == 1 && r.unitCost == null),
+        isNotEmpty,
+        reason: 'and a flat-fee row is the other half of the story',
+      );
+    });
+
+    test('multiply out, where they state all three', () {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final rows = [
+        for (final event in app.events) ...DemoProposals.budgetFor(event),
+      ].where((r) => r.unitCost != null);
+
+      for (final row in rows) {
+        final unit = (double.parse(row.unitCost!) * 100).round();
+        expect(
+          unit * row.quantity,
+          (double.parse(row.amount) * 100).round(),
+          reason: '${row.particulars} does not add up on screen',
+        );
+      }
     });
   });
 }

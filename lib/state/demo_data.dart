@@ -393,9 +393,23 @@ abstract final class DemoProposals {
           'Use the standard tooling without supervision.\n'
           'Write up findings the way an employer expects.',
       budget: [
+        // The paper gives this one a flat fee and no count.
         SapBudgetItem(particulars: 'Guest speaker honorarium', amount: '2000.00'),
-        SapBudgetItem(particulars: 'Certificates and tokens', amount: '300.00'),
-        SapBudgetItem(particulars: 'Seminar materials', amount: '200.00'),
+        // These two read across the way the paper does, so the demo
+        // shows the quantity and unit cost columns rather than only the
+        // rows that have neither.
+        SapBudgetItem(
+          particulars: 'Certificates and tokens',
+          quantity: 150,
+          unitCost: '2.00',
+          amount: '300.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Seminar materials',
+          quantity: 40,
+          unitCost: '5.00',
+          amount: '200.00',
+        ),
       ],
       support: [
         SapSupportRequest(
@@ -428,7 +442,12 @@ abstract final class DemoProposals {
       objectives: 'Open CITE Week.\nIntroduce each organisation.',
       budget: [
         SapBudgetItem(particulars: 'Sound system rental', amount: '8000.00'),
-        SapBudgetItem(particulars: 'Snacks', amount: '4000.00'),
+        SapBudgetItem(
+          particulars: 'Snacks',
+          quantity: 400,
+          unitCost: '10.00',
+          amount: '4000.00',
+        ),
       ],
       support: [
         SapSupportRequest(

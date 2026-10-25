@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../state/demo_data.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
@@ -243,8 +244,22 @@ class EventDetailScreen extends StatelessWidget {
                         // signing. Seed it from where the event itself
                         // has got to, so the SDS role can see the six
                         // parts it is offered.
+                        //
+                        // The contents too, and from the same place the
+                        // SDS Office reads: seeding only the state left
+                        // the proposer's own form empty while the office
+                        // was looking at a full proposal for the very
+                        // same event. An event the demo does not seed
+                        // still opens blank, which is right.
                         if (app.isDemoMode) {
-                          form.seedLocally(state: _demoSapState(event.status));
+                          form.seedLocally(
+                            state: _demoSapState(event.status),
+                            details: DemoProposals.detailsFor(event),
+                          );
+                          form.setBudgetItems(DemoProposals.budgetFor(event));
+                          form.setSupportRequests(
+                            DemoProposals.supportFor(event),
+                          );
                         }
                         return SapFormScreen(form: form);
                       },
