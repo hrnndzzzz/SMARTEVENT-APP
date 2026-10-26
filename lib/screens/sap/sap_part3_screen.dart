@@ -95,8 +95,8 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
   /// Raised from 500 to 4000 by the backend on 24 Oct, which is what
   /// made a real proposal fillable: the two filled forms we measured run
   /// about 1,500 characters across the ten headings, so 500 refused them
-  /// outright.
-  static const int _otherDetailsLimit = 4000;
+  /// outright. Raised again to 10000 on 26 Oct for the longer ones.
+  static const int _otherDetailsLimit = 10000;
 
   late final Map<String, TextEditingController> _otherDetails = {
     for (final heading in _otherDetailHeadings)

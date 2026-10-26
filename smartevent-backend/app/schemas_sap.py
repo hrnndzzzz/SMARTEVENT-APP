@@ -39,7 +39,7 @@ class Details(StrictModel):
     emergency_plan: str = Field(min_length=1, max_length=600)
     total_budget: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     funding_source: str = Field(min_length=1, max_length=150)
-    additional_information: str = Field(default='', max_length=4000)
+    additional_information: str = Field(default='', max_length=10000)
     excuse_arrangement: str = Field(default='', max_length=400)
 
     @model_validator(mode='after')

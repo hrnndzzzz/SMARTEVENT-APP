@@ -91,6 +91,12 @@ SUPABASE_SERVICE_KEY=<server-only-service-key>
 SUPABASE_RECEIPTS_BUCKET=receipts
 SUPABASE_PROPOSAL_LETTERS_BUCKET=proposal-letters
 
+# Printed on every copy sent to the SDS Office as "Verify: <this>/<token>".
+# Sending refuses without it. Must be HTTPS and end in /sap/verify; before
+# deployment a placeholder such as https://smartevent.invalid/sap/verify
+# works, and on deploy only this line changes to the public API address.
+SAP_VERIFICATION_BASE_URL=https://<public-api-host>/sap/verify
+
 GEMINI_API_KEY=<server-only-api-key>
 # GEMINI_MODEL can override the default in app/config.py
 
