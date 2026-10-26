@@ -162,9 +162,31 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(
-      find.text('Fill in the department type and department first.'),
+      find.text('Fill in the setting, department type and department first.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Part 1 asks for the setting when the cover was skipped', (
+    tester,
+  ) async {
+    // The six-part list opens Part 1 directly, so nothing chose a setting,
+    // and the server refuses the PDF and the submission without one.
+    final form = blankForm();
+    await tester.pumpWidget(host(SapPart1Screen(form: form)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not chosen'), findsNothing);
+    await tester.ensureVisible(find.text('Off campus'));
+    await tester.tap(find.text('Off campus'));
+    await tester.pumpAndSettle();
+    expect(form.details.setting, SapSetting.offCampus);
+
+    final acknowledge = find.text('I acknowledge the off-campus requirements');
+    await tester.ensureVisible(acknowledge);
+    await tester.tap(acknowledge);
+    await tester.pumpAndSettle();
+    expect(form.details.offCampusAgreement, isTrue);
   });
 
   testWidgets('Part 1 keeps a department it already knows off the screen', (

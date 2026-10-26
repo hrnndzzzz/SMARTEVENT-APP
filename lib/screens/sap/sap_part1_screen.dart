@@ -63,9 +63,14 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     // Only an Admin can turn the account's department into a name, so
     // everyone else is asked for it rather than sending it blank.
     _asksDepartment = (_d.department ?? '').isEmpty;
+    // The six-part list opens this without the cover, which is where the
+    // setting is normally chosen, and the server will not take a form
+    // without one.
+    _asksSetting = _d.setting == null;
   }
 
   late final bool _asksDepartment;
+  late final bool _asksSetting;
 
   late final SapForm _form = widget.form;
 
@@ -173,12 +178,17 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     _collect();
     // The server refuses both blank, and says so in its own field names.
     final missing = [
+      if (_d.setting == null) 'setting',
       if ((_d.departmentType ?? '').isEmpty) 'department type',
       if ((_d.department ?? '').isEmpty) 'department',
     ];
     if (missing.isNotEmpty) {
+      final list = missing.length == 1
+          ? missing.single
+          : '${missing.sublist(0, missing.length - 1).join(', ')} and '
+                '${missing.last}';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fill in the ${missing.join(' and ')} first.')),
+        SnackBar(content: Text('Fill in the $list first.')),
       );
       return;
     }
@@ -482,29 +492,61 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ),
               const SizedBox(height: 18),
 
-              // The setting was chosen on the cover, before any of this,
-              // because it decides what the form will ask for. Shown
-              // here so it is visible where it belongs on the paper, and
-              // changed by going back to the cover rather than asked for
-              // twice in two places.
-              const MonoLabel('Setting'),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(
-                    Icons.place_outlined,
-                    size: 16,
-                    color: context.palette.ink,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    d.setting?.label ?? 'Not chosen',
-                    style: AppText.cardTitle.copyWith(fontSize: 14),
-                  ),
-                ],
-              ),
+              // The setting is normally chosen on the cover, before any of
+              // this, because it decides what the form will ask for, and
+              // only shown here. Opened from the six-part list there was
+              // no cover, so it is asked for here instead.
+              if (_asksSetting)
+                SapSingleChoice<SapSetting>(
+                  label: 'Setting',
+                  options: SapSetting.values,
+                  labelOf: (s) => s.label,
+                  value: d.setting,
+                  enabled: _editable,
+                  onChanged: (s) =>
+                      _form.updateDetails((x) => x.copyWith(setting: s)),
+                )
+              else ...[
+                const MonoLabel('Setting'),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.place_outlined,
+                      size: 16,
+                      color: context.palette.ink,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      d.setting?.label ?? 'Not chosen',
+                      style: AppText.cardTitle.copyWith(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ],
               if (d.setting == SapSetting.offCampus) ...[
                 const SizedBox(height: 14),
+                // Acknowledged on the cover otherwise; without it Save
+                // stays disabled.
+                if (_asksSetting)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IntrinsicWidth(
+                      child: BrutChip(
+                        label: d.offCampusAgreement
+                            ? 'Acknowledged'
+                            : 'I acknowledge the off-campus requirements',
+                        selected: d.offCampusAgreement,
+                        onTap: _editable
+                            ? () => _form.updateDetails(
+                                (x) => x.copyWith(
+                                  offCampusAgreement: !x.offCampusAgreement,
+                                ),
+                              )
+                            : () {},
+                      ),
+                    ),
+                  ),
                 if (!d.offCampusAgreement) ...[
                   const SizedBox(height: 8),
                   const BrutInlineMessage(
