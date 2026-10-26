@@ -154,8 +154,9 @@ def test_protected_route_requires_authentication(client):
 @pytest.mark.parametrize(
     "path",
     [
+        # Not /events: SDS lists the events whose proposal was sent to it
+        # (test_sap.test_sds_sees_an_event_once_its_proposal_is_sent).
         "/categories",
-        "/events",
         "/expenses",
         "/inventory",
         "/analytics/dashboard",

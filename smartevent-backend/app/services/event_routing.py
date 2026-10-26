@@ -6,15 +6,24 @@ from fastapi import HTTPException
 
 from app.dependencies import assert_not_self_review, assert_record_scope, require_role, scope_query_by_department
 from app.models import DocumentRouting, Event, User
+from app.models_sap import SAPProposal
 from app.services.access_audit import record_access_change
 from app.services.approvals import record_decision
 from app.services.compliance import require_pre_activity_clearance
 
 INSTITUTIONAL_REVIEW = "pending_institutional_review"
-require_event_reader = require_role("admin", "adviser", "treasurer", "officer", "signatory")
+require_event_reader = require_role("admin", "adviser", "treasurer", "officer", "signatory", "sds_staff")
+
+
+def _sent_proposal_events(db):
+    """Events whose SAP proposal has left its proposer: the SDS Office's work.
+    A draft, including one taken back, is still the proposer's own."""
+    return db.query(SAPProposal.event_id).filter(SAPProposal.state != "draft")
 
 
 def scope_event_query(query, db, user):
+    if user.role == "sds_staff":
+        return query.filter(Event.id.in_(_sent_proposal_events(db)))
     if user.role == "signatory":
         return query.filter(Event.status == INSTITUTIONAL_REVIEW,
             db.query(DocumentRouting.id).filter(
@@ -26,6 +35,10 @@ def scope_event_query(query, db, user):
 
 
 def assert_event_read(db, event, user):
+    if user.role == "sds_staff":
+        if db.query(_sent_proposal_events(db).filter(SAPProposal.event_id == event.id).exists()).scalar():
+            return
+        raise HTTPException(403, "The SDS Office reads events once their proposal has been sent")
     if user.role != "signatory":
         assert_record_scope(user, event, allow_officer_read=True)
         return

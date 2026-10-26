@@ -350,3 +350,25 @@ def test_private_storage_failure_does_not_approve(sap_system, monkeypatch):
         files={'file': ('scan.pdf', render_proposal(fixture_data(), 1), 'application/pdf')})
     assert response.status_code == 503
     assert event.status == 'pending_institutional_review' and db.query(SAPFinalCopy).count() == 0
+
+
+def test_sds_sees_an_event_once_its_proposal_is_sent(sap_system):
+    # The SDS Office had no way to find a proposal: /events refused the role
+    # outright, so a sent proposal never reached its queue in the app.
+    ctx = sap_system
+    client, db, users, event, login, base = ctx
+    login('sds_staff')
+    assert client.get('/events').json() == []
+    assert client.get(f'/events/{event.id}').status_code == 403
+
+    submitted = populate(ctx)
+    login('sds_staff')
+    assert [row['id'] for row in client.get('/events').json()] == [str(event.id)]
+    assert client.get(f'/events/{event.id}').status_code == 200
+    assert client.get(f'/events/{event.id}/approvals').status_code == 200
+
+    # Taken back, it is the proposer's draft again and leaves the queue.
+    login('treasurer')
+    assert client.post(base + '/withdraw', json={'expected_version': submitted['version']}).status_code == 200
+    login('sds_staff')
+    assert client.get('/events').json() == []

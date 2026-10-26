@@ -2849,6 +2849,9 @@ class AppState extends ChangeNotifier {
     // never sees.
     if (currentRole?.hasOperationalAccess != true) {
       if (currentRole?.canAccessProposalLetters ?? false) await loadLetters();
+      // The server lists the SDS Office only events whose proposal was sent:
+      // its review queue, and nothing else operational.
+      if (currentRole == UserRole.sdsStaff) await loadEvents();
       return;
     }
 
