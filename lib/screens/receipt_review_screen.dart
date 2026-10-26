@@ -115,7 +115,10 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
 
     // Only an independent reviewer decides, and only while it is pending.
     // The API also refuses the person who recorded it.
-    final canReview = _receipt.isAwaitingReview && (role?.canReview ?? false);
+    final canReview =
+        !context.watch<AppState>().isOfflineViewing &&
+        _receipt.isAwaitingReview &&
+        (role?.canReview ?? false);
 
     return BrutScreen(
       header: BrutHeader(

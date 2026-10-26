@@ -34,7 +34,9 @@ class MenuPanel extends StatelessWidget {
     final app = context.watch<AppState>();
     final areas = [
       for (final area in menuAreasFor(app.currentRole))
-        if (area.id != 'search') area,
+        if (area.id != 'search' &&
+            !(app.isOfflineViewing && area.id == 'admin'))
+          area,
     ];
 
     return Scaffold(

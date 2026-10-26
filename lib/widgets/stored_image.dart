@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -30,7 +31,7 @@ class StoredImage extends StatefulWidget {
 }
 
 class _StoredImageState extends State<StoredImage> {
-  late Future<String> _url = context.read<AppState>().resolveFile(
+  late Future<DownloadedFile> _url = context.read<AppState>().downloadedFile(
     widget.reference,
   );
 
@@ -38,11 +39,11 @@ class _StoredImageState extends State<StoredImage> {
   void didUpdateWidget(StoredImage old) {
     super.didUpdateWidget(old);
     if (old.reference != widget.reference) {
-      _url = context.read<AppState>().resolveFile(widget.reference);
+      _url = context.read<AppState>().downloadedFile(widget.reference);
     }
   }
 
-  void _open(String url) {
+  void _open(DownloadedFile url) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _FullScreen(url: url, label: widget.label),
@@ -52,7 +53,7 @@ class _StoredImageState extends State<StoredImage> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String>(
+    return FutureBuilder<DownloadedFile>(
       future: _url,
       builder: (context, snapshot) {
         final url = snapshot.data;
@@ -69,14 +70,17 @@ class _StoredImageState extends State<StoredImage> {
               height: widget.height,
               width: double.infinity,
               child: url == null
-                  ? Center(child: BrutSpinner())
-                  : Image.network(
-                      url,
+                  ? Center(
+                      child: snapshot.hasError
+                          ? Text(
+                              '${snapshot.error}',
+                              textAlign: TextAlign.center,
+                            )
+                          : BrutSpinner(),
+                    )
+                  : Image.memory(
+                      Uint8List.fromList(url.bytes),
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                          ? child
-                          : Center(child: BrutSpinner()),
                       // A stored file that will not load is worth saying
                       // plainly: the record is fine, the image is not.
                       errorBuilder: (context, _, __) => Center(
@@ -109,7 +113,7 @@ class _StoredImageState extends State<StoredImage> {
 class _FullScreen extends StatelessWidget {
   const _FullScreen({required this.url, required this.label});
 
-  final String url;
+  final DownloadedFile url;
   final String label;
 
   @override
@@ -127,8 +131,8 @@ class _FullScreen extends StatelessWidget {
       body: Center(
         child: InteractiveViewer(
           maxScale: 5,
-          child: Image.network(
-            url,
+          child: Image.memory(
+            Uint8List.fromList(url.bytes),
             fit: BoxFit.contain,
             errorBuilder: (context, _, __) => const Text(
               'The image could not be loaded.',

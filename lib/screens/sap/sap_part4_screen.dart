@@ -140,9 +140,9 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
     if (ok) {
       Navigator.of(context).maybePop();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_form.error ?? 'Could not save.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_form.error ?? 'Could not save.')));
     }
   }
 
@@ -163,7 +163,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               label: 'Confirm clearance',
               busy: _form.saving,
               busyLabel: 'Saving',
-              onPressed: _save,
+              onPressed: _form.isReadOnly ? null : _save,
             ),
           ),
           child: Column(
@@ -173,6 +173,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 16),
 
               SapSingleChoice<SapClearanceAnswer>(
+                enabled: !_form.isReadOnly,
                 label: 'Parent\'s consent form',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -187,6 +188,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_consent == SapClearanceAnswer.notApplicable) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
+                  enabled: !_form.isReadOnly,
                   controller: _consentReason,
                   label: 'Why not',
                   hint: 'Online activity',
@@ -196,6 +198,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               BrutTextField(
+                enabled: !_form.isReadOnly,
                 controller: _attachments,
                 label: 'Attachments',
                 hint: 'Program flow and budget',
@@ -205,6 +208,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               SapSingleChoice<SapClearanceAnswer>(
+                enabled: !_form.isReadOnly,
                 label: 'Academic class interruption',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -219,6 +223,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_interruption == SapClearanceAnswer.yes) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
+                  enabled: !_form.isReadOnly,
                   controller: _interruptionRemarks,
                   label: 'Remarks',
                   hint: 'Excuse letters required',
@@ -240,6 +245,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               SapSingleChoice<SapClearanceAnswer>(
+                enabled: !_form.isReadOnly,
                 label: 'Medical exam request',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -254,6 +260,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_medical == SapClearanceAnswer.notApplicable) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
+                  enabled: !_form.isReadOnly,
                   controller: _medicalReason,
                   label: 'Why not',
                   hint: 'Online activity',
@@ -263,6 +270,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               SapSingleChoice<SapClearanceAnswer>(
+                enabled: !_form.isReadOnly,
                 label: 'Report of Compliance (CMO 63 s.2017)',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -277,6 +285,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_compliance == SapClearanceAnswer.notApplicable) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
+                  enabled: !_form.isReadOnly,
                   controller: _complianceReason,
                   label: 'Why not',
                   hint: 'No off-campus travel',
@@ -286,6 +295,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               BrutTextField(
+                enabled: !_form.isReadOnly,
                 controller: _ratio,
                 label: 'Student-personnel ratio',
                 hint: '145:3',

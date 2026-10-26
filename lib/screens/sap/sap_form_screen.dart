@@ -36,6 +36,7 @@ class _SapFormScreenState extends State<SapFormScreen> {
   void initState() {
     super.initState();
     widget.form.load();
+    widget.form.loadAttachments();
   }
 
   Future<void> _print(SapForm form) async {
@@ -150,6 +151,24 @@ class _SapFormScreenState extends State<SapFormScreen> {
                       text: message,
                     ),
                   const SizedBox(height: 14),
+                  for (final attachment in form.attachments)
+                    TextButton.icon(
+                      icon: const Icon(Icons.attach_file),
+                      label: const Text('Open supporting file'),
+                      onPressed: () async {
+                        try {
+                          await ExportSaver.share(
+                            await form.attachmentFile(attachment.id),
+                            subject: 'Proposal attachment',
+                          );
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('$error')));
+                        }
+                      },
+                    ),
                   for (final part in SapPart.values) ...[
                     _PartRow(
                       part: part,
@@ -175,7 +194,8 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     // copy while it is still being filled in, and the
                     // stored signed form once the SDS Office has signed
                     // it. The nine on paper print empty either way.
-                    text: form.state == SapState.sdsSigned ||
+                    text:
+                        form.state == SapState.sdsSigned ||
                             form.state == SapState.approved ||
                             form.state == SapState.completed
                         ? 'This is the signed form the SDS Office stored, '
@@ -194,18 +214,20 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     BrutButton(
                       label: 'Review and sign',
                       icon: Icons.draw_outlined,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => SdsSignScreen(form: form),
-                        ),
-                      ),
+                      onPressed: form.isReadOnly
+                          ? null
+                          : () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => SdsSignScreen(form: form),
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 10),
                     BrutButton(
                       label: 'Return for revision',
                       icon: Icons.undo,
                       tone: BrutTone.coral,
-                      onPressed: () => _return(form),
+                      onPressed: form.isReadOnly ? null : () => _return(form),
                     ),
                   ],
                 ],
@@ -254,7 +276,9 @@ class _PartRow extends StatelessWidget {
 
     return BrutListRow(
       title: part.title,
-      meta: part.isSdsOnly ? 'Part ${part.number} · SDS Office' : 'Part ${part.number}',
+      meta: part.isSdsOnly
+          ? 'Part ${part.number} · SDS Office'
+          : 'Part ${part.number}',
       marker: SizedBox(
         width: 26,
         child: Text(

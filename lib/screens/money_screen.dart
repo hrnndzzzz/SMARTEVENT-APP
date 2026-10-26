@@ -30,9 +30,7 @@ class MoneyScreen extends StatelessWidget {
     final canRecord = app.mayRecordFinance;
 
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -116,11 +114,7 @@ class MoneyScreen extends StatelessWidget {
 /// budget remaining, which is a different question and the one a
 /// treasurer is asking here.
 class MoneyFigures extends StatelessWidget {
-  const MoneyFigures({
-    super.key,
-    required this.app,
-    required this.onPending,
-  });
+  const MoneyFigures({super.key, required this.app, required this.onPending});
 
   final AppState app;
 

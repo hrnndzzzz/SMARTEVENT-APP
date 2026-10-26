@@ -6,6 +6,7 @@ import 'state/avatar.dart';
 import 'state/app_state.dart';
 import 'state/reachability.dart';
 import 'widgets/connection_banner.dart';
+import 'widgets/offline_banner.dart';
 import 'theme/app_theme.dart';
 import 'theme/brut.dart';
 import 'screens/welcome_screen.dart';
@@ -42,21 +43,50 @@ class SmartEventApp extends StatefulWidget {
   State<SmartEventApp> createState() => _SmartEventAppState();
 }
 
-class _SmartEventAppState extends State<SmartEventApp> {
+class _SmartEventAppState extends State<SmartEventApp>
+    with WidgetsBindingObserver {
   // Built here rather than inside a provider factory so AppState can be
   // handed the same instance the UI watches.
   final _reachability = Reachability();
-  late final _appState = AppState(reachability: _reachability)
+  var _navigatorKey = GlobalKey<NavigatorState>();
+  int _navigationGeneration = -1;
+  GlobalKey<NavigatorState> _navigatorFor(AppState app) {
+    if (_navigationGeneration != app.navigationGeneration) {
+      _navigationGeneration = app.navigationGeneration;
+      _navigatorKey = GlobalKey<NavigatorState>();
+    }
+    return _navigatorKey;
+  }
+
+  late final AppState _appState = AppState(reachability: _reachability)
     // Kick off the stored-session check as soon as the state exists, so
     // the gate below has something to wait for.
-    ..restoreSession();
+    ..restoreSession().then((_) => _appState.offlineSync.prepare());
   final _settings = AppSettings()..restore();
   final _avatar = Avatar()..load();
   final _sfx = SfxPlayer()..load();
   final _shelf = NoticeShelf();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appState.offlineSync.foreground = state == AppLifecycleState.resumed;
+    if (state == AppLifecycleState.resumed) {
+      _appState.retryOfflinePreparation();
+    } else {
+      _appState.offlineSync.cancel();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _appState.dispose();
     _reachability.dispose();
     super.dispose();
   }
@@ -77,6 +107,7 @@ class _SmartEventAppState extends State<SmartEventApp> {
       child: Consumer2<AppState, AppSettings>(
         builder: (context, app, settings, _) => MaterialApp(
           title: 'SmartEvent',
+          navigatorKey: _navigatorFor(app),
           debugShowCheckedModeBanner: false,
           // Primary actions are blue in every department — that is the
           // one rule the palette is built on. The department shows itself
@@ -98,7 +129,12 @@ class _SmartEventAppState extends State<SmartEventApp> {
                   : media,
               // One-hand layout, so it stays a phone-width column on a
               // tablet or a desktop window instead of stretching across it.
-              child: AppColumn(child: ConnectionBanner(child: child!)),
+              child: AppColumn(
+                child: OfflineBanner(
+                  navigatorKey: _navigatorKey,
+                  child: ConnectionBanner(child: child!),
+                ),
+              ),
             );
           },
           home: const _StartupGate(),

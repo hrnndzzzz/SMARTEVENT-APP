@@ -253,7 +253,9 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                     displayLabel: step.displayLabel,
                     recorded: step.isRecorded,
                     signerName: step.evidence?.signerName,
-                    onRecord: step.actionable ? () => _record(step) : null,
+                    onRecord: !_form.isReadOnly && step.actionable
+                        ? () => _record(step)
+                        : null,
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -291,7 +293,8 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                   busy: _form.saving,
                   busyLabel: 'Uploading',
                   onPressed:
-                      workflow.completedCount == workflow.totalCount &&
+                      !_form.isReadOnly &&
+                          workflow.completedCount == workflow.totalCount &&
                           _form.state == SapState.pendingReview
                       ? _uploadScan
                       : null,

@@ -121,10 +121,12 @@ class EventDetailScreen extends StatelessWidget {
         // Admin or Super Admin the admin stage. An Admin must not see
         // Approve while the event is still waiting on the adviser.
         final canAdviserDecide =
+            !app.isOfflineViewing &&
             !isOwnProposal &&
             role == UserRole.adviser &&
             event.status == EventApprovalStatus.pendingAdviser;
         final canAdminDecide =
+            !app.isOfflineViewing &&
             !isOwnProposal &&
             (role?.isAdministrator ?? false) &&
             event.status == EventApprovalStatus.pendingAdmin;
@@ -216,7 +218,9 @@ class EventDetailScreen extends StatelessWidget {
                   label: 'Cancel this proposal',
                   icon: Icons.undo,
                   tone: BrutTone.coral,
-                  onPressed: () => _cancelProposal(context, event),
+                  onPressed: app.isOfflineViewing
+                      ? null
+                      : () => _cancelProposal(context, event),
                 ),
               ],
               const SizedBox(height: 14),
@@ -782,8 +786,6 @@ class _ReadinessNoticeState extends State<_ReadinessNotice> {
     );
   }
 }
-
-
 
 /// Confirms, then takes the proposal back to draft.
 Future<void> _cancelProposal(BuildContext context, EventItem event) async {

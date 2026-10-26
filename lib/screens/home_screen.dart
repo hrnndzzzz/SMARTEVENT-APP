@@ -68,8 +68,7 @@ class HomeScreen extends StatelessWidget {
       // it scroll, because it is not part of the reading.
       floatingActionButton: canRecord ? const _RecordButton() : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      topBar: AppHeader(
-      ),
+      topBar: AppHeader(),
       // Clear of the record button, which floats over the bottom of this
       // screen: the last card was sitting underneath it.
       bottomPadding: canRecord ? 96 : AppLayout.section,
@@ -134,7 +133,9 @@ class HomeScreen extends StatelessWidget {
           EventProgressList(
             events: app.events,
             onOpen: (event) => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+              MaterialPageRoute(
+                builder: (_) => EventDetailScreen(event: event),
+              ),
             ),
           ),
           if (app.events.isNotEmpty) const SizedBox(height: AppLayout.section),

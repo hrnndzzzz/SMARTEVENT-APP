@@ -158,10 +158,15 @@ class ReportsService {
     Semester? semester,
     EventScope? eventScope,
   }) {
+    final now = DateTime.now();
+    final reference =
+        referenceDate ??
+        (period == ReportPeriod.monthly
+            ? DateTime(now.year, now.month, 1)
+            : now);
     return {
       'period': period.wireName,
-      if (referenceDate != null)
-        'reference_date': referenceDate.toIso8601String().split('T').first,
+      'reference_date': reference.toIso8601String().split('T').first,
       if (schoolYear != null) 'school_year': schoolYear,
       if (semester != null) 'semester': semester.wireName,
       if (eventScope != null) 'event_scope': eventScope.wireName,

@@ -3,9 +3,19 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
+import 'package:crypto/crypto.dart';
 
 import 'api_config.dart';
 import 'token_store.dart';
+import '../offline/offline_store.dart';
+
+enum ReadPolicy { automatic, cacheOnly, networkOnly }
+
+class ReadStamp {
+  const ReadStamp(this.savedAt, this.fromCache);
+  final DateTime savedAt;
+  final bool fromCache;
+}
 
 /// Thin HTTP wrapper for talking to the SMARTEVENT backend.
 ///
@@ -24,6 +34,8 @@ class ApiClient {
     http.Client? httpClient,
     this.onReachability,
     this.onSessionExpired,
+    this.offlineStore,
+    this.onChanged,
     this.timeout = const Duration(seconds: 20),
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _httpClient = httpClient ?? http.Client();
@@ -31,7 +43,40 @@ class ApiClient {
   /// Told whether the backend answered, after every request. An error
   /// status still counts as reachable: the server is there, it just said
   /// no. Only a failure to reach it at all is `false`.
-  final void Function({required bool reachable})? onReachability;
+  void Function({required bool reachable})? onReachability;
+  OfflineStore? offlineStore;
+  void Function()? onChanged;
+  bool readOnly = false;
+  bool requiresSignIn = false;
+  int _epoch = 0;
+  final Map<String, ReadStamp> readStamps = {};
+  bool get hasOfflineSession => offlineStore?.session?.backend == baseUrl;
+  bool get canWriteRemote => !readOnly && !requiresSignIn;
+
+  void invalidateSession() {
+    _epoch++;
+    readOnly = true;
+    readStamps.clear();
+  }
+
+  static bool cacheable(String path) =>
+      RegExp(
+        r'^/(events|expenses|incomes|receipts|inventory|categories|notifications|proposal-letters|analytics|reports|recommendations|departments|organizations)(/|$)',
+      ).hasMatch(path) &&
+      !path.endsWith('/download') &&
+      !path.endsWith('/final-signed-copy') &&
+      !path.endsWith('/pdf') &&
+      !path.endsWith('/export');
+
+  void _guardWrite(String path) {
+    _refuseInDemo();
+    final publicAuth = path.startsWith('/auth/') && !hasOfflineSession;
+    if (!canWriteRemote && !publicAuth && path != '/auth/login') {
+      throw const OfflineUnavailable(
+        'Viewing saved data. Connect and sign in before making changes.',
+      );
+    }
+  }
 
   /// No server to talk to, and no pretending there is.
   ///
@@ -48,7 +93,7 @@ class ApiClient {
   /// was made with is no longer accepted. A signed-out client getting a
   /// 401 from the login route means something else entirely — wrong
   /// password — which is why this only fires when a token was attached.
-  final void Function()? onSessionExpired;
+  void Function()? onSessionExpired;
 
   final TokenStore _tokenStore;
   final http.Client _httpClient;
@@ -69,12 +114,16 @@ class ApiClient {
   /// is still valid — the caller should confirm with `GET /auth/me`, since
   /// the JWT may have expired or the account may have been suspended.
   Future<String?> restoreToken() async {
-    _token = await _tokenStore.read();
+    final epoch = _epoch;
+    final token = await _tokenStore.read();
+    if (epoch != _epoch) throw const SessionChanged();
+    _token = token;
     return _token;
   }
 
   /// Sets the in-memory token and persists it (or clears both, for null).
   Future<void> setToken(String? token) async {
+    _epoch++;
     _token = token;
     if (token == null) {
       await _tokenStore.clear();
@@ -95,11 +144,71 @@ class ApiClient {
     if (demoMode) throw const DemoUnavailable();
   }
 
-  Future<dynamic> get(String path, {Map<String, String>? query}) {
+  Future<dynamic> get(
+    String path, {
+    Map<String, String>? query,
+    ReadPolicy policy = ReadPolicy.automatic,
+  }) async {
     _refuseInDemo();
-    return _send(
-      () => _httpClient.get(_uri(path, query), headers: _authHeaders),
-    );
+    final epoch = _epoch;
+    final store = hasOfflineSession ? offlineStore : null;
+    final cached = cacheable(path) && store != null;
+    final key = OfflineStore.key(path, query);
+    Future<dynamic> saved() async {
+      final snapshot = cached ? await store.readRequest(path, query) : null;
+      if (epoch != _epoch) throw const SessionChanged();
+      if (snapshot == null) throw const OfflineUnavailable();
+      readStamps[key] = ReadStamp(snapshot.savedAt, true);
+      return snapshot.data;
+    }
+
+    if (policy == ReadPolicy.cacheOnly ||
+        (policy == ReadPolicy.automatic &&
+            readOnly &&
+            !path.startsWith('/auth/'))) {
+      return saved();
+    }
+    final generation = store?.generation;
+    try {
+      final data = await _send(
+        () => _httpClient.get(_uri(path, query), headers: _authHeaders),
+      );
+      if (epoch != _epoch) throw const SessionChanged();
+      if (cached) {
+        try {
+          final previous = await store.read(key);
+          await store.put(key, data, generation: generation);
+          if (epoch == _epoch &&
+              (query == null || query.isEmpty) &&
+              previous?.data is List &&
+              data is List) {
+            await store.prune(path, previous!.data as List, data);
+          }
+        } catch (e) {
+          store.error = 'Could not save offline data: $e';
+        }
+      }
+      if (epoch != _epoch) throw const SessionChanged();
+      readStamps[key] = ReadStamp(DateTime.now().toUtc(), false);
+      return data;
+    } on ApiException catch (e) {
+      if (epoch != _epoch) throw const SessionChanged();
+      if (cached && (e.isForbidden || e.isNotFound)) await store.remove(path);
+      if (policy == ReadPolicy.automatic &&
+          cached &&
+          (e.isServerError || e.isUnauthorized)) {
+        readOnly = true;
+        onChanged?.call();
+        return saved();
+      }
+      rethrow;
+    } on NetworkException {
+      if (epoch != _epoch) throw const SessionChanged();
+      readOnly = hasOfflineSession;
+      onChanged?.call();
+      if (policy == ReadPolicy.automatic && cached) return saved();
+      rethrow;
+    }
   }
 
   /// [patience] overrides the client's usual allowance for one call.
@@ -112,7 +221,7 @@ class ApiClient {
     bool isForm = false,
     Duration? patience,
   }) {
-    _refuseInDemo();
+    _guardWrite(path);
     final headers = {..._authHeaders};
     late final Object encodedBody;
     if (isForm) {
@@ -129,7 +238,7 @@ class ApiClient {
   }
 
   Future<dynamic> patch(String path, {Object? body}) {
-    _refuseInDemo();
+    _guardWrite(path);
     final headers = {..._authHeaders, 'Content-Type': 'application/json'};
     return _send(
       () => _httpClient.patch(
@@ -143,7 +252,7 @@ class ApiClient {
   /// PUT, for the routes that replace a record wholesale rather than
   /// amending one — logistics and the institutional route.
   Future<dynamic> put(String path, {Object? body}) {
-    _refuseInDemo();
+    _guardWrite(path);
     final headers = {..._authHeaders, 'Content-Type': 'application/json'};
     return _send(
       () => _httpClient.put(
@@ -155,8 +264,11 @@ class ApiClient {
   }
 
   Future<void> delete(String path) async {
-    _refuseInDemo();
-    await _send(() => _httpClient.delete(_uri(path), headers: _authHeaders));
+    _guardWrite(path);
+    await _send(
+      () => _httpClient.delete(_uri(path), headers: _authHeaders),
+    );
+    await offlineStore?.remove(path);
   }
 
   /// Uploads a file as `multipart/form-data`.
@@ -180,7 +292,7 @@ class ApiClient {
     required String contentType,
     Map<String, String> fields = const {},
   }) async {
-    _refuseInDemo();
+    _guardWrite(path);
     return _send(() async {
       final request = http.MultipartRequest('POST', _uri(path))
         ..headers.addAll(_authHeaders)
@@ -217,9 +329,76 @@ class ApiClient {
     Map<String, String>? query,
     required String expectedContentType,
     String fallbackFilename = 'export',
+    ReadPolicy policy = ReadPolicy.automatic,
   }) async {
     _refuseInDemo();
+    final key = OfflineStore.key(path, query);
+    final store = hasOfflineSession ? offlineStore : null;
+    Future<DownloadedFile> saved() async {
+      final file = await store?.readFile(key);
+      if (file == null)
+        throw const OfflineUnavailable(
+          'This file has not been downloaded. Connect to prepare it.',
+        );
+      return DownloadedFile(
+        bytes: file.bytes,
+        contentType: file.contentType,
+        filename: file.filename,
+      );
+    }
+
+    if (policy == ReadPolicy.cacheOnly ||
+        (policy == ReadPolicy.automatic && readOnly))
+      return saved();
+    final epoch = _epoch;
+    final generation = store?.generation;
+    try {
+      final file = await _downloadNetwork(
+        path,
+        query: query,
+        expectedContentType: expectedContentType,
+        fallbackFilename: fallbackFilename,
+      );
+      if (epoch != _epoch) throw const SessionChanged();
+      if (store != null) {
+        try {
+          await store.putFile(
+            key,
+            file.bytes,
+            file.contentType,
+            file.filename,
+            generation: generation,
+            owner: path,
+          );
+        } catch (e) {
+          store.error = 'Could not save offline file: $e';
+        }
+      }
+      return file;
+    } on NetworkException {
+      readOnly = hasOfflineSession;
+      onReachability?.call(reachable: false);
+      onChanged?.call();
+      if (policy == ReadPolicy.automatic && store != null) return saved();
+      rethrow;
+    } on ApiException catch (e) {
+      if (e.isForbidden || e.isNotFound) await store?.remove(path);
+      if (policy == ReadPolicy.automatic &&
+          store != null &&
+          (e.isUnauthorized || e.isServerError))
+        return saved();
+      rethrow;
+    }
+  }
+
+  Future<DownloadedFile> _downloadNetwork(
+    String path, {
+    Map<String, String>? query,
+    required String expectedContentType,
+    required String fallbackFilename,
+  }) async {
     final http.Response response;
+    final epoch = _epoch;
     try {
       response = await _httpClient
           .get(_uri(path, query), headers: _authHeaders)
@@ -240,6 +419,7 @@ class ApiClient {
       );
     }
 
+    if (epoch != _epoch) throw const SessionChanged();
     // An error body is JSON even when a PDF was requested, so the normal
     // handler is the right thing for a non-2xx here.
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -264,6 +444,98 @@ class ApiClient {
     );
   }
 
+  /// Resolve temporary links online, but address saved bytes by stable references.
+  Future<DownloadedFile> storedFile(
+    String reference, {
+    String? linkPath,
+    String? owner,
+    ReadPolicy policy = ReadPolicy.automatic,
+  }) async {
+    _refuseInDemo();
+    final key = linkPath ?? 'asset:$reference';
+    final store = hasOfflineSession ? offlineStore : null;
+    final saved = await store?.readFile(key);
+    if (policy != ReadPolicy.networkOnly && saved != null) {
+      return DownloadedFile(
+        bytes: saved.bytes,
+        contentType: saved.contentType,
+        filename: saved.filename,
+      );
+    }
+    if (policy == ReadPolicy.cacheOnly ||
+        (policy == ReadPolicy.automatic && readOnly)) {
+      throw const OfflineUnavailable(
+        'This file has not been downloaded. Connect to prepare it.',
+      );
+    }
+    final epoch = _epoch;
+    final generation = store?.generation;
+    final dynamic resolved;
+    try {
+      resolved = await get(
+        linkPath ?? '/files',
+        query: linkPath == null ? {'reference': reference} : null,
+        policy: ReadPolicy.networkOnly,
+      );
+    } on ApiException catch (error) {
+      if (epoch != _epoch) throw const SessionChanged();
+      if (error.isForbidden || error.isNotFound) await store?.removeFile(key);
+      rethrow;
+    }
+    final uri = Uri.parse((resolved as Map)['url'] as String);
+    if (uri.scheme != 'https' && uri.scheme != 'http')
+      throw const FormatException('Invalid download address');
+    final http.Response response;
+    try {
+      // Signed storage URLs are credentials themselves; never attach our API token.
+      response = await _httpClient.get(uri).timeout(timeout);
+    } catch (e) {
+      throw NetworkException(
+        'The file could not be downloaded.',
+        cause: e.toString(),
+      );
+    }
+    if (epoch != _epoch) throw const SessionChanged();
+    if (response.statusCode != 200)
+      throw ApiException(
+        response.statusCode,
+        'The file download failed. Try again online.',
+      );
+    final mime =
+        response.headers['content-type']?.split(';').first.toLowerCase() ?? '';
+    if (!mime.startsWith('image/') && mime != 'application/pdf') {
+      throw ApiException(200, 'The server did not return an image or PDF.');
+    }
+    final digest = resolved['sha256'];
+    if (digest is String &&
+        digest.isNotEmpty &&
+        sha256.convert(response.bodyBytes).toString() != digest.toLowerCase()) {
+      throw const FormatException(
+        'The downloaded file failed its integrity check.',
+      );
+    }
+    final file = DownloadedFile(
+      bytes: response.bodyBytes,
+      contentType: mime,
+      filename:
+          _filenameFrom(response.headers['content-disposition']) ??
+          (mime == 'application/pdf'
+              ? 'document.pdf'
+              : 'image.${mime.split('/').last}'),
+    );
+    if (store != null) {
+      await store.putFile(
+        key,
+        file.bytes,
+        mime,
+        file.filename,
+        generation: generation,
+        owner: owner,
+      );
+    }
+    return file;
+  }
+
   /// Pulls the filename out of a `Content-Disposition` header, so a saved
   /// export is named by the server rather than guessed at.
   static String? _filenameFrom(String? disposition) {
@@ -283,19 +555,29 @@ class ApiClient {
     Future<http.Response> Function() request, {
     Duration? patience,
   }) async {
+    final epoch = _epoch;
     try {
       final response = await request().timeout(patience ?? timeout);
+      if (epoch != _epoch) throw const SessionChanged();
       onReachability?.call(reachable: true);
       return _handleResponse(response);
+    } on SessionChanged {
+      rethrow;
     } on ApiException {
       // The server answered — it just answered with a refusal.
       rethrow;
     } on TimeoutException {
+      if (epoch != _epoch) throw const SessionChanged();
+      readOnly = hasOfflineSession;
+      onChanged?.call();
       onReachability?.call(reachable: false);
       throw NetworkException(
         'The backend at $baseUrl did not respond in time.',
       );
     } on http.ClientException catch (error) {
+      if (epoch != _epoch) throw const SessionChanged();
+      readOnly = hasOfflineSession;
+      onChanged?.call();
       onReachability?.call(reachable: false);
       throw NetworkException(
         'Could not reach the backend at $baseUrl.',
@@ -317,6 +599,8 @@ class ApiClient {
   dynamic _handleResponse(http.Response response) {
     final status = response.statusCode;
     if (status == 401 && _token != null) {
+      readOnly = true;
+      requiresSignIn = true;
       onSessionExpired?.call();
     }
     if (status >= 200 && status < 300) {
@@ -398,6 +682,22 @@ class ApiClient {
             : 'Request failed ($status).',
     };
   }
+}
+
+class OfflineUnavailable implements Exception {
+  const OfflineUnavailable([
+    this.message =
+        'Not downloaded yet. Connect to prepare this data for offline viewing.',
+  ]);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+class SessionChanged implements Exception {
+  const SessionChanged();
+  @override
+  String toString() => 'The account or server changed. Open this screen again.';
 }
 
 /// The server answered with a non-2xx status. [message] is the backend's own
