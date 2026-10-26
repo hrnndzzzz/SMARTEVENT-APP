@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -12,9 +14,10 @@ import 'package:smartevent/theme/app_theme.dart';
 
 /// Built and unreachable is not built.
 ///
-/// Three screens in this project have now been written, tested and left
+/// Four screens in this project have now been written, tested and left
 /// with no way into them from the app. Every time, the tests passed. So
-/// the way in gets a test of its own.
+/// the way in gets a test of its own — both the demo's way in below, and
+/// a sweep that fails when any screen has none at all.
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -162,6 +165,80 @@ void main() {
 
       expect(find.text('Review a proposal'), findsNothing);
       expect(find.text(UserRole.sdsStaff.label), findsNothing);
+    });
+  });
+
+  // Named ways in are only as good as someone remembering to write one.
+  // This is the net underneath: nothing under lib/screens/ ships unless
+  // some other file in the app names it.
+  group('every screen has a way in', () {
+    // Dedicated comment lines, dropped. A screen named only in prose
+    // ("pushes FooScreen") is not reachable, and counting that as a
+    // reference is how an orphan slips through this test.
+    String code(String source) => [
+      for (final line in source.split('\n'))
+        if (!line.trimLeft().startsWith('//')) line,
+    ].join('\n');
+
+    test('no screen is left with no way into it', () {
+      final lib = Directory('lib');
+      expect(
+        lib.existsSync(),
+        isTrue,
+        reason: 'run flutter test from the project root',
+      );
+
+      final sources = {
+        for (final file in lib.listSync(recursive: true))
+          if (file is File && file.path.endsWith('.dart'))
+            file.path: code(file.readAsStringSync()),
+      };
+
+      final sep = Platform.pathSeparator;
+      final screens = RegExp(r'^class\s+([A-Z]\w*Screen)\b', multiLine: true);
+
+      final orphans = <String>[];
+      for (final source in sources.entries) {
+        if (!source.key.contains('${sep}screens$sep')) continue;
+        for (final match in screens.allMatches(source.value)) {
+          final name = match.group(1)!;
+          final named = RegExp('\\b$name\\b');
+          final reachable = sources.entries.any(
+            (other) => other.key != source.key && named.hasMatch(other.value),
+          );
+          if (!reachable) orphans.add('$name (${source.key})');
+        }
+      }
+
+      expect(
+        orphans,
+        isEmpty,
+        reason:
+            'nothing in the app opens these, so nobody can reach them:\n'
+            '${orphans.join('\n')}\n'
+            'Give each one a way in, or delete it.',
+      );
+    });
+
+    test('and the sweep actually finds the screens it sweeps', () {
+      // A pattern that matches nothing would pass the test above forever,
+      // however many orphans shipped.
+      final screens = RegExp(r'^class\s+([A-Z]\w*Screen)\b', multiLine: true);
+      final names = <String>[];
+      for (final file in Directory('lib').listSync(recursive: true)) {
+        if (file is! File || !file.path.endsWith('.dart')) continue;
+        if (!file.path.contains(
+          '${Platform.pathSeparator}screens${Platform.pathSeparator}',
+        )) {
+          continue;
+        }
+        for (final match in screens.allMatches(code(file.readAsStringSync()))) {
+          names.add(match.group(1)!);
+        }
+      }
+
+      expect(names, contains('SettingsScreen'));
+      expect(names.length, greaterThan(20), reason: '${names.length} found');
     });
   });
 }
