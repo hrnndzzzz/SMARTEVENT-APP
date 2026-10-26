@@ -135,7 +135,7 @@ def test_upload_resets_verification_and_private_links_are_authorized(phase2):
     assert client.get(endpoint + "/file").json()["expires_in"] == 300
     assert client.post(endpoint + "/upload", data={"version": 2}, files={"file": ("good.pdf", b"%PDF-1.7\n%%EOF", "application/pdf")}).status_code == 409
     foreign = f"/events/{resources[1]['events'].id}/compliance/{records[0]['id']}/file"
-    assert client.get(foreign).status_code == 403
+    assert client.get(foreign).status_code == 404
     assert client.get("/files", params={"reference": db.get(StudentComplianceRecord, UUID(records[0]["id"])).document_url}).status_code == 404
 
 

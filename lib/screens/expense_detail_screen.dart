@@ -81,6 +81,7 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
     // only for whoever the server says may record money. The API
     // re-checks ownership regardless.
     final canComplete =
+        !context.watch<AppState>().isOfflineViewing &&
         expense.canStartPurchaseCompletion &&
         app.mayRecordFinance &&
         _assetLines.isNotEmpty;

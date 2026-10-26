@@ -5,6 +5,7 @@ import hashlib
 import secrets
 from fastapi import HTTPException
 from app.dependencies import assert_record_scope
+from app.rbac_policy import can_propose_events
 from app.models import Event, User, Notification
 from app.models_compliance import EventLogistics
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPEvaluation, SAPAttachment, SAPReview
@@ -28,8 +29,8 @@ def load(db, event_id, user, *, write=False, sds=False, proposer=False, required
     if sds and user.role != 'sds_staff':
         raise HTTPException(403, 'Only SDS staff can record paper evidence or edit Parts 4 and 6')
     if user.role != 'sds_staff':
-        assert_record_scope(user, event, allow_officer_read=not write)
-    if proposer and (user.id != event.proposed_by or user.role not in {'treasurer', 'adviser', 'admin', 'super_admin'}):
+        assert_record_scope(user, event, allow_officer_read=not write or (proposer and can_propose_events(user)))
+    if proposer and (user.id != event.proposed_by or not can_propose_events(user)):
         raise HTTPException(403, 'Only the authorized event proposer may edit Parts 1–3')
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if required and proposal is None:
@@ -102,10 +103,22 @@ def save(db, event, proposal, user, action, *, notify=False, details=None):
     proposal.version += 1
     record_access_change(db, user, action, event, details or {'proposal_id': str(proposal.id), 'revision': proposal.revision_no})
     if notify:
+        title, message = {
+            'sap_submitted': ('SAP proposal submitted', 'Sent to the SDS Office: {title}.'),
+            'sap_returned': ('SAP proposal returned', '{title} was returned for changes.'),
+            'sap_signed_revision_correction_requested': ('SAP correction requested', '{title} was returned for changes.'),
+            'sap_revision_signed': ('SAP proposal signed by SDS', 'The SDS Office has signed {title}. Physical approval is still pending.'),
+            'sap_approved_with_physical_evidence': ('SAP proposal approved', 'The SDS Office has approved {title}.'),
+            'sap_evaluated': ('SAP evaluation completed', 'The SDS Office recorded the final evaluation for {title}.'),
+            'sap_withdrawn': ('SAP proposal withdrawn', '{title} was withdrawn by its proposer for editing.'),
+            'sap_checkpoint_recorded': ('SAP signature checkpoint recorded', 'A physical signature checkpoint was recorded for {title}.'),
+        }.get(action, ('SAP proposal updated', '{title} has been updated.'))
+        payload = {'event_id': str(event.id), 'proposal_id': str(proposal.id),
+                   'revision_no': proposal.revision_no, 'state': proposal.state, 'action': action}
         recipients = {event.proposed_by} | {row.id for row in db.query(User).filter_by(role='sds_staff', is_active=True, is_suspended=False)}
         for recipient in recipients:
-            db.add(Notification(user_id=recipient, kind='sap_workflow', title='SAP proposal updated',
-                body=f'Proposal {proposal.id}, revision {proposal.revision_no}: {proposal.state}. Open SMARTEVENT for details.', email_status='pending'))
+            db.add(Notification(user_id=recipient, kind='sap_workflow', title=title,
+                body=message.format(title=event.title), payload=payload, email_status='pending'))
     db.commit()
     return output(db, proposal)
 
@@ -162,3 +175,25 @@ def submit(db, event, proposal, user, verification_base):
 def assert_generic_workflow(db, event):
     if db.query(SAPProposal.id).filter_by(event_id=event.id).first():
         raise HTTPException(409, 'This event uses SAP; use the SAP proposal endpoints')
+
+
+def withdraw(db, event, proposal, user):
+    """Caller holds the event lock and has checked ownership and version."""
+    if proposal.state != 'pending_sap_review':
+        raise HTTPException(409, 'Only an unreviewed pending proposal can be withdrawn')
+    rev = revision(db, proposal)
+    if (db.query(SAPReview.revision_id).filter_by(revision_id=rev.id).first()
+            or db.query(SAPCheckpoint.id).filter(
+                SAPCheckpoint.revision_id == rev.id, SAPCheckpoint.evidence.is_not(None)).first()):
+        raise HTTPException(409, 'SDS review has started; request a return for changes')
+    # Keep old rows referenced by submitted snapshots. Only metadata is copied;
+    # both revisions retain the same private file and original upload attribution.
+    for row in db.query(SAPAttachment).filter_by(
+            proposal_id=proposal.id, revision_no=proposal.revision_no).all():
+        db.add(SAPAttachment(proposal_id=proposal.id, revision_no=proposal.revision_no + 1,
+            category=row.category, display_name=row.display_name, file_name=row.file_name,
+            content_type=row.content_type, storage_ref=row.storage_ref, sha256=row.sha256,
+            uploaded_by=row.uploaded_by, uploaded_at=row.uploaded_at))
+    proposal.state, proposal.clearance = 'draft', None
+    event.status = 'draft'
+    return save(db, event, proposal, user, 'sap_withdrawn', notify=True)

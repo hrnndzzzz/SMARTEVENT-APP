@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import (
-    assert_record_scope,
-    require_role,
+    require_event_proposer,
+    require_proposal_letter_reader,
 )
 from app.models import Event, EventProposalLetter, User
 from app.schemas import EventProposalLetterOut
@@ -22,18 +22,26 @@ _ALLOWED_TYPES = {
 }
 
 
+def _assert_letter_scope(db: Session, user: User, event: Event) -> None:
+    assert_event_read(db, event, user)
+    if user.role == "officer" and event.proposed_by != user.id:
+        raise HTTPException(status_code=403, detail="You can only access letters for your own proposals")
+
+
 @router.post("", response_model=EventProposalLetterOut, status_code=status.HTTP_201_CREATED)
 async def upload_proposal_letter_route(
     event_id: uuid.UUID = Form(...),
     title: str = Form(..., min_length=1, max_length=200),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     event = db.query(Event).filter(Event.id == event_id).first()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    assert_record_scope(current_user, event)
+    _assert_letter_scope(db, current_user, event)
+    if current_user.role == "officer" and event.status not in {"draft", "rejected"}:
+        raise HTTPException(status_code=409, detail="Letters can only be uploaded to draft or rejected proposals")
     if event.organization_id is None:
         raise HTTPException(409, "Assign the event to an organization before uploading documents")
 
@@ -86,11 +94,13 @@ async def upload_proposal_letter_route(
 @router.get("", response_model=list[EventProposalLetterOut])
 def list_proposal_letters(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("sds_staff", "treasurer", "adviser", "admin", "signatory")),
+    current_user: User = Depends(require_proposal_letter_reader),
 ):
     query = db.query(EventProposalLetter).join(Event, Event.id == EventProposalLetter.event_id)
     if current_user.role not in {"sds_staff", "super_admin"}:
         query = scope_event_query(query, db, current_user)
+    if current_user.role == "officer":
+        query = query.filter(Event.proposed_by == current_user.id)
     return query.order_by(EventProposalLetter.created_at.desc()).all()
 
 
@@ -98,7 +108,7 @@ def list_proposal_letters(
 def get_proposal_letter(
     letter_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("sds_staff", "treasurer", "adviser", "admin", "signatory")),
+    current_user: User = Depends(require_proposal_letter_reader),
 ):
     letter = db.query(EventProposalLetter).filter(EventProposalLetter.id == letter_id).first()
     if letter is None:
@@ -107,5 +117,5 @@ def get_proposal_letter(
         event = db.query(Event).filter(Event.id == letter.event_id).first()
         if event is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-        assert_event_read(db, event, current_user)
+        _assert_letter_scope(db, current_user, event)
     return letter

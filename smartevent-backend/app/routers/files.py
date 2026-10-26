@@ -10,7 +10,7 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import (
     FINANCIAL_ROLES, require_active_account, require_operational_read,
-    require_role, scope_query_by_department,
+    require_proposal_letter_reader, scope_query_by_department,
 )
 from app.models import Event, EventProposalLetter, Expense, Receipt, User
 from app.services.storage import (
@@ -19,7 +19,6 @@ from app.services.storage import (
 from app.services.event_routing import scope_event_query
 
 router = APIRouter(prefix="/files", tags=["files"])
-_proposal_access = require_role("sds_staff", "treasurer", "adviser", "admin", "signatory")
 
 
 def _has_reference(query, column, reference, bucket, filename):
@@ -67,10 +66,12 @@ def get_file_access(
     if bucket == settings.supabase_receipts_bucket:
         _authorize_receipt(db, current_user, reference, path)
     else:
-        _proposal_access(current_user)
+        require_proposal_letter_reader(current_user)
         query = db.query(EventProposalLetter).join(Event, Event.id == EventProposalLetter.event_id)
         if current_user.role not in {"sds_staff", "super_admin"}:
             query = scope_event_query(query, db, current_user)
+        if current_user.role == "officer":
+            query = query.filter(Event.proposed_by == current_user.id)
         if not _has_reference(query, EventProposalLetter.document_url, reference, bucket, path.split("/")[-1]):
             raise HTTPException(404, "File reference not found")
 

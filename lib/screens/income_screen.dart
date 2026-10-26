@@ -50,9 +50,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
               label: Text('Record income', style: AppText.buttonLabel),
             )
           : null,
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(

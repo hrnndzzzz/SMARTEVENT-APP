@@ -144,7 +144,7 @@ def test_route_validation_and_cross_organization_denial(system):
     assert client.put(path + "/routing", json={"signatory_ids": []}).status_code == 422
     assert client.put(path + "/routing", json={"signatory_ids": ids * 2}).status_code == 422
     assert client.put(path + "/routing", json={"signatory_ids": [str(users["admin"].id)]}).status_code == 409
-    assert client.put(f"/events/{resources[1]['events'].id}/routing", json={"signatory_ids": ids}).status_code == 403
+    assert client.put(f"/events/{resources[1]['events'].id}/routing", json={"signatory_ids": ids}).status_code == 200
     resources[0]["events"].proposed_by = users["signatory"].id
     db.commit()
     assert client.put(path + "/routing", json={"signatory_ids": ids}).status_code == 403

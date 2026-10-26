@@ -242,6 +242,13 @@ def submit(event_id: UUID, payload: Version, db: Session = Depends(get_db), user
     return sap.submit(db, event, proposal, user, settings.sap_verification_base_url)
 
 
+@router.post('/withdraw', response_model=SAPProposalOut, response_model_exclude_unset=True)
+def withdraw(event_id: UUID, payload: Version, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    event, proposal = sap.load(db, event_id, user, write=True, proposer=True)
+    sap.check_version(proposal, payload.expected_version)
+    return sap.withdraw(db, event, proposal, user)
+
+
 @router.get('/workflow', response_model=SAPWorkflowOut, response_model_exclude_unset=True)
 def workflow(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)

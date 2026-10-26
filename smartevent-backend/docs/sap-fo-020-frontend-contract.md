@@ -25,16 +25,16 @@ SDS is institution-wide, as its existing account role has no organization bindin
 
 | Actor | Parts 1–3 | Part 4 | Record paper checkpoints / return | Final scan | Part 6 |
 |---|---|---|---|---|---|
-| Original event proposer with treasurer/adviser/admin/super_admin role | Draft or returned only | No | No | No | No |
+| Original event proposer with treasurer/adviser/admin/super_admin role, or Officer holding President/Vice President/Secretary position | Draft or returned only | No | No | No | No |
 | SDS staff | No | Draft or returned only | Yes | Upload/read | Yes |
 | Scoped operational readers/admins | Read | Read | Read history | No | Read |
-| Officer | Read only | Read | Read history | No | Read |
+| Other Officer positions | Read only | Read | Read history | No | Read |
 | Signatory role alone | No new access | No | No | No | No |
 
 Admin/super_admin does not override SDS-only permissions or proposer ownership.
-The existing officer read-only policy is intentionally unchanged. The preparation
-attestation identifies the original proposer account; institutional onboarding must
-assign the real preparing organization president an authorized proposer account.
+Qualifying Officer positions can prepare and submit their own proposals, without
+SDS review or signing powers. The preparation attestation identifies the original
+proposer account; institutional onboarding must assign its correct role and position.
 Do not create a treasurer-owned event if a different president must fill slot 1.
 High-level physical signers need not have accounts.
 

@@ -39,9 +39,7 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
@@ -299,7 +297,9 @@ class _EventFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final years = app.knownSchoolYears;
-    final canRepair = app.currentRole?.isAdministrator ?? false;
+    final canRepair =
+        !context.watch<AppState>().isOfflineViewing &&
+        (app.currentRole?.isAdministrator ?? false);
     final showYears = years.length > 1;
 
     return Column(

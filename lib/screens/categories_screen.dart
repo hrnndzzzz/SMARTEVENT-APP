@@ -20,7 +20,9 @@ class CategoriesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final canManage = app.currentRole?.canManageCatalog ?? false;
+    final canManage =
+        !context.watch<AppState>().isOfflineViewing &&
+        (app.currentRole?.canManageCatalog ?? false);
 
     return BrutScreen(
       floatingActionButton: canManage
@@ -30,9 +32,7 @@ class CategoriesScreen extends StatelessWidget {
               label: Text('New category', style: AppText.buttonLabel),
             )
           : null,
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(

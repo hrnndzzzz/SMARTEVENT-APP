@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -11,6 +12,7 @@ from app.dependencies import (
     assert_record_scope,
     assert_owner_or_admin,
     require_operational_read,
+    require_event_proposer,
     require_role,
     resolve_organization_id,
     scope_query_by_department,
@@ -65,8 +67,8 @@ def _get_event_or_404(db: Session, event_id: uuid.UUID, *, lock: bool = False) -
 
 
 def _assert_event_owner_scope(event: Event, current_user: User, action: str) -> None:
-    assert_owner_or_admin(event.proposed_by, current_user, action)
-    assert_record_scope(current_user, event)
+    assert_owner_or_admin(event.proposed_by, current_user, action, owner_roles={"adviser", "treasurer", "officer"})
+    assert_record_scope(current_user, event, allow_officer_read=True)
 
 
 def _initial_pending_status(proposer_role: str) -> str:
@@ -79,7 +81,7 @@ def _initial_pending_status(proposer_role: str) -> str:
 def create_event(
     payload: EventCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     initial_status = payload.status
     if initial_status == "pending":
@@ -90,16 +92,16 @@ def create_event(
         category = db.query(Category).filter(Category.id == payload.category_id).first()
         if category is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category_id does not match any existing category")
-        assert_record_scope(current_user, category)
+        assert_record_scope(current_user, category, allow_officer_read=True)
 
-    if current_user.role in {"adviser", "treasurer", "admin"}:
+    if current_user.role in {"adviser", "treasurer", "admin", "officer"}:
         department_id = current_user.department_id
         if payload.department_id is not None and payload.department_id != department_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only create events in your assigned department.",
             )
-        assert_department_scope(current_user, department_id)
+        assert_department_scope(current_user, department_id, allow_officer_read=True)
     else:
         department_id = payload.department_id or (category.department_id if category else None)
 
@@ -270,7 +272,7 @@ def update_event(
     event_id: uuid.UUID,
     payload: EventUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     event = _get_event_or_404(db, event_id, lock=True)
     _assert_event_owner_scope(event, current_user, "edit")
@@ -294,7 +296,7 @@ def update_event(
         category = db.query(Category).filter(Category.id == category_id).first()
         if category is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category_id does not match any existing category")
-        assert_record_scope(current_user, category)
+        assert_record_scope(current_user, category, allow_officer_read=True)
         target_department_id = updates.get("department_id", event.department_id)
         if category.organization_id != event.organization_id:
             raise HTTPException(status_code=400, detail="Event and category must share an organization")
@@ -335,7 +337,7 @@ def update_event(
 def submit_event(
     event_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     event = _get_event_or_404(db, event_id, lock=True)
     _assert_event_owner_scope(event, current_user, "submit")
@@ -439,7 +441,7 @@ def reject_event(
 def delete_event(
     event_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_event_proposer),
 ):
     event = _get_event_or_404(db, event_id, lock=True)
     _assert_event_owner_scope(event, current_user, "delete")
@@ -461,7 +463,11 @@ def delete_event(
         db.delete(logistics)
     for step in routing_steps(db, event):
         db.delete(step)
-    db.flush()
-    db.delete(event)
-    db.commit()
+    try:
+        db.flush()
+        db.delete(event)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="This draft is referenced by other records and cannot be deleted") from exc
     return None

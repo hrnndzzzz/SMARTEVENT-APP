@@ -235,7 +235,7 @@ def test_parallel_scope_and_file_privacy(closure):
     endpoint = path + f"/parallel-activities/{activity['id']}/upload"
     assert client.post(endpoint, data={"version": activity["version"]}, files={"file": ("work.pdf", b"%PDF-1.7\n%%EOF", "application/pdf")}).status_code == 200
     assert client.get(path + f"/parallel-activities/{activity['id']}/file").json()["expires_in"] == 300
-    assert client.get(f"/events/{resources[1]['events'].id}/parallel-activities/{activity['id']}/file").status_code == 403
+    assert client.get(f"/events/{resources[1]['events'].id}/parallel-activities/{activity['id']}/file").status_code == 404
 
 
 def test_no_qr_boarding_routes_exist(system):

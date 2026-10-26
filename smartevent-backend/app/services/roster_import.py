@@ -93,7 +93,7 @@ def validate_roster_workbook(db, current_user, content: bytes, filename: str) ->
     organization_query = db.query(Organization)
     if current_user.role != "super_admin":
         department_query = department_query.filter(Department.id == current_user.department_id)
-        organization_query = organization_query.filter(Organization.id == current_user.organization_id)
+        organization_query = organization_query.filter(Organization.department_id == current_user.department_id)
     for department in department_query.all():
         departments[department.name.strip().casefold()].append(department)
     for organization in organization_query.all():

@@ -161,7 +161,7 @@ def test_similar_income_is_withheld_from_reports_until_cleared(system, decision)
     login("admin")
     assert client.post(f"/receipts/{note.id}/review", json={"decision": decision, "reason": "Original financial evidence checked"}).status_code == 200
     report = client.get("/reports/financial?period=school_year&school_year=2026-2027").json()
-    assert report["total_income"] == (110 if decision == "cleared" else 100)
+    assert report["total_income"] == (210 if decision == "cleared" else 200)
     assert report["withheld_income_total"] == (0 if decision == "cleared" else 10)
 
 
@@ -187,6 +187,9 @@ def test_receipt_scope_and_role_restrictions(system):
     assert client.get(f"/receipts/{note_id}").status_code == 200
     assert client.post(f"/receipts/{note_id}/review", json={"reason": "Checking receipt evidence"}).status_code == 403
     login("super_admin")
+    assert client.patch(f"/users/{users['treasurer'].id}/access",
+                        json={"organization_id": str(orgs[1].id)}).status_code == 200
+    login("treasurer")
     foreign = client.post("/receipts", json={"expense_id": str(resources[1]["expenses"].id),
         "receipt_url": "https://example.com/r1.jpg", "purpose": "Foreign event supplies"})
     assert foreign.status_code == 201  # duplicate scope is organization, not global

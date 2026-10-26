@@ -52,7 +52,7 @@ def test_foreign_expense_state_is_not_disclosed_to_reviewer(system, action):
     expense = resources[1]["expenses"]
     expense.status = "approved"
     db.commit()
-    login("admin")
+    login("adviser")
     response = client.post(f"/expenses/{expense.id}/{action}", json={})
     assert response.status_code == 403, response.text
     assert "approved" not in response.text
@@ -89,10 +89,10 @@ def test_scan_receipt_uses_authorized_organization_storage_path(system, monkeypa
         data={"organization_id": str(orgs[1].id)}).status_code == 403
     assert len(uploaded) == 1
     login("super_admin")
-    assert client.post("/expenses/scan-receipt", files=file).status_code == 400
+    assert client.post("/expenses/scan-receipt", files=file).status_code == 403
     assert client.post("/expenses/scan-receipt", files=file,
-        data={"organization_id": str(orgs[1].id)}).status_code == 200
-    assert uploaded[-1] == (users["super_admin"].id, orgs[1].id)
+        data={"organization_id": str(orgs[1].id)}).status_code == 403
+    assert uploaded == [(users["treasurer"].id, orgs[0].id)]
 
 
 @pytest.mark.parametrize("route,error,status", [
