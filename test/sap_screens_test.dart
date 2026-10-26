@@ -151,6 +151,53 @@ void main() {
     expect(find.textContaining('needs the modality to be online'), findsOneWidget);
   });
 
+  testWidgets('Part 1 will not save without a department', (tester) async {
+    await tester.pumpWidget(host(SapPart1Screen(form: blankForm())));
+    await tester.pumpAndSettle();
+
+    // Nothing could name the department, so the form asks for it.
+    expect(find.text('DEPARTMENT TYPE'), findsOneWidget);
+    expect(find.text('DEPARTMENT'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(
+      find.text('Fill in the department type and department first.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Part 1 keeps a department it already knows off the screen', (
+    tester,
+  ) async {
+    final form = blankForm()
+      ..updateDetails(
+        (d) => d.copyWith(
+          departmentType: 'College',
+          department: 'College of Information Technology',
+        ),
+      );
+
+    await tester.pumpWidget(host(SapPart1Screen(form: form)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DEPARTMENT'), findsNothing);
+    expect(form.details.department, 'College of Information Technology');
+  });
+
+  testWidgets('Part 1 caps the long answers at the server\'s limits', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(SapPart1Screen(form: blankForm())));
+    await tester.pumpAndSettle();
+
+    final limits = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .map((f) => f.maxLength);
+    // Rationale, objectives and emergency plan, as schemas_sap.py has them.
+    expect(limits, containsAll([1800, 1200, 600]));
+  });
+
   testWidgets('Part 1 shows the setting but does not ask again', (
     tester,
   ) async {
