@@ -101,7 +101,7 @@ matched. Do not present this feature as infallible duplicate detection.
 ## Frontend API integration
 
 Use `Authorization: Bearer <token>` on every financial/report/receipt request.
-Officer is read-only; Treasurer/Admin/Super Admin record finances; Adviser/Admin/
+Officers view finances; only Treasurer records finances; Adviser/Admin/
 Super Admin review receipts and expenses. Existing organization scope and
 self-review restrictions remain active. SDS has no operational financial access.
 
@@ -157,8 +157,9 @@ legacy consolidated-report treatment is explained below.
 
 Use `income_id` instead of `expense_id` for income. Supplying neither or both
 returns 422. The server derives event/organization/department; the client cannot
-choose a conflicting assignment. Treasurer attaches to their own transactions;
-administrators can manage authorized transactions. It returns a `ReceiptOut`.
+choose a conflicting assignment. Only Treasurer attaches receipts to their own
+transactions. Administrators and Advisers retain independent receipt review.
+It returns a `ReceiptOut`.
 
 Other endpoints:
 

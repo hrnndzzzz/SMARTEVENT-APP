@@ -91,14 +91,11 @@ def test_header_errors(system, headers):
     assert all(e["row"] == 1 for e in response.json()["detail"]["errors"])
 
 
-def test_admin_scope_and_super_admin_multi_organization(system):
+@pytest.mark.parametrize("role", ["admin", "super_admin"])
+def test_department_admin_and_super_admin_multi_organization(system, role):
     client, db, _, _, _, login = system
     rows = [member(), member("second@example.com", **{"Organization Full Name": "Organization B"})]
-    login("admin")
-    response = upload(client, rows)
-    assert response.status_code == 422, response.text
-    assert db.query(CiteMember).count() == 1
-    login("super_admin")
+    login(role)
     response = upload(client, rows)
     assert response.status_code == 201, response.text
     assert response.json()["inserted_count"] == 2

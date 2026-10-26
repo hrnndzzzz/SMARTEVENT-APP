@@ -291,7 +291,7 @@ def update_expense(
     expense_id: uuid.UUID,
     payload: ExpenseUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     expense = _get_expense_or_404(db, expense_id, lock=True)
     _assert_expense_owner_scope(expense, current_user, "edit")
@@ -471,7 +471,7 @@ async def upload_receipt(
     expense_id: uuid.UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     expense = _get_expense_or_404(db, expense_id, lock=True)
     _assert_expense_owner_scope(expense, current_user, "attach a receipt to")
@@ -514,7 +514,7 @@ def parse_receipt(
     expense_id: uuid.UUID,
     payload: ReceiptParseRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     expense = _get_expense_or_404(db, expense_id, lock=True)
     _assert_expense_owner_scope(expense, current_user, "attach a receipt scan to")
@@ -562,7 +562,7 @@ def parse_receipt(
 def delete_expense(
     expense_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "admin")),
+    current_user: User = Depends(require_financial_access),
 ):
     expense = _get_expense_or_404(db, expense_id, lock=True)
     _assert_expense_owner_scope(expense, current_user, "delete")

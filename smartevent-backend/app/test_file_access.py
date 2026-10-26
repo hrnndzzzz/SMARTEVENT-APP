@@ -33,7 +33,7 @@ def access(client, url):
     return client.get("/files", params={"reference": url})
 
 
-@pytest.mark.parametrize("role", ["treasurer", "admin", "super_admin"])
+@pytest.mark.parametrize("role", ["treasurer"])
 def test_financial_writers_can_read_own_new_organization_upload(system, signer, role):
     client, db, users, orgs, resources, login = system
     login(role)
@@ -45,7 +45,7 @@ def test_financial_writers_can_read_own_new_organization_upload(system, signer, 
     assert response.headers["cache-control"] == "no-store"
 
 
-@pytest.mark.parametrize("role", ["officer", "adviser", "sds_staff"])
+@pytest.mark.parametrize("role", ["officer", "adviser", "sds_staff", "admin", "super_admin"])
 def test_other_roles_cannot_read_unattached_uploads(system, signer, role):
     client, db, users, orgs, resources, login = system
     login(role)

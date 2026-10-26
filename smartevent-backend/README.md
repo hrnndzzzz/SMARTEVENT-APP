@@ -164,22 +164,24 @@ test. There is no public Create Super Admin API.
 
 | Role | Access |
 |---|---|
-| super_admin | Global operations, department/organization/Admin/SDS provisioning, transfers, account access and audit. |
-| admin | Assigned organization/department administration, roster/member access, categories/catalog, finances and independent review. |
-| adviser | Scoped reading, own event proposals, independent event/expense/receipt review, movements and letters. |
+| super_admin | Global administration, department/organization/Admin/SDS/Signatory provisioning, transfers, account access and audit; financial viewing/review, no financial recording. |
+| admin | Dean/department administration across its organizations, roster/member access, categories/catalog and independent review; financial viewing/review, no financial recording. |
+| adviser | Adviser or Moderator: scoped reading, own event proposals, independent event/expense/receipt review, movements and letters. |
 | treasurer | Scoped reading, own proposals, income/expenses, own pending-expense receipts, purchase completion, movements and letters. |
-| officer | Scoped operational read-only access, reports and exports; own password changes and notification read actions remain allowed. |
+| officer | Organization reading, reports and exports; President, Vice President and Secretary can also manage own eligible proposals and letters. |
+| signatory | Assigned institutional review only; no general operational access. |
 | sds_staff | School-wide proposal-letter reading and personal account/inbox; no operational events, finances, inventory or reports. |
-| signatory | Assigned events and their proposal letters during institutional review only; approves/rejects the next assigned step, plus personal account/inbox. |
 
-Sharing a department does not grant cross-organization access. Account transfers
+Admins access their department's organizations; other members access only their
+own organization. Account transfers
 do not transfer historical records. Suspension blocks existing tokens on
 subsequent requests; restoration does not bypass verification/password setup.
 
 POST /auth/login takes application/x-www-form-urlencoded fields username
 (email) and password, not JSON. Protected calls use Authorization: Bearer
 <access_token>. Load GET /auth/me after login and route mandatory-password users
-to setup; GET /auth/permissions describes duties. There is no refresh-token
+to setup; GET /auth/permissions describes duties and returns position plus
+can_propose_events/can_record_finance booleans. There is no refresh-token
 or server-side logout endpoint.
 
 No reviewer, including Super Admin, may approve/reject their own event, expense
@@ -215,13 +217,14 @@ The frontend must expose category CRUD, not just a dropdown.
 
 ### Events: operational and sequential institutional approval
 
-Treasurer/Adviser/Admin/Super Admin can propose events; Officers cannot.
+Treasurer/Adviser/Admin/Super Admin and Officers holding President, Vice President
+or Secretary positions can propose events. Other Officers remain read-only.
 New events require consecutive school year (e.g. 2026-2027), semester
 (1st, 2nd, summer) and scope (departmental, organizational). Year filtering/
 lookup and administrator legacy-metadata repair exist. Metadata cannot be cleared.
 
 ~~~text
-Treasurer/Admin/Super Admin: draft -> pending_adviser -> pending_admin -> pending_institutional_review -> approved
+Eligible Officer/Treasurer/Admin/Super Admin: draft -> pending_adviser -> pending_admin -> pending_institutional_review -> approved
 Adviser:                   draft -> pending_admin -> pending_institutional_review -> approved
 Pending stage -> rejected -> edit -> resubmit (history retained)
 ~~~
@@ -241,8 +244,8 @@ transition endpoint.
 
 ### Expenses, receipts and OCR
 
-Treasurer/Admin/Super Admin create pending expenses with asset/consumable lines.
-Owners/administrators edit/delete eligible pending records. Independent
+Only Treasurer creates pending expenses with asset/consumable lines and edits or
+deletes their own eligible pending records. Independent
 Adviser/Admin/Super Admin approves/rejects in a SINGLE review step, unlike events.
 Approval checks category and linked event budgets; database triggers deduct them.
 

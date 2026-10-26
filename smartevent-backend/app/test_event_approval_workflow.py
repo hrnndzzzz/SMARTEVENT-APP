@@ -85,10 +85,12 @@ def test_missing_academic_metadata_blocks_both_review_stages(system, role):
 
 @pytest.mark.parametrize("role", ["adviser", "admin"])
 @pytest.mark.parametrize("action", ["approve", "reject"])
-def test_cross_organization_review_remains_blocked(system, role, action):
+def test_review_uses_adviser_organization_or_admin_department_scope(system, role, action):
     client, db, users, orgs, resources, login = system
     event = resources[1]["events"]
     event.status = "pending_adviser" if role == "adviser" else "pending_admin"
     db.commit()
     login(role)
-    assert client.post(f"/events/{event.id}/{action}", json={}).status_code == 403
+    if role == "admin" and action == "approve":
+        assert client.put(f"/events/{event.id}/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
+    assert client.post(f"/events/{event.id}/{action}", json={}).status_code == (200 if role == "admin" else 403)

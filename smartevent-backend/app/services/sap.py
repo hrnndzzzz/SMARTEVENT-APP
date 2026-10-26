@@ -5,6 +5,7 @@ import hashlib
 import secrets
 from fastapi import HTTPException
 from app.dependencies import assert_record_scope
+from app.rbac_policy import can_propose_events
 from app.models import Event, User, Notification
 from app.models_compliance import EventLogistics
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPEvaluation, SAPAttachment, SAPReview
@@ -28,8 +29,8 @@ def load(db, event_id, user, *, write=False, sds=False, proposer=False, required
     if sds and user.role != 'sds_staff':
         raise HTTPException(403, 'Only SDS staff can record paper evidence or edit Parts 4 and 6')
     if user.role != 'sds_staff':
-        assert_record_scope(user, event, allow_officer_read=not write)
-    if proposer and (user.id != event.proposed_by or user.role not in {'treasurer', 'adviser', 'admin', 'super_admin'}):
+        assert_record_scope(user, event, allow_officer_read=not write or (proposer and can_propose_events(user)))
+    if proposer and (user.id != event.proposed_by or not can_propose_events(user)):
         raise HTTPException(403, 'Only the authorized event proposer may edit Parts 1–3')
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if required and proposal is None:
