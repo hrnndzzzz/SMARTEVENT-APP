@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
+import '../../api/models/scope.dart';
 import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import '../../theme/palette.dart';
+import '../../widgets/scope_picker.dart';
 import 'sap_form_fields.dart';
 
 /// The cover of the form, before any of it is filled in.
@@ -24,12 +26,22 @@ class SapCoverScreen extends StatelessWidget {
     super.key,
     required this.form,
     required this.onBegin,
+    this.departments,
+    this.organizationsIn,
   });
 
   final SapForm form;
 
   /// Into Part 1.
   final void Function(BuildContext context) onBegin;
+
+  /// Given only for a proposer who has to say whose event this is — a
+  /// Super Admin, who belongs to no organization. The form cannot be
+  /// started until one is chosen, because the server refuses the event
+  /// without it.
+  final List<RemoteDepartment>? departments;
+  final List<RemoteOrganization> Function(String? departmentId)?
+  organizationsIn;
 
   /// The school year an activity in [now] belongs to.
   ///
@@ -46,7 +58,12 @@ class SapCoverScreen extends StatelessWidget {
         final d = form.details;
         final editable = form.canEditProposerParts;
         final offCampus = d.setting == SapSetting.offCampus;
-        final ready = d.setting != null && (!offCampus || d.offCampusAgreement);
+        final departments = this.departments;
+        final scoped = departments == null || form.scopeOrganizationId != null;
+        final ready =
+            scoped &&
+            d.setting != null &&
+            (!offCampus || d.offCampusAgreement);
 
         return BrutScreen(
           header: BrutHeader(
@@ -66,6 +83,39 @@ class SapCoverScreen extends StatelessWidget {
             children: [
               const _FormHeader(),
               const SizedBox(height: 20),
+
+              if (departments != null) ...[
+                ScopePicker(
+                  departments: departments,
+                  departmentId: form.scopeDepartmentId,
+                  onDepartmentChanged: (id) => form.chooseScope(
+                    departmentId: id,
+                    departmentName: departments
+                        .where((x) => x.id == id)
+                        .map((x) => x.name)
+                        .firstOrNull,
+                  ),
+                  organizations:
+                      organizationsIn?.call(form.scopeDepartmentId) ??
+                      const [],
+                  organizationId: form.scopeOrganizationId,
+                  onOrganizationChanged: (id) => form.chooseScope(
+                    departmentId: form.scopeDepartmentId,
+                    departmentName: d.department,
+                    organizationId: id,
+                    organizationName:
+                        (organizationsIn?.call(form.scopeDepartmentId) ??
+                                const <RemoteOrganization>[])
+                            .where((o) => o.id == id)
+                            .map((o) => o.name)
+                            .firstOrNull,
+                  ),
+                  explanation:
+                      'Your account belongs to no organization, so choose '
+                      'whose activity this is.',
+                ),
+                const SizedBox(height: 20),
+              ],
 
               const MonoLabel('School year'),
               const SizedBox(height: 6),

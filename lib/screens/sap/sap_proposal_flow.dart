@@ -23,6 +23,26 @@ import 'sap_form_screen.dart';
 /// is a title and a date for it.
 abstract final class SapProposalFlow {
   static Future<void> start(BuildContext context, SapForm form) async {
+    final app = _appOf(context);
+
+    // A proposer the server will refuse should hear it before filling in
+    // three steps, not after: without an assignment there is no
+    // organization for the event to belong to.
+    if (!form.hasEvent && (app?.lacksProposerAssignment ?? false)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'An administrator must assign your department and '
+            'organization before you can propose an event.',
+          ),
+        ),
+      );
+      return;
+    }
+    final choosesScope = !form.hasEvent && (app?.choosesEventScope ?? false);
+    if (choosesScope) await app!.loadScopeOptions();
+    if (!context.mounted) return;
+
     await form.load();
     if (!context.mounted) return;
 
@@ -62,6 +82,8 @@ abstract final class SapProposalFlow {
         builder: (_) => SapCoverScreen(
           form: form,
           onBegin: (coverContext) => _openSteps(coverContext, form),
+          departments: choosesScope ? app!.departments : null,
+          organizationsIn: choosesScope ? app!.organizationsIn : null,
         ),
       ),
     );
@@ -113,14 +135,21 @@ abstract final class SapProposalFlow {
   }
 
   /// Makes the event this proposal belongs to, from what Part 1 says.
-  static Future<void> _createEventIfNeeded(
+  static Future<bool> _createEventIfNeeded(
     BuildContext context,
     SapForm form,
   ) async {
-    if (form.hasEvent) return;
+    if (form.hasEvent) return true;
     final d = form.details;
     final title = (d.title ?? '').trim();
-    if (title.isEmpty || d.activityDate == null) return;
+    if (title.isEmpty || d.activityDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Give the activity a title and a date first.'),
+        ),
+      );
+      return false;
+    }
 
     final app = context.read<AppState>();
     final error = await app.addEvent(
@@ -134,18 +163,32 @@ abstract final class SapProposalFlow {
           ? EventScope.departmental
           : EventScope.organizational,
       submitNow: false,
+      // Null for every proposer but a Super Admin, whose own assignment
+      // the server applies.
+      departmentId: form.scopeDepartmentId,
+      organizationId: form.scopeOrganizationId,
     );
 
-    if (!context.mounted) return;
+    if (!context.mounted) return false;
     if (error != null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error)));
-      return;
+      return false;
     }
 
     final created = app.events.isNotEmpty ? app.events.first.remoteId : null;
-    if (created != null) await form.bindEvent(created);
+    if (created == null) return false;
+    await form.bindEvent(created);
+    return true;
+  }
+
+  static AppState? _appOf(BuildContext context) {
+    try {
+      return context.read<AppState>();
+    } on ProviderNotFoundException {
+      return null;
+    }
   }
 
   /// Puts the account's own organization and department on the form.

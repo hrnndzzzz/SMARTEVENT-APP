@@ -65,6 +65,32 @@ class SapForm extends ChangeNotifier {
   String? get eventId => _eventId;
   bool get hasEvent => _eventId != null;
 
+  /// Where the event is filed, for a proposer who has to say so — a Super
+  /// Admin belongs to no organization. Null for everyone else, whose own
+  /// assignment the server applies. Sent with the event, not on the form.
+  String? _scopeDepartmentId;
+  String? _scopeOrganizationId;
+  String? get scopeDepartmentId => _scopeDepartmentId;
+  String? get scopeOrganizationId => _scopeOrganizationId;
+
+  /// Records the chosen department and organization, and prints their
+  /// names on the form the way an assigned proposer's own are.
+  void chooseScope({
+    String? departmentId,
+    String? departmentName,
+    String? organizationId,
+    String? organizationName,
+  }) {
+    _scopeDepartmentId = departmentId;
+    _scopeOrganizationId = organizationId;
+    updateDetails(
+      (d) => d.copyWith(
+        department: departmentName,
+        organizationName: organizationName,
+      ),
+    );
+  }
+
   final SapService? _service;
 
   SapProposal? _proposal;
@@ -271,15 +297,27 @@ class SapForm extends ChangeNotifier {
     if (classes.isNotEmpty) await saveAffectedClasses();
   }
 
+  /// [requireServer] is for the actions that only mean something once the
+  /// server has them — sending and taking back. With a server present,
+  /// keeping those on the phone and reporting success would tell someone
+  /// their proposal reached the SDS Office when it never left the device.
   Future<bool> _write(
-    Future<SapProposal> Function(SapService, int) call,
-  ) async {
+    Future<SapProposal> Function(SapService, int) call, {
+    bool requireServer = false,
+  }) async {
     if (isReadOnly) {
       _error = 'Viewing saved data. Connect and sign in before making changes.';
       notifyListeners();
       return false;
     }
     final service = _service;
+    if (service != null && _eventId == null && requireServer) {
+      _error =
+          'This proposal is not on the server yet. Go back to the first '
+          'step and continue from there.';
+      notifyListeners();
+      return false;
+    }
     if (service == null || _eventId == null) {
       _localOnly = true;
       notifyListeners();
@@ -296,6 +334,10 @@ class SapForm extends ChangeNotifier {
       _localOnly = false;
       return true;
     } on SapUnavailable {
+      if (requireServer) {
+        _error = 'The server could not find this proposal, so it was not sent.';
+        return false;
+      }
       _localOnly = true;
       return true;
     } on SapVersionConflict catch (conflict) {
@@ -357,16 +399,20 @@ class SapForm extends ChangeNotifier {
     );
   }
 
-  Future<bool> submit() =>
-      _write((s, v) => s.submit(_eventId!, expectedVersion: v));
+  Future<bool> submit() => _write(
+    (s, v) => s.submit(_eventId!, expectedVersion: v),
+    requireServer: true,
+  );
 
   /// Takes an unreviewed proposal back to draft.
   ///
   /// Refused with a 409 once the SDS Office has started on it, which
   /// `_write` surfaces as the error text the server sent — the way back
   /// is a return for changes at that point, not a withdrawal.
-  Future<bool> withdraw() =>
-      _write((s, v) => s.withdraw(_eventId!, expectedVersion: v));
+  Future<bool> withdraw() => _write(
+    (s, v) => s.withdraw(_eventId!, expectedVersion: v),
+    requireServer: true,
+  );
 
   SapWorkflow? _workflow;
   SapWorkflow? get workflow => _workflow;

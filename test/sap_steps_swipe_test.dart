@@ -10,15 +10,25 @@ import 'package:smartevent/theme/app_theme.dart';
 /// check something on the activity meant backing out of two screens and
 /// finding the way in again.
 void main() {
-  Widget host(SapForm form, {VoidCallback? onCreate, VoidCallback? onSubmit}) =>
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: SapStepsScreen(
-          form: form,
-          onCreateEvent: (_) async => onCreate?.call(),
-          onSubmit: (_) async => onSubmit?.call(),
-        ),
-      );
+  /// [created] says whether the event record was made: the flow binds the
+  /// form to it on success, so the stub does the same.
+  Widget host(
+    SapForm form, {
+    VoidCallback? onCreate,
+    VoidCallback? onSubmit,
+    bool created = true,
+  }) => MaterialApp(
+    theme: AppTheme.light(),
+    home: SapStepsScreen(
+      form: form,
+      onCreateEvent: (_) async {
+        onCreate?.call();
+        if (created) await form.bindEvent('e1');
+        return created;
+      },
+      onSubmit: (_) async => onSubmit?.call(),
+    ),
+  );
 
   testWidgets('it opens on the activity', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
@@ -81,9 +91,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
     var created = 0;
 
-    await tester.pumpWidget(
-      host(SapForm(eventId: 'e1'), onCreate: () => created++),
-    );
+    await tester.pumpWidget(host(SapForm(), onCreate: () => created++));
     await tester.pumpAndSettle();
 
     await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
@@ -96,9 +104,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(420, 1400));
     var created = 0;
 
-    await tester.pumpWidget(
-      host(SapForm(eventId: 'e1'), onCreate: () => created++),
-    );
+    await tester.pumpWidget(host(SapForm(), onCreate: () => created++));
     await tester.pumpAndSettle();
 
     for (final delta in [-400.0, 400.0, -400.0, -400.0]) {
@@ -107,6 +113,39 @@ void main() {
     }
 
     expect(created, 1);
+  });
+
+  testWidgets('a refused event record keeps the swipe on the activity', (
+    tester,
+  ) async {
+    // The server refused it — no organization, say. Past Part 1 nothing
+    // could be sent, and the form used to carry on as though it could.
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    final form = SapForm();
+    await tester.pumpWidget(host(form, created: false));
+    await tester.pumpAndSettle();
+
+    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Activity Details'), findsOneWidget);
+    expect(form.hasEvent, isFalse);
+  });
+
+  testWidgets('and the next attempt asks again', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    var attempts = 0;
+    await tester.pumpWidget(
+      host(SapForm(), created: false, onCreate: () => attempts++),
+    );
+    await tester.pumpAndSettle();
+
+    for (var i = 0; i < 2; i++) {
+      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+      await tester.pumpAndSettle();
+    }
+
+    expect(attempts, 2);
   });
 
   testWidgets('all three exist at once, not pushed one at a time', (

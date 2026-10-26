@@ -27,8 +27,9 @@ class SapStepsScreen extends StatefulWidget {
   final SapForm form;
 
   /// Run on the way out of Part 1, which is where the event record is
-  /// made from what Part 1 says.
-  final Future<void> Function(BuildContext context) onCreateEvent;
+  /// made from what Part 1 says. False when it was not made; Part 1 is
+  /// not left then, because nothing after it could be sent.
+  final Future<bool> Function(BuildContext context) onCreateEvent;
 
   /// Run at the end of Part 3.
   final Future<void> Function(BuildContext context) onSubmit;
@@ -40,9 +41,23 @@ class SapStepsScreen extends StatefulWidget {
 class _SapStepsScreenState extends State<SapStepsScreen> {
   final _pages = PageController();
 
-  /// Whether the event record has been asked for. The flow's own call is
-  /// idempotent, but there is no reason to ask it on every swipe.
-  bool _created = false;
+  /// An event record is being asked for right now. A failed attempt
+  /// clears this, so the next Next or swipe tries again.
+  bool _creating = false;
+
+  /// Makes sure the event exists before anything past Part 1.
+  Future<bool> _ensureEvent(BuildContext context) async {
+    if (widget.form.hasEvent) return true;
+    // The first attempt is still out; it moves back to Part 1 itself if
+    // it fails, so a second one here would only race it.
+    if (_creating) return true;
+    _creating = true;
+    try {
+      return await widget.onCreateEvent(context);
+    } finally {
+      _creating = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -68,9 +83,9 @@ class _SapStepsScreenState extends State<SapStepsScreen> {
       // it, and the submission at the end would then have had nothing
       // to attach itself to.
       onPageChanged: (page) async {
-        if (page == ProposalSteps.activity || _created) return;
-        _created = true;
-        await widget.onCreateEvent(context);
+        if (page == ProposalSteps.activity) return;
+        if (await _ensureEvent(context) || !mounted) return;
+        await _goTo(ProposalSteps.activity);
       },
       // Each page brings its own header and footer, so the step bar and
       // the Next button travel with the page rather than sitting over
@@ -80,10 +95,7 @@ class _SapStepsScreenState extends State<SapStepsScreen> {
           form: widget.form,
           step: ProposalSteps.activity,
           onContinue: (partContext) async {
-            if (!_created) {
-              _created = true;
-              await widget.onCreateEvent(partContext);
-            }
+            if (!await _ensureEvent(partContext)) return;
             if (!partContext.mounted) return;
             await _goTo(ProposalSteps.support);
           },

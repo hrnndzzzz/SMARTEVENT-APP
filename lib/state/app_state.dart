@@ -1618,6 +1618,24 @@ class AppState extends ChangeNotifier {
       currentRole == UserRole.superAdmin ||
       (currentAccount != null && currentAccount!.departmentId == null);
 
+  /// Whether proposing an event means choosing which organization it is for.
+  ///
+  /// Only a Super Admin: it belongs to no organization, and the server
+  /// refuses an event without one. Narrower than [mustChooseScope], which
+  /// also covers an unassigned Admin — the server would refuse a scope that
+  /// Admin chose, so offering one would only invite a 403.
+  bool get choosesEventScope => currentRole == UserRole.superAdmin;
+
+  /// A proposer the server will refuse until an administrator assigns its
+  /// department and organization. Every role but Super Admin proposes for
+  /// its own, so without one there is nothing to propose for.
+  bool get lacksProposerAssignment {
+    final account = currentAccount;
+    // Exploring has no server to refuse anything.
+    if (account == null || _demoMode || choosesEventScope) return false;
+    return account.departmentId == null || account.organizationId == null;
+  }
+
   /// Loads the lookups, but only for roles allowed to read them — calling
   /// them as a Treasurer or Officer would just collect a 403.
   Future<void> loadScopeOptions() async {
