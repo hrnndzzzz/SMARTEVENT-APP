@@ -37,8 +37,8 @@ def _paragraph(value, style=BODY):
 
 def _watermark(canvas):
     canvas.saveState()
-    canvas.setFillAlpha(0.11)
     canvas.setFillColor(colors.red)
+    canvas.setFillAlpha(0.11)
     canvas.translate(306, 396)
     canvas.rotate(35)
     canvas.setFont('Helvetica-Bold', 25)
@@ -49,9 +49,9 @@ def _watermark(canvas):
 def _footer(canvas, revision, verification_url, signed):
     canvas.saveState()
     canvas.setFont('Helvetica', 6)
-    canvas.drawString(72, 65, f'SAP revision {revision}' + (' | SDS signed' if signed else ' | Unsigned'))
+    canvas.drawString(72, 72, f'SAP revision {revision}' + (' | SDS signed' if signed else ' | Unsigned'))
     if verification_url:
-        canvas.drawString(72, 55, 'Verify: ' + verification_url)
+        canvas.drawString(72, 62, 'Verify: ' + verification_url)
     if signed:
         _watermark(canvas)
     canvas.restoreState()
@@ -106,56 +106,69 @@ def _overlay(snapshot, revision, verification_url, review, signer_name, signatur
     for page in range(page_count):
         if page == 0:
             canvas.setFont('Helvetica', 9)
-            _text(canvas, values('school_year'), 275, 678, 110)
+            _text(canvas, values('school_year'), 302, 685, 100)
             _tick(canvas, values('department_type').casefold() == 'college', 179, 604)
             _tick(canvas, values('department_type').casefold() == 'alternative education', 227, 604)
             _tick(canvas, values('department_type').casefold() == 'graduate studies', 347, 604)
             _tick(canvas, values('department_type').casefold() == 'extensions office', 446, 604)
             _tick(canvas, values('department_type').casefold() == 'com', 503, 604)
-            _text(canvas, str(values('proposal_date')), 150, 576, 120)
-            _tick(canvas, values('setting') == 'off_campus' and d.get('off_campus_agreement'), 75, 518)
-            _text(canvas, values('title'), 176, 418, 350)
-            _text(canvas, values('organization_name'), 176, 403, 175)
-            _text(canvas, f"{values('start_time')} - {values('end_time')}", 405, 403, 130)
+            _text(canvas, str(values('proposal_date')), 150, 585, 120)
+            _tick(canvas, values('setting') == 'off_campus' and d.get('off_campus_agreement'), 100, 478)
+            _text(canvas, values('title'), 176, 426, 350)
+            _text(canvas, values('organization_name'), 176, 411, 175)
+            _text(canvas, f"{values('start_time')} - {values('end_time')}", 410, 411, 130)
             _text(canvas, str(values('activity_date')), 176, 388, 170)
             modality = values('modality')
             _tick(canvas, modality == 'face_to_face', 411, 388)
             _tick(canvas, modality == 'online', 497, 388)
             _tick(canvas, modality == 'hybrid', 411, 373)
-            _text(canvas, values('course'), 176, 358, 175)
-            _text(canvas, values('venue'), 410, 358, 130)
-            _text(canvas, values('department'), 176, 343, 175)
+            _text(canvas, values('course'), 176, 367, 175)
+            _text(canvas, values('venue'), 410, 367, 130)
+            _text(canvas, values('department'), 176, 351, 175)
             _tick(canvas, values('setting') == 'on_campus', 411, 343)
             _tick(canvas, values('setting') == 'online', 411, 314)
             _tick(canvas, values('setting') == 'off_campus', 476, 343)
-            _text(canvas, values('persons_in_charge'), 176, 326, 360)
+            _text(canvas, values('persons_in_charge'), 176, 333, 173, max_height=35)
             for idx, label in enumerate(('co_curricular', 'extra_curricular', 'subject_embedded')):
-                _tick(canvas, label in values('activity_types'), 176 if idx != 1 else 285, 284 if idx < 2 else 270)
+                _tick(canvas, label in values('activity_types'), 179 if idx != 1 else 288, 284 if idx < 2 else 270)
             _text(canvas, values('attire'), 410, 284, 130)
             for idx, label in enumerate(('organizational', 'institutional', 'regional', 'national', 'departmental')):
-                _tick(canvas, label in values('scope'), 176 + (idx % 2) * 145, 255 - (idx // 2) * 14)
+                _tick(canvas, label in values('scope'), 179 + (idx % 2) * 81, 255 - (idx // 2) * 14)
             _text(canvas, str(values('expected_students')), 410, 240, 100)
-            _text(canvas, values('program_types'), 176, 211, 360)
+            program_slots = {'team_building': (179, 211), 'leadership_summit': (273, 211),
+                             'general_assembly': (377, 211), 'competition': (474, 211),
+                             'press_conference': (179, 196), 'seminar_convention': (272, 196)}
+            extra_programs = []
+            for program in values('program_types'):
+                key = program.strip().casefold().replace(' ', '_').replace('/', '_')
+                if key in program_slots:
+                    _tick(canvas, True, *program_slots[key])
+                else:
+                    extra_programs.append(program)
+            if extra_programs:
+                _tick(canvas, True, 378, 196)
+                _text(canvas, ', '.join(extra_programs), 420, 204, 115, style=SMALL,
+                      max_height=8, label='Other program types')
             _text(canvas, values('rationale'), 176, 179, 360, max_height=29)
             _text(canvas, values('objectives'), 176, 148, 360, max_height=29)
             core = values('core_values')
             for i, (key, x, y) in enumerate([
-                ('courage',176,116), ('compassion',247,116), ('community_oriented',357,116),
-                ('humility',445,116), ('interiority',498,116), ('missionary_spirit',176,102)
+                ('courage',179,116), ('compassion',232,116), ('community_oriented',301,116),
+                ('humility',403,116), ('interiority',454,116), ('missionary_spirit',179,102)
             ]):
                 _tick(canvas, key in core, x, y)
         elif page == 1:
             egas = values('egas')
             for i, y in enumerate((709, 694, 680, 665), 1):
-                _tick(canvas, i in egas, 176, y)
+                _tick(canvas, i in egas, 179, y)
             flow = collections.get('program-flow', [])
             if flow:
-                _text(canvas, 'See Program flow addendum', 150, 650, 390)
+                _text(canvas, 'See Program flow addendum', 176, 650, 360)
                 overflow.append(('Program flow', '\n'.join(
                     f"{row.get('start', '')} - {row.get('end', '')}: {row.get('activity', '')}" for row in flow)))
-            _text(canvas, values('emergency_plan'), 150, 619, 390, max_height=17)
-            _text(canvas, str(values('total_budget')), 127, 601, 145)
-            _text(canvas, values('funding_source'), 390, 601, 150)
+            _text(canvas, values('emergency_plan'), 176, 626, 360, max_height=13)
+            _text(canvas, str(values('total_budget')), 176, 609, 145)
+            _text(canvas, values('funding_source'), 390, 609, 150)
             requests = collections.get('support-requests', [])
             request_slots = {'budget':(77,545),'vehicle':(311,545),'food':(77,506),'room':(311,506),
                              'sound':(77,482),'microphone':(311,482),'projector':(77,467),'chairs':(311,467),
@@ -184,17 +197,17 @@ def _overlay(snapshot, revision, verification_url, review, signer_name, signatur
                 if clearance.get(field):
                     overflow.append((field.replace('_', ' ').title(), clearance[field]))
             _text(canvas, values('additional_information'), 72, 360, 460, max_height=65)
-            _tick(canvas, clearance.get('parents_consent') == 'yes', 202, 271)
-            _tick(canvas, clearance.get('parents_consent') == 'not_applicable', 260, 271)
-            _tick(canvas, clearance.get('class_interruption') == 'yes', 258, 230)
-            _tick(canvas, clearance.get('class_interruption') == 'none', 303, 230)
-            _tick(canvas, clearance.get('medical_exam') == 'yes', 455, 230)
-            _tick(canvas, clearance.get('medical_exam') == 'not_applicable', 512, 230)
-            _text(canvas, clearance.get('student_personnel_ratio', ''), 480, 201, 70, style=SMALL)
+            _tick(canvas, clearance.get('parents_consent') == 'yes', 188, 271)
+            _tick(canvas, clearance.get('parents_consent') == 'not_applicable', 222, 271)
+            _tick(canvas, clearance.get('class_interruption') == 'yes', 211, 230)
+            _tick(canvas, clearance.get('class_interruption') == 'none', 245, 230)
+            _tick(canvas, clearance.get('medical_exam') == 'yes', 420, 230)
+            _tick(canvas, clearance.get('medical_exam') == 'not_applicable', 455, 230)
+            _text(canvas, clearance.get('student_personnel_ratio', ''), 487, 208, 70, style=SMALL)
             _tick(canvas, clearance.get('report_of_compliance') == 'yes', 248, 201)
-            _tick(canvas, clearance.get('report_of_compliance') == 'not_applicable', 307, 201)
+            _tick(canvas, clearance.get('report_of_compliance') == 'not_applicable', 284, 201)
             names = ', '.join(a.get('file_name', a.get('display_name', '')) for a in attachments)
-            _text(canvas, names, 311, 258, 230, style=SMALL, max_height=25, label='Supporting documents')
+            _text(canvas, names, 311, 265, 225, style=SMALL, max_height=25, label='Supporting documents')
             if comments:
                 canvas.setFillColor(colors.white)
                 canvas.rect(119, 214, 175, 10, fill=1, stroke=0)
@@ -236,12 +249,12 @@ def render_proposal(snapshot, revision, verification_url=None, *, review=None, s
                                       signature_strokes, signed, len(source.pages))
     overlay = PdfReader(BytesIO(overlay_bytes))
     writer = PdfWriter()
-    for page, layer in zip(source.pages, overlay.pages):
+    for original, layer in zip(source.pages, overlay.pages):
+        page = writer.add_page(original)
         page.merge_page(layer)
         for key in ('/Annots', '/AA'):
             if key in page:
                 del page[key]
-        writer.add_page(page)
     if overflow:
         appendix = BytesIO()
         doc = SimpleDocTemplate(appendix, pagesize=(612, 792), leftMargin=72, rightMargin=72,
