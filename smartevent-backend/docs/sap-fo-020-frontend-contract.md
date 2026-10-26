@@ -53,9 +53,12 @@ The mutable proposal has `version` (optimistic edit version) and `revision_no`
 Every writer locks the parent event, so concurrent moderator writes serialize;
 their **business order** remains parallel, but a stale screen must refresh.
 
-Collection replacement or Part 1–3 editing clears SDS clearance. SDS must confirm
-Part 4 again before submission. Drafts allow partial detail saves. Cross-field time,
-class and budget checks run at submission; saving a draft is not clearance.
+Collection replacement or Part 1–3 editing clears SDS clearance. The proposer
+submits Parts 1–3 without Part 4; SDS fills Part 4 while the revision is
+`pending_sap_review` and must complete it before `/sds-sign` (422 otherwise).
+The signed PDF records it, since submitted revisions are immutable. Drafts allow
+partial detail saves. Cross-field time, class and budget checks run at submission;
+saving a draft is not clearance.
 
 Event projection: draft/returned -> event `draft`; review ->
 `pending_institutional_review`; evidence accepted -> `approved`; evaluated ->
@@ -81,7 +84,7 @@ Base: `/events/{event_id}/sap-proposal`. UUID path identifiers.
 | PUT `/budget-items` | Same | Replace entire collection |
 | PUT `/support-requests` | Same | Replace entire collection |
 | PUT `/affected-classes` | Same | Replace entire collection; empty list clears it |
-| PUT `/sds-clearance` | `{expected_version, clearance: {...}}` | SDS confirms Part 4 |
+| PUT `/sds-clearance` | `{expected_version, clearance: {...}}` | SDS fills Part 4: draft, returned or `pending_sap_review`; 409 once signed |
 | POST `/submit` | `{expected_version}` | Freeze snapshot/PDF; create all nine checkpoints |
 | GET `/workflow` | None | Current revision's nine-step progress |
 | POST `/workflow/{step_id}/record` | Checkpoint body below | Updated workflow |

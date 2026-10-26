@@ -372,3 +372,35 @@ def test_sds_sees_an_event_once_its_proposal_is_sent(sap_system):
     assert client.post(base + '/withdraw', json={'expected_version': submitted['version']}).status_code == 200
     login('sds_staff')
     assert client.get('/events').json() == []
+
+
+def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
+    # Part 4 is the SDS Office's section. Sending used to require it while
+    # only SDS could write it, so nothing could be sent from the app at all.
+    client, db, users, event, login, base = sap_system
+    data = fixture_data()
+    login('treasurer')
+    assert client.patch(base, json={'expected_version': version(client, base), 'details': data['details']}).status_code == 200
+    for key, items in data['collections'].items():
+        assert client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items}).status_code == 200
+    sent = client.post(base + '/submit', json={'expected_version': version(client, base)})
+    assert sent.status_code == 200, sent.text
+    assert sent.json()['state'] == 'pending_sap_review'
+
+    login('sds_staff')
+    assert [row['id'] for row in client.get('/events').json()] == [str(event.id)]
+    strokes = [[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]]
+    unsigned = client.post(base + '/sds-sign', json={'expected_version': version(client, base), 'signature_strokes': strokes})
+    assert unsigned.status_code == 422 and 'Part 4' in unsigned.json()['detail']
+
+    filled = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
+    assert filled.status_code == 200, filled.text
+    text = '\n'.join(p.extract_text() for p in PdfReader(BytesIO(client.get(base + '/pdf').content)).pages)
+    assert '145:3' in text
+
+    signed = client.post(base + '/sds-sign', json={'expected_version': version(client, base), 'signature_strokes': strokes})
+    assert signed.status_code == 200, signed.text
+    text = '\n'.join(p.extract_text() for p in PdfReader(BytesIO(client.get(base + '/pdf').content)).pages)
+    assert '145:3' in text and 'SIGNED AND APPROVED BY SDS OFFICE' in text
+    late = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
+    assert late.status_code == 409

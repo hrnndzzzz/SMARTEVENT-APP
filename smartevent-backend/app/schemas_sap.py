@@ -157,9 +157,20 @@ COLLECTIONS = {'program-flow': ProgramItem, 'budget-items': BudgetItem,
                'support-requests': SupportRequest, 'affected-classes': AffectedClass}
 
 
-def validate_submission(details, collections, clearance):
-    d = Details.model_validate(details)
+def validate_clearance(clearance, collections):
+    """Part 4 is the SDS Office's own section, complete before it signs."""
     c = Clearance.model_validate(clearance)
+    if bool(collections.get('affected-classes')) != (c.class_interruption == 'yes'):
+        raise ValueError('SDS clearance must match declared class interruptions')
+    return c
+
+
+def validate_submission(details, collections, clearance):
+    """Parts 1-3, the proposer's. Part 4 is filled by the SDS Office during
+    review, so it is only checked here if it has already been filled in."""
+    d = Details.model_validate(details)
+    if clearance:
+        validate_clearance(clearance, collections)
     parsed = {key: [model.model_validate(row) for row in collections.get(key, [])]
               for key, model in COLLECTIONS.items()}
     if not parsed['program-flow']:
@@ -173,8 +184,6 @@ def validate_submission(details, collections, clearance):
         if (row.start.tzinfo or row.end.tzinfo or row.class_date != d.activity_date
                 or row.start >= row.end or row.start >= d.end_time or row.end <= d.start_time):
             raise ValueError('Affected classes must overlap the activity window')
-    if bool(parsed['affected-classes']) != (c.class_interruption == 'yes'):
-        raise ValueError('SDS clearance must match declared class interruptions')
     return d
 
 

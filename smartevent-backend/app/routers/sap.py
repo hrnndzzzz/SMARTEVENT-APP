@@ -14,7 +14,7 @@ from app.database import get_db
 from app.dependencies import require_active_account
 from app.models import User, DocumentRouting, Approval
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation, SAPAttachment, SAPReview
-from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS
+from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance
 from app.schemas_sap import (SAPProposalOut, SAPWorkflowOut, SAPAttachmentOut,
                              SAPDownloadOut, SAPVerificationOut)
 from app.services import sap, storage
@@ -25,6 +25,16 @@ from app.services.compliance import require_pre_activity_clearance
 router = APIRouter(prefix='/events/{event_id}/sap-proposal', tags=['SAP'])
 public_router = APIRouter(tags=['SAP verification'])
 logger = logging.getLogger(__name__)
+
+
+def _with_clearance(rev, proposal):
+    """The sent revision as the SDS Office sees it: Part 4 is theirs to fill
+    in while reviewing it, so the current revision takes the latest Part 4.
+    Revisions are frozen (sap_revision_immutable), which is why it is not
+    written back; the signed PDF is what records it."""
+    if rev.revision_no != proposal.revision_no:
+        return rev.snapshot
+    return {**rev.snapshot, 'clearance': proposal.clearance or rev.snapshot.get('clearance')}
 
 
 def _cleanup_upload(db, ref):
@@ -198,10 +208,15 @@ def sign_revision(event_id: UUID, payload: SDSReviewWrite, db: Session = Depends
     row = db.query(SAPReview).filter_by(revision_id=rev.id).first()
     if row and row.signed_at:
         raise HTTPException(409, 'This revision is already signed')
+    snapshot = _with_clearance(rev, proposal)
+    try:
+        validate_clearance(snapshot['clearance'], snapshot['collections'])
+    except ValueError as exc:
+        raise HTTPException(422, f'Complete Part 4 before signing: {exc}') from None
     overall = payload.overall_remarks if 'overall_remarks' in payload.model_fields_set else (row.overall_remarks if row else '')
     sections = payload.section_remarks if 'section_remarks' in payload.model_fields_set else (row.section_remarks if row else {})
     signer = user.full_name.strip() or user.email
-    signed_pdf = render_proposal(rev.snapshot, rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': overall, 'section_remarks': sections},
+    signed_pdf = render_proposal(snapshot, rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': overall, 'section_remarks': sections},
         signer_name=signer, signature_strokes=payload.signature_strokes, signed=True)
     if row is None:
         row = SAPReview(revision_id=rev.id)
@@ -228,7 +243,10 @@ def revise_signed(event_id: UUID, payload: ReturnWrite, db: Session = Depends(ge
 @router.put('/sds-clearance', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def clearance(event_id: UUID, payload: ClearanceWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
-    sap.check_version(proposal, payload.expected_version, editable=True)
+    sap.check_version(proposal, payload.expected_version)
+    # Part 4 is filled in while reviewing what was sent, up until signing.
+    if proposal.state not in {'draft', 'revision_requested', 'pending_sap_review'}:
+        raise HTTPException(409, 'Part 4 can no longer change once the revision is signed')
     proposal.clearance = payload.clearance.model_dump(mode='json')
     return sap.save(db, event, proposal, user, 'sap_clearance_updated')
 
@@ -327,7 +345,7 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
     if revision_no or (proposal.revision_no and not draft) or proposal.state not in {'draft', 'revision_requested'}:
         rev = sap.revision(db, proposal, revision_no)
         signed_review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
-        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else render_proposal(rev.snapshot, rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None)
+        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None)
         number = rev.revision_no
     else:
         try:

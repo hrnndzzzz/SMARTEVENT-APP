@@ -37,15 +37,12 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
     assert copies[0].uploaded_by == copies[1].uploaded_by
     assert copies[0].uploaded_at == copies[1].uploaded_at
     assert db.query(Notification).filter_by(kind='sap_workflow').count() == 4
-    # Fresh SDS clearance is required even when no details changed.
-    assert client.post(base + '/submit', json={'expected_version': result['version']}).status_code == 422
-    login('sds_staff')
-    assert client.put(base + '/sds-clearance', json={'expected_version': version(client, base),
-                      'clearance': fixture_data()['clearance']}).status_code == 200
-    login('treasurer')
+    # The old Part 4 does not carry over: the SDS Office fills a fresh one
+    # while reviewing the resubmission, before it can sign (see test_sap).
     resubmitted = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert resubmitted.status_code == 200, resubmitted.text
     assert resubmitted.json()['revision_no'] == 2
+    assert resubmitted.json()['clearance'] is None
     assert len(resubmitted.json()['attachments']) == 1
     db.refresh(rev)
     assert (rev.snapshot, rev.printable_pdf, rev.pdf_sha256, rev.verification_token) == saved
