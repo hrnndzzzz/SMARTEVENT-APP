@@ -43,4 +43,18 @@ void main() {
     expect(me.organizationId, isNull);
     expect(me.organizationName, isNull);
   });
+
+  test('a cached session keeps the organization name', () {
+    // The offline viewer stores the profile and reads it back. Dropping
+    // the name there loses it for the whole offline session, and only an
+    // Admin may look an organization id up.
+    final me = UserProfile.fromJson(
+      row({'organization_id': 'o1', 'organization_name': 'JPSSITE'}),
+    );
+
+    final restored = UserProfile.fromJson(me.toJson());
+
+    expect(restored.organizationName, 'JPSSITE');
+    expect(restored.organizationId, 'o1');
+  });
 }
