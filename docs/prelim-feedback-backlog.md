@@ -117,7 +117,7 @@ Where they are not already covered above.
 | G5 | Validate the UI with end users and adviser | not ours |
 | G6 | Registration confirmation and automatic admission | todo |
 | G7 | Printable and downloadable dashboard reports | **done** — D1–D3 are built |
-| G8 | A financial report per event | todo |
+| G8 | A financial report per event | **nearly done, unreachable** *(27 Oct)* — the backend route, `ReportsService.eventReport` / `exportEvent` and `AppState.loadEventReport` all exist; no screen opens any of them. It needs a screen and a button, not a feature |
 | G9 | Consolidated reports weekly, monthly, by school year | todo |
 | G10 | Receipt similarity detection, with stated criteria | todo |
 | G11 | A purpose on every receipt, tied to an event | todo |
@@ -154,9 +154,12 @@ Left, in the order worth doing it:
    back to. Worth filming.
 4. **F1, F4, F5** — the visual rework of the form. Real work. Do it only
    if the four above are finished.
-5. **G8, G9, G16, G18** — the report cuts: per event, consolidated,
-   by department and organisation, by school year and semester. These
-   are additive and none is started.
+5. **G8** — cheaper than it looks and worth promoting. Everything
+   under it is built; it needs a screen that shows what
+   `loadEventReport` already returns and a button on the event to open
+   it. Then **G9, G16, G18** — consolidated, by department and
+   organisation, by school year and semester — which are additive and
+   genuinely unstarted.
 6. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
    every receipt, source of funds, inventory classification.
 7. **G2, G3, G4, G6** — decisions and documentation rather than code.
