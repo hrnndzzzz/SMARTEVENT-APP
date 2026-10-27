@@ -13,6 +13,13 @@ Status is one of **done**, **in progress**, **todo**, or **blocked**
 (waiting on the backend). Priority is for the demonstration deadline:
 **P1** must be in the video, **P2** should be, **P3** after.
 
+**Re-checked 27 Oct 2026.** A lot had shipped since this was written and
+the list understated it — D1 to D6, E3, E4, B2, G13 and G15 were all
+marked todo and are built. More importantly F10 to F13 are no longer
+blocked: the states they needed now exist. Statuses below marked *(27
+Oct)* were confirmed against the code that day, not re-walked on the
+phone unless it says so.
+
 ---
 
 ## A. The demo and roles
@@ -32,12 +39,12 @@ A4 and A5 are what stand between us and filming the flow end to end.
 | # | What | Status | P |
 |---|---|---|---|
 | B1 | Event status says *which* stage: with the moderator, with SDS, and the rest | **done** | P1 |
-| B2 | "SmartEvent" wordmark clickable → dashboard; on the dashboard, an easter egg (screen pulses blue/green) | todo | P3 |
+| B2 | "SmartEvent" wordmark clickable → dashboard; on the dashboard, an easter egg (screen pulses blue/green) | **done** *(27 Oct)* | P3 |
 | B3 | "THU / OCT 22" larger, clearer, clickable → event planner | **done** | P2 |
 | B4 | "CITE · TREASURER" likewise → account info | **done** | P2 |
 | B5 | Notification button: the **bell** shakes, not the square; a new notice fills the box red, pulsing once | **done** | P2 |
 | B6 | Account avatar has square corners showing inside the circle — also on Edit profile | **done** | P2 |
-| B7 | Floating scan button overlaps the budget row *(found on device; spun off separately)* | in progress | P2 |
+| B7 | Floating scan button overlaps the budget row *(found on device; spun off separately)* | **still open** — seen again on device 27 Oct, the scan button sits over the allocated/spent row | P2 |
 
 ## C. Money
 
@@ -55,12 +62,12 @@ A4 and A5 are what stand between us and filming the flow end to end.
 
 | # | What | Status | P |
 |---|---|---|---|
-| D1 | Download becomes an icon button, bottom right, like the scan button | todo | P2 |
-| D2 | It opens a window showing the dashboard snapshot | todo | P2 |
-| D3 | PDF / CSV / print-ready as separate squared boxes | todo | P2 |
-| D4 | Four charts in a grid, each full screen and clickable for detail | todo | P2 |
-| D5 | Period, scope and org-analytics buttons in the same layout, each opening a window | todo | P2 |
-| D6 | Every window gets its own buttons | todo | P2 |
+| D1 | Download becomes an icon button, bottom right, like the scan button | **done** *(27 Oct)* | P2 |
+| D2 | It opens a window showing the dashboard snapshot | **done** *(27 Oct)* | P2 |
+| D3 | PDF / CSV / print-ready as separate squared boxes | **done** *(27 Oct)* | P2 |
+| D4 | Four charts in a grid, each full screen and clickable for detail | **done** *(27 Oct)* | P2 |
+| D5 | Period, scope and org-analytics buttons in the same layout, each opening a window | **done** *(27 Oct)* | P2 |
+| D6 | Every window gets its own buttons | **done** *(27 Oct)* | P2 |
 
 ## E. Elsewhere
 
@@ -68,8 +75,8 @@ A4 and A5 are what stand between us and filming the flow end to end.
 |---|---|---|---|
 | E1 | Flagged: sort by severity, date, priority | todo | P3 |
 | E2 | Proposal letters: upload button gets the D1 treatment | todo | P3 |
-| E3 | Search covers everything, and a search or a question lands you where you need to be | todo | P2 |
-| E4 | Floating menu: the orange marker gradients — filled on the outer edge, gradient on the inner, both sides gradient in the middle | todo | P2 |
+| E3 | Search covers everything, and a search or a question lands you where you need to be | **done** *(27 Oct)* — events, transactions, categories, inventory and screens | P2 |
+| E4 | Floating menu: the orange marker gradients — filled on the outer edge, gradient on the inner, both sides gradient in the middle | **done** *(27 Oct)* | P2 |
 
 ## F. Creating an event
 
@@ -86,13 +93,16 @@ Our professor called this cluttered. The largest piece of work on the list.
 | F7 | Two back buttons — remove one | todo | P2 |
 | F8 | The top back button asks: save as draft, cancel, go back | todo | P2 |
 | F9 | Steps swipeable between activity, support and breakdown | todo | P3 |
-| F10 | No new event while one is pending | **blocked** | P3 |
-| F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **blocked** | P3 |
-| F12 | A rejected event is editable against the marks, and resubmitted | **blocked** | P3 |
-| F13 | A `resubmitted` status, and events tagged as resubmissions | **blocked** | P3 |
+| F10 | No new event while one is pending | **todo** — never needed the backend; it is a guard on the events already loaded | P2 |
+| F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **todo** — `completed` and the evaluation route both exist now | P3 |
+| F12 | A rejected event is editable against the marks, and resubmitted | **todo** — `revision_requested` exists and submit bumps the revision | P2 |
+| F13 | A `resubmitted` status, and events tagged as resubmissions | **todo** — no such state, but `revision_no` above 1 already says it | P3 |
 
-F10–F13 need states the backend does not have. They are in
-`docs/sap-backend-asks.md` and in hrnndzzzz/SMARTEVENT-APP#9.
+F10–F13 were blocked when this was written. They are not any more. The
+SAP state list is now `draft, pending_sap_review, revision_requested,
+sds_signed, approved, completed, rejected`, a submit bumps `revision_no`,
+and withdrawal returns a proposal to draft — which is everything these
+four needed. F10 never needed the backend at all.
 
 ## G. The moderator's eighteen
 
@@ -106,15 +116,15 @@ Where they are not already covered above.
 | G4 | Confirm whether officers are view-only | todo |
 | G5 | Validate the UI with end users and adviser | not ours |
 | G6 | Registration confirmation and automatic admission | todo |
-| G7 | Printable and downloadable dashboard reports | partly — D1–D3 |
+| G7 | Printable and downloadable dashboard reports | **done** — D1–D3 are built |
 | G8 | A financial report per event | todo |
 | G9 | Consolidated reports weekly, monthly, by school year | todo |
 | G10 | Receipt similarity detection, with stated criteria | todo |
 | G11 | A purpose on every receipt, tied to an event | todo |
 | G12 | Source of funds: registration, donation, sponsorship | todo |
-| G13 | Inventory records linked to the event they are for | todo |
+| G13 | Inventory records linked to the event they are for | **done** *(27 Oct)* — items carry an event and the list badges "No event link" |
 | G14 | Classify inventory transactions: acquisition, purchase, other | todo |
-| G15 | Inventory updated only after a purchase completes | todo |
+| G15 | Inventory updated only after a purchase completes | **done** *(27 Oct)* — purchase completion creates the item as an unconfirmed draft |
 | G16 | Reports split by department and organisation, with filters | todo |
 | G17 | A school year on every event record | partly — Part 1 asks for it |
 | G18 | Financial reports by school year and semester | todo |
@@ -123,13 +133,35 @@ Where they are not already covered above.
 
 ## What this adds up to
 
-Twenty-three of our own items, eighteen of the moderator's, with overlap.
-That is days of work, not hours. For the demonstration the order is:
+**Re-counted 27 Oct, one week from the deadline.**
 
-1. **A4 and A5** — without them the roles cannot be filmed.
-2. **B1** — the status detail, which is the dashboard's weakest point and
-   the thing most visible in a video.
-3. **The visual work in B, C and E** — UI-UX is a scored category and it
-   is what reads on camera.
-4. **F1–F9** — real work, large, and only partly visible in a demo.
-5. **F10–F13** — blocked regardless.
+Everything in A, B and C is done except B7, and D and E are done except
+E1 and E2. What is genuinely left is F, the create-event rework our
+professor called cluttered, and the untouched half of the moderator's
+eighteen.
+
+Left, in the order worth doing it:
+
+1. **B7** — the scan button still sits over the allocated/spent row on
+   the dashboard. It is one of the first things on screen and it is on
+   camera in any demo.
+2. **F7, F8, F2, F3** — the small create-event fixes: one back button
+   instead of two, the back button asking before it discards, the
+   proposal date filled in, the off-campus agreement surfaced. Hours,
+   not days, and they answer "cluttered" directly.
+3. **F12** — a returned proposal being edited and resubmitted. Now
+   unblocked, and it is the one flow the moderator's feedback circles
+   back to. Worth filming.
+4. **F1, F4, F5** — the visual rework of the form. Real work. Do it only
+   if the four above are finished.
+5. **G8, G9, G16, G18** — the report cuts: per event, consolidated,
+   by department and organisation, by school year and semester. These
+   are additive and none is started.
+6. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
+   every receipt, source of funds, inventory classification.
+7. **G2, G3, G4, G6** — decisions and documentation rather than code.
+
+Not worth starting this week: F6, F9, E1, E2, F11, F13.
+
+The honest read: the demonstration can be filmed today. The list above
+is what would make it score better, not what makes it work.
