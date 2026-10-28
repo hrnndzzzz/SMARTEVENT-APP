@@ -10,6 +10,7 @@ from unittest.mock import Mock
 import pytest
 from docx import Document
 from pypdf import PdfReader
+from reportlab.pdfgen.canvas import Canvas
 
 from app.services import sap_pdf
 from app.services.sap_pdf import fill_form
@@ -163,3 +164,28 @@ def test_signed_form_prints_no_blank_page():
                    if line.strip() and not line.strip().isdigit()
                    and not line.startswith(('SAP revision', 'Verify:', 'SAS-SDS-FO-020', 'SIGNED AND APPROVED'))]
         assert content, f'page {number} is blank'
+
+
+def test_each_line_is_its_own_paragraph():
+    # A line break inside a justified cell stretches the line before it right across the cell.
+    data = fixture_data()
+    data['details']['rationale'] = 'First paragraph\nSecond paragraph'
+    data['collections']['program-flow'] = [{'start': '08:00', 'end': '09:00', 'activity': 'Opening'},
+                                           {'start': '09:00', 'end': '11:00', 'activity': 'Seminar'}]
+    doc = Document(BytesIO(fill_form(data)))
+    for label in ('Rationale:', 'Program Flow:'):
+        cell = sap_pdf._value_cell(doc.tables[2], label)
+        assert len(cell.paragraphs) == 2 and not cell._tc.xpath('.//w:br'), label
+
+
+def test_stamp_sits_between_the_form_body_and_words_footer():
+    # Word's body ends at y=72 (1in margin); its footer rule sits near y=57.
+    blank = BytesIO()
+    canvas = Canvas(blank, pagesize=(612, 792))
+    canvas.showPage()
+    canvas.save()
+    pdf = sap_pdf._stamp(blank.getvalue(), 1, 'https://example.org/sap/verify/x', False)
+    found = []
+    PdfReader(BytesIO(pdf)).pages[0].extract_text(
+        visitor_text=lambda text, cm, tm, *_: text.strip() and found.append((text, tm[5] * cm[3] + cm[5])))
+    assert found and all(60 <= y <= 66 for _, y in found), found

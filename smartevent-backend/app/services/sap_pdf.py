@@ -1,6 +1,7 @@
 """Render SAP data onto the controlled SAS-SDS-FO-020 form."""
 import re
 import subprocess
+from copy import deepcopy
 import tempfile
 import threading
 from io import BytesIO
@@ -64,9 +65,20 @@ def _value_cell(table, label):
 
 
 def _write(cell, value):
+    """One paragraph per line: a line break inside a justified cell stretches the line before it."""
     value = _clean(value)
-    if value:
-        cell.paragraphs[0].add_run(value)
+    if not value:
+        return
+    paragraph = cell.paragraphs[0]
+    for i, line in enumerate(value.splitlines()):
+        if i:
+            copy = deepcopy(paragraph._p)  # keeps the cell's alignment and spacing
+            for child in list(copy):
+                if child.tag != qn('w:pPr'):
+                    copy.remove(child)
+            paragraph._p.addnext(copy)
+            paragraph = DocxParagraph(copy, cell)
+        paragraph.add_run(line)
 
 
 def _mark(paragraphs, label):
@@ -308,9 +320,11 @@ def _watermark(canvas):
 def _footer(canvas, revision, verification_url, signed):
     canvas.saveState()
     canvas.setFont('Helvetica', 6)
-    canvas.drawString(72, 60, f'SAP revision {revision}' + (' | SDS signed' if signed else ' | Unsigned'))
+    line = f'SAP revision {revision}' + (' | SDS signed' if signed else ' | Unsigned')
     if verification_url:
-        canvas.drawString(72, 53, 'Verify: ' + verification_url)
+        line += ' | Verify: ' + verification_url
+    # One line between Word's body (ends at y=72) and its footer rule (near y=57).
+    canvas.drawString(72, 63, line)
     if signed:
         _watermark(canvas)
     canvas.restoreState()
