@@ -1,8 +1,12 @@
 """Render SAP data onto the controlled SAS-SDS-FO-020 form."""
+import re
 from io import BytesIO
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+from docx import Document
+from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph as DocxParagraph
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
@@ -11,6 +15,10 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, LongTable, 
 
 
 TEMPLATE = Path(__file__).parents[1] / 'templates' / 'SAS-SDS-FO-020-001-STUDENT-ACTIVITY-PROPOSAL-FORM-V.3.pdf'
+DOCX_TEMPLATE = TEMPLATE.with_suffix('.docx')
+_BOX = re.compile(r'\(\s*\)')
+_BLANK = re.compile(r'_{3,}')
+_NOT_XML = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
 BODY = ParagraphStyle('sap-body', fontName='Helvetica', fontSize=8, leading=9)
 SMALL = ParagraphStyle('sap-small', fontName='Helvetica', fontSize=7, leading=8)
 
@@ -27,6 +35,148 @@ def signature_slots(details):
         ('Applicable admins', 'Recommending Approval'),
         ('University President', 'Approved by'),
     )
+
+
+def _clean(value):
+    """Text Word can hold: no None, lists joined, and no control characters pasted in from other apps."""
+    if value is None:
+        return ''
+    if isinstance(value, (list, tuple)):
+        value = ', '.join(map(str, value))
+    return _NOT_XML.sub('', str(value).replace('\r\n', '\n'))
+
+
+def _key(label):
+    return re.sub(r'[^a-z0-9]+', '_', str(label).casefold()).strip('_')
+
+
+def _cells(row):
+    return list(dict.fromkeys(row.cells))  # merged cells repeat in row.cells
+
+
+def _value_cell(table, label):
+    """The cell right after the one labelled `label`, in the same row."""
+    for row in table.rows:
+        cells = _cells(row)
+        for i, cell in enumerate(cells[:-1]):
+            if cell.text.strip().startswith(label):
+                return cells[i + 1]
+    raise LookupError(label)
+
+
+def _write(cell, value):
+    value = _clean(value)
+    if value:
+        cell.paragraphs[0].add_run(value)
+
+
+def _mark(paragraphs, label):
+    """Turn the empty box before `label` into (X); the box may sit in an earlier run of the same paragraph."""
+    for p in paragraphs:
+        runs = p.runs
+        for i, run in enumerate(runs):
+            at = run.text.find(label)
+            if at < 0:
+                continue
+            for j in range(i, -1, -1):
+                boxes = list(_BOX.finditer(runs[j].text if j < i else run.text[:at]))
+                if boxes:
+                    b = boxes[-1]
+                    runs[j].text = runs[j].text[:b.start()] + '(X)' + runs[j].text[b.end():]
+                    return
+    raise LookupError(label)  # a changed template fails loudly instead of printing an unticked form
+
+
+def _tick_matching(paragraphs, labels, values):
+    """Tick each label one of `values` names; returns the values the form has no box for."""
+    wanted = {_key(v): v for v in (values if isinstance(values, (list, tuple)) else [values]) if v not in (None, '')}
+    for label in labels:
+        if wanted.pop(_key(label), None) is not None:
+            _mark(paragraphs, label)
+    return list(wanted.values())
+
+
+def _fill_blank(paragraphs, label, value):
+    """Write `value` over the first ____ after `label`. Returns False when the label is not there."""
+    value = _clean(value)
+    for p in paragraphs:
+        runs, start = p.runs, None
+        for i, run in enumerate(runs):
+            if start is None:
+                at = run.text.find(label)
+                if at < 0:
+                    continue
+                start = at + len(label)
+            blank = _BLANK.search(run.text, start)
+            start = 0
+            if blank:
+                run.text = run.text[:blank.start()] + value + run.text[blank.end():]
+                for after in runs[i + 1:]:  # the template splits some blanks over runs: QTY.:___ / _]
+                    rest = after.text.lstrip('_')
+                    if rest == after.text:
+                        break
+                    after.text = rest
+                    if rest:
+                        break
+                return True
+    return False
+
+
+def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None, signed=False):
+    """The official Word form with the proposal written into its cells, as .docx bytes."""
+    doc = Document(str(DOCX_TEMPLATE))
+    d, flow = snapshot['details'], (snapshot.get('collections') or {}).get('program-flow', [])
+    every = [DocxParagraph(p, doc._body) for p in doc.element.body.iter(qn('w:p'))]  # text boxes too
+    _fill_blank(every, 'S.Y.', d.get('school_year'))
+    _fill_blank(every, 'Date of Proposal:', d.get('proposal_date'))
+
+    _tick_matching(_value_cell(doc.tables[0], 'Department:').paragraphs,
+                   ('College', 'Alternative Education', 'Graduate Studies', 'Extensions Office', 'COM'),
+                   d.get('department_type'))
+    if d.get('setting') == 'off_campus' and d.get('off_campus_agreement'):
+        sign_box = _cells(doc.tables[1].rows[0])[0]
+        sign_box.paragraphs[0].insert_paragraph_before().add_run('X').bold = True
+
+    part1 = doc.tables[2]
+    value = lambda label: _value_cell(part1, label)
+    for label, key in (('Activity Title:', 'title'), ('Organization:', 'organization_name'),
+                       ('Activity Date:', 'activity_date'), ('Program/Course:', 'course'), ('Venue:', 'venue'),
+                       ('Department:', 'department'), ('Personnel-In-Charge:', 'persons_in_charge'),
+                       ('Attire:', 'attire'), ('No. of Students', 'expected_students'), ('Rationale:', 'rationale'),
+                       ('Objective/s:', 'objectives'), ('Emergency Plan:', 'emergency_plan'),
+                       ('Budget:', 'total_budget'), ('Source of Budget:', 'funding_source')):
+        _write(value(label), d.get(key))
+    _write(value('Time:'), f"{_clean(d.get('start_time'))} - {_clean(d.get('end_time'))}")
+    _write(value('Program Flow:'), '\n'.join(
+        f"{_clean(row.get('start'))} - {_clean(row.get('end'))}  {_clean(row.get('activity'))}" for row in flow))
+
+    _tick_matching(value('Modality:').paragraphs, ('Face-to-face', 'Online', 'Hybrid'), d.get('modality'))
+    setting_row = next(r for r in part1.rows if any(c.text.strip() == 'Setting:' for c in r.cells))
+    _tick_matching([p for c in _cells(setting_row) for p in c.paragraphs],
+                   ('In-Campus', 'Online', 'Off-Campus'),
+                   {'on_campus': 'In-Campus', 'off_campus': 'Off-Campus'}.get(d.get('setting'), d.get('setting')))
+    _tick_matching(value('Activity Type:').paragraphs,
+                   ('Co-Curricular', 'Extra-Curricular', 'Subject-Embedded/Academic'), d.get('activity_types'))
+    _tick_matching(value('Scope:').paragraphs,
+                   ('Organizational', 'Institutional', 'Regional', 'National', 'Departmental'), d.get('scope'))
+    programs = value('Program:').paragraphs
+    others = _tick_matching(programs, ('Team Building', 'Leadership Summit', 'General Assembly', 'Competition',
+                                       'Press Conference', 'Seminar/Convention'), d.get('program_types'))
+    if others:
+        _mark(programs, 'Others:')
+        named = [p for p in others if _key(p) != 'others']  # the app's bare "Others" choice has nothing to write
+        if named:
+            _fill_blank(programs, 'Others:', named)
+    _tick_matching(value('Applicable Augustinian Core Values:').paragraphs,
+                   ('Courage', 'Compassion', 'Community-Oriented', 'Humility', 'Interiority', 'Missionary Spirit'),
+                   d.get('core_values'))
+    egas = value('Expected Graduates Attribute:').paragraphs
+    for n in d.get('egas') or []:
+        _mark(egas, f'EGA {n}:')
+
+    out = BytesIO()
+    doc.save(out)
+    return out.getvalue()
 
 
 def _paragraph(value, style=BODY):
