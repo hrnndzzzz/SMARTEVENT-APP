@@ -6,7 +6,9 @@ from xml.sax.saxutils import escape
 
 from docx import Document
 from docx.oxml.ns import qn
+from docx.shared import Inches
 from docx.text.paragraph import Paragraph as DocxParagraph
+from PIL import Image, ImageDraw
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
@@ -97,8 +99,10 @@ def _tick_matching(paragraphs, labels, values):
 
 
 def _fill_blank(paragraphs, label, value):
-    """Write `value` over the first ____ after `label`. Returns False when the label is not there."""
+    """Write `value` over the first ____ after `label`. Returns False when there is nothing to write or no such blank."""
     value = _clean(value)
+    if not value:
+        return False  # an unanswered blank keeps its line on the paper
     for p in paragraphs:
         runs, start = p.runs, None
         for i, run in enumerate(runs):
@@ -120,6 +124,80 @@ def _fill_blank(paragraphs, label, value):
                         break
                 return True
     return False
+
+
+def _cell_with(table, text):
+    return next(c for row in table.rows for c in _cells(row) if text in c.text)
+
+
+# Support type -> (the form's label, the blank the quantity goes in, the blank the specify text goes in).
+_SUPPORT = {
+    'budget': ('BUDGET', None, 'BUDGET :'), 'vehicle': ('VEHICLE', 'NO. OF PASSENGER/S:', None),
+    'food': ('FOOD/SNACKS', 'NO. OF PAX:', None), 'room': ('ROOM/VENUE', None, 'ROOM/VENUE:'),
+    'sound': ('SOUND SYSTEM', None, None), 'microphone': ('MICROPHONE', 'QTY.:', None),
+    'projector': ('LCD PROJECTOR', None, None), 'chairs': ('CHAIRS AND TABLES', None, None),
+    'tables': ('CHAIRS AND TABLES', None, None), 'other': ('OTHERS:', None, None),
+    'diverse_needs': ('PROVISION FOR STUDENTS WITH DIVERSE NEEDS:', None, None),
+}
+
+
+def _fill_support(table, requests):
+    ticked = set()
+    for item in requests:
+        label, count_at, specify_at = _SUPPORT[item['type']]
+        cell = _cell_with(table, label)
+        if label not in ticked and _BOX.search(cell.text):  # OTHERS and DIVERSE NEEDS have no box
+            _mark(cell.paragraphs, label)
+            ticked.add(label)
+        quantity, specify = item.get('quantity'), _clean(item.get('specify'))
+        rest = []
+        if not (count_at and _fill_blank(cell.paragraphs, count_at, quantity)):
+            rest.append(f'Quantity: {quantity}')
+        if specify and not (specify_at and _fill_blank(cell.paragraphs, specify_at, specify)):
+            rest.append(specify)
+        if rest:
+            cell.add_paragraph(', '.join(rest))
+
+
+def _fill_clearance(table, snapshot):
+    c = snapshot.get('clearance') or {}
+    answers = {'yes': 'Yes', 'not_applicable': 'Not Applicable', 'none': 'None'}
+    for label, key in (('Consent Form', 'parents_consent'), ('Academic Class Interruption', 'class_interruption'),
+                       ('Medical Exam Request', 'medical_exam'), ('Report of Compliance', 'report_of_compliance')):
+        cell = _cell_with(table, label)
+        _tick_matching(cell.paragraphs, ('Yes', 'Not Applicable', 'None'), answers.get(c.get(key)))
+        if c.get(key + '_reason'):
+            cell.add_paragraph(_clean(c[key + '_reason']))
+    classes = _cell_with(table, 'Academic Class Interruption')
+    _fill_blank(classes.paragraphs, 'Remarks:', c.get('class_interruption_remarks'))
+    for row in (snapshot.get('collections') or {}).get('affected-classes', []):
+        classes.add_paragraph(_clean(f"{row.get('year_level', '')} | {row.get('subject', '')} | "
+                                     f"{row.get('class_date', '')} {row.get('start', '')}-{row.get('end', '')} | "
+                                     f"{row.get('professor', '')}"))
+    if snapshot['details'].get('excuse_arrangement'):
+        classes.add_paragraph(_clean(snapshot['details']['excuse_arrangement']))
+    _fill_blank(_cell_with(table, 'Student-Personnel Ratio').paragraphs, 'Ratio:', c.get('student_personnel_ratio'))
+    names = [a.get('file_name', a.get('display_name', '')) for a in snapshot.get('attachments') or []]
+    # Its blank is a line of its own under the label, so take the cell's first blank.
+    _fill_blank(_cell_with(table, 'Attachments:').paragraphs, '', [x for x in [c.get('attachments'), *names] if x])
+
+
+def _signature_png(strokes):
+    """The SDS signature, drawn the way _draw_signature draws it: x and y run 0 to 1 from the top left."""
+    width, height = 540, 52
+    image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(image)
+    for stroke in strokes:
+        points = [(p['x'] * (width - 1), p['y'] * (height - 1)) for p in stroke]
+        if len(points) == 1:
+            (x, y), = points
+            pen.ellipse((x - 2, y - 2, x + 2, y + 2), fill='black')
+        else:
+            pen.line(points, fill='black', width=3)
+    out = BytesIO()
+    image.save(out, 'PNG')
+    out.seek(0)
+    return out
 
 
 def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None, signed=False):
@@ -173,6 +251,37 @@ def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None
     egas = value('Expected Graduates Attribute:').paragraphs
     for n in d.get('egas') or []:
         _mark(egas, f'EGA {n}:')
+
+    _fill_support(doc.tables[3], (snapshot.get('collections') or {}).get('support-requests', []))
+    _fill_clearance(doc.tables[4], snapshot)
+    details_at = next(i for i, p in enumerate(doc.paragraphs) if p.text.startswith('OTHER DETAILS'))
+    if d.get('additional_information'):
+        doc.paragraphs[details_at + 1].add_run(_clean(d['additional_information']))
+
+    sds = _cell_with(doc.tables[5], 'SDS Coordinator')
+    if _remarks(review):
+        sds.add_paragraph(_clean('\n'.join(_remarks(review))))
+    if signed:
+        runs = [r for p in sds.paragraphs for r in p.runs]
+        name = runs[next(i for i, r in enumerate(runs) if r.text.startswith('SDS Coordinator')) - 1]
+        name.text = _clean(signer_name or 'SDS Staff')
+        if signature_strokes:
+            picture = DocxParagraph(name._r.getparent(), sds).add_run()
+            picture.add_picture(_signature_png(signature_strokes), width=Inches(1.9))
+            picture.add_break()
+            name._r.addprevious(picture._r)
+
+    budget = (snapshot.get('collections') or {}).get('budget-items', [])
+    if budget:
+        doc.add_page_break()
+        doc.add_paragraph().add_run('Budget breakdown').bold = True
+        table = doc.add_table(rows=1, cols=4, style='Table Grid')
+        for cell, heading in zip(table.rows[0].cells, ('Particulars', 'Quantity', 'Unit cost (PHP)', 'Amount (PHP)')):
+            cell.text = heading
+        for item in budget:
+            for cell, v in zip(table.add_row().cells, (item.get('particulars'), item.get('quantity', 1),
+                                                       item.get('unit_cost'), item.get('amount'))):
+                cell.text = _clean(v)
 
     out = BytesIO()
     doc.save(out)

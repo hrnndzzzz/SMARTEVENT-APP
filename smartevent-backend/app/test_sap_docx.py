@@ -61,3 +61,60 @@ def test_empty_values_leave_the_form_blank():
     doc = Document(BytesIO(fill_form(data)))
     assert cell_after(doc, 'Program Flow:') == ''
     assert cell_after(doc, 'Attire:') == ''
+
+
+def cell_with(doc, text):
+    return next(c for t in doc.tables for r in t.rows for c in r.cells if text in c.text)
+
+
+def test_support_requests_fill_their_blanks():
+    data = fixture_data()
+    data['collections']['support-requests'] = [
+        {'type': 'microphone', 'quantity': 3, 'specify': ''},
+        {'type': 'room', 'quantity': 1, 'specify': 'AVR 2'},
+        {'type': 'chairs', 'quantity': 40, 'specify': ''}, {'type': 'tables', 'quantity': 4, 'specify': ''},
+        {'type': 'other', 'quantity': 1, 'specify': 'Extension cords'}]
+    doc = Document(BytesIO(fill_form(data)))
+    text = docx_text(fill_form(data))
+    assert '(X) MICROPHONE [QTY.:3]' in text and 'ROOM/VENUE:AVR 2' in text
+    chairs = cell_with(doc, 'CHAIRS AND TABLES')
+    assert '(X) CHAIRS AND TABLES' in text and 'Quantity: 40' in chairs.text and 'Quantity: 4' in chairs.text
+    assert 'Extension cords' in cell_with(doc, 'OTHERS:').text
+
+
+def test_clearance_reasons_classes_and_other_details_stay_on_the_form():
+    data = fixture_data()
+    data['details']['additional_information'] = 'BEGIN ' + 'x ' * 1990 + 'END'
+    data['attachments'] = [{'file_name': 'roc.pdf'}]
+    doc = Document(BytesIO(fill_form(data)))
+    classes = cell_with(doc, 'Academic Class Interruption')
+    assert '(X) Yes' in classes.text and 'Remarks:Excuse letters required' in classes.text
+    assert 'Professor B' in classes.text and 'Provide letters to affected professors.' in classes.text
+    consent = cell_with(doc, 'Consent Form')
+    assert '(X) Not Applicable' in consent.text and 'Online activity' in consent.text
+    assert 'Ratio:145:3' in cell_with(doc, 'Student-Personnel Ratio').text
+    assert 'roc.pdf' in cell_with(doc, 'Attachments:').text
+    assert data['details']['additional_information'] in docx_text(fill_form(data))
+
+
+def test_signed_form_names_the_signer_and_holds_the_signature():
+    review = {'overall_remarks': 'Looks complete', 'section_remarks': {}}
+    doc = Document(BytesIO(fill_form(fixture_data(), review=review, signer_name='Ana Cruz', signed=True,
+                                     signature_strokes=[[{'x': 0, 'y': 0}, {'x': 1, 'y': 1}]])))
+    cell = cell_with(doc, 'SDS Coordinator')
+    assert 'Ana Cruz' in cell.text and 'Le-Mairre' not in cell.text
+    assert 'SDS: Looks complete' in cell.text
+    assert len(cell._tc.xpath('.//pic:pic')) == 1
+
+
+def test_unsigned_form_keeps_the_printed_coordinator():
+    cell = cell_with(Document(BytesIO(fill_form(fixture_data()))), 'SDS Coordinator')
+    assert 'Le-Mairre' in cell.text and not cell._tc.xpath('.//pic:pic')
+
+
+def test_budget_breakdown_is_the_only_thing_after_the_form():
+    data = fixture_data()
+    data['collections']['budget-items'] = [{'particulars': f'Line {i}', 'amount': '1.00'} for i in range(16)]
+    last = Document(BytesIO(fill_form(data))).tables[-1]
+    assert last.rows[0].cells[0].text == 'Particulars' and len(last.rows) == 17
+    assert [c.text for c in last.rows[16].cells] == ['Line 15', '1', '', '1.00']
