@@ -1,10 +1,17 @@
 """The Word form the printout is made from: every value lands in its own cell."""
 import re
+import subprocess
+import threading
+import time
 import zipfile
 from io import BytesIO
+from unittest.mock import Mock
 
+import pytest
 from docx import Document
+from pypdf import PdfReader
 
+from app.services import sap_pdf
 from app.services.sap_pdf import fill_form
 from app.test_sap import fixture_data
 
@@ -118,3 +125,41 @@ def test_budget_breakdown_is_the_only_thing_after_the_form():
     last = Document(BytesIO(fill_form(data))).tables[-1]
     assert last.rows[0].cells[0].text == 'Particulars' and len(last.rows) == 17
     assert [c.text for c in last.rows[16].cells] == ['Line 15', '1', '', '1.00']
+
+
+def test_conversion_failure_raises(monkeypatch):
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', Mock(side_effect=subprocess.TimeoutExpired('powershell', 120)))
+    with pytest.raises(RuntimeError, match='Could not convert'):
+        sap_pdf.docx_to_pdf(b'docx')
+
+
+def test_conversions_run_one_at_a_time(monkeypatch):
+    live = peak = 0
+
+    def fake_run(*args, **kwargs):
+        nonlocal live, peak
+        live += 1
+        peak = max(peak, live)
+        time.sleep(0.05)
+        live -= 1
+        raise subprocess.CalledProcessError(1, 'powershell')
+
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', fake_run)
+    threads = [threading.Thread(target=pytest.raises, args=(RuntimeError, sap_pdf.docx_to_pdf, b'x')) for _ in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert peak == 1
+
+
+def test_signed_form_prints_no_blank_page():
+    # The signature makes Part 5 taller; the template's trailing empty lines must not spill onto a page of their own.
+    pdf = sap_pdf.render_proposal(fixture_data(), 1, review={'overall_remarks': '', 'section_remarks': {}},
+                                  signer_name='SDS Staff', signed=True,
+                                  signature_strokes=[[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]])
+    for number, page in enumerate(PdfReader(BytesIO(pdf)).pages, 1):
+        content = [line for line in page.extract_text().splitlines()
+                   if line.strip() and not line.strip().isdigit()
+                   and not line.startswith(('SAP revision', 'Verify:', 'SAS-SDS-FO-020', 'SIGNED AND APPROVED'))]
+        assert content, f'page {number} is blank'

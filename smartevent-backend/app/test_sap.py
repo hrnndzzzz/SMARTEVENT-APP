@@ -226,17 +226,19 @@ def test_final_scan_requires_all_slots_and_valid_pdf(sap_system):
         assert response.status_code == expected, response.text
 
 
-def test_pdf_overflow_is_paginated_not_truncated():
+def test_long_text_stays_in_its_cell():
     data = fixture_data()
     data['details']['rationale'] = '\n'.join(['Long line'] * 150)
     data['collections']['budget-items'] = [{'particulars': f'Budget line {i}', 'amount': '1.00'} for i in range(16)]
     notes = {'overall_remarks': 'Detailed SDS remark. ' * 140, 'section_remarks': {}}
-    reader = PdfReader(BytesIO(render_proposal(data, 1, review=notes)))
-    text = '\n'.join(page.extract_text() for page in reader.pages)
-    assert len(reader.pages) > 3
+    pages = [page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1, review=notes))).pages]
+    text = '\n'.join(pages)
     assert text.count('Long line') == 150
-    # PDF extraction inserts line breaks inside wrapped sentences.
-    assert ' '.join(text.split()).count('Detailed SDS remark.') == 140
+    assert 'See addendum' not in text
+    assert 'Long line' in next(page for page in pages if 'Rationale:' in page)
+    # The remark fills the SDS signatory cell across a page break, where extraction interleaves the
+    # neighbouring signatories and the footer, so count its words rather than whole sentences.
+    assert text.count('Detailed') == 140 and text.count('remark.') == 140
     assert 'Budget line 15' in text
 
 
