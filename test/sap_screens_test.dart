@@ -170,6 +170,56 @@ void main() {
     );
   });
 
+  testWidgets('Part 1 saves the programme with the details', (tester) async {
+    final day = DateTime.now().add(const Duration(days: 60));
+    final aggregate = {
+      'id': 'p1',
+      'event_id': 'e1',
+      'state': 'draft',
+      'version': 3,
+      'revision_no': 0,
+      'details': {
+        'title': 'Hack the Future',
+        'activity_date': day.toIso8601String().substring(0, 10),
+        'start_time': '08:00:00',
+        'end_time': '11:00:00',
+        'setting': 'on_campus',
+      },
+      'collections': {
+        'program-flow': [
+          {'start': '08:00:00', 'end': '11:00:00', 'activity': 'Seminar'},
+        ],
+      },
+    };
+    final paths = <String>[];
+    final client = MockClient((request) async {
+      paths.add('${request.method} ${request.url.path}');
+      return http.Response(
+        jsonEncode(aggregate),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final form = SapForm(
+      eventId: 'e1',
+      service: SapService(ApiClient(httpClient: client)),
+    );
+    await form.load();
+
+    await tester.pumpWidget(host(SapPart1Screen(form: form)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final flow = paths.indexWhere(
+      (p) =>
+          p.startsWith('PUT ') &&
+          p.endsWith('/events/e1/sap-proposal/program-flow'),
+    );
+    expect(flow, isNot(-1), reason: 'sent: $paths');
+    expect(flow, greaterThan(paths.indexWhere((p) => p.startsWith('PATCH'))));
+  });
+
   testWidgets('Part 2 lists every support type the form has', (tester) async {
     await tester.pumpWidget(host(SapPart2Screen(form: blankForm())));
     await tester.pumpAndSettle();
