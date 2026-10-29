@@ -406,3 +406,25 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
     assert '145:3' in text and 'SIGNED AND APPROVED BY SDS OFFICE' in text
     late = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert late.status_code == 409
+
+
+def test_unchanged_proposal_pdf_renders_once(sap_system, monkeypatch):
+    # Word takes seconds per printout, and the app's offline sync downloads every proposal's PDF.
+    client, db, users, event, login, base = sap_system
+    renders = []
+    monkeypatch.setattr('app.routers.sap.render_proposal', lambda *args, **kwargs: renders.append(args[1]) or b'%PDF-1.4 rendered')
+    monkeypatch.setattr('app.services.sap.render_proposal', lambda *args, **kwargs: b'%PDF-1.4 submitted')
+    details = fixture_data()['details']
+    assert client.patch(base, json={'expected_version': version(client, base), 'details': details}).status_code == 200
+    for _ in range(2):
+        assert client.get(base + '/pdf?draft=true').content == b'%PDF-1.4 rendered'
+    assert renders == ['DRAFT']
+    # Every SAP change raises the version, so the next download shows it.
+    edited = details | {'title': 'Hack the Future 2'}
+    assert client.patch(base, json={'expected_version': version(client, base), 'details': edited}).status_code == 200
+    assert client.get(base + '/pdf?draft=true').status_code == 200
+    assert renders == ['DRAFT', 'DRAFT']
+    populate(sap_system)
+    for _ in range(2):
+        assert client.get(base + '/pdf').content == b'%PDF-1.4 rendered'
+    assert renders == ['DRAFT', 'DRAFT', 1]
