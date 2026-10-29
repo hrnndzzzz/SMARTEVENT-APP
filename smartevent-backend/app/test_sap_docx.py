@@ -1,10 +1,12 @@
 """The Word form the printout is made from: every value lands in its own cell."""
 import re
+import shutil
 import subprocess
 import threading
 import time
 import zipfile
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -86,7 +88,8 @@ def test_support_requests_fill_their_blanks():
     text = docx_text(fill_form(data))
     assert '(X) MICROPHONE [QTY.:3]' in text and 'ROOM/VENUE:AVR 2' in text
     chairs = cell_with(doc, 'CHAIRS AND TABLES')
-    assert '(X) CHAIRS AND TABLES' in text and 'Quantity: 40' in chairs.text and 'Quantity: 4' in chairs.text
+    # Chairs and tables share one box, so each count says which it is.
+    assert '(X) CHAIRS AND TABLES' in text and 'Chairs: 40' in chairs.text and 'Tables: 4' in chairs.text
     assert 'Extension cords' in cell_with(doc, 'OTHERS:').text
 
 
@@ -209,3 +212,64 @@ def test_signatories_stay_on_one_page():
     pages = [page.extract_text() for page in PdfReader(BytesIO(sap_pdf.render_proposal(data, 1))).pages]
     signatories = next(text for text in pages if 'Prepared by:' in text)
     assert 'University President' in signatories
+
+
+def test_a_timeout_kills_the_word_it_started(monkeypatch):
+    # Word runs outside powershell's process tree, so killing powershell on a timeout leaves Word running.
+    killed = []
+
+    def fake_run(args, **kwargs):
+        if args[0] == 'taskkill':
+            killed.append(args[args.index('/PID') + 1])
+            return Mock(returncode=0)
+        Path(re.search(r"Set-Content '([^']+)'", args[-1]).group(1)).write_text('4242')
+        raise subprocess.TimeoutExpired('powershell', 60)
+
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', fake_run)
+    with pytest.raises(RuntimeError, match='Could not convert'):
+        sap_pdf.docx_to_pdf(b'docx')
+    assert killed == ['4242']
+
+
+def test_a_held_temp_file_does_not_hide_the_conversion_error(monkeypatch):
+    # A hung Word keeps form.docx open; failing to clean up the folder must not replace the real error.
+    held = []
+
+    def fake_run(args, **kwargs):
+        if args[0] == 'taskkill':
+            return Mock(returncode=0)
+        held.append(open(re.search(r"Open\('([^']+)'", args[-1]).group(1), 'rb'))
+        raise subprocess.TimeoutExpired('powershell', 60)
+
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', fake_run)
+    try:
+        with pytest.raises(RuntimeError, match='Could not convert'):
+            sap_pdf.docx_to_pdf(b'docx')
+    finally:
+        for handle in held:
+            handle.close()
+            shutil.rmtree(Path(handle.name).parent, ignore_errors=True)
+
+
+def test_words_own_error_reaches_the_message(monkeypatch):
+    error = subprocess.CalledProcessError(1, 'powershell', stderr=b'New-Object : Class not registered')
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', Mock(side_effect=error))
+    with pytest.raises(RuntimeError, match='Class not registered'):
+        sap_pdf.docx_to_pdf(b'docx')
+
+
+def test_a_busy_printer_fails_fast_instead_of_queueing(monkeypatch):
+    monkeypatch.setattr(sap_pdf, '_WORD_WAIT', 0.05)
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', Mock(side_effect=subprocess.CalledProcessError(1, 'powershell')))
+    outcome = []
+    sap_pdf._WORD_LOCK.acquire()
+    try:
+        worker = threading.Thread(target=lambda: outcome.append(
+            pytest.raises(RuntimeError, sap_pdf.docx_to_pdf, b'x').value))
+        worker.start()
+        worker.join(timeout=2)
+        finished = not worker.is_alive()
+    finally:
+        sap_pdf._WORD_LOCK.release()
+        worker.join()
+    assert finished and 'busy' in str(outcome[0])

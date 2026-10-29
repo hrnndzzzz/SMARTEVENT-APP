@@ -161,7 +161,8 @@ def _fill_support(table, requests):
         quantity, specify = item.get('quantity'), _clean(item.get('specify'))
         rest = []
         if not (count_at and _fill_blank(cell.paragraphs, count_at, quantity)):
-            rest.append(f'Quantity: {quantity}')
+            shared = sum(entry[0] == label for entry in _SUPPORT.values()) > 1  # chairs and tables share a box
+            rest.append(f"{item['type'].title()}: {quantity}" if shared else f'Quantity: {quantity}')
         if specify and not (specify_at and _fill_blank(cell.paragraphs, specify_at, specify)):
             rest.append(specify)
         if rest:
@@ -355,28 +356,53 @@ def _remarks(review):
 
 
 _WORD_LOCK = threading.Lock()
+_WORD_WAIT = 30  # seconds a print waits for the one before it; a print takes about 5 s
+_WORD_TIMEOUT = 60  # wait + timeout stay under the app's 120 s patience, so its user sees this error
 # shortcut: needs Windows + Word; if the backend moves to Linux, swap in soffice --headless --convert-to pdf
+# COM starts Word outside powershell's process tree, so the script notes Word's process id for a timeout.
 _WORD_SCRIPT = (
+    "$before = @(Get-Process WINWORD -ErrorAction SilentlyContinue).Id; "
     "$w = New-Object -ComObject Word.Application; "
+    "@(Get-Process WINWORD -ErrorAction SilentlyContinue).Id | Where-Object {{ $before -notcontains $_ }} "
+    "| Set-Content '{pid}'; "
     "$w.Visible = $false; $w.DisplayAlerts = 0; "
     "try {{ $d = $w.Documents.Open('{src}', $false, $true); $d.ExportAsFixedFormat('{dst}', 17); $d.Close(0) }} "
-    "finally {{ $w.Quit() }}"
+    "finally {{ $w.Quit([ref]0) }}"  # 0: close without saving; Word's Quit takes it by reference
 )
+
+
+def _kill_word(pid_file):
+    """Best effort: stop the Word a timed-out conversion started, so hung copies cannot pile up."""
+    try:
+        for pid in pid_file.read_text().split():
+            subprocess.run(['taskkill', '/F', '/PID', pid], capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        pass  # the conversion has already failed; that is the error to report
 
 
 def docx_to_pdf(docx):
     """Word turns the filled form into a PDF, one document at a time."""
-    with tempfile.TemporaryDirectory() as folder, _WORD_LOCK:
-        src, dst = Path(folder) / 'form.docx', Path(folder) / 'form.pdf'
-        src.write_bytes(docx)
-        quoted = lambda path: str(path).replace("'", "''")  # PowerShell single-quoted string
-        try:
-            subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command',
-                            _WORD_SCRIPT.format(src=quoted(src), dst=quoted(dst))],
-                           timeout=120, check=True, capture_output=True)
-            return dst.read_bytes()
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise RuntimeError(f'Could not convert the SAP form to PDF: {exc}') from exc
+    # Bounded, because a waiting request holds a database connection and, for submit and sign, the event row.
+    if not _WORD_LOCK.acquire(timeout=_WORD_WAIT):
+        raise RuntimeError('SAP printing is busy with another form; try again in a minute.')
+    try:
+        # A Word that would not die can still hold form.docx; cleanup must not replace the real error.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            src, dst, pid = (Path(folder) / name for name in ('form.docx', 'form.pdf', 'word.pid'))
+            src.write_bytes(docx)
+            quoted = lambda path: str(path).replace("'", "''")  # PowerShell single-quoted string
+            try:
+                subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command',
+                                _WORD_SCRIPT.format(src=quoted(src), dst=quoted(dst), pid=quoted(pid))],
+                               timeout=_WORD_TIMEOUT, check=True, capture_output=True)
+                return dst.read_bytes()
+            except (OSError, subprocess.SubprocessError) as exc:
+                if isinstance(exc, subprocess.TimeoutExpired):
+                    _kill_word(pid)
+                said = (getattr(exc, 'stderr', None) or b'').decode(errors='replace').strip()[-300:]
+                raise RuntimeError(f'Could not convert the SAP form to PDF: {exc} {said}'.strip()) from exc
+    finally:
+        _WORD_LOCK.release()
 
 
 def _stamp(pdf, revision, verification_url, signed):
