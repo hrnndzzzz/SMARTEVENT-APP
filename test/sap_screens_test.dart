@@ -18,6 +18,7 @@ import 'package:smartevent/screens/sap/sap_part6_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
+import 'package:smartevent/theme/brut.dart';
 
 /// With no service the form is local-only, which is exactly the state the
 /// screens have to work in until the backend slice lands.
@@ -218,6 +219,60 @@ void main() {
     );
     expect(flow, isNot(-1), reason: 'sent: $paths');
     expect(flow, greaterThan(paths.indexWhere((p) => p.startsWith('PATCH'))));
+  });
+
+  testWidgets('Part 1 keeps typed text when saved on the way out', (
+    tester,
+  ) async {
+    final day = DateTime.now().add(const Duration(days: 60));
+    final aggregate = {
+      'id': 'p1',
+      'event_id': 'e1',
+      'state': 'draft',
+      'version': 3,
+      'revision_no': 0,
+      'details': {
+        'title': 'Hack the Future',
+        'activity_date': day.toIso8601String().substring(0, 10),
+        'start_time': '08:00:00',
+        'end_time': '11:00:00',
+        'setting': 'on_campus',
+      },
+      'collections': <String, dynamic>{},
+    };
+    final patches = <String>[];
+    final client = MockClient((request) async {
+      if (request.method == 'PATCH') patches.add(request.body);
+      return http.Response(
+        jsonEncode(aggregate),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final form = SapForm(
+      eventId: 'e1',
+      service: SapService(ApiClient(httpClient: client)),
+    );
+    await form.load();
+
+    await tester.pumpWidget(host(SapPart1Screen(form: form)));
+    await tester.pumpAndSettle();
+    final rationale = find.descendant(
+      of: find.ancestor(
+        of: find.text('RATIONALE'),
+        matching: find.byType(BrutTextField),
+      ),
+      matching: find.byType(TextField),
+    );
+    await tester.ensureVisible(rationale);
+    await tester.enterText(rationale, 'Typed after the last save');
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save as draft'));
+    await tester.pumpAndSettle();
+
+    expect(patches, hasLength(1));
+    expect(patches.single, contains('Typed after the last save'));
   });
 
   testWidgets('Part 2 lists every support type the form has', (tester) async {

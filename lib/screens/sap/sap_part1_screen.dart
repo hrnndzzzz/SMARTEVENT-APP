@@ -161,8 +161,10 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
   /// The details and the programme are separate endpoints. Stop at the
   /// first failure rather than send the second at a version the server
-  /// has already rejected.
+  /// has already rejected. Collects first, so saving on the way out keeps
+  /// what was typed since the last save too.
   Future<bool> _saveAll() async {
+    _collect();
     for (final save in [_form.saveDetails, _form.saveProgramFlow]) {
       if (!await save()) return false;
     }
@@ -170,7 +172,6 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
   }
 
   Future<void> _save() async {
-    _collect();
     final ok = await _saveAll();
     if (!mounted) return;
     if (ok) {
