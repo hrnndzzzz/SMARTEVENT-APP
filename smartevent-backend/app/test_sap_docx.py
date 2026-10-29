@@ -189,3 +189,23 @@ def test_stamp_sits_between_the_form_body_and_words_footer():
     PdfReader(BytesIO(pdf)).pages[0].extract_text(
         visitor_text=lambda text, cm, tm, *_: text.strip() and found.append((text, tm[5] * cm[3] + cm[5])))
     assert found and all(60 <= y <= 66 for _, y in found), found
+
+
+def test_signatories_stay_on_one_page():
+    # The paper starts Part 5 on a page of its own; long Parts 1-4 must not split the signatory table.
+    data = fixture_data()
+    data['details']['rationale'] = ('This seminar builds awareness of responsible digital citizenship '
+                                    'and ethical hacking among students. ' * 20)[:1800]
+    data['details']['objectives'] = 'Understand digital safety. Practise safe password habits. Recognise phishing attempts.'
+    data['collections']['program-flow'] = [
+        {'start': '08:00:00', 'end': '08:15:00', 'activity': 'Opening prayer and national anthem'},
+        {'start': '08:15:00', 'end': '08:30:00', 'activity': 'Welcome remarks'},
+        {'start': '08:30:00', 'end': '09:30:00', 'activity': 'Talk 1: Threats students face online'},
+        {'start': '09:30:00', 'end': '10:15:00', 'activity': 'Talk 2: Ethical hacking as a career'},
+        {'start': '10:15:00', 'end': '10:45:00', 'activity': 'Open forum'},
+        {'start': '10:45:00', 'end': '11:00:00', 'activity': 'Closing remarks and photo'}]
+    data['collections']['support-requests'] = [{'type': 'microphone', 'quantity': 2, 'specify': ''},
+                                               {'type': 'projector', 'quantity': 1, 'specify': ''}]
+    pages = [page.extract_text() for page in PdfReader(BytesIO(sap_pdf.render_proposal(data, 1))).pages]
+    signatories = next(text for text in pages if 'Prepared by:' in text)
+    assert 'University President' in signatories

@@ -280,6 +280,15 @@ def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None
             picture.add_break()
             name._r.addprevious(picture._r)
 
+    # On paper Part 5 starts a new page, pushed there by empty lines; once Parts 1-4 grow those lines
+    # land mid-page and split the signatory table. Drop them and break the page instead.
+    heading = doc.tables[5]._tbl.getprevious()  # "Part 5: University Clearance (Signatories)"
+    spacer = heading.getprevious()
+    while spacer is not None and spacer.tag == qn('w:p') and not ''.join(spacer.itertext()).strip():
+        spacer, gone = spacer.getprevious(), spacer
+        gone.getparent().remove(gone)
+    DocxParagraph(heading, doc._body).paragraph_format.page_break_before = True
+
     # The template ends with empty lines after Part 6; once Part 5 grows they spill onto a blank page.
     # Word needs one paragraph after the last table, so keep one and make it 1pt tall.
     trailing = [el for el in doc.tables[-1]._tbl.itersiblings(qn('w:p')) if not ''.join(el.itertext()).strip()]
