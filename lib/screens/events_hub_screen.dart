@@ -93,7 +93,7 @@ class EventsHubScreen extends StatelessWidget {
 /// Band one. It is the create button for whoever may propose, and the
 /// state of the newest proposal for everyone else — an Officer has no
 /// create button anywhere in this app, and one here would only collect a
-/// 403.
+/// 403. While the newest proposal is a draft, it is the way back into it.
 class _CreateBand extends StatelessWidget {
   const _CreateBand({required this.canPropose, required this.latest});
 
@@ -133,22 +133,34 @@ class _CreateBand extends StatelessWidget {
     };
   }
 
+  /// The newest event, when it is a draft to carry on with.
+  EventItem? get _draft =>
+      latest?.status == EventApprovalStatus.draft ? latest : null;
+
   /// Straight into the form. Filling it in is how an event gets made:
   /// the record is a consequence of Part 1, not a separate thing to ask
   /// for first. The event is created on the way out of that part, so
   /// nothing exists until there is a title and a date for it.
+  ///
+  /// A draft is the exception. The band names it, so tapping carries on
+  /// with it, whoever in the organization began it, rather than starting
+  /// a second proposal beside it.
   void _open(BuildContext context) {
     if (!canPropose) return;
     final app = context.read<AppState>();
     SapProposalFlow.start(
       context,
-      SapForm(service: app.isDemoMode ? null : app.sapService),
+      SapForm(
+        eventId: _draft?.remoteId,
+        service: app.isDemoMode ? null : app.sapService,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final (headline, detail) = _state;
+    final continues = _draft != null;
     final fill = BrutTone.brand.fill(context);
     final on = context.foregroundOn(fill);
 
@@ -161,7 +173,9 @@ class _CreateBand extends StatelessWidget {
       },
       behavior: HitTestBehavior.opaque,
       child: Semantics(
-        label: canPropose ? 'Create an event' : headline,
+        label: canPropose
+            ? (continues ? 'Continue the draft' : 'Create an event')
+            : headline,
         button: canPropose,
         child: Container(
           decoration: BoxDecoration(
@@ -199,7 +213,9 @@ class _CreateBand extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        canPropose ? 'Create\nevent' : 'Latest\nproposal',
+                        canPropose
+                            ? (continues ? 'Continue\ndraft' : 'Create\nevent')
+                            : 'Latest\nproposal',
                         style: AppText.display.copyWith(
                           fontSize: 34,
                           height: 1.0,
