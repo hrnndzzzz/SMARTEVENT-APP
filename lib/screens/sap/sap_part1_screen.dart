@@ -23,6 +23,7 @@ class SapPart1Screen extends StatefulWidget {
     required this.form,
     this.step,
     this.onContinue,
+    this.onCreateEvent,
   });
 
   final SapForm form;
@@ -37,6 +38,12 @@ class SapPart1Screen extends StatefulWidget {
 
   /// What to do after this part saves, when it is one of three.
   final Future<void> Function(BuildContext)? onContinue;
+
+  /// Makes the event this proposal belongs to, when there is none yet.
+  /// A draft is kept on the server, and until the event exists there is
+  /// nowhere there to keep it. False when it was not made; the reason
+  /// has been shown already.
+  final Future<bool> Function(BuildContext)? onCreateEvent;
 
   /// The department-type boxes on the paper, spelled the way the PDF
   /// matches them when it ticks one. Every department the system has is
@@ -306,6 +313,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     final leaving = await LeaveProposal.confirm(
       context,
       save: () async {
+        if (widget.onCreateEvent case final create?) {
+          // It is made from what this part says, typed text included.
+          _collect();
+          if (!await create(context)) return false;
+        }
         final ok = await _saveAll();
         if (!context.mounted) return ok;
         if (!ok) {

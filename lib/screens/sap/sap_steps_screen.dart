@@ -94,6 +94,7 @@ class _SapStepsScreenState extends State<SapStepsScreen> {
         SapPart1Screen(
           form: widget.form,
           step: ProposalSteps.activity,
+          onCreateEvent: _ensureEvent,
           onContinue: (partContext) async {
             if (!await _ensureEvent(partContext)) return;
             if (!partContext.mounted) return;

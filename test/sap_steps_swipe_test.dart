@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/screens/sap/sap_steps_screen.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
+import 'package:smartevent/theme/brut.dart';
 
 /// The three steps are one screen with three pages.
 ///
@@ -155,6 +156,67 @@ void main() {
     }
 
     expect(attempts, 2);
+  });
+
+  testWidgets('saving a draft before there is an event makes one first', (
+    tester,
+  ) async {
+    // A draft is kept on the server or not at all, and until the event
+    // exists there is nowhere there to keep it. Saving one used to report
+    // success and keep nothing.
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    final form = SapForm();
+    String? madeFrom;
+    await tester.pumpWidget(
+      host(form, onCreate: () => madeFrom = form.details.title),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('ACTIVITY TITLE'),
+          matching: find.byType(BrutTextField),
+        ),
+        matching: find.byType(TextField),
+      ),
+      'Hack the Future',
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save as draft'));
+    await tester.pumpAndSettle();
+
+    expect(madeFrom, 'Hack the Future');
+    expect(form.hasEvent, isTrue);
+  });
+
+  testWidgets('and one that cannot be made keeps you on the activity', (
+    tester,
+  ) async {
+    // No title or date yet, say. Leaving then would lose what was typed,
+    // with nothing on the server to come back to.
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light(), home: const Text('Events')),
+    );
+    tester.state<NavigatorState>(find.byType(Navigator)).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SapStepsScreen(
+          form: SapForm(),
+          onCreateEvent: (_) async => false,
+          onSubmit: (_) async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save as draft'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Activity Details'), findsOneWidget);
   });
 
   testWidgets('all three exist at once, not pushed one at a time', (
