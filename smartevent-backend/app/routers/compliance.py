@@ -203,7 +203,7 @@ def set_vehicle_active(event_id: uuid.UUID, vehicle_id: uuid.UUID, payload: Acti
 
 
 @router.post("/compliance/{record_id}/upload")
-async def upload_student_document(event_id: uuid.UUID, record_id: uuid.UUID,
+def upload_student_document(event_id: uuid.UUID, record_id: uuid.UUID,
                                   version: int = Form(ge=1), file: UploadFile = File(...),
                                   db: Session = Depends(get_db), user: User = Depends(staff)):
     event = event_for_compliance(db, event_id, user, write=True)
@@ -212,7 +212,7 @@ async def upload_student_document(event_id: uuid.UUID, record_id: uuid.UUID,
     requirement = db.get(EventRequirement, row.requirement_id)
     if not participant.is_active or participant.participation_mode != "attending" or requirement.phase != "pre_activity" or row.version != version:
         raise HTTPException(409, "Refresh the active participant's pre-activity record before uploading")
-    reference = await store_document(file, user.id, event.organization_id)
+    reference = store_document(file, user.id, event.organization_id)
     previous = row.document_url
     replace_submission(row, reference, user.id)
     save(db, event, user, "student_document_uploaded", {"record_id": str(row.id), "version": row.version, "previous_reference": previous})
@@ -238,7 +238,7 @@ def student_document_file(event_id: uuid.UUID, record_id: uuid.UUID, db: Session
 
 
 @router.post("/compliance-documents", status_code=201)
-async def upload_event_document(event_id: uuid.UUID, kind: str = Form(...), reference_number: str = Form(min_length=1, max_length=150),
+def upload_event_document(event_id: uuid.UUID, kind: str = Form(...), reference_number: str = Form(min_length=1, max_length=150),
                                 vehicle_id: uuid.UUID | None = Form(default=None), valid_until: date | None = Form(default=None),
                                 version: int = Form(default=0, ge=0), file: UploadFile = File(...),
                                 db: Session = Depends(get_db), user: User = Depends(proposer)):
@@ -256,7 +256,7 @@ async def upload_event_document(event_id: uuid.UUID, kind: str = Form(...), refe
     row = db.query(EventComplianceDocument).filter_by(event_id=event.id, document_key=key).first()
     if (row.version if row else 0) != version:
         raise HTTPException(409, "The document changed; refresh before replacing it")
-    reference = await store_document(file, user.id, event.organization_id)
+    reference = store_document(file, user.id, event.organization_id)
     previous = row.document_url if row else None
     if row is None:
         row = EventComplianceDocument(event_id=event.id, vehicle_id=vehicle_id, kind=kind, document_key=key, version=0)

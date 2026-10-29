@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 from decimal import Decimal
 from types import SimpleNamespace
@@ -60,12 +59,12 @@ def test_foreign_expense_state_is_not_disclosed_to_reviewer(system, action):
 
 def test_receipt_reader_bounds_memory_before_image_processing(monkeypatch):
     reads = []
-    async def read(size):
+    def read(size):
         reads.append(size)
         return b"x" * size
     monkeypatch.setattr("app.routers.expenses.prepare_image_for_upload", lambda raw: pytest.fail("must reject oversized images first"))
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(_read_receipt_image(SimpleNamespace(content_type="image/jpeg", read=read)))
+        _read_receipt_image(SimpleNamespace(content_type="image/jpeg", file=SimpleNamespace(read=read)))
     assert exc.value.status_code == 400
     assert reads == [10 * 1024 * 1024 + 1]
 

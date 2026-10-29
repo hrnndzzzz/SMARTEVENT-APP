@@ -29,7 +29,7 @@ def _assert_letter_scope(db: Session, user: User, event: Event) -> None:
 
 
 @router.post("", response_model=EventProposalLetterOut, status_code=status.HTTP_201_CREATED)
-async def upload_proposal_letter_route(
+def upload_proposal_letter_route(
     event_id: uuid.UUID = Form(...),
     title: str = Form(..., min_length=1, max_length=200),
     file: UploadFile = File(...),
@@ -54,7 +54,7 @@ async def upload_proposal_letter_route(
             ),
         )
 
-    raw_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
+    raw_bytes = file.file.read(MAX_UPLOAD_BYTES + 1)
     if not raw_bytes or len(raw_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

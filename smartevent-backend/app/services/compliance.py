@@ -147,10 +147,10 @@ def invalidate_clearance(db, event):
         row.validity_confirmed = False
 
 
-async def store_document(file, owner_id, organization_id):
+def store_document(file, owner_id, organization_id):
     if organization_id is None:
         raise HTTPException(409, "Assign the event to an organization first")
-    raw = await file.read(MAX_UPLOAD_BYTES + 1)
+    raw = file.file.read(MAX_UPLOAD_BYTES + 1)
     if not raw or len(raw) > MAX_UPLOAD_BYTES:
         raise HTTPException(400, "File must be between 1 byte and 10 MB")
     content_type = file.content_type
