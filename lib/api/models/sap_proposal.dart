@@ -885,6 +885,8 @@ class SapProposal {
     this.clearance,
     this.evaluation,
     this.returnRemarks,
+    this.sdsRemarks = '',
+    this.sdsSectionRemarks = const {},
   });
 
   final String id;
@@ -914,6 +916,11 @@ class SapProposal {
 
   final SapEvaluation? evaluation;
   final String? returnRemarks;
+
+  /// What the SDS Office last saved against the current revision, signed
+  /// or not. Empty until it saves something.
+  final String sdsRemarks;
+  final Map<SapRemarkSection, String> sdsSectionRemarks;
 
   bool get isProposerEditable => state?.isProposerEditable ?? false;
 
@@ -962,7 +969,17 @@ class SapProposal {
             Map<String, dynamic>.from(json['evaluation'] as Map),
           ),
     returnRemarks: json['return_remarks'] as String?,
+    sdsRemarks: (_review(json)['overall_remarks'] as String?) ?? '',
+    sdsSectionRemarks: {
+      for (final MapEntry(:key, :value)
+          in ((_review(json)['section_remarks'] as Map?) ?? const {}).entries)
+        ?SapRemarkSection.fromWire(key as String): value as String,
+    },
   );
+
+  /// The server's `sds_review`, empty until the office has saved one.
+  static Map _review(Map<String, dynamic> json) =>
+      json['sds_review'] is Map ? json['sds_review'] as Map : const {};
 
   /// One collection out of the nested `collections` object.
   static List<Map<String, dynamic>> _rows(Map<String, dynamic> json, String key) {

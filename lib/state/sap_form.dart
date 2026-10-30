@@ -219,6 +219,10 @@ class SapForm extends ChangeNotifier {
   void _adopt(SapProposal p, {bool keepEdits = false}) {
     _proposal = p;
     _clearance = p.clearance;
+    // Every screen opens a fresh form, so these come from the server or
+    // the review screen starts blank and signing sends the blanks.
+    overallRemarks = p.sdsRemarks;
+    sectionRemarks = {...p.sdsSectionRemarks};
     _stale = false;
     if (keepEdits) return;
     _details = p.details;

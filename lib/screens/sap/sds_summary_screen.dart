@@ -17,10 +17,25 @@ import 'sds_sign_screen.dart';
 /// So: the whole thing on one screen, in the order the decision is made,
 /// with the two actions at the bottom and the full form one tap away for
 /// anything this leaves out.
-class SdsSummaryScreen extends StatelessWidget {
+class SdsSummaryScreen extends StatefulWidget {
   const SdsSummaryScreen({super.key, required this.form});
 
   final SapForm form;
+
+  @override
+  State<SdsSummaryScreen> createState() => _SdsSummaryScreenState();
+}
+
+class _SdsSummaryScreenState extends State<SdsSummaryScreen> {
+  SapForm get form => widget.form;
+
+  @override
+  void initState() {
+    super.initState();
+    // The list hands over a form nobody has loaded. Only the full form
+    // loaded it, so this read blank until that had been opened once.
+    form.load();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +75,12 @@ class SdsSummaryScreen extends StatelessWidget {
                   )
                 : null,
           ),
-          child: Column(
+          child: form.loading
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: BrutSpinner()),
+                )
+              : Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
