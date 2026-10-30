@@ -1,5 +1,11 @@
 """Shared academic-year validation for request bodies and report filters."""
 import re
+from datetime import datetime, timedelta, timezone
+
+
+def institution_today():
+    """Today in Manila, whatever clock the server runs on."""
+    return datetime.now(timezone(timedelta(hours=8))).date()
 
 
 def validate_school_year(value: str) -> str:

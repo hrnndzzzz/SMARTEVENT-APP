@@ -59,6 +59,17 @@ def test_nonproposer_cannot_withdraw(sap_system, role):
     assert client.post(base + '/withdraw', json={'expected_version': submitted['version']}).status_code == 403
 
 
+def test_officer_proposer_can_withdraw_own_proposal(sap_system):
+    client, db, users, event, login, base = sap_system
+    users['officer'].position = 'President'
+    event.proposed_by = users['officer'].id
+    db.commit()
+    submitted = populate(sap_system, proposer='officer')
+    response = client.post(base + '/withdraw', json={'expected_version': submitted['version']})
+    assert response.status_code == 200, response.text
+    assert response.json()['state'] == 'draft'
+
+
 @pytest.mark.parametrize('review', ['empty_notes', 'notes', 'checkpoint', 'signature'])
 def test_any_sds_review_blocks_withdrawal(sap_system, review):
     populate(sap_system)

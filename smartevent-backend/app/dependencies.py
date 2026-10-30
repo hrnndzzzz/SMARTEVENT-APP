@@ -42,6 +42,7 @@ OFFICER_PROPOSAL_WRITES = {
     ("PUT", "/events/{event_id}/sap-proposal/{collection}"),
     ("POST", "/events/{event_id}/sap-proposal/attachments"),
     ("POST", "/events/{event_id}/sap-proposal/submit"),
+    ("POST", "/events/{event_id}/sap-proposal/withdraw"),
 }
 
 

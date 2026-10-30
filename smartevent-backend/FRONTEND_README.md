@@ -397,7 +397,6 @@ not touch historical quantity. Keep legacy repair in an administrator-only secti
 | Category report | `GET /reports/category/{category_id}` | Category totals/budget data. |
 | Event financial report | `GET /reports/event/{event_id}` | Income, approved-spending total, balance, fund sources, receipts, expenses and withheld-income figures. |
 | Consolidated report | `GET /reports/financial` | Required `period`, optional filters described below. |
-| Existing consolidated PDF | `GET /reports/financial.pdf` | Same period/filter contract; can use generic exports instead for a consistent UI. |
 | Export discovery | `GET /analytics/dashboard/exports` | Supported MIME types and relative URL templates; prepend configured API base URL. |
 | Dashboard download/print | `GET /reports/dashboard/export` | Query `format=pdf`, `csv`, or `html`. |
 | Event download/print | `GET /reports/event/{event_id}/export` | Same format choices. |

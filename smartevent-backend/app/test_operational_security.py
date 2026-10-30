@@ -202,7 +202,7 @@ def test_repeated_catalog_purchase_lines_apply_once_and_guard_combined_stock(sys
 def test_report_downloads_and_filters_protect_financial_data(system):
     client, db, users, orgs, resources, login = system
     login("officer")
-    response = client.get("/reports/financial.pdf?period=school_year&school_year=2026-2027")
+    response = client.get("/reports/financial/export?period=school_year&school_year=2026-2027&format=pdf")
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-content-type-options"] == "nosniff"

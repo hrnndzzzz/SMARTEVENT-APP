@@ -221,7 +221,7 @@ Event reports contain every recorded income entry with its receipt review status
 The reports are not substitutes for checking original financial evidence.
 
 Existing exports remain `/reports/event/{event_id}/export?format=pdf|csv|html`,
-`/reports/financial/export?period=...&format=...`, and `/reports/financial.pdf`.
+and `/reports/financial/export?period=...&format=...`.
 Reuse `/analytics/dashboard/exports` discovery and the byte-download/printing
 instructions in `CORE_SYSTEM_FEATURES.md`.
 

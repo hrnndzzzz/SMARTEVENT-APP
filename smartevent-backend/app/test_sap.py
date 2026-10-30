@@ -54,10 +54,10 @@ def version(client, base):
     return response.json()['version']
 
 
-def populate(ctx, data=None):
+def populate(ctx, data=None, proposer='treasurer'):
     client, db, users, event, login, base = ctx
     data = data or fixture_data()
-    login('treasurer')
+    login(proposer)
     result = client.patch(base, json={'expected_version': version(client, base), 'details': data['details']})
     assert result.status_code == 200, result.text
     for key, items in data['collections'].items():
@@ -66,7 +66,7 @@ def populate(ctx, data=None):
     login('sds_staff')
     result = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert result.status_code == 200, result.text
-    login('treasurer')
+    login(proposer)
     result = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert result.status_code == 200, result.text
     return result.json()
