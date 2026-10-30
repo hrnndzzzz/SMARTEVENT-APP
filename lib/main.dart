@@ -20,6 +20,7 @@ import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
 import 'widgets/page_indicator.dart';
+import 'widgets/record_button.dart';
 
 void main() async {
   // Portrait only. Every screen is laid out as one column at phone
@@ -250,14 +251,31 @@ class _RootShellState extends State<RootShell> {
                 ],
               ),
             ),
-            PageIndicator(
-              current: _page,
-              labels: const ['Menu', 'Dashboard', 'Events'],
-              onGo: (i) => _pages.animateToPage(
-                i,
-                duration: AppMotion.sheet,
-                curve: Curves.easeOutCubic,
-              ),
+            // The record button is docked to the bar rather than floating
+            // over the dashboard. Floating, it covered the allocated and
+            // spent figures whenever the screen sat at rest; here it
+            // overlaps the navigation it rises out of and nothing that
+            // carries a number. Only on the dashboard, and only for
+            // whoever may record money.
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                PageIndicator(
+                  current: _page,
+                  labels: const ['Menu', 'Dashboard', 'Events'],
+                  onGo: (i) => _pages.animateToPage(
+                    i,
+                    duration: AppMotion.sheet,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
+                if (_page == 1 && context.watch<AppState>().mayRecordFinance)
+                  Positioned(
+                    top: -RecordButton.overlap,
+                    child: const RecordButton(),
+                  ),
+              ],
             ),
           ],
         ),

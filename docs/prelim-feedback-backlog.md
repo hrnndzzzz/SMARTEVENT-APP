@@ -44,7 +44,7 @@ A4 and A5 are what stand between us and filming the flow end to end.
 | B4 | "CITE · TREASURER" likewise → account info | **done** | P2 |
 | B5 | Notification button: the **bell** shakes, not the square; a new notice fills the box red, pulsing once | **done** | P2 |
 | B6 | Account avatar has square corners showing inside the circle — also on Edit profile | **done** | P2 |
-| B7 | Floating scan button overlaps the budget row *(found on device; spun off separately)* | **still open** — seen again on device 27 Oct, the scan button sits over the allocated/spent row | P2 |
+| B7 | Floating scan button overlaps the budget row *(found on device; spun off separately)* | **done** *(30 Oct)* — docked to the navigation bar instead of floating; a test measures it against every dashboard figure | P2 |
 
 ## C. Money
 
@@ -142,27 +142,24 @@ eighteen.
 
 Left, in the order worth doing it:
 
-1. **B7** — the scan button still sits over the allocated/spent row on
-   the dashboard. It is one of the first things on screen and it is on
-   camera in any demo.
-2. **F7, F8, F2, F3** — the small create-event fixes: one back button
+1. **F7, F8, F2, F3** — the small create-event fixes: one back button
    instead of two, the back button asking before it discards, the
    proposal date filled in, the off-campus agreement surfaced. Hours,
    not days, and they answer "cluttered" directly.
-3. **F12** — a returned proposal being edited and resubmitted. Now
+2. **F12** — a returned proposal being edited and resubmitted. Now
    unblocked, and it is the one flow the moderator's feedback circles
    back to. Worth filming.
-4. **F1, F4, F5** — the visual rework of the form. Real work. Do it only
+3. **F1, F4, F5** — the visual rework of the form. Real work. Do it only
    if the four above are finished.
-5. **G8** — cheaper than it looks and worth promoting. Everything
+4. **G8** — cheaper than it looks and worth promoting. Everything
    under it is built; it needs a screen that shows what
    `loadEventReport` already returns and a button on the event to open
    it. Then **G9, G16, G18** — consolidated, by department and
    organisation, by school year and semester — which are additive and
    genuinely unstarted.
-6. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
+5. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
    every receipt, source of funds, inventory classification.
-7. **G2, G3, G4, G6** — decisions and documentation rather than code.
+6. **G2, G3, G4, G6** — decisions and documentation rather than code.
 
 Not worth starting this week: F6, F9, E1, E2, F11, F13.
 

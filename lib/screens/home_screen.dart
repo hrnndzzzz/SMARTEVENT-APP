@@ -15,7 +15,6 @@ import '../widgets/event_progress_bar.dart';
 import 'event_detail_screen.dart';
 import 'events_screen.dart';
 import 'expenses_screen.dart';
-import 'scanner_screen.dart';
 import '../theme/peso.dart';
 
 /// The dashboard: where you stand, what needs you, and the one thing you
@@ -55,7 +54,6 @@ class HomeScreen extends StatelessWidget {
     final app = context.watch<AppState>();
     final now = DateTime.now();
     final name = app.currentAccount?.name.split(' ').first ?? 'there';
-    final canRecord = app.mayRecordFinance;
 
     final allocated = app.totalAllocated;
     final remaining = app.remainingBalance;
@@ -63,15 +61,11 @@ class HomeScreen extends StatelessWidget {
     final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
 
     return BrutScreen(
-      // The one action on this screen, round and fixed in the middle,
-      // where a thumb already is. It stays put while the figures above
-      // it scroll, because it is not part of the reading.
-      floatingActionButton: canRecord ? const _RecordButton() : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       topBar: AppHeader(),
-      // Clear of the record button, which floats over the bottom of this
-      // screen: the last card was sitting underneath it.
-      bottomPadding: canRecord ? 96 : AppLayout.section,
+      // The record button is docked above the navigation bar by the
+      // shell now, so this screen no longer reserves room for a button
+      // floating over its own content.
+      bottomPadding: AppLayout.section,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -454,32 +448,6 @@ class AlertWidget extends StatelessWidget {
   }
 }
 
-/// Record an expense: the one thing this screen is for doing rather
-/// than reading.
-class _RecordButton extends StatelessWidget {
-  const _RecordButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return BrutSurface(
-      onTap: () => Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
-      semanticLabel: 'Record an expense',
-      fill: AppColors.orange,
-      radius: AppRadius.pill,
-      shadow: AppShadows.lg,
-      width: 68,
-      height: 68,
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.document_scanner_outlined,
-        size: 28,
-        color: AppColors.ink,
-      ),
-    );
-  }
-}
 
 /// One of the two lines framing the greeting.
 ///
