@@ -87,15 +87,15 @@ class AffectedClass(StrictModel):
 
 class Clearance(StrictModel):
     parents_consent: Literal['yes', 'not_applicable']
-    parents_consent_reason: str = Field(default='', max_length=150)
-    attachments: str = Field(min_length=1, max_length=300)
+    parents_consent_reason: str = Field(default='', max_length=5000)
+    attachments: str = Field(min_length=1, max_length=5000)
     class_interruption: Literal['yes', 'none']
-    class_interruption_remarks: str = Field(default='', max_length=200)
+    class_interruption_remarks: str = Field(default='', max_length=5000)
     medical_exam: Literal['yes', 'not_applicable']
-    medical_exam_reason: str = Field(default='', max_length=150)
+    medical_exam_reason: str = Field(default='', max_length=5000)
     report_of_compliance: Literal['yes', 'not_applicable']
-    report_of_compliance_reason: str = Field(default='', max_length=150)
-    student_personnel_ratio: str = Field(min_length=1, max_length=50)
+    report_of_compliance_reason: str = Field(default='', max_length=5000)
+    student_personnel_ratio: str = Field(min_length=1, max_length=5000)
 
     @model_validator(mode='after')
     def reasons(self):

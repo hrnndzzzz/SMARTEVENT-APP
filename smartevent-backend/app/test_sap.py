@@ -429,6 +429,25 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
     assert late.status_code == 409
 
 
+PART_4_TEXT = ('parents_consent_reason', 'attachments', 'class_interruption_remarks',
+               'medical_exam_reason', 'report_of_compliance_reason', 'student_personnel_ratio')
+
+
+def test_part_4_text_boxes_hold_5000_characters_and_print_them(sap_system):
+    client, db, users, event, login, base = sap_system
+    login('sds_staff')
+    for key in PART_4_TEXT:
+        over = fixture_data()['clearance'] | {key: 'x' * 5001}
+        response = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': over})
+        assert response.status_code == 422, key
+    data = fixture_data()
+    data['clearance'] |= {key: ('word ' * 1000)[:4995] + f'END{i}' for i, key in enumerate(PART_4_TEXT)}
+    response = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
+    assert response.status_code == 200, response.text
+    text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1))).pages)
+    assert all(f'END{i}' in text for i in range(len(PART_4_TEXT)))
+
+
 def test_unchanged_proposal_pdf_renders_once(sap_system, monkeypatch):
     # Word takes seconds per printout, and the app's offline sync downloads every proposal's PDF.
     client, db, users, event, login, base = sap_system
