@@ -253,7 +253,7 @@ def revise_signed(event_id: UUID, payload: ReturnWrite, db: Session = Depends(ge
     sap.check_version(proposal, payload.expected_version)
     if proposal.state != 'sds_signed':
         raise HTTPException(409, 'Only an SDS-signed proposal awaiting paper approval can start a correction')
-    proposal.state, proposal.return_remarks, proposal.clearance = 'revision_requested', payload.remarks, None
+    proposal.state, proposal.return_remarks, proposal.returned_by, proposal.clearance = 'revision_requested', payload.remarks, 'sds', None
     event.status = 'draft'
     return sap.save(db, event, proposal, user, 'sap_signed_revision_correction_requested', notify=True)
 
@@ -350,7 +350,7 @@ def return_proposal(event_id: UUID, payload: ReturnWrite, db: Session = Depends(
         db.add(review)
     elif not review.signed_at:
         review.overall_remarks = payload.remarks
-    proposal.state, proposal.return_remarks, proposal.clearance = 'revision_requested', payload.remarks, None
+    proposal.state, proposal.return_remarks, proposal.returned_by, proposal.clearance = 'revision_requested', payload.remarks, 'sds', None
     event.status = 'draft'
     return sap.save(db, event, proposal, user, 'sap_returned', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
 

@@ -18,7 +18,9 @@ class SAPProposal(Base):
     details = Column(JSON, nullable=False, default=dict)
     clearance = Column(JSON, nullable=True)
     return_remarks = Column(Text)
-    __table_args__ = (CheckConstraint("state IN ('draft','pending_sap_review','revision_requested','sds_signed','approved','completed','rejected')"),)
+    returned_by = Column(String(10))
+    __table_args__ = (CheckConstraint("state IN ('draft','pending_department_review','pending_sap_review','revision_requested','sds_signed','approved','completed','rejected')"),
+                     CheckConstraint("returned_by IN ('moderator','dean','sds')"))
 
 
 class SAPItem(Base):

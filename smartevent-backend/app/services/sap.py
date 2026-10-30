@@ -97,7 +97,7 @@ def output(db, proposal):
     review = db.query(SAPReview).join(SAPRevision, SAPReview.revision_id == SAPRevision.id).filter(SAPRevision.proposal_id == proposal.id, SAPRevision.revision_no == proposal.revision_no).first() if proposal.revision_no else None
     evaluation = db.query(SAPEvaluation).filter_by(proposal_id=proposal.id).first()
     return dict(id=proposal.id, event_id=proposal.event_id, state=proposal.state, version=proposal.version,
-                revision_no=proposal.revision_no, return_remarks=proposal.return_remarks, **snapshot(db, proposal),
+                revision_no=proposal.revision_no, return_remarks=proposal.return_remarks, returned_by=proposal.returned_by, **snapshot(db, proposal),
                 sds_review=None if review is None else dict(overall_remarks=review.overall_remarks, section_remarks=review.section_remarks, signed_by=str(review.signed_by) if review.signed_by else None, signed_at=review.signed_at.isoformat() if review.signed_at else None, signed_pdf_sha256=review.signed_pdf_sha256),
                 evaluation=None if evaluation is None else dict(outcome=evaluation.outcome, remarks=evaluation.remarks,
                     evaluated_by=evaluation.evaluated_by, evaluated_at=evaluation.evaluated_at))
@@ -171,7 +171,7 @@ def submit(db, event, proposal, user, verification_base):
     db.flush()
     for slot, (position, label) in enumerate(signature_slots(data['details']), 1):
         db.add(SAPCheckpoint(revision_id=row.id, slot=slot, position=position, label=label))
-    proposal.revision_no, proposal.state, proposal.return_remarks = number, 'pending_sap_review', None
+    proposal.revision_no, proposal.state, proposal.return_remarks, proposal.returned_by = number, 'pending_sap_review', None, None
     event.status = 'pending_institutional_review'
     return save(db, event, proposal, user, 'sap_submitted', notify=True)
 

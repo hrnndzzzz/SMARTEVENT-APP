@@ -227,7 +227,7 @@ class ReviewNotesWrite(Version):
 
 # Response models are separate from writes: drafts may contain only a few details.
 # Routes exclude unset fields so reading legacy rows never invents stored values.
-SAPState = Literal['draft', 'pending_sap_review', 'revision_requested', 'sds_signed',
+SAPState = Literal['draft', 'pending_department_review', 'pending_sap_review', 'revision_requested', 'sds_signed',
                    'approved', 'completed', 'rejected']
 
 
@@ -270,6 +270,7 @@ class SAPProposalOut(BaseModel):
     version: int
     revision_no: int
     return_remarks: str | None
+    returned_by: Literal['moderator', 'dean', 'sds'] | None
     form_code: str
     form_version: str
     details: PartialDetails
