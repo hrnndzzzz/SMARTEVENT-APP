@@ -1,47 +1,36 @@
 import 'package:flutter/material.dart';
 
 import '../screens/scanner_screen.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 
 /// Record an expense: the one thing the dashboard is for doing rather
 /// than reading.
 ///
-/// It sits in a band of its own between the dashboard and the
-/// navigation bar, overlapping neither.
+/// It is a full-width action in a band of its own, between the dashboard
+/// and the navigation bar, overlapping neither.
 ///
+/// It was a circle, and went through three positions before this one.
 /// Floating over the dashboard it covered the allocated and spent
-/// figures whenever the screen was at rest, and padding could not fix
-/// that: a floating button over a scrolling list covers whatever is
+/// figures whenever the screen sat at rest, and padding could not fix
+/// that: a button floating over a scrolling list covers whatever is
 /// under it, and the bottom padding only clears the last card at full
-/// scroll. Docked into the bar instead, it punched through the bar's
-/// own edge and read as a collision. A band costs the dashboard about
-/// eighty pixels and collides with nothing.
+/// scroll. Docked into the navigation bar it punched through the bar's
+/// own edge. Given a band to itself it collided with nothing but left
+/// most of a full-width strip empty, which reads as a gap in the layout
+/// rather than a deliberate space. Filling that strip is what it is
+/// for, so it says what it does as well.
 class RecordButton extends StatelessWidget {
   const RecordButton({super.key});
 
-  /// The side of the circle.
-  static const double size = 68;
-
   @override
   Widget build(BuildContext context) {
-    return BrutSurface(
-      onTap: () => Navigator.of(
+    return BrutButton(
+      label: 'Record an expense',
+      icon: Icons.document_scanner_outlined,
+      tone: BrutTone.orange,
+      onPressed: () => Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => const ScannerScreen())),
-      semanticLabel: 'Record an expense',
-      fill: AppColors.orange,
-      radius: AppRadius.pill,
-      shadow: AppShadows.lg,
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.document_scanner_outlined,
-        size: 28,
-        color: AppColors.ink,
-      ),
     );
   }
 }

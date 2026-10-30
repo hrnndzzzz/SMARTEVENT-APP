@@ -19,6 +19,7 @@ import 'screens/proposal_letters_screen.dart';
 import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
+import 'theme/app_layout.dart';
 import 'widgets/page_indicator.dart';
 import 'widgets/record_button.dart';
 
@@ -264,7 +265,14 @@ class _RootShellState extends State<RootShell> {
             // pixels and collides with nothing.
             if (_page == 1 && context.watch<AppState>().mayRecordFinance)
               const Padding(
-                padding: EdgeInsets.only(top: 8),
+                // The same gutter every card above it uses, so it sits
+                // on the grid rather than running edge to edge.
+                padding: EdgeInsets.fromLTRB(
+                  AppLayout.gutter,
+                  8,
+                  AppLayout.gutter,
+                  0,
+                ),
                 child: RecordButton(),
               ),
             PageIndicator(

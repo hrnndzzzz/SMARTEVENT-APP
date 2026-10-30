@@ -80,4 +80,21 @@ void main() {
 
     expect(find.bySemanticsLabel('Record an expense'), findsNothing);
   });
+
+  testWidgets('it fills the band it is given', (tester) async {
+    // As a circle it left most of a full-width strip empty, which reads
+    // as a gap in the layout rather than a deliberate space.
+    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    await openDashboard(tester, app);
+
+    final button = buttonOn(tester);
+    final screen = tester.getRect(find.byType(RootShell));
+
+    expect(
+      button.width,
+      greaterThan(screen.width * 0.8),
+      reason: 'the band is mostly empty again',
+    );
+    expect(find.text('Record an expense'), findsOneWidget);
+  });
 }
