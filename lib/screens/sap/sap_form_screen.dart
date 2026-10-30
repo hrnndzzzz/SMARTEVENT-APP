@@ -151,11 +151,21 @@ class _SapFormScreenState extends State<SapFormScreen> {
                       text: message,
                     ),
                   const SizedBox(height: 14),
-                  for (final attachment in form.attachments)
-                    TextButton.icon(
-                      icon: const Icon(Icons.attach_file),
-                      label: const Text('Open supporting file'),
-                      onPressed: () async {
+                  // One row per file, named. Every attachment used to
+                  // read "Open supporting file", so three of them gave
+                  // three identical buttons and no way to tell the
+                  // ROC/COC from an appendix — and a flat Material
+                  // button sat oddly among the bordered rows below it.
+                  for (final attachment in form.attachments) ...[
+                    BrutListRow(
+                      title: attachment.category?.label ?? 'Supporting file',
+                      meta: attachment.filename,
+                      marker: const BrutIconTile(
+                        size: 32,
+                        icon: Icons.attach_file,
+                        tone: BrutTone.brand,
+                      ),
+                      onTap: () async {
                         try {
                           await ExportSaver.share(
                             await form.attachmentFile(attachment.id),
@@ -169,6 +179,8 @@ class _SapFormScreenState extends State<SapFormScreen> {
                         }
                       },
                     ),
+                    const SizedBox(height: 10),
+                  ],
                   for (final part in SapPart.values) ...[
                     _PartRow(
                       part: part,

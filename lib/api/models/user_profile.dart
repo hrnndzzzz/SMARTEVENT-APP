@@ -89,6 +89,10 @@ class UserProfile {
     'position': position,
     'department_id': departmentId,
     'organization_id': organizationId,
+    // Cached too, or a session restored offline comes back holding the
+    // id and no name — which only an Admin may look up, so Part 1 opens
+    // blank again for exactly the people who fill it in.
+    'organization_name': organizationName,
     'is_active': isActive,
     'is_suspended': isSuspended,
     'must_change_password': mustChangePassword,

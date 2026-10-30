@@ -195,6 +195,12 @@ class SapService {
     });
   }
 
+  /// Submitting, signing and printing make the server fill the official
+  /// Word form and have Word print it: about 5 s, and up to 90 s when
+  /// another print is ahead of it. Giving up sooner would report a timeout
+  /// while the server goes on to finish, and the retry would then 409.
+  static const _printing = Duration(seconds: 120);
+
   /// `POST /submit` — freezes the snapshot and PDF and creates all nine
   /// checkpoints. A 409 here usually carries readiness blockers.
   Future<SapProposal> submit(String eventId, {required int expectedVersion}) {
@@ -202,6 +208,7 @@ class SapService {
       final response = await _client.post(
         '${_base(eventId)}/submit',
         body: {'expected_version': expectedVersion},
+        patience: _printing,
       );
       return _proposal(response);
     });
@@ -306,6 +313,7 @@ class SapService {
           'section_remarks': _sections(sectionRemarks),
           'signature_strokes': signature.toJson(),
         },
+        patience: _printing,
       );
       return _proposal(response);
     });
@@ -422,6 +430,7 @@ class SapService {
         query: revisionNo == null ? null : {'revision_no': '$revisionNo'},
         expectedContentType: 'application/pdf',
         fallbackFilename: 'SAS-SDS-FO-020.pdf',
+        patience: _printing,
       );
     });
   }

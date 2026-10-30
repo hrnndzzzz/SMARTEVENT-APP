@@ -400,6 +400,10 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
                 label: 'Excuse letter arrangement',
                 hint: 'How affected students will be excused',
                 enabled: _editable,
+                // The server's own limit. Without it the field accepts
+                // whatever is typed and the refusal arrives as a 422
+                // after Save, naming a field the writer cannot see.
+                maxLength: 400,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
               ),
@@ -499,6 +503,7 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
             controller: _particulars,
             label: 'Particulars',
             hint: 'Guest speaker',
+            maxLength: 120,
             textCapitalization: TextCapitalization.sentences,
             onChanged: (_) => setState(() {}),
           ),

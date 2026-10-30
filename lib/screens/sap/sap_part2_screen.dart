@@ -286,6 +286,9 @@ class _SupportTileState extends State<_SupportTile> {
             const SizedBox(height: 10),
             BrutTextField(
               label: 'Please specify',
+              // The server stops at 150; say so here rather than in a
+              // 422 after the sheet is closed.
+              maxLength: 150,
               hint: switch (widget.type) {
                 SapSupportType.budget => 'How much, and what for',
                 SapSupportType.room => 'St. Augustine Bldg. AVR',

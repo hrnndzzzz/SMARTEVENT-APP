@@ -1,5 +1,7 @@
 import '../api/models/academic.dart';
+import '../api/models/income.dart';
 import '../api/models/inventory.dart';
+import '../api/models/reports.dart';
 import '../api/models/proposal_letter.dart';
 import '../api/models/scope.dart';
 import '../api/models/sap_proposal.dart';
@@ -196,6 +198,95 @@ abstract final class DemoData {
       proposedBy: 'demo-account-treasurer',
     ),
   ];
+
+  /// A consolidated financial report, so the Reports screen has one.
+  ///
+  /// Without it `financialReport` is null, and the download window hides
+  /// its whole "This report" half — the totals card and the PDF / CSV /
+  /// print-ready row the moderator asked for. Only the dashboard
+  /// snapshot showed, which offers two formats, so the feature looked
+  /// half-built in the one place it gets filmed.
+  static ConsolidatedFinancialReport financialReport() {
+    FinancialEventSummary event({
+      required String id,
+      required String title,
+      required double income,
+      required double expenses,
+    }) => FinancialEventSummary(
+      eventId: id,
+      title: title,
+      schoolYear: '2026-2027',
+      semester: Semester.first,
+      eventScope: EventScope.organizational,
+      incomeCount: income > 0 ? 2 : 0,
+      expenseCount: expenses > 0 ? 3 : 0,
+      totalIncome: income,
+      totalExpenses: expenses,
+      netBalance: income - expenses,
+      withheldIncomeTotal: 0,
+      withheldIncomeCount: 0,
+    );
+
+    final events = [
+      event(
+        id: 'demo-ev-1',
+        title: 'HACK THE FUTURE: Cybersecurity and Ethical Hacking',
+        income: 7250,
+        expenses: 2500,
+      ),
+      event(
+        id: 'demo-ev-2',
+        title: 'CITE Week: Opening Ceremony',
+        income: 12000,
+        expenses: 11950,
+      ),
+      event(
+        id: 'demo-ev-5',
+        title: 'Capstone Project Exhibit',
+        income: 0,
+        expenses: 0,
+      ),
+    ];
+
+    final income = events.fold<double>(0, (sum, e) => sum + e.totalIncome);
+    final spent = events.fold<double>(0, (sum, e) => sum + e.totalExpenses);
+
+    return ConsolidatedFinancialReport(
+      period: ReportPeriod.semester,
+      startDate: DateTime(2026, 8, 1),
+      endDate: DateTime(2026, 12, 20),
+      schoolYear: '2026-2027',
+      semester: Semester.first,
+      eventScope: null,
+      totalIncome: income,
+      totalExpenses: spent,
+      unassignedExpenseTotal: 0,
+      netBalance: income - spent,
+      events: events,
+      incomeBySource: [
+        IncomeSourceSummary(
+          sourceType: FundSource.registrationFees,
+          source: 'Registration fees',
+          incomeCount: 2,
+          totalIncome: 14500,
+        ),
+        IncomeSourceSummary(
+          sourceType: FundSource.sponsorship,
+          source: 'Sponsorship',
+          incomeCount: 1,
+          totalIncome: 3500,
+        ),
+        IncomeSourceSummary(
+          sourceType: FundSource.donation,
+          source: 'Donation',
+          incomeCount: 1,
+          totalIncome: 1250,
+        ),
+      ],
+      withheldIncomeTotal: 0,
+      withheldIncomeCount: 0,
+    );
+  }
 
   /// Letters submitted for events.
   ///

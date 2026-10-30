@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_theme.dart';
+import '../theme/brut.dart';
 
 class OfflineBanner extends StatelessWidget {
   const OfflineBanner({
@@ -83,8 +85,12 @@ class OfflineBanner extends StatelessWidget {
         : 'Offline copies incomplete';
     return Column(
       children: [
+        // The app's own tone, not Material's secondaryContainer: this bar
+        // sits above every screen, so a Material-3 derived tint is the
+        // one surface on screen that never matches the rest.
         Material(
-          color: Theme.of(context).colorScheme.secondaryContainer,
+          color: (app.isOfflineViewing ? BrutTone.sun : BrutTone.mint)
+              .tint(context),
           child: SafeArea(
             bottom: false,
             child: Padding(
@@ -95,22 +101,23 @@ class OfflineBanner extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(message, style: const TextStyle(fontSize: 12)),
+                        Text(message, style: AppText.caption),
                         if (saved != null)
-                          Text(
-                            'Last complete download: ${saved.toString().split('.').first}',
-                            style: const TextStyle(fontSize: 10),
+                          // The app's date format. toString() prints
+                          // "2026-10-27 16:04:12.123" and was cut at the
+                          // dot, which is a different format from every
+                          // other date in the app.
+                          MonoLabel(
+                            'Last complete download: '
+                            '${BrutDateField.format(saved)}',
                           ),
                         if (app.offlineStorageError != null)
                           Text(
                             app.offlineStorageError!,
-                            style: const TextStyle(fontSize: 10),
+                            style: AppText.caption.copyWith(fontSize: 11),
                           ),
                         if (app.requiresOnlineSignIn)
-                          const Text(
-                            'Sign in to refresh saved records.',
-                            style: TextStyle(fontSize: 10),
-                          ),
+                          const MonoLabel('Sign in to refresh saved records.'),
                         if (app.offlineSavedDates.isNotEmpty)
                           TextButton(
                             onPressed: () {

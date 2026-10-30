@@ -330,6 +330,7 @@ class ApiClient {
     required String expectedContentType,
     String fallbackFilename = 'export',
     ReadPolicy policy = ReadPolicy.automatic,
+    Duration? patience,
   }) async {
     _refuseInDemo();
     final key = OfflineStore.key(path, query);
@@ -358,6 +359,7 @@ class ApiClient {
         query: query,
         expectedContentType: expectedContentType,
         fallbackFilename: fallbackFilename,
+        patience: patience,
       );
       if (epoch != _epoch) throw const SessionChanged();
       if (store != null) {
@@ -396,13 +398,14 @@ class ApiClient {
     Map<String, String>? query,
     required String expectedContentType,
     required String fallbackFilename,
+    Duration? patience,
   }) async {
     final http.Response response;
     final epoch = _epoch;
     try {
       response = await _httpClient
           .get(_uri(path, query), headers: _authHeaders)
-          .timeout(timeout);
+          .timeout(patience ?? timeout);
     } on TimeoutException {
       throw NetworkException(
         'The backend at $baseUrl did not respond in time.',

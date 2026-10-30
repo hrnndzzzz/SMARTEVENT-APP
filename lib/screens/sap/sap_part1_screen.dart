@@ -174,25 +174,46 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     }
   }
 
-  Future<void> _save() async {
+  /// The details and the programme are separate endpoints. Stop at the
+  /// first failure rather than send the second at a version the server
+  /// has already rejected. Collects first, so saving on the way out keeps
+  /// what was typed since the last save too.
+  Future<bool> _saveAll() async {
     _collect();
-    // The server refuses both blank, and says so in its own field names.
+    for (final save in [_form.saveDetails, _form.saveProgramFlow]) {
+      if (!await save()) return false;
+    }
+    return true;
+  }
+
+  /// What the server refuses outright, named in its own words before a
+  /// request is spent on it.
+  ///
+  /// Only the Save button asks: leaving the screen saves whatever has
+  /// been typed, incomplete or not, because the alternative is throwing
+  /// it away at the door.
+  bool _ready() {
     final missing = [
       if (_d.setting == null) 'setting',
       if ((_d.departmentType ?? '').isEmpty) 'department type',
       if ((_d.department ?? '').isEmpty) 'department',
     ];
-    if (missing.isNotEmpty) {
-      final list = missing.length == 1
-          ? missing.single
-          : '${missing.sublist(0, missing.length - 1).join(', ')} and '
-                '${missing.last}';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fill in the $list first.')),
-      );
-      return;
-    }
-    final ok = await _form.saveDetails();
+    if (missing.isEmpty) return true;
+
+    final list = missing.length == 1
+        ? missing.single
+        : '${missing.sublist(0, missing.length - 1).join(', ')} and '
+              '${missing.last}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Fill in the $list first.')));
+    return false;
+  }
+
+  Future<void> _save() async {
+    _collect();
+    if (!_ready()) return;
+    final ok = await _saveAll();
     if (!mounted) return;
     if (ok) {
       // Part of a run: carry on rather than going back to whatever was
@@ -273,7 +294,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     final leaving = await LeaveProposal.confirm(
       context,
       save: () async {
-        final ok = await _form.saveDetails();
+        final ok = await _saveAll();
         if (!context.mounted) return ok;
         if (!ok) {
           ScaffoldMessenger.of(context).showSnackBar(

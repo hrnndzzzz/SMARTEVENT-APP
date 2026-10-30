@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -463,5 +464,26 @@ void main() {
         throwsA(isA<SapUnavailable>()),
       );
     });
+  });
+
+  testWidgets('submitting and printing wait for the server to print', (
+    tester,
+  ) async {
+    // The server fills the official Word form and has Word print it: about
+    // 5 s, and up to 90 s when another print is ahead of it. Giving up
+    // sooner reports a timeout while the server goes on to finish.
+    final client = MockClient((_) => Completer<http.Response>().future);
+    final service = SapService(ApiClient(httpClient: client));
+    final failed = <String, Object>{};
+    service
+        .submit('e1', expectedVersion: 1)
+        .then<void>((_) {}, onError: (Object e) => failed['submit'] = e);
+    service
+        .pdf('e1')
+        .then<void>((_) {}, onError: (Object e) => failed['pdf'] = e);
+
+    await tester.pump(const Duration(seconds: 60));
+    expect(failed, isEmpty, reason: 'gave up while the server was printing');
+    await tester.pump(const Duration(minutes: 3)); // let the client time out
   });
 }
