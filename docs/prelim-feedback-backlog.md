@@ -85,13 +85,13 @@ Our professor called this cluttered. The largest piece of work on the list.
 | # | What | Status | P |
 |---|---|---|---|
 | F1 | A starting screen before Part 1, with the La Consolacion header (ACPES form as reference) | todo | P2 |
-| F2 | Date of proposal filled in automatically | todo | P2 |
-| F3 | Off-campus agreement surfaced there too | todo | P2 |
+| F2 | Date of proposal filled in automatically | **done** *(30 Oct)* — seen on the phone, filled from the activity date | P2 |
+| F3 | Off-campus agreement surfaced there too | **done** *(30 Oct)* — Part 1 offers the setting and the acknowledgement, and Save refuses without one | P2 |
 | F4 | Group the fields by kind and colour-code them: identity (title, org, school year), timing (date, start, end), and so on | todo | P2 |
 | F5 | Support step: smaller square tiles in a grid | todo | P2 |
 | F6 | Breakdown step: reorder | todo | P3 |
-| F7 | Two back buttons — remove one | todo | P2 |
-| F8 | The top back button asks: save as draft, cancel, go back | todo | P2 |
+| F7 | Two back buttons — remove one | **done** *(30 Oct)* — Parts 1-3 and 5 already had one; Parts 4 and 6 still carried both. A test counts them | P2 |
+| F8 | The top back button asks: save as draft, cancel, go back | **done** *(30 Oct)* — verified on the phone, all three choices | P2 |
 | F9 | Steps swipeable between activity, support and breakdown | todo | P3 |
 | F10 | No new event while one is pending | **todo** — never needed the backend; it is a guard on the events already loaded | P2 |
 | F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **todo** — `completed` and the evaluation route both exist now | P3 |
@@ -142,10 +142,9 @@ eighteen.
 
 Left, in the order worth doing it:
 
-1. **F7, F8, F2, F3** — the small create-event fixes: one back button
-   instead of two, the back button asking before it discards, the
-   proposal date filled in, the off-campus agreement surfaced. Hours,
-   not days, and they answer "cluttered" directly.
+1. ~~F7, F8, F2, F3~~ — **done 30 Oct.** Three of the four were
+   already built and only recorded as todo; F7 was half done, with
+   Parts 4 and 6 still carrying two back buttons.
 2. **F12** — a returned proposal being edited and resubmitted. Now
    unblocked, and it is the one flow the moderator's feedback circles
    back to. Worth filming.

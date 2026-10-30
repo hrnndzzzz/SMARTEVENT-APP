@@ -157,8 +157,9 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
             eyebrow: 'Part 4',
             onBack: () => Navigator.of(context).maybePop(),
           ),
+          // One back button, in the header, as Parts 1 to 3 and 5 all
+          // have. Two doing the same thing is what the review called out.
           footer: BrutFooter(
-            onBack: () => Navigator.of(context).maybePop(),
             child: BrutButton(
               label: 'Confirm clearance',
               busy: _form.saving,

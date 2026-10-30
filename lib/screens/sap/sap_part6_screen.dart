@@ -74,8 +74,9 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
           ),
           footer: _recorded
               ? null
+              // One back button, in the header, as every other part
+              // has.
               : BrutFooter(
-                  onBack: () => Navigator.of(context).maybePop(),
                   note: 'Recorded once; it cannot be changed afterwards.',
                   child: BrutButton(
                     label: 'Record evaluation',
