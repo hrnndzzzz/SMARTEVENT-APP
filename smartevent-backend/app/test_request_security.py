@@ -1,7 +1,9 @@
 import asyncio
+import inspect
 
 import pytest
 from fastapi import FastAPI, Request
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError, ProgrammingError, SQLAlchemyError
@@ -10,6 +12,19 @@ from app.config import Settings
 from app.main import app, database_error
 from app.middleware import RequestSecurityMiddleware
 from app.schemas import CategoryCreate, CategoryUpdate, CiteSelfRegisterRequest, EventUpdate, ReceiptParseRequest, VerifyOtpRequest
+
+
+def test_no_route_runs_blocking_work_on_the_event_loop():
+    # Routes use a blocking database session, storage and Gemini calls. An async route runs
+    # them on the one loop every request shares, so a receipt scan would stall all users.
+    def routes(items):  # FastAPI keeps included routers nested
+        for route in items:
+            nested = getattr(route, "original_router", None)
+            yield from routes(nested.routes) if nested else [route]
+
+    blocking = sorted(route.path for route in routes(app.routes)
+                      if isinstance(route, APIRoute) and inspect.iscoroutinefunction(route.endpoint))
+    assert blocking == []
 
 
 def test_production_settings_require_strong_secret_https_and_verified_database_tls():

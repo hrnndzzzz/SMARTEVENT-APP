@@ -226,17 +226,19 @@ def test_final_scan_requires_all_slots_and_valid_pdf(sap_system):
         assert response.status_code == expected, response.text
 
 
-def test_pdf_overflow_is_paginated_not_truncated():
+def test_long_text_stays_in_its_cell():
     data = fixture_data()
     data['details']['rationale'] = '\n'.join(['Long line'] * 150)
     data['collections']['budget-items'] = [{'particulars': f'Budget line {i}', 'amount': '1.00'} for i in range(16)]
     notes = {'overall_remarks': 'Detailed SDS remark. ' * 140, 'section_remarks': {}}
-    reader = PdfReader(BytesIO(render_proposal(data, 1, review=notes)))
-    text = '\n'.join(page.extract_text() for page in reader.pages)
-    assert len(reader.pages) > 3
+    pages = [page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1, review=notes))).pages]
+    text = '\n'.join(pages)
     assert text.count('Long line') == 150
-    # PDF extraction inserts line breaks inside wrapped sentences.
-    assert ' '.join(text.split()).count('Detailed SDS remark.') == 140
+    assert 'See addendum' not in text
+    assert 'Long line' in next(page for page in pages if 'Rationale:' in page)
+    # The remark fills the SDS signatory cell across a page break, where extraction interleaves the
+    # neighbouring signatories and the footer, so count its words rather than whole sentences.
+    assert text.count('Detailed') == 140 and text.count('remark.') == 140
     assert 'Budget line 15' in text
 
 
@@ -404,3 +406,25 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
     assert '145:3' in text and 'SIGNED AND APPROVED BY SDS OFFICE' in text
     late = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert late.status_code == 409
+
+
+def test_unchanged_proposal_pdf_renders_once(sap_system, monkeypatch):
+    # Word takes seconds per printout, and the app's offline sync downloads every proposal's PDF.
+    client, db, users, event, login, base = sap_system
+    renders = []
+    monkeypatch.setattr('app.routers.sap.render_proposal', lambda *args, **kwargs: renders.append(args[1]) or b'%PDF-1.4 rendered')
+    monkeypatch.setattr('app.services.sap.render_proposal', lambda *args, **kwargs: b'%PDF-1.4 submitted')
+    details = fixture_data()['details']
+    assert client.patch(base, json={'expected_version': version(client, base), 'details': details}).status_code == 200
+    for _ in range(2):
+        assert client.get(base + '/pdf?draft=true').content == b'%PDF-1.4 rendered'
+    assert renders == ['DRAFT']
+    # Every SAP change raises the version, so the next download shows it.
+    edited = details | {'title': 'Hack the Future 2'}
+    assert client.patch(base, json={'expected_version': version(client, base), 'details': edited}).status_code == 200
+    assert client.get(base + '/pdf?draft=true').status_code == 200
+    assert renders == ['DRAFT', 'DRAFT']
+    populate(sap_system)
+    for _ in range(2):
+        assert client.get(base + '/pdf').content == b'%PDF-1.4 rendered'
+    assert renders == ['DRAFT', 'DRAFT', 1]

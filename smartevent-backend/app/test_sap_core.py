@@ -28,7 +28,9 @@ def test_long_information_survives_submit_reload_and_pdf(sap_system, length):
     assert response.status_code == 200
     text = ' '.join(line for page in PdfReader(BytesIO(response.content)).pages
                     for line in page.extract_text().splitlines()
-                    if not line.startswith(('SAP revision ', 'Verify: ')))
+                    # Page furniture: our stamp, and Word's footer (page number, form code).
+                    if not line.startswith(('SAP revision ', 'Verify: ', 'SAS-SDS-FO-020'))
+                    and not line.strip().isdigit())
     assert ' '.join(info.split()) in ' '.join(text.split())
 
 
@@ -67,7 +69,8 @@ def test_legacy_budget_defaults_and_printout():
     assert row.quantity == 1 and row.unit_cost is None
     data = fixture_data()
     data['collections']['budget-items'] = [{'particulars': 'Legacy', 'amount': '12.50'}]
-    text = '\n'.join(p.extract_text() for p in PdfReader(BytesIO(render_proposal(data, 'DRAFT'))).pages[3:])
+    text = '\n'.join(p.extract_text() for p in PdfReader(BytesIO(render_proposal(data, 'DRAFT'))).pages)
+    text = text.rsplit('Budget breakdown', 1)[1]  # the form itself prints "( ) None"
     assert 'Legacy' in text and '12.50' in text and 'None' not in text
 
 

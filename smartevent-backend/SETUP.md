@@ -12,6 +12,10 @@ Get the API running on `localhost` and take it for a test drive.
 
 - Python 3.11+
 - Git
+- Microsoft Word on Windows, for SAP proposal PDFs. The server fills the official
+  Word form and has Word export it, so run the server from a signed-in Windows
+  session, not as a Windows service (Microsoft does not support Word automation
+  there). Without Word, SAP printouts, submissions and SDS signing fail.
 - Access to the shared Supabase project (ask the team for the connection
   string and JWT secret — do not commit these)
 

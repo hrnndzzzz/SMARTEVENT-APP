@@ -84,7 +84,7 @@ def review_receipt(receipt_id: uuid.UUID, payload: ReceiptReview, db: Session = 
 
 
 @router.post("/{receipt_id}/upload", response_model=ReceiptOut)
-async def upload_receipt_file(receipt_id: uuid.UUID, file: UploadFile = File(...),
+def upload_receipt_file(receipt_id: uuid.UUID, file: UploadFile = File(...),
                               db: Session = Depends(get_db), current_user: User = Depends(require_financial_access)):
     receipt = get_receipt(db, receipt_id, current_user)
     transaction = get_transaction(db, receipt.expense_id, receipt.income_id)
@@ -97,7 +97,7 @@ async def upload_receipt_file(receipt_id: uuid.UUID, file: UploadFile = File(...
         raise HTTPException(409, "Only pending expenses can have receipt data changed")
     if file.content_type not in {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}:
         raise HTTPException(400, "Upload a supported receipt image")
-    raw = await file.read(MAX_UPLOAD_BYTES + 1)
+    raw = file.file.read(MAX_UPLOAD_BYTES + 1)
     if not raw or len(raw) > MAX_UPLOAD_BYTES:
         raise HTTPException(400, "Receipt image must be between 1 byte and 10MB")
     digest = hashlib.sha256(raw).hexdigest()

@@ -37,6 +37,22 @@ def _with_clearance(rev, proposal):
     return {**rev.snapshot, 'clearance': proposal.clearance or rev.snapshot.get('clearance')}
 
 
+# shortcut: per-process memory of recent printouts; each worker and each restart renders afresh.
+_PRINTOUTS = {}
+
+
+def _printout(proposal, number, render):
+    """Word takes seconds per PDF. Every SAP change raises proposal.version,
+    so the version and the revision name exactly one printout."""
+    key = (proposal.id, proposal.version, number)
+    data = _PRINTOUTS.get(key)
+    if data is None:
+        if len(_PRINTOUTS) >= 32:
+            _PRINTOUTS.clear()
+        data = _PRINTOUTS[key] = render()
+    return data
+
+
 def _cleanup_upload(db, ref):
     try:
         # A response can fail after commit. Never delete a now-referenced object.
@@ -345,12 +361,12 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
     if revision_no or (proposal.revision_no and not draft) or proposal.state not in {'draft', 'revision_requested'}:
         rev = sap.revision(db, proposal, revision_no)
         signed_review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
-        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None)
+        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else _printout(proposal, rev.revision_no, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None))
         number = rev.revision_no
     else:
         try:
             Details.model_validate(proposal.details)
-            data, number = render_proposal(sap.snapshot(db, proposal), 'DRAFT'), 'draft'
+            data, number = _printout(proposal, 'draft', lambda: render_proposal(sap.snapshot(db, proposal), 'DRAFT')), 'draft'
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
     return Response(data, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="SAP-{event_id}-r{number}.pdf"', 'Cache-Control': 'private, no-store'})

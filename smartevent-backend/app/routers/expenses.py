@@ -78,7 +78,7 @@ def _assert_expense_owner_scope(
     assert_record_scope(current_user, expense)
 
 
-async def _read_receipt_image(file: UploadFile):
+def _read_receipt_image(file: UploadFile):
     allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic"}
     if file.content_type not in allowed_types:
         raise HTTPException(
@@ -89,7 +89,7 @@ async def _read_receipt_image(file: UploadFile):
             ),
         )
 
-    raw_bytes = await file.read(10 * 1024 * 1024 + 1)
+    raw_bytes = file.file.read(10 * 1024 * 1024 + 1)
 
     max_size_bytes = 10 * 1024 * 1024
     if not raw_bytes or len(raw_bytes) > max_size_bytes:
@@ -110,7 +110,7 @@ async def _read_receipt_image(file: UploadFile):
 
 
 @router.post("/scan-receipt", response_model=ScanReceiptResponse, status_code=status.HTTP_200_OK)
-async def scan_receipt(
+def scan_receipt(
     file: UploadFile = File(...),
     organization_id: uuid.UUID | None = Form(None),
     db: Session = Depends(get_db),
@@ -123,7 +123,7 @@ async def scan_receipt(
     resolve_organization_id(db, current_user, selected_id, organization.department_id)
     if current_user.role != "super_admin" and current_user.department_id != organization.department_id:
         raise HTTPException(403, "Receipt organization must belong to your assigned department")
-    _, processed_bytes, content_type = await _read_receipt_image(file)
+    _, processed_bytes, content_type = _read_receipt_image(file)
 
     try:
         receipt_url = upload_receipt_image(processed_bytes, content_type, current_user.id, organization.id)
@@ -467,7 +467,7 @@ def reject_expense(
 
 
 @router.post("/{expense_id}/receipt", response_model=ExpenseOut)
-async def upload_receipt(
+def upload_receipt(
     expense_id: uuid.UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -485,7 +485,7 @@ async def upload_receipt(
     existing_receipt = receipt_for_transaction(db, expense)
     if existing_receipt and existing_receipt.review_status in {"cleared", "rejected"}:
         raise HTTPException(409, "Reviewed receipt evidence is immutable")
-    raw_bytes, processed_bytes, content_type = await _read_receipt_image(file)
+    raw_bytes, processed_bytes, content_type = _read_receipt_image(file)
     digest = hashlib.sha256(raw_bytes).hexdigest()
     db.query(Organization).filter(Organization.id == expense.organization_id).with_for_update().first()
     duplicates = db.query(Receipt).filter(Receipt.organization_id == expense.organization_id,

@@ -86,7 +86,7 @@ def initialize_post_activity(event_id: uuid.UUID, db: Session = Depends(get_db),
 
 
 @router.post("/post-activity/compliance/{record_id}/upload")
-async def upload_post_student_document(event_id: uuid.UUID, record_id: uuid.UUID, version: int = Form(ge=1), file: UploadFile = File(...),
+def upload_post_student_document(event_id: uuid.UUID, record_id: uuid.UUID, version: int = Form(ge=1), file: UploadFile = File(...),
                                       db: Session = Depends(get_db), user: User = Depends(staff)):
     event = scoped_event(db, event_id, user, write=True, states={"completed"})
     row = event_record(db, StudentComplianceRecord, event, record_id)
@@ -94,7 +94,7 @@ async def upload_post_student_document(event_id: uuid.UUID, record_id: uuid.UUID
     requirement = db.get(EventRequirement, row.requirement_id)
     if row.version != version or not participant.is_active or participant.participation_mode != "attending" or requirement.phase != "post_activity":
         raise HTTPException(409, "Refresh the active participant's post-activity record")
-    reference = await store_document(file, user.id, event.organization_id)
+    reference = store_document(file, user.id, event.organization_id)
     previous = row.document_url
     replace_submission(row, reference, user.id)
     save(db, event, user, "post_student_document_uploaded", {"record_id": str(row.id), "version": row.version, "previous_reference": previous})
@@ -112,7 +112,7 @@ def review_post_student_documents(event_id: uuid.UUID, payload: BatchReview, db:
 
 
 @router.post("/post-activity/documents", status_code=201)
-async def upload_closure_document(event_id: uuid.UUID, kind: str = Form(...), reference_number: str = Form(min_length=1, max_length=150),
+def upload_closure_document(event_id: uuid.UUID, kind: str = Form(...), reference_number: str = Form(min_length=1, max_length=150),
                                   version: int = Form(default=0, ge=0), file: UploadFile = File(...),
                                   db: Session = Depends(get_db), user: User = Depends(staff)):
     if kind not in REPORT_KINDS or not reference_number.strip():
@@ -122,7 +122,7 @@ async def upload_closure_document(event_id: uuid.UUID, kind: str = Form(...), re
     row = db.query(EventComplianceDocument).filter_by(event_id=event.id, document_key=key).first()
     if (row.version if row else 0) != version:
         raise HTTPException(409, "The document changed; refresh before replacing it")
-    reference = await store_document(file, user.id, event.organization_id)
+    reference = store_document(file, user.id, event.organization_id)
     previous = row.document_url if row else None
     if row is None:
         row = EventComplianceDocument(event_id=event.id, kind=kind, document_key=key, version=0)
@@ -211,14 +211,14 @@ def restore_attending(event_id: uuid.UUID, participant_id: uuid.UUID, payload: P
 
 
 @router.post("/parallel-activities/{activity_id}/upload")
-async def upload_parallel_work(event_id: uuid.UUID, activity_id: uuid.UUID, version: int = Form(ge=1), file: UploadFile = File(...),
+def upload_parallel_work(event_id: uuid.UUID, activity_id: uuid.UUID, version: int = Form(ge=1), file: UploadFile = File(...),
                                db: Session = Depends(get_db), user: User = Depends(staff)):
     event = scoped_event(db, event_id, user, write=True, states={"approved", "completed"})
     row = event_record(db, EventParallelActivity, event, activity_id)
     participant = db.get(EventParticipant, row.participant_id)
     if row.version != version or not row.is_active or not participant.is_active or participant.participation_mode != "parallel":
         raise HTTPException(409, "Refresh the active parallel assignment")
-    reference = await store_document(file, user.id, event.organization_id)
+    reference = store_document(file, user.id, event.organization_id)
     previous = row.document_url
     row.document_url = reference
     row.status = "SUBMITTED"
