@@ -38,6 +38,16 @@ class SapPart1Screen extends StatefulWidget {
   /// What to do after this part saves, when it is one of three.
   final Future<void> Function(BuildContext)? onContinue;
 
+  /// The department-type boxes on the paper, spelled the way the PDF
+  /// matches them when it ticks one. Every department the system has is
+  /// a college, so the flow starts on the first.
+  static const departmentTypes = [
+    'College',
+    'Alternative Education',
+    'Graduate Studies',
+    'Extensions Office',
+    'COM',
+  ];
 
   @override
   State<SapPart1Screen> createState() => _SapPart1ScreenState();
@@ -50,7 +60,17 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     // So an off-campus proposal that already has its ROC/COC says so
     // instead of asking for it again.
     _form.loadAttachments();
+    // Only an Admin can turn the account's department into a name, so
+    // everyone else is asked for it rather than sending it blank.
+    _asksDepartment = (_d.department ?? '').isEmpty;
+    // The six-part list opens this without the cover, which is where the
+    // setting is normally chosen, and the server will not take a form
+    // without one.
+    _asksSetting = _d.setting == null;
   }
+
+  late final bool _asksDepartment;
+  late final bool _asksSetting;
 
   late final SapForm _form = widget.form;
 
@@ -71,9 +91,6 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
   late final _funding = TextEditingController(text: _d.fundingSource ?? '');
   late final _budget = TextEditingController(text: _d.totalBudget ?? '');
   late final _schoolYear = TextEditingController(text: _d.schoolYear ?? '');
-  late final _departmentType = TextEditingController(
-    text: _d.departmentType ?? '',
-  );
   late final _department = TextEditingController(text: _d.department ?? '');
 
   SapDetails get _d => _form.details;
@@ -95,7 +112,6 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
       _funding,
       _budget,
       _schoolYear,
-      _departmentType,
       _department,
     ]) {
       c.dispose();
@@ -125,7 +141,6 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         // is how a 422 appears that nobody can account for.
         totalBudget: _budget.text.trim().replaceAll(',', ''),
         schoolYear: _schoolYear.text.trim(),
-        departmentType: _departmentType.text.trim(),
         department: _department.text.trim(),
       ),
     );
@@ -171,7 +186,33 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     return true;
   }
 
+  /// What the server refuses outright, named in its own words before a
+  /// request is spent on it.
+  ///
+  /// Only the Save button asks: leaving the screen saves whatever has
+  /// been typed, incomplete or not, because the alternative is throwing
+  /// it away at the door.
+  bool _ready() {
+    final missing = [
+      if (_d.setting == null) 'setting',
+      if ((_d.departmentType ?? '').isEmpty) 'department type',
+      if ((_d.department ?? '').isEmpty) 'department',
+    ];
+    if (missing.isEmpty) return true;
+
+    final list = missing.length == 1
+        ? missing.single
+        : '${missing.sublist(0, missing.length - 1).join(', ')} and '
+              '${missing.last}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Fill in the $list first.')));
+    return false;
+  }
+
   Future<void> _save() async {
+    _collect();
+    if (!_ready()) return;
     final ok = await _saveAll();
     if (!mounted) return;
     if (ok) {
@@ -323,9 +364,9 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               const SizedBox(height: 12),
 
               // The activity is what the proposer came to write about, so
-              // the form opens on it. Department type and department are
-              // still sent, taken from the account rather than asked for:
-              // an officer cannot belong to a department they must type.
+              // the form opens on it. The department is taken from the
+              // account when this client can name it, and asked for only
+              // when it cannot.
               _FieldGroup(
                 title: 'The activity',
                 tone: BrutTone.brand,
@@ -348,6 +389,27 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 14),
+              SapSingleChoice<String>(
+                label: 'Department type',
+                options: SapPart1Screen.departmentTypes,
+                labelOf: (v) => v,
+                value: d.departmentType,
+                enabled: _editable,
+                onChanged: (v) =>
+                    _form.updateDetails((x) => x.copyWith(departmentType: v)),
+              ),
+              const SizedBox(height: 14),
+              if (_asksDepartment) ...[
+                BrutTextField(
+                  controller: _department,
+                  label: 'Department',
+                  hint: 'College of Information Technology',
+                  enabled: _editable,
+                  maxLength: 100,
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 14),
+              ],
               BrutTextField(
                 controller: _schoolYear,
                 label: 'School year',
@@ -451,29 +513,61 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               ),
               const SizedBox(height: 18),
 
-              // The setting was chosen on the cover, before any of this,
-              // because it decides what the form will ask for. Shown
-              // here so it is visible where it belongs on the paper, and
-              // changed by going back to the cover rather than asked for
-              // twice in two places.
-              const MonoLabel('Setting'),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(
-                    Icons.place_outlined,
-                    size: 16,
-                    color: context.palette.ink,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    d.setting?.label ?? 'Not chosen',
-                    style: AppText.cardTitle.copyWith(fontSize: 14),
-                  ),
-                ],
-              ),
+              // The setting is normally chosen on the cover, before any of
+              // this, because it decides what the form will ask for, and
+              // only shown here. Opened from the six-part list there was
+              // no cover, so it is asked for here instead.
+              if (_asksSetting)
+                SapSingleChoice<SapSetting>(
+                  label: 'Setting',
+                  options: SapSetting.values,
+                  labelOf: (s) => s.label,
+                  value: d.setting,
+                  enabled: _editable,
+                  onChanged: (s) =>
+                      _form.updateDetails((x) => x.copyWith(setting: s)),
+                )
+              else ...[
+                const MonoLabel('Setting'),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.place_outlined,
+                      size: 16,
+                      color: context.palette.ink,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      d.setting?.label ?? 'Not chosen',
+                      style: AppText.cardTitle.copyWith(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ],
               if (d.setting == SapSetting.offCampus) ...[
                 const SizedBox(height: 14),
+                // Acknowledged on the cover otherwise; without it Save
+                // stays disabled.
+                if (_asksSetting)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IntrinsicWidth(
+                      child: BrutChip(
+                        label: d.offCampusAgreement
+                            ? 'Acknowledged'
+                            : 'I acknowledge the off-campus requirements',
+                        selected: d.offCampusAgreement,
+                        onTap: _editable
+                            ? () => _form.updateDetails(
+                                (x) => x.copyWith(
+                                  offCampusAgreement: !x.offCampusAgreement,
+                                ),
+                              )
+                            : () {},
+                      ),
+                    ),
+                  ),
                 if (!d.offCampusAgreement) ...[
                   const SizedBox(height: 8),
                   const BrutInlineMessage(
@@ -625,6 +719,8 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 hint: 'Why the activity is being proposed',
                 enabled: _editable,
                 maxLines: 6,
+                // The server's limits for these three, enforced as typed.
+                maxLength: 1800,
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 14),
@@ -634,6 +730,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 hint: 'One per line',
                 enabled: _editable,
                 maxLines: 6,
+                maxLength: 1200,
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 18),
@@ -691,6 +788,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 hint: 'What happens if something goes wrong',
                 enabled: _editable,
                 maxLines: 6,
+                maxLength: 600,
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 14),

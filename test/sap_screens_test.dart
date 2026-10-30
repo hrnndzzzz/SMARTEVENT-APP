@@ -152,6 +152,75 @@ void main() {
     expect(find.textContaining('needs the modality to be online'), findsOneWidget);
   });
 
+  testWidgets('Part 1 will not save without a department', (tester) async {
+    await tester.pumpWidget(host(SapPart1Screen(form: blankForm())));
+    await tester.pumpAndSettle();
+
+    // Nothing could name the department, so the form asks for it.
+    expect(find.text('DEPARTMENT TYPE'), findsOneWidget);
+    expect(find.text('DEPARTMENT'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(
+      find.text('Fill in the setting, department type and department first.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Part 1 asks for the setting when the cover was skipped', (
+    tester,
+  ) async {
+    // The six-part list opens Part 1 directly, so nothing chose a setting,
+    // and the server refuses the PDF and the submission without one.
+    final form = blankForm();
+    await tester.pumpWidget(host(SapPart1Screen(form: form)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not chosen'), findsNothing);
+    await tester.ensureVisible(find.text('Off campus'));
+    await tester.tap(find.text('Off campus'));
+    await tester.pumpAndSettle();
+    expect(form.details.setting, SapSetting.offCampus);
+
+    final acknowledge = find.text('I acknowledge the off-campus requirements');
+    await tester.ensureVisible(acknowledge);
+    await tester.tap(acknowledge);
+    await tester.pumpAndSettle();
+    expect(form.details.offCampusAgreement, isTrue);
+  });
+
+  testWidgets('Part 1 keeps a department it already knows off the screen', (
+    tester,
+  ) async {
+    final form = blankForm()
+      ..updateDetails(
+        (d) => d.copyWith(
+          departmentType: 'College',
+          department: 'College of Information Technology',
+        ),
+      );
+
+    await tester.pumpWidget(host(SapPart1Screen(form: form)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DEPARTMENT'), findsNothing);
+    expect(form.details.department, 'College of Information Technology');
+  });
+
+  testWidgets('Part 1 caps the long answers at the server\'s limits', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(SapPart1Screen(form: blankForm())));
+    await tester.pumpAndSettle();
+
+    final limits = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .map((f) => f.maxLength);
+    // Rationale, objectives and emergency plan, as schemas_sap.py has them.
+    expect(limits, containsAll([1800, 1200, 600]));
+  });
+
   testWidgets('Part 1 shows the setting but does not ask again', (
     tester,
   ) async {
@@ -185,6 +254,10 @@ void main() {
         'start_time': '08:00:00',
         'end_time': '11:00:00',
         'setting': 'on_campus',
+        // Required since the Save button checks what the server refuses
+        // outright: without these the save never leaves the screen.
+        'department_type': 'College',
+        'department': 'CITE',
       },
       'collections': {
         'program-flow': [

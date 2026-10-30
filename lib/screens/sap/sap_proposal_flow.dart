@@ -8,6 +8,7 @@ import '../../theme/app_layout.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_cover_screen.dart';
+import 'sap_part1_screen.dart';
 import 'sap_steps_screen.dart';
 import 'sap_form_screen.dart';
 
@@ -73,6 +74,9 @@ abstract final class SapProposalFlow {
             ? d.schoolYear
             : SapCoverScreen.schoolYearFor(DateTime.now()),
         proposalDate: d.proposalDate ?? DateTime.now(),
+        departmentType: d.departmentType?.isNotEmpty == true
+            ? d.departmentType
+            : SapPart1Screen.departmentTypes.first,
       ),
     );
 
@@ -201,7 +205,8 @@ abstract final class SapProposalFlow {
   /// fill the form, not only for the Admins who may list organizations.
   ///
   /// The department still has no name on `/auth/me`, so it is resolved
-  /// through the list and stays typed for everyone who cannot read it.
+  /// through the list, and Part 1 asks for it from everyone who cannot
+  /// read that list.
   static void _fillFromAccount(BuildContext context, SapForm form) {
     final AppState app;
     try {

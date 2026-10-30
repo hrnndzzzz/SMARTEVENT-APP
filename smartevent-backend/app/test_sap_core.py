@@ -13,11 +13,11 @@ from app.services.sap_pdf import render_proposal
 from app.main import app
 
 
-@pytest.mark.parametrize('length', [1500, 4000])
+@pytest.mark.parametrize('length', [1500, 10000])
 def test_long_information_survives_submit_reload_and_pdf(sap_system, length):
     data = fixture_data()
     # Distinct boundary markers prove the entire addendum reaches the printout.
-    info = 'BEGIN_INFO ' + ('Activity detail. ' * 250)[:length - 20] + ' END_INFO'
+    info = 'BEGIN_INFO ' + ('Activity detail. ' * 600)[:length - 20] + ' END_INFO'
     assert len(info) == length
     data['details']['additional_information'] = info
     result = populate(sap_system, data)
@@ -34,7 +34,7 @@ def test_long_information_survives_submit_reload_and_pdf(sap_system, length):
 
 def test_information_over_limit_rejected_by_draft_and_submission(sap_system):
     client, _, _, _, _, base = sap_system
-    info = 'x' * 4001
+    info = 'x' * 10001
     response = client.patch(base, json={'expected_version': version(client, base),
                                        'details': {'additional_information': info}})
     assert response.status_code == 422
