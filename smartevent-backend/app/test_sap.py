@@ -8,7 +8,7 @@ from pypdf import PdfReader
 from fastapi import HTTPException
 from app.test_access_management import system
 from app.config import settings
-from app.models import DocumentRouting, Notification
+from app.models import DocumentRouting, Notification, Organization
 from app.models_sap import SAPRevision, SAPFinalCopy, SAPReview
 from app.schemas_sap import validate_submission
 from app.services.sap_pdf import render_proposal, signature_slots
@@ -126,14 +126,35 @@ def test_permission_and_stale_version(sap_system):
     client, db, users, event, login, base = sap_system
     current = version(client, base)
     assert client.put(base + '/sds-clearance', json={'expected_version': current, 'clearance': fixture_data()['clearance']}).status_code == 403
-    login('admin')
-    assert client.patch(base, json={'expected_version': current, 'details': fixture_data()['details']}).status_code == 403
     login('sds_staff')
     assert client.patch(base, json={'expected_version': current, 'details': fixture_data()['details']}).status_code == 403
     login('treasurer')
     assert client.patch(base, json={'expected_version': current + 1, 'details': fixture_data()['details']}).status_code == 409
     login('officer')
     assert client.patch(base, json={'expected_version': current, 'details': fixture_data()['details']}).status_code == 403
+
+
+def test_organization_colleague_continues_a_draft(sap_system):
+    client, db, users, event, login, base = sap_system
+    data, current = fixture_data(), version(client, base)
+    users['officer'].position = 'Vice President'
+    users['adviser'].organization_id = db.query(Organization.id).filter_by(code='B').scalar()
+    db.commit()
+    login('adviser')
+    assert client.patch(base, json={'expected_version': current, 'details': data['details']}).status_code == 403
+    login('officer')
+    response = client.patch(base, json={'expected_version': current, 'details': data['details']})
+    assert response.status_code == 200, response.text
+    response = client.put(base + '/budget-items', json={'expected_version': response.json()['version'], 'items': data['collections']['budget-items']})
+    assert response.status_code == 200, response.text
+
+
+def test_admin_edits_a_colleagues_draft_but_sends_only_their_own(sap_system):
+    client, db, users, event, login, base = sap_system
+    login('admin')
+    response = client.patch(base, json={'expected_version': version(client, base), 'details': fixture_data()['details']})
+    assert response.status_code == 200, response.text
+    assert client.post(base + '/submit', json={'expected_version': version(client, base)}).status_code == 403
 
 
 def test_parallel_moderators_and_order(sap_system):
