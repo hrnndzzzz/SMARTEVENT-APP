@@ -225,6 +225,8 @@ def sign_revision(event_id: UUID, payload: SDSReviewWrite, db: Session = Depends
     if row and row.signed_at:
         raise HTTPException(409, 'This revision is already signed')
     snapshot = _with_clearance(rev, proposal)
+    if not snapshot['clearance']:
+        raise HTTPException(422, 'Complete Part 4 before signing')
     try:
         validate_clearance(snapshot['clearance'], snapshot['collections'])
     except ValueError as exc:

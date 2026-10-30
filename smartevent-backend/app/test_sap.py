@@ -414,7 +414,7 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
     assert [row['id'] for row in client.get('/events').json()] == [str(event.id)]
     strokes = [[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]]
     unsigned = client.post(base + '/sds-sign', json={'expected_version': version(client, base), 'signature_strokes': strokes})
-    assert unsigned.status_code == 422 and 'Part 4' in unsigned.json()['detail']
+    assert unsigned.status_code == 422 and unsigned.json()['detail'] == 'Complete Part 4 before signing'
 
     filled = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert filled.status_code == 200, filled.text
