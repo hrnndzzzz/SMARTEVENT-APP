@@ -1,18 +1,15 @@
 """Staff-managed post-activity evidence and parallel learning activities."""
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
 from app.dependencies import assert_record_scope
 from app.models import Event, EventParticipant, EventRequirement, RequirementPreset, StudentComplianceRecord
 from app.models_compliance import EventComplianceDocument, EventParallelActivity
+from app.services.academic_year import institution_today  # noqa: F401 - re-exported for routers and sap
 from app.services.compliance import event_record, sync_compliance_records
 
 REPORT_KINDS = {"signed_attendance", "debriefing_report", "final_expense_report"}
-
-
-def institution_today():
-    return datetime.now(timezone(timedelta(hours=8))).date()
 
 
 def scoped_event(db, event_id, user, *, write=False, states=None):

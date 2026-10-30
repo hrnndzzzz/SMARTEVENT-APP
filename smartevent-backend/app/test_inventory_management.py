@@ -4,6 +4,9 @@ from uuid import UUID, uuid4
 import pytest
 from app.test_access_management import system
 from app.models import AuditLog, Expense, ExpenseItem, Inventory, InventoryTransaction
+from app.schemas import PurchaseCompletion
+from app.services.academic_year import institution_today
+from pydantic import ValidationError
 
 
 def create_asset_expense(system, name="Chair", unit="pcs", receipt=True):
@@ -22,9 +25,19 @@ def create_asset_expense(system, name="Chair", unit="pcs", receipt=True):
 
 
 def completion_payload(line, **overrides):
-    return {"paid_on": date.today().isoformat(), "received_on": date.today().isoformat(),
+    return {"paid_on": institution_today().isoformat(), "received_on": institution_today().isoformat(),
             "paid_amount": "60.00", "payment_method": "cash", "payment_reference": "OR-PAY-1",
             "vendor": "Equipment Supplier", "items": [{"expense_item_id": str(line.id), "quantity": 3, "unit": line.unit}], **overrides}
+
+
+def test_purchase_dates_follow_manila_not_the_server_clock(monkeypatch):
+    monkeypatch.setattr("app.schemas.institution_today", lambda: date(2099, 1, 2))
+    payload = {"paid_on": "2099-01-02", "received_on": "2099-01-02", "paid_amount": "60.00",
+               "payment_method": "cash", "payment_reference": "OR-PAY-1", "vendor": "Supplier",
+               "items": [{"expense_item_id": str(uuid4()), "quantity": 1, "unit": "pcs"}]}
+    PurchaseCompletion.model_validate(payload)
+    with pytest.raises(ValidationError):
+        PurchaseCompletion.model_validate({**payload, "received_on": "2099-01-03"})
 
 
 def approve(system, expense):
@@ -94,7 +107,7 @@ def test_incomplete_purchase_never_adds_stock(system, problem, expected):
     elif problem == "underpaid":
         payload["paid_amount"] = 30
     elif problem == "future":
-        payload["received_on"] = (date.today() + timedelta(days=1)).isoformat()
+        payload["received_on"] = (institution_today() + timedelta(days=1)).isoformat()
     elif problem == "foreign_line":
         payload["items"][0]["expense_item_id"] = str(uuid4())
     elif problem == "duplicate_line":

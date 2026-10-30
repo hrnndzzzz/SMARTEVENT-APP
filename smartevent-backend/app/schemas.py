@@ -5,6 +5,8 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, EmailStr, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+from app.services.academic_year import institution_today
+
 AccountEmail = Annotated[EmailStr, Field(max_length=150), AfterValidator(str.lower)]
 
 Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
@@ -84,6 +86,7 @@ class UserOut(BaseModel):
     department_id: uuid.UUID | None
     organization_id: uuid.UUID | None = None
     organization_name: str | None = None
+    department_name: str | None = None
     is_active: bool
     is_suspended: bool = False
     must_change_password: bool
@@ -459,7 +462,7 @@ class ExpenseCreate(BaseModel):
     department_id: uuid.UUID | None = None
     description: str = Field(min_length=1, max_length=10000)
     amount: Money
-    expense_date: date = Field(default_factory=date.today)
+    expense_date: date = Field(default_factory=institution_today)
 
 
     receipt_url: HttpUrl | None = None
@@ -532,7 +535,7 @@ class IncomeCreate(BaseModel):
     source_type: FundSource = "other"
     purpose: str = Field(min_length=1, max_length=2000)
     amount: Money
-    received_on: date = Field(default_factory=date.today)
+    received_on: date = Field(default_factory=institution_today)
     receipt: ReceiptDetails | None = None
 
 
@@ -589,7 +592,7 @@ class PurchaseCompletion(BaseModel):
     @field_validator("paid_on", "received_on")
     @classmethod
     def dates_cannot_be_future(cls, value):
-        if value > date.today():
+        if value > institution_today():
             raise ValueError("Completed payment/delivery dates cannot be in the future")
         return value
 

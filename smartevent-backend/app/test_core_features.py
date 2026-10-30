@@ -221,7 +221,7 @@ def test_export_manifest_and_invalid_report_filters(system):
     assert manifest.status_code == 200
     assert manifest.json()["dashboard"]["csv"] == "/reports/dashboard/export?format=csv"
     assert client.get("/reports/dashboard/export?format=exe").status_code == 422
-    for path in ("/reports/financial", "/reports/financial.pdf", "/reports/financial/export"):
+    for path in ("/reports/financial", "/reports/financial/export"):
         assert client.get(path + "?period=school_year&school_year=2026-2029").status_code == 422
 
 

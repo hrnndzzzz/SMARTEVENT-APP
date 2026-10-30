@@ -6,7 +6,6 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
@@ -17,8 +16,7 @@ from app.dependencies import (
     scope_query_by_department,
 )
 from app.models import Category, Event, Expense, IncomeRecord, Receipt, User
-from app.services.academic_year import validate_school_year
-from app.services.report_exports import render_export, financial_sections
+from app.services.academic_year import institution_today, validate_school_year
 from app.schemas import (
     CategoryReport,
     ConsolidatedFinancialReport,
@@ -177,7 +175,7 @@ def get_consolidated_financial_report(
         except ValueError as exc:
             raise HTTPException(422, str(exc))
     if period in {"weekly", "monthly"}:
-        start_date, end_date = _calendar_window(period, reference_date or date.today())
+        start_date, end_date = _calendar_window(period, reference_date or institution_today())
 
     event_query = scope_query_by_department(
         db.query(Event), Event.department_id, current_user
@@ -284,30 +282,3 @@ def get_consolidated_financial_report(
         withheld_income_total=_sum_amounts(withheld_incomes),
         withheld_income_count=len(withheld_incomes),
     )
-
-
-@router.get(
-    "/financial.pdf",
-    response_class=Response,
-    responses={200: {"content": {"application/pdf": {}}}},
-    summary="Download a consolidated financial report as PDF",
-)
-def download_consolidated_financial_report(
-    period: Literal["weekly", "monthly", "school_year", "semester"],
-    reference_date: date | None = None,
-    school_year: str | None = Query(default=None, pattern=r"^\d{4}-\d{4}$"),
-    semester: Semester | None = None,
-    event_scope: EventScope | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_operational_read),
-):
-    report = get_consolidated_financial_report(
-        period=period,
-        reference_date=reference_date,
-        school_year=school_year,
-        semester=semester,
-        event_scope=event_scope,
-        db=db,
-        current_user=current_user,
-    )
-    return render_export("SMARTEVENT Financial Report", financial_sections(report), "pdf", "smartevent-financial-report")

@@ -66,6 +66,10 @@ class User(OrganizationScoped, Base):
     def organization_name(self):
         return self.organization.name if self.organization is not None else None
 
+    @property
+    def department_name(self):
+        return self.department.name if self.department is not None else None
+
 
 class Notification(Base):
     __tablename__ = "notifications"

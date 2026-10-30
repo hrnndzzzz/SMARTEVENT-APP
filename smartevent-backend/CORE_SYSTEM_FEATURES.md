@@ -171,7 +171,7 @@ and available financial filters. All URLs must be fetched with the current JWT.
 `period` is `weekly`, `monthly`, `school_year`, or `semester`. Academic periods
 require `school_year`; semester periods also require `semester` (`1st`, `2nd`,
 `summer`). Scope is `departmental` or `organizational`. Existing financial JSON
-and `/reports/financial.pdf` routes remain compatible.
+and `/reports/financial/export?format=pdf` routes remain compatible.
 
 Frontend implementation:
 

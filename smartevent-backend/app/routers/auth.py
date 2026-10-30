@@ -313,8 +313,9 @@ def change_password(
 ):
     current_user = db.query(User).filter(User.id == current_user.id).populate_existing().with_for_update().one()
     if not verify_password(payload.current_password, current_user.password_hash):
+        # 400, not 401: the session is fine, and clients read 401 as signed out.
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
         )
 

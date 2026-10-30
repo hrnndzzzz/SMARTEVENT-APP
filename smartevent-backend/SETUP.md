@@ -81,7 +81,7 @@ then register that email in Swagger and verify the received code.
 ## Financial reports
 
 In Swagger, `GET /reports/financial` returns consolidated JSON and
-`GET /reports/financial.pdf` downloads the same report as a printable PDF.
+`GET /reports/financial/export?format=pdf` downloads the same report as a printable PDF.
 Both endpoints accept the same filters:
 
 - Weekly: `period=weekly`, optionally `reference_date=YYYY-MM-DD`
