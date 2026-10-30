@@ -130,4 +130,61 @@ void main() {
       sync.dispose();
     },
   );
+
+  test('an unsent SAP draft does not fail preparation', () async {
+    sqfliteFfiInit();
+    final dir = await Directory.systemTemp.createTemp('offline-sap-');
+    final store = await OfflineStore.open(
+      directory: dir.path,
+      factory: databaseFactoryFfi,
+    );
+    await store.activate('http://127.0.0.1:8000', {
+      'id': 'a',
+      'role': 'treasurer',
+    });
+    addTearDown(() async {
+      await store.close();
+      await dir.delete(recursive: true);
+    });
+    final paths = <String>[];
+    final api = ApiClient(
+      offlineStore: store,
+      httpClient: MockClient((request) async {
+        final path = request.url.path;
+        paths.add(path);
+        // What sap.py answers for an incomplete, never-sent draft.
+        if (path == '/events/draft/sap-proposal/pdf') {
+          return http.Response('{"detail":"Field required"}', 422);
+        }
+        if (path.endsWith('/export') || path.endsWith('/pdf')) {
+          return http.Response(
+            '%PDF-test',
+            200,
+            headers: {'content-type': 'application/pdf'},
+          );
+        }
+        Object data = [];
+        if (path == '/events') {
+          data = [
+            {'id': 'draft'},
+            {'id': 'sent'},
+          ];
+        }
+        if (path == '/events/draft/sap-proposal') {
+          data = {'id': 'p1', 'state': 'draft', 'revision_no': 0};
+        }
+        if (path == '/events/sent/sap-proposal') {
+          data = {'id': 'p2', 'state': 'pending_sap_review', 'revision_no': 1};
+        }
+        return http.Response(jsonEncode(data), 200);
+      }),
+    );
+    final sync = OfflineSync(api);
+    await sync.prepare();
+    expect(paths, isNot(contains('/events/draft/sap-proposal/pdf')));
+    expect(paths, contains('/events/sent/sap-proposal/pdf'));
+    expect(sync.failed, 0);
+    expect(sync.ready, isTrue);
+    sync.dispose();
+  });
 }

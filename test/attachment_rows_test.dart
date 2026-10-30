@@ -23,21 +23,26 @@ void main() {
     addTearDown(tester.view.reset);
 
     final client = MockClient((request) async {
+      // Rows as `SAPAttachmentOut` sends them.
       final body = request.url.path.endsWith('/attachments')
           ? [
               {
                 'id': 'a1',
                 'category': 'roc_coc',
-                'filename': 'roc-signed.pdf',
-                'size_bytes': 12345,
-                'revision_no': 1,
+                'display_name': 'roc-signed.pdf',
+                'file_name': 'roc-signed.pdf',
+                'content_type': 'application/pdf',
+                'sha256': 'a' * 64,
+                'uploaded_at': '2026-10-27T08:00:00',
               },
               {
                 'id': 'a2',
                 'category': 'appendix',
-                'filename': 'venue-map.pdf',
-                'size_bytes': 999,
-                'revision_no': 1,
+                'display_name': 'venue-map.pdf',
+                'file_name': 'venue-map.pdf',
+                'content_type': 'application/pdf',
+                'sha256': 'b' * 64,
+                'uploaded_at': '2026-10-27T08:01:00',
               },
             ]
           : {'detail': 'Not Found'};

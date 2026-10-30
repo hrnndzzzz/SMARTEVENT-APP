@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../api/api_client.dart';
 import '../api/compliance_service.dart';
 import '../api/models/compliance.dart';
 import '../state/app_state.dart';
@@ -64,10 +65,18 @@ class _EventReadinessScreenState extends State<EventReadinessScreen> {
     try {
       final app = context.read<AppState>();
       final results = await Future.wait([
-        app.eventLogistics(id),
+        // Officers may not read logistics; that is no reason to fail the
+        // readiness they may read.
+        app.eventLogistics(id).catchError(
+          (_) => null,
+          test: (e) => e is ApiException && e.isForbidden,
+        ),
         app.eventRouting(id),
         app.eventReadiness(id),
-        app.availableSignatories(),
+        // Only administrators may list signatories, and only they route.
+        (app.currentRole?.isAdministrator ?? false)
+            ? app.availableSignatories()
+            : Future.value(const <Signatory>[]),
       ]);
       if (!mounted) return;
       setState(() {
@@ -135,7 +144,13 @@ class _EventReadinessScreenState extends State<EventReadinessScreen> {
           else ...[
             _ReadinessCard(readiness: _readiness!),
             const SizedBox(height: AppLayout.section),
-            _LogisticsCard(logistics: _logistics, onEdit: _editLogistics),
+            _LogisticsCard(
+              logistics: _logistics,
+              // The server refuses logistics writes from officers.
+              onEdit: context.read<AppState>().currentRole == UserRole.officer
+                  ? null
+                  : _editLogistics,
+            ),
             const SizedBox(height: AppLayout.section),
             _RoutingCard(
               steps: _routing,
@@ -225,7 +240,7 @@ class _LogisticsCard extends StatelessWidget {
   const _LogisticsCard({required this.logistics, required this.onEdit});
 
   final EventLogistics? logistics;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {

@@ -360,30 +360,206 @@ class _AccountsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.usersLoad;
+    final school = app.currentRole?.canAdministerSchool ?? false;
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
+    return Stack(
       children: [
-        const Text(
-          'Accounts that exist. Access is revoked by suspending, which keeps '
-          'everything the account did — there is no delete.',
-          style: AppText.caption,
-        ),
-        const SizedBox(height: 14),
-        if (load.isLoading && app.managedUsers.isEmpty)
-          const Center(
-            child: Padding(padding: EdgeInsets.all(24), child: BrutSpinner()),
-          )
-        else if (load.hasFailed && app.managedUsers.isEmpty)
-          BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
-        else if (app.managedUsers.isEmpty)
-          const BrutEmptyState(title: 'No accounts in your scope')
-        else
-          for (final user in app.managedUsers) ...[
-            _UserCard(user: user),
-            const SizedBox(height: 10),
+        ListView(
+          padding: EdgeInsets.only(
+            bottom: school ? 96 : AppLayout.contentPadding,
+          ),
+          children: [
+            const Text(
+              'Accounts that exist. Access is revoked by suspending, which '
+              'keeps everything the account did — there is no delete.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 14),
+            if (load.isLoading && app.managedUsers.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: BrutSpinner(),
+                ),
+              )
+            else if (load.hasFailed && app.managedUsers.isEmpty)
+              BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
+            else if (app.managedUsers.isEmpty)
+              const BrutEmptyState(title: 'No accounts in your scope')
+            else
+              for (final user in app.managedUsers) ...[
+                _UserCard(user: user),
+                const SizedBox(height: 10),
+              ],
           ],
+        ),
+        // Admin, SDS and Signatory accounts never come from the roster.
+        // Without a signatory, no Admin can approve a plain event.
+        if (school)
+          Positioned(
+            right: 0,
+            bottom: AppLayout.gutter,
+            child: FloatingActionButton.extended(
+              heroTag: 'school-account-add',
+              onPressed: () => BrutSheet.show<void>(
+                context,
+                builder: (_) => const _AddSchoolAccountSheet(),
+              ),
+              icon: const Icon(Icons.badge_outlined),
+              label: Text('Add school account', style: AppText.buttonLabel),
+            ),
+          ),
       ],
+    );
+  }
+}
+
+/// Creates an Admin, SDS Staff or Signatory account. The server emails a
+/// temporary password, so nothing here asks for one.
+class _AddSchoolAccountSheet extends StatefulWidget {
+  const _AddSchoolAccountSheet();
+
+  @override
+  State<_AddSchoolAccountSheet> createState() => _AddSchoolAccountSheetState();
+}
+
+class _AddSchoolAccountSheetState extends State<_AddSchoolAccountSheet> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _positionController = TextEditingController();
+
+  UserRole _role = UserRole.signatory;
+  String? _departmentId;
+  String? _organizationId;
+
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _positionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_nameController.text.trim().isEmpty) {
+      setState(() => _error = 'Enter their full name.');
+      return;
+    }
+    if (_emailController.text.trim().isEmpty) {
+      setState(() => _error = 'Enter their email.');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final position = _positionController.text.trim();
+    final error = await context.read<AppState>().createPrivilegedAccount(
+      role: _role,
+      fullName: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      position: position.isEmpty ? null : position,
+      departmentId: _departmentId,
+      organizationId: _organizationId,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _submitting = false;
+      _error = error;
+    });
+
+    if (error == null) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Created. A temporary password was emailed to them.'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+
+    return BrutSheet(
+      title: 'Add a school account',
+      subtitle:
+          'The server emails a temporary password, which they change at '
+          'first sign-in.',
+      footer: BrutButton(
+        label: 'Create account',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Creating…',
+        onPressed: _submit,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutDropdown<UserRole>(
+            label: 'Role',
+            value: _role,
+            hint: 'Select a role',
+            items: [
+              for (final role in const [
+                UserRole.signatory,
+                UserRole.sdsStaff,
+                UserRole.admin,
+              ])
+                DropdownMenuItem(value: role, child: Text(role.label)),
+            ],
+            onChanged: (v) => setState(() => _role = v ?? _role),
+          ),
+          const SizedBox(height: 6),
+          Text(_role.responsibility, style: AppText.caption),
+          const SizedBox(height: 14),
+          if (_role == UserRole.admin) ...[
+            ScopePicker(
+              departments: app.departments,
+              departmentId: _departmentId,
+              onDepartmentChanged: (id) => setState(() {
+                _departmentId = id;
+                _organizationId = null;
+              }),
+              organizations: app.organizationsIn(_departmentId),
+              organizationId: _organizationId,
+              onOrganizationChanged: (id) =>
+                  setState(() => _organizationId = id),
+              explanation: 'An Admin manages one department.',
+            ),
+            const SizedBox(height: 14),
+          ],
+          BrutTextField(
+            label: 'Full name',
+            controller: _nameController,
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Email',
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Position (optional)',
+            controller: _positionController,
+            textCapitalization: TextCapitalization.words,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
+      ),
     );
   }
 }

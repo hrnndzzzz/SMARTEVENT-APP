@@ -170,31 +170,36 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
       '₱${grouped(centavos ~/ 100, decimals: 0)}'
       '.${(centavos % 100).toString().padLeft(2, '0')}';
 
-  Future<void> _save() async {
+  /// The detail text and two collections, each its own endpoint. Stop at
+  /// the first failure rather than firing the rest at a version the
+  /// server has already rejected. Takes the typed text first, so saving on
+  /// the way out keeps it too.
+  Future<bool> _saveAll() async {
     _form.updateDetails(
       (d) => d.copyWith(
         additionalInformation: _composedOtherDetails,
         excuseArrangement: _excuse.text.trim(),
       ),
     );
-
-    // Three collections and the detail text, each its own endpoint. Stop
-    // at the first failure rather than firing the rest at a version the
-    // server has already rejected.
     for (final save in [
       _form.saveDetails,
       _form.saveBudgetItems,
       _form.saveAffectedClasses,
     ]) {
-      if (!await save()) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_form.error ?? 'Could not save.')),
-        );
-        return;
-      }
+      if (!await save()) return false;
     }
+    return true;
+  }
+
+  Future<void> _save() async {
+    final ok = await _saveAll();
     if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_form.error ?? 'Could not save.')),
+      );
+      return;
+    }
     if (widget.onContinue case final next?) {
       await next(context);
     } else {
@@ -230,10 +235,7 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
     final leaving = await LeaveProposal.confirm(
       context,
       save: () async {
-        // This step holds the additional information, which lives on the
-        // details, and the budget breakdown. Both or neither.
-        final ok =
-            await _form.saveDetails() && await _form.saveBudgetItems();
+        final ok = await _saveAll();
         if (!context.mounted) return ok;
         if (!ok) {
           ScaffoldMessenger.of(context).showSnackBar(

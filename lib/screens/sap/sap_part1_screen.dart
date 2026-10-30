@@ -123,27 +123,39 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
   /// write through as they are touched; the text fields only here, so
   /// every keystroke does not rebuild the screen.
   void _collect() {
-    _form.updateDetails(
-      (d) => d.copyWith(
-        title: _title.text.trim(),
-        organizationName: _organization.text.trim(),
+    _form.updateDetails((d) {
+      // A box never filled in is left out: sent as '' it fails the
+      // server's one-character minimum, which refuses the whole save.
+      // Course and attire may be blank, so they always go as typed.
+      String? typed(TextEditingController c, String? was) {
+        final text = c.text.trim();
+        return text.isEmpty && (was ?? '').isEmpty ? null : text;
+      }
+
+      return d.copyWith(
+        title: typed(_title, d.title),
+        organizationName: typed(_organization, d.organizationName),
         course: _course.text.trim(),
-        venue: _venue.text.trim(),
-        personsInCharge: _pic.text.trim(),
+        venue: typed(_venue, d.venue),
+        personsInCharge: typed(_pic, d.personsInCharge),
         attire: _attire.text.trim(),
         expectedStudents: int.tryParse(_students.text.trim()),
-        rationale: _rationale.text.trim(),
-        objectives: _objectives.text.trim(),
-        emergencyPlan: _emergency.text.trim(),
-        fundingSource: _funding.text.trim(),
+        rationale: typed(_rationale, d.rationale),
+        objectives: typed(_objectives, d.objectives),
+        emergencyPlan: typed(_emergency, d.emergencyPlan),
+        fundingSource: typed(_funding, d.fundingSource),
         // Kept as typed. The server compares this against the breakdown
         // in Part 3 as an exact decimal, so rounding it through a double
         // is how a 422 appears that nobody can account for.
-        totalBudget: _budget.text.trim().replaceAll(',', ''),
-        schoolYear: _schoolYear.text.trim(),
-        department: _department.text.trim(),
-      ),
-    );
+        totalBudget: typed(_budget, d.totalBudget)?.replaceAll(',', ''),
+        schoolYear: typed(_schoolYear, d.schoolYear),
+        // Only what was typed: a box left blank would wipe a department
+        // the account filled in after this screen opened.
+        department: _department.text.trim().isEmpty
+            ? null
+            : _department.text.trim(),
+      );
+    });
   }
 
   /// Programme rows the server would reject: it requires

@@ -51,7 +51,7 @@ void main() {
       final form = SapForm(
         eventId: 'e1',
         service: serviceAnswering(404, {'detail': 'Not Found'}),
-      );
+      )..seedLocally(); // loaded: a form that never loaded sends nothing
 
       expect(await form.submit(), isFalse);
       expect(form.error, contains('could not find'));

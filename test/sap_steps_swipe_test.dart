@@ -9,6 +9,15 @@ import 'package:smartevent/theme/app_theme.dart';
 /// They were three pushed routes, so going from the breakdown back to
 /// check something on the activity meant backing out of two screens and
 /// finding the way in again.
+/// Swipes from just under the page's top edge, where each step has its
+/// heading. From the centre a swipe can land on a text field, which keeps
+/// a horizontal drag for selecting text, so the page would not turn.
+Future<void> swipe(WidgetTester tester, double dx) => tester.flingFrom(
+  tester.getTopLeft(find.byType(PageView)) + const Offset(210, 40),
+  Offset(dx, 0),
+  1200,
+);
+
 void main() {
   /// [created] says whether the event record was made: the flow binds the
   /// form to it on success, so the stub does the same.
@@ -43,7 +52,7 @@ void main() {
     await tester.pumpWidget(host(SapForm(eventId: 'e1')));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
 
     expect(find.text('School Support'), findsOneWidget);
@@ -54,9 +63,9 @@ void main() {
     await tester.pumpWidget(host(SapForm(eventId: 'e1')));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
-    await tester.fling(find.byType(PageView), const Offset(400, 0), 1200);
+    await swipe(tester, 400);
     await tester.pumpAndSettle();
 
     expect(find.text('Activity Details'), findsOneWidget);
@@ -70,15 +79,15 @@ void main() {
     await tester.pumpWidget(host(SapForm(eventId: 'e1')));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
     expect(find.text('School Support'), findsOneWidget);
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
     expect(find.text('Additional Information'), findsOneWidget);
 
-    await tester.fling(find.byType(PageView), const Offset(400, 0), 1200);
+    await swipe(tester, 400);
     await tester.pumpAndSettle();
     expect(find.text('School Support'), findsOneWidget);
   });
@@ -94,7 +103,7 @@ void main() {
     await tester.pumpWidget(host(SapForm(), onCreate: () => created++));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
 
     expect(created, 1);
@@ -108,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final delta in [-400.0, 400.0, -400.0, -400.0]) {
-      await tester.fling(find.byType(PageView), Offset(delta, 0), 1200);
+      await swipe(tester, delta);
       await tester.pumpAndSettle();
     }
 
@@ -125,7 +134,7 @@ void main() {
     await tester.pumpWidget(host(form, created: false));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
 
     expect(find.text('Activity Details'), findsOneWidget);
@@ -141,7 +150,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (var i = 0; i < 2; i++) {
-      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+      await swipe(tester, -400);
       await tester.pumpAndSettle();
     }
 

@@ -227,13 +227,17 @@ class AdminService {
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
-  Future<UserProfile> createSdsStaff({
+  /// SDS Staff or a Signatory: school accounts with no organization.
+  Future<UserProfile> createSchoolReviewer({
+    required UserRole role,
     required String fullName,
     required String email,
     String? position,
   }) async {
     final response = await _client.post(
-      '/auth/register/sds',
+      role == UserRole.signatory
+          ? '/auth/register/signatory'
+          : '/auth/register/sds',
       body: {
         'full_name': fullName,
         'email': email,

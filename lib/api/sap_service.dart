@@ -80,13 +80,9 @@ class SapService {
   /// with `message` and `blockers`. The contract warns not to assume one
   /// shape, so anything unrecognised simply yields no blockers.
   static List<String> _blockersOf(ApiException error) {
-    final found = error.fieldErrors['blockers'];
-    if (found == null || found.isEmpty) return const [];
-    return found
-        .split('\n')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final detail = error.detail;
+    final found = detail is Map ? detail['blockers'] : null;
+    return found is List ? [for (final b in found) '$b'] : const [];
   }
 
   SapProposal _proposal(Object? response) =>
@@ -357,8 +353,11 @@ class SapService {
   /// file was the wrong sort.
   ///
   /// Throws [ArgumentError] when the file is one the server would refuse.
-  Future<SapAttachment> uploadAttachment(
+  /// Like every mutation it moves the version, so the server answers with
+  /// the whole proposal rather than the new file.
+  Future<SapProposal> uploadAttachment(
     String eventId, {
+    required int expectedVersion,
     required SapAttachmentCategory category,
     required List<int> bytes,
     required String filename,
@@ -373,9 +372,12 @@ class SapService {
         bytes: bytes,
         filename: filename,
         contentType: SapUploadLimits.contentTypeFor(filename)!,
-        fields: {'category': category.wireName},
+        fields: {
+          'expected_version': '$expectedVersion',
+          'category': category.wireName,
+        },
       );
-      return SapAttachment.fromJson(Map<String, dynamic>.from(response as Map));
+      return _proposal(response);
     });
   }
 
