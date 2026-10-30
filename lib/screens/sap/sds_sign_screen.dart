@@ -53,6 +53,10 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
   /// locked, and a draft has not been sent yet.
   bool get _open => _form.state == SapState.pendingReview;
 
+  /// The server refuses to sign until Part 4 is saved, so the pad waits
+  /// for it too. Remarks do not: the office may send it back instead.
+  bool get _cleared => _form.proposal?.clearance != null;
+
   void _collect() {
     _form.overallRemarks = _overall.text.trim();
     _form.sectionRemarks = {
@@ -132,7 +136,9 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
               icon: Icons.draw_outlined,
               busy: _form.saving,
               busyLabel: 'Signing',
-              onPressed: _open && _signature.isSendable ? _sign : null,
+              onPressed: _open && _cleared && _signature.isSendable
+                  ? _sign
+                  : null,
             ),
           ),
           child: Column(
@@ -190,8 +196,17 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
               const SizedBox(height: 24),
               const BrutSectionTitle('Signature'),
               const SizedBox(height: 10),
+              if (_open && !_cleared) ...[
+                const BrutInlineMessage(
+                  tone: BrutTone.sun,
+                  icon: Icons.assignment_late_outlined,
+                  text:
+                      'Confirm Part 4 (SDS Office Clearance) before signing.',
+                ),
+                const SizedBox(height: 10),
+              ],
               SapSignaturePad(
-                enabled: _open,
+                enabled: _open && _cleared,
                 onChanged: (s) => setState(() => _signature = s),
               ),
               const SizedBox(height: 10),

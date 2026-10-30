@@ -247,8 +247,20 @@ void main() {
   });
 
   group('the screen', () {
-    SapForm pending() {
+    SapForm pending({bool cleared = true}) {
       final form = SapForm(eventId: 'e1');
+      if (cleared) {
+        form.setClearance(
+          const SapClearance(
+            parentsConsent: SapClearanceAnswer.yes,
+            attachments: 'Program and budget',
+            classInterruption: SapClearanceAnswer.none,
+            medicalExam: SapClearanceAnswer.yes,
+            reportOfCompliance: SapClearanceAnswer.yes,
+            studentPersonnelRatio: '145:3',
+          ),
+        );
+      }
       form.seedLocally(state: SapState.pendingReview);
       return form;
     }
@@ -261,6 +273,22 @@ void main() {
         find.widgetWithText(BrutButton, 'Sign the proposal'),
       );
       expect(button.onPressed, isNull);
+      expect(find.textContaining('Confirm Part 4'), findsNothing);
+    });
+
+    testWidgets('will not sign until Part 4 is confirmed', (tester) async {
+      await tester.pumpWidget(
+        host(SdsSignScreen(form: pending(cleared: false))),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Confirm Part 4'), findsOneWidget);
+      expect(
+        tester
+            .widget<SapSignaturePad>(find.byType(SapSignaturePad))
+            .enabled,
+        isFalse,
+      );
     });
 
     testWidgets('offers a remark against every section the server takes', (
