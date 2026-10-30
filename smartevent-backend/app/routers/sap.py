@@ -269,7 +269,7 @@ def clearance(event_id: UUID, payload: ClearanceWrite, db: Session = Depends(get
 
 @router.post('/submit', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def submit(event_id: UUID, payload: Version, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
-    event, proposal = sap.load(db, event_id, user, write=True, proposer=True)
+    event, proposal = sap.load(db, event_id, user, write=True, proposer=True, owner=True)
     sap.check_version(proposal, payload.expected_version, editable=True)
     if not settings.sap_verification_base_url:
         raise HTTPException(503, 'Configure SAP_VERIFICATION_BASE_URL before issuing controlled copies')
@@ -278,7 +278,7 @@ def submit(event_id: UUID, payload: Version, db: Session = Depends(get_db), user
 
 @router.post('/withdraw', response_model=SAPProposalOut, response_model_exclude_unset=True)
 def withdraw(event_id: UUID, payload: Version, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
-    event, proposal = sap.load(db, event_id, user, write=True, proposer=True)
+    event, proposal = sap.load(db, event_id, user, write=True, proposer=True, owner=True)
     sap.check_version(proposal, payload.expected_version)
     return sap.withdraw(db, event, proposal, user)
 

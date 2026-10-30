@@ -51,7 +51,7 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
     assert client.get('/sap/verify/' + rev.verification_token).json()['approval_state'] == 'superseded'
 
 
-@pytest.mark.parametrize('role', ['adviser', 'admin', 'super_admin', 'officer', 'signatory', 'sds_staff'])
+@pytest.mark.parametrize('role', ['admin', 'super_admin', 'officer', 'signatory', 'sds_staff'])
 def test_nonproposer_cannot_withdraw(sap_system, role):
     submitted = populate(sap_system)
     client, _, _, _, login, base = sap_system
@@ -68,6 +68,14 @@ def test_officer_proposer_can_withdraw_own_proposal(sap_system):
     response = client.post(base + '/withdraw', json={'expected_version': submitted['version']})
     assert response.status_code == 200, response.text
     assert response.json()['state'] == 'draft'
+
+
+def test_organization_colleague_submits_and_withdraws(sap_system):
+    # The treasurer proposed the event; the adviser of the same organization sends and takes it back.
+    submitted = populate(sap_system, proposer='adviser')
+    client, _, _, _, login, base = sap_system
+    response = client.post(base + '/withdraw', json={'expected_version': submitted['version']})
+    assert response.status_code == 200, response.text
 
 
 @pytest.mark.parametrize('review', ['empty_notes', 'notes', 'checkpoint', 'signature'])
