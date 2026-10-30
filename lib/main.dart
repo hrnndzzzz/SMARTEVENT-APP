@@ -257,34 +257,24 @@ class _RootShellState extends State<RootShell> {
             // overlaps the navigation it rises out of and nothing that
             // carries a number. Only on the dashboard, and only for
             // whoever may record money.
-            Builder(
-              builder: (context) {
-                final docked =
-                    _page == 1 && context.watch<AppState>().mayRecordFinance;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.topCenter,
-                  children: [
-                    PageIndicator(
-                      current: _page,
-                      labels: const ['Menu', 'Dashboard', 'Events'],
-                      // The button stands in for the middle tab while it
-                      // is there, rather than sitting on top of it.
-                      covered: docked ? 1 : null,
-                      onGo: (i) => _pages.animateToPage(
-                        i,
-                        duration: AppMotion.sheet,
-                        curve: Curves.easeOutCubic,
-                      ),
-                    ),
-                    if (docked)
-                      Positioned(
-                        top: -RecordButton.overlap,
-                        child: const RecordButton(),
-                      ),
-                  ],
-                );
-              },
+            // Its own band between the content and the bar, so it
+            // overlaps neither. Floating, it covered the allocated and
+            // spent figures; docked into the bar, it punched through the
+            // bar's own edge. The band costs the dashboard about eighty
+            // pixels and collides with nothing.
+            if (_page == 1 && context.watch<AppState>().mayRecordFinance)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: RecordButton(),
+              ),
+            PageIndicator(
+              current: _page,
+              labels: const ['Menu', 'Dashboard', 'Events'],
+              onGo: (i) => _pages.animateToPage(
+                i,
+                duration: AppMotion.sheet,
+                curve: Curves.easeOutCubic,
+              ),
             ),
           ],
         ),

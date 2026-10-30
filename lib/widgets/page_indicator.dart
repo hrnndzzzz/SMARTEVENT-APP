@@ -26,20 +26,12 @@ class PageIndicator extends StatelessWidget {
     required this.current,
     required this.onGo,
     required this.labels,
-    this.covered,
   });
 
   /// Index of the page being shown.
   final int current;
   final ValueChanged<int> onGo;
   final List<String> labels;
-
-  /// A segment with something docked over it — the record button rises
-  /// out of the bar and is wider than a label is tall, so the label
-  /// underneath peeked out around the circle. The slot keeps its width
-  /// so the others stay where they are, and draws nothing: on the one
-  /// page this happens, the covered tab is the page you are already on.
-  final int? covered;
 
   /// The three destinations, in order. The glyph names the place; the
   /// word is carried by [Semantics] for anyone who cannot see it.
@@ -80,20 +72,17 @@ class PageIndicator extends StatelessWidget {
         child: Row(
           children: [
             for (var i = 0; i < labels.length; i++)
-              if (i == covered)
-                const Expanded(child: SizedBox.shrink())
-              else
-                Expanded(
-                  child: _Segment(
-                    label: labels[i],
-                    icon: _icons[i % _icons.length],
-                    active: i == current,
-                    bar: bar,
-                    position: i,
-                    count: labels.length,
-                    onTap: () => onGo(i),
-                  ),
+              Expanded(
+                child: _Segment(
+                  label: labels[i],
+                  icon: _icons[i % _icons.length],
+                  active: i == current,
+                  bar: bar,
+                  position: i,
+                  count: labels.length,
+                  onTap: () => onGo(i),
                 ),
+              ),
           ],
         ),
       ),

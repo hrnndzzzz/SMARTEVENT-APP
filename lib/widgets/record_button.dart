@@ -8,20 +8,18 @@ import '../theme/brut.dart';
 /// Record an expense: the one thing the dashboard is for doing rather
 /// than reading.
 ///
-/// It lives above the navigation bar rather than floating over the
-/// dashboard. Floating, it covered the allocated and spent figures
-/// whenever the screen was at rest — a floating button over a scrolling
-/// list always covers something, and padding only clears the last card
-/// at full scroll. Docked here it overlaps the navigation it sits on and
-/// nothing that carries a number.
+/// It sits in a band of its own between the dashboard and the
+/// navigation bar, overlapping neither.
+///
+/// Floating over the dashboard it covered the allocated and spent
+/// figures whenever the screen was at rest, and padding could not fix
+/// that: a floating button over a scrolling list covers whatever is
+/// under it, and the bottom padding only clears the last card at full
+/// scroll. Docked into the bar instead, it punched through the bar's
+/// own edge and read as a collision. A band costs the dashboard about
+/// eighty pixels and collides with nothing.
 class RecordButton extends StatelessWidget {
   const RecordButton({super.key});
-
-  /// How far it rises above the bar it is docked to.
-  ///
-  /// Measured, not chosen: at 22 the circle clipped the tail of
-  /// "REMAINING BUDGET" on a 1080x2400 phone. This clears it.
-  static const double overlap = 14;
 
   /// The side of the circle.
   static const double size = 68;
