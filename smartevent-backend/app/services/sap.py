@@ -12,6 +12,7 @@ from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAP
 from app.schemas_sap import validate_submission
 from app.services.sap_pdf import signature_slots, render_proposal
 from app.services.access_audit import record_access_change
+from app.services.approvals import record_decision
 from app.services.compliance import invalidate_clearance, require_pre_activity_clearance
 from app.services.academic_year import validate_school_year
 from app.services.closure import institution_today
@@ -105,7 +106,7 @@ def output(db, proposal):
                     evaluated_by=evaluation.evaluated_by, evaluated_at=evaluation.evaluated_at))
 
 
-def save(db, event, proposal, user, action, *, notify=False, details=None):
+def save(db, event, proposal, user, action, *, notify=False, details=None, notify_sds=True):
     proposal.version += 1
     record_access_change(db, user, action, event, details or {'proposal_id': str(proposal.id), 'revision': proposal.revision_no})
     if notify:
@@ -118,10 +119,14 @@ def save(db, event, proposal, user, action, *, notify=False, details=None):
             'sap_evaluated': ('SAP evaluation completed', 'The SDS Office recorded the final evaluation for {title}.'),
             'sap_withdrawn': ('SAP proposal withdrawn', '{title} was withdrawn by its proposer for editing.'),
             'sap_checkpoint_recorded': ('SAP signature checkpoint recorded', 'A physical signature checkpoint was recorded for {title}.'),
+            'sap_dean_approved': ('SAP proposal sent to the SDS Office', 'The Dean approved {title}. It is now with the SDS Office.'),
+            'sap_department_returned': ('SAP proposal returned', '{title} was returned for changes.'),
         }.get(action, ('SAP proposal updated', '{title} has been updated.'))
         payload = {'event_id': str(event.id), 'proposal_id': str(proposal.id),
                    'revision_no': proposal.revision_no, 'state': proposal.state, 'action': action}
-        recipients = {event.proposed_by} | {row.id for row in db.query(User).filter_by(role='sds_staff', is_active=True, is_suspended=False)}
+        recipients = {event.proposed_by}
+        if notify_sds:
+            recipients |= {row.id for row in db.query(User).filter_by(role='sds_staff', is_active=True, is_suspended=False)}
         for recipient in recipients:
             db.add(Notification(user_id=recipient, kind='sap_workflow', title=title,
                 body=message.format(title=event.title), payload=payload, email_status='pending'))
@@ -203,3 +208,33 @@ def withdraw(db, event, proposal, user):
     proposal.state, proposal.clearance = 'draft', None
     event.status = 'draft'
     return save(db, event, proposal, user, 'sap_withdrawn', notify=True)
+
+
+def department_review(db, event, proposal, user, decision, remarks):
+    """The Moderator, then the Dean, decide a sent proposal before the SDS Office sees it.
+    Caller holds the event lock and has run assert_event_read and assert_not_self_review."""
+    if proposal.state != 'pending_department_review':
+        raise HTTPException(409, 'This proposal is not waiting on department review')
+    if user.role == 'adviser':
+        if event.status != 'pending_adviser':
+            raise HTTPException(409, 'The Moderator has already approved this proposal')
+    elif user.role in {'admin', 'super_admin'}:
+        if decision == 'approved' and event.status != 'pending_admin':
+            raise HTTPException(409, 'The Moderator approves a proposal before the Dean')
+    else:
+        raise HTTPException(403, 'Only the Moderator or the Dean can review a proposal here')
+    if decision == 'returned':
+        if not (remarks or '').strip():
+            raise HTTPException(422, 'Say what needs to change')
+        proposal.state, proposal.return_remarks, proposal.clearance = 'revision_requested', remarks, None
+        proposal.returned_by = 'moderator' if user.role == 'adviser' else 'dean'
+        event.status = 'draft'
+        record_decision(db, 'event', event.id, 'returned', user, remarks)
+        return save(db, event, proposal, user, 'sap_department_returned', notify=True, notify_sds=False,
+                    details={'revision': proposal.revision_no, 'remarks': remarks, 'returned_by': proposal.returned_by})
+    record_decision(db, 'event', event.id, 'approved', user, remarks)
+    if user.role == 'adviser':
+        event.status = 'pending_admin'
+        return save(db, event, proposal, user, 'sap_moderator_approved')
+    proposal.state, event.status = 'pending_sap_review', 'pending_institutional_review'
+    return save(db, event, proposal, user, 'sap_dean_approved', notify=True)
