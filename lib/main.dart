@@ -257,25 +257,34 @@ class _RootShellState extends State<RootShell> {
             // overlaps the navigation it rises out of and nothing that
             // carries a number. Only on the dashboard, and only for
             // whoever may record money.
-            Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.topCenter,
-              children: [
-                PageIndicator(
-                  current: _page,
-                  labels: const ['Menu', 'Dashboard', 'Events'],
-                  onGo: (i) => _pages.animateToPage(
-                    i,
-                    duration: AppMotion.sheet,
-                    curve: Curves.easeOutCubic,
-                  ),
-                ),
-                if (_page == 1 && context.watch<AppState>().mayRecordFinance)
-                  Positioned(
-                    top: -RecordButton.overlap,
-                    child: const RecordButton(),
-                  ),
-              ],
+            Builder(
+              builder: (context) {
+                final docked =
+                    _page == 1 && context.watch<AppState>().mayRecordFinance;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    PageIndicator(
+                      current: _page,
+                      labels: const ['Menu', 'Dashboard', 'Events'],
+                      // The button stands in for the middle tab while it
+                      // is there, rather than sitting on top of it.
+                      covered: docked ? 1 : null,
+                      onGo: (i) => _pages.animateToPage(
+                        i,
+                        duration: AppMotion.sheet,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
+                    if (docked)
+                      Positioned(
+                        top: -RecordButton.overlap,
+                        child: const RecordButton(),
+                      ),
+                  ],
+                );
+              },
             ),
           ],
         ),

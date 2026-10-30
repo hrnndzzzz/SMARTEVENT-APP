@@ -67,4 +67,29 @@ void main() {
 
     expect(find.bySemanticsLabel('Record an expense'), findsNothing);
   });
+
+  testWidgets('it stands in for the tab it covers, and only there', (
+    tester,
+  ) async {
+    // The circle is wider than a label is tall, so the word underneath
+    // peeked out around it. The slot keeps its width and draws nothing
+    // while the button is there — the covered tab is the page you are
+    // already on.
+    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    await openDashboard(tester, app);
+
+    // The bar renders its labels uppercase.
+    expect(find.text('DASHBOARD'), findsNothing);
+    expect(find.text('MENU'), findsOneWidget);
+    expect(find.text('EVENTS'), findsOneWidget);
+
+    // Off the dashboard the button goes and the tab comes back.
+    await tester.tap(find.text('MENU'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    expect(find.text('DASHBOARD'), findsOneWidget);
+    expect(find.bySemanticsLabel('Record an expense'), findsNothing);
+  });
 }
