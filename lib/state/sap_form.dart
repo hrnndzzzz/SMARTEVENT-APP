@@ -213,15 +213,19 @@ class SapForm extends ChangeNotifier {
     );
   }
 
-  void _adopt(SapProposal p) {
+  /// [keepEdits] is for a write's answer. A write sends one part, and the
+  /// version check it passed means the server's copy of the rest is older
+  /// than what is here: taking it whole wiped rows typed but not yet sent.
+  void _adopt(SapProposal p, {bool keepEdits = false}) {
     _proposal = p;
+    _clearance = p.clearance;
+    _stale = false;
+    if (keepEdits) return;
     _details = p.details;
     _programFlow = [...p.programFlow];
     _budgetItems = [...p.budgetItems];
     _supportRequests = [...p.supportRequests];
     _affectedClasses = [...p.affectedClasses];
-    _clearance = p.clearance;
-    _stale = false;
   }
 
   // --- local edits ---------------------------------------------------------
@@ -339,7 +343,7 @@ class SapForm extends ChangeNotifier {
 
     try {
       final updated = await call(service, version);
-      _adopt(updated);
+      _adopt(updated, keepEdits: true);
       _localOnly = false;
       return true;
     } on SapUnavailable {
