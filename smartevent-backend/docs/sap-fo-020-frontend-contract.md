@@ -16,8 +16,9 @@ SDS must compare the scan against the correct printed revision and signers.
 First slice: on-campus and online activities; off-campus/CHED remains separate.
 No changes to Flutter are included. Generic events retain their existing routing.
 An existing generic draft can enter SAP only before any routing or approval history.
-After conversion, generic edit/submit/approve/reject/delete/complete endpoints reject
-SAP events with 409. Use this contract instead. Conversion back is not exposed.
+After conversion, generic edit/submit/delete/complete endpoints reject SAP events with
+409, and so do approve/reject unless the proposal waits on department review (see
+State and concurrency). Use this contract instead. Conversion back is not exposed.
 
 All protected endpoints require the existing Bearer JWT, an active account and
 password-change completion. Organization and department scopes remain enforced.
@@ -26,7 +27,7 @@ SDS is institution-wide, as its existing account role has no organization bindin
 | Actor | Parts 1–3 | Part 4 | Record paper checkpoints / return | Final scan | Part 6 |
 |---|---|---|---|---|---|
 | Original event proposer with treasurer/adviser/admin/super_admin role, or Officer holding President/Vice President/Secretary position | Draft or returned only | No | No | No | No |
-| SDS staff | No | Draft or returned only | Yes | Upload/read | Yes |
+| SDS staff | No | While `pending_sap_review` | Yes | Upload/read | Yes |
 | Scoped operational readers/admins | Read | Read | Read history | No | Read |
 | Other Officer positions | Read only | Read | Read history | No | Read |
 | Signatory role alone | No new access | No | No | No | No |
@@ -40,9 +41,18 @@ High-level physical signers need not have accounts.
 
 ## State and concurrency
 
-`draft -> pending_sap_review -> approved -> completed`
+`draft -> pending_department_review -> pending_sap_review -> approved -> completed`
 
-`pending_sap_review -> revision_requested -> pending_sap_review` creates a new
+Sending goes to the department before the SDS Office. The Moderator (event
+`pending_adviser`) and then the Dean (event `pending_admin`) each decide it with
+`POST /events/{event_id}/approve` or `/reject`, sending `{remarks}`. The Dean's
+approval makes it `pending_sap_review`. A proposal that a Moderator sent or created
+starts with the Dean. A return needs remarks, puts the proposal in
+`revision_requested` and sets `returned_by` to `moderator` or `dean`. The SDS Office
+sees a proposal only from the Dean's approval on, or after returning it itself; until
+then its requests for it answer 403.
+
+`revision_requested -> pending_department_review`, whoever returned it, creates a new
 revision on resubmission. Returning requires a comment. The old PDF, snapshot and
 recorded checkpoints remain unchanged. Never copy old signatures to a new revision.
 `rejected` is reserved in persistence; this slice has no terminal-rejection endpoint.
@@ -60,7 +70,8 @@ The signed PDF records it, since submitted revisions are immutable. Drafts allow
 partial detail saves. Cross-field time, class and budget checks run at submission;
 saving a draft is not clearance.
 
-Event projection: draft/returned -> event `draft`; review ->
+Event projection: draft/returned -> event `draft`; Moderator review ->
+`pending_adviser`; Dean review -> `pending_admin`; SDS review ->
 `pending_institutional_review`; evidence accepted -> `approved`; evaluated ->
 `completed`. SAP stages are not added to the existing EventStatus enum.
 Submission synchronizes title, rationale/description, date, start/end times,
@@ -84,11 +95,11 @@ Base: `/events/{event_id}/sap-proposal`. UUID path identifiers.
 | PUT `/budget-items` | Same | Replace entire collection |
 | PUT `/support-requests` | Same | Replace entire collection |
 | PUT `/affected-classes` | Same | Replace entire collection; empty list clears it |
-| PUT `/sds-clearance` | `{expected_version, clearance: {...}}` | SDS fills Part 4: draft, returned or `pending_sap_review`; 409 once signed |
+| PUT `/sds-clearance` | `{expected_version, clearance: {...}}` | SDS fills Part 4 while `pending_sap_review`; 409 once signed |
 | POST `/submit` | `{expected_version}` | Freeze snapshot/PDF; create all nine checkpoints |
 | GET `/workflow` | None | Current revision's nine-step progress |
 | POST `/workflow/{step_id}/record` | Checkpoint body below | Updated workflow |
-| POST `/return` | `{expected_version, remarks}` | Return with nonblank comment |
+| POST `/return` | `{expected_version, remarks}` | Return with nonblank comment; sets `returned_by: sds` |
 | GET `/pdf` | Optional `revision_no` >= 1 | Authenticated PDF attachment |
 | POST `/final-signed-copy` | Multipart `expected_version`, `file` | 201 approved aggregate |
 | GET `/final-signed-copy` | None; SDS only | Short-lived private URL + SHA-256 |

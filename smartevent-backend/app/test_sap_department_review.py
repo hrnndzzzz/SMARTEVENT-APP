@@ -6,7 +6,7 @@ import pytest
 from app.models import Approval, AuditLog, Notification, Organization
 from app.models_sap import SAPProposal
 from app.test_access_management import system
-from app.test_sap import sap_system, populate, version, sign_current, fixture_data
+from app.test_sap import sap_system, send, populate, version, sign_current
 
 
 @pytest.mark.parametrize('route', ['/return', '/revise'])
@@ -54,26 +54,45 @@ def test_the_sds_office_sees_a_proposal_once_it_reaches_the_office(sap_system, s
     assert client.get(base).status_code == (200 if seen else 403)
 
 
-def send(ctx, proposer='treasurer'):
-    """Parts 1-3 filled and sent; populate stops here."""
-    client, db, users, event, login, base = ctx
-    data = fixture_data()
-    login(proposer)
-    assert client.patch(base, json={'expected_version': version(client, base), 'details': data['details']}).status_code == 200
-    for key, items in data['collections'].items():
-        assert client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items}).status_code == 200
-    sent = client.post(base + '/submit', json={'expected_version': version(client, base)})
-    assert sent.status_code == 200, sent.text
-    # Until Task 4 sends it to the department, put it there by hand.
-    db.query(SAPProposal).one().state, event.status = 'pending_department_review', 'pending_adviser'
-    db.commit()
-    return sent.json()
-
-
 def decide(ctx, role, verdict, remarks=None):
     client, db, users, event, login, base = ctx
     login(role)
     return client.post(f'/events/{event.id}/{verdict}', json={} if remarks is None else {'remarks': remarks})
+
+
+def test_sending_goes_to_the_moderator_first(sap_system):
+    sent = send(sap_system)
+    client, db, users, event, login, base = sap_system
+    assert sent['state'] == 'pending_department_review' and event.status == 'pending_adviser'
+    told = db.query(Notification).filter_by(kind='sap_workflow').all()
+    assert [row.user_id for row in told] == [users['treasurer'].id]
+    assert 'department review' in told[0].body
+    login('sds_staff')
+    assert client.get('/events').json() == []
+
+
+@pytest.mark.parametrize('sender,creator', [('adviser', 'treasurer'), ('treasurer', 'adviser')])
+def test_an_advisers_proposal_starts_with_the_dean(sap_system, sender, creator):
+    client, db, users, event, login, base = sap_system
+    event.proposed_by = users[creator].id
+    db.commit()
+    send(sap_system, proposer=sender)
+    assert event.status == 'pending_admin'
+
+
+@pytest.mark.parametrize('after_moderator', [False, True])
+def test_withdrawing_during_department_review_tells_only_the_proposer(sap_system, after_moderator):
+    send(sap_system)
+    client, db, users, event, login, base = sap_system
+    if after_moderator:
+        assert decide(sap_system, 'adviser', 'approve').status_code == 200
+    login('treasurer')
+    response = client.post(base + '/withdraw', json={'expected_version': version(client, base)})
+    assert response.status_code == 200, response.text
+    assert response.json()['state'] == 'draft' and event.status == 'draft'
+    told = db.query(Notification).filter_by(title='SAP proposal withdrawn').all()
+    assert [row.user_id for row in told] == [users['treasurer'].id]
+    assert decide(sap_system, 'admin', 'approve').status_code == 409
 
 
 def test_moderator_then_dean_send_it_to_the_sds_office(sap_system):

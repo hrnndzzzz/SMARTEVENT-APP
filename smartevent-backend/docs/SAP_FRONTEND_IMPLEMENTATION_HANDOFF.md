@@ -1,6 +1,6 @@
 # SAP backend and frontend handoff
 
-Updated: 22 October 2026.
+Updated: 30 October 2026.
 
 ## Current progress
 
@@ -13,7 +13,7 @@ Validation: the full backend suite now passes: **452 passed, 0 failed** on 22 Oc
 ## State and revision rules
 
 - Proposer edits are allowed in **draft** and **revision_requested**.
-- Submission creates an immutable revision and sets **pending_sap_review**.
+- Submission creates an immutable revision and sets **pending_department_review**. The Moderator, then the Dean, approve or return it with **POST /events/{eventId}/approve** and **/reject**; a return needs remarks and sets **returned_by** (moderator, dean or sds). The Dean's approval sets **pending_sap_review**.
 - SDS can save notes, return the unsigned revision, or sign it.
 - Signing sets **sds_signed**, stores the PDF, signer, time, strokes, and SHA-256, and locks the review.
 - SDS can request a correction using **/revise** while the signed proposal awaits paper approval. The original signed bytes and hash stay in history. The next submission creates a new revision with no inherited signature or checkpoints.

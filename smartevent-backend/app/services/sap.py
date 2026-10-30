@@ -111,7 +111,7 @@ def save(db, event, proposal, user, action, *, notify=False, details=None, notif
     record_access_change(db, user, action, event, details or {'proposal_id': str(proposal.id), 'revision': proposal.revision_no})
     if notify:
         title, message = {
-            'sap_submitted': ('SAP proposal submitted', 'Sent to the SDS Office: {title}.'),
+            'sap_submitted': ('SAP proposal submitted', 'Sent for department review: {title}.'),
             'sap_returned': ('SAP proposal returned', '{title} was returned for changes.'),
             'sap_signed_revision_correction_requested': ('SAP correction requested', '{title} was returned for changes.'),
             'sap_revision_signed': ('SAP proposal signed by SDS', 'The SDS Office has signed {title}. Physical approval is still pending.'),
@@ -178,9 +178,11 @@ def submit(db, event, proposal, user, verification_base):
     db.flush()
     for slot, (position, label) in enumerate(signature_slots(data['details']), 1):
         db.add(SAPCheckpoint(revision_id=row.id, slot=slot, position=position, label=label))
-    proposal.revision_no, proposal.state, proposal.return_remarks, proposal.returned_by = number, 'pending_sap_review', None, None
-    event.status = 'pending_institutional_review'
-    return save(db, event, proposal, user, 'sap_submitted', notify=True)
+    proposal.revision_no, proposal.state, proposal.return_remarks, proposal.returned_by = number, 'pending_department_review', None, None
+    # A Moderator does not approve their own proposal, so one they sent or created starts with the Dean.
+    creator = db.get(User, event.proposed_by)
+    event.status = 'pending_admin' if 'adviser' in (user.role, creator.role) else 'pending_adviser'
+    return save(db, event, proposal, user, 'sap_submitted', notify=True, notify_sds=False)
 
 
 def assert_generic_workflow(db, event):
@@ -190,8 +192,9 @@ def assert_generic_workflow(db, event):
 
 def withdraw(db, event, proposal, user):
     """Caller holds the event lock and has checked ownership and version."""
-    if proposal.state != 'pending_sap_review':
-        raise HTTPException(409, 'Only an unreviewed pending proposal can be withdrawn')
+    if proposal.state not in {'pending_department_review', 'pending_sap_review'}:
+        raise HTTPException(409, 'Only a proposal still waiting on review can be withdrawn')
+    with_sds = proposal.state == 'pending_sap_review'
     rev = revision(db, proposal)
     if (db.query(SAPReview.revision_id).filter_by(revision_id=rev.id).first()
             or db.query(SAPCheckpoint.id).filter(
@@ -207,7 +210,7 @@ def withdraw(db, event, proposal, user):
             uploaded_by=row.uploaded_by, uploaded_at=row.uploaded_at))
     proposal.state, proposal.clearance = 'draft', None
     event.status = 'draft'
-    return save(db, event, proposal, user, 'sap_withdrawn', notify=True)
+    return save(db, event, proposal, user, 'sap_withdrawn', notify=True, notify_sds=with_sds)
 
 
 def department_review(db, event, proposal, user, decision, remarks):

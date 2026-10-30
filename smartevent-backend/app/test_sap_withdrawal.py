@@ -36,7 +36,7 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
     assert copies[0].storage_ref == copies[1].storage_ref
     assert copies[0].uploaded_by == copies[1].uploaded_by
     assert copies[0].uploaded_at == copies[1].uploaded_at
-    assert db.query(Notification).filter_by(kind='sap_workflow').count() == 4
+    assert db.query(Notification).filter_by(kind='sap_workflow').count() == 5
     # The old Part 4 does not carry over: the SDS Office fills a fresh one
     # while reviewing the resubmission, before it can sign (see test_sap).
     resubmitted = client.post(base + '/submit', json={'expected_version': version(client, base)})

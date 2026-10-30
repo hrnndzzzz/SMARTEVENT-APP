@@ -54,7 +54,8 @@ def version(client, base):
     return response.json()['version']
 
 
-def populate(ctx, data=None, proposer='treasurer'):
+def send(ctx, data=None, proposer='treasurer'):
+    """Parts 1-3 filled and sent, which leaves the proposal with the Moderator and the Dean."""
     client, db, users, event, login, base = ctx
     data = data or fixture_data()
     login(proposer)
@@ -65,6 +66,24 @@ def populate(ctx, data=None, proposer='treasurer'):
         assert result.status_code == 200, result.text
     result = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert result.status_code == 200, result.text
+    return result.json()
+
+
+def department_approves(ctx):
+    """The Moderator, when it is their turn, and then the Dean approve the sent proposal."""
+    client, db, users, event, login, base = ctx
+    reviewers = ['adviser', 'admin'] if event.status == 'pending_adviser' else ['admin']
+    for role in reviewers:
+        login(role)
+        result = client.post(f'/events/{event.id}/approve', json={})
+        assert result.status_code == 200, result.text
+
+
+def populate(ctx, data=None, proposer='treasurer'):
+    client, db, users, event, login, base = ctx
+    data = data or fixture_data()
+    send(ctx, data, proposer)
+    department_approves(ctx)
     login('sds_staff')  # Part 4 is the SDS Office's, filled once the proposal reaches it.
     result = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert result.status_code == 200, result.text
@@ -405,7 +424,8 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
         assert client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items}).status_code == 200
     sent = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert sent.status_code == 200, sent.text
-    assert sent.json()['state'] == 'pending_sap_review'
+    assert sent.json()['state'] == 'pending_department_review'
+    department_approves(sap_system)
 
     login('sds_staff')
     assert [row['id'] for row in client.get('/events').json()] == [str(event.id)]

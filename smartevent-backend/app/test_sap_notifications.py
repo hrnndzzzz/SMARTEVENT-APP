@@ -10,7 +10,7 @@ from app.services.notifications import deliver_notification
 
 
 @pytest.mark.parametrize('action,state,phrase', [
-    ('sap_submitted', 'pending_sap_review', 'Sent to the SDS Office'),
+    ('sap_submitted', 'pending_department_review', 'department review'),
     ('sap_returned', 'revision_requested', 'returned for changes'),
     ('sap_signed_revision_correction_requested', 'revision_requested', 'returned for changes'),
     ('sap_revision_signed', 'sds_signed', 'signed'),
@@ -56,7 +56,7 @@ def test_legacy_notifications_have_null_payload_and_remain_private(sap_system):
 def test_failed_email_retry_keeps_workflow_and_does_not_resend_sent(sap_system, monkeypatch):
     submitted = populate(sap_system)
     client, db, users, _, _, base = sap_system
-    notification = db.query(Notification).filter_by(user_id=users['treasurer'].id).one()
+    notification = db.query(Notification).filter_by(user_id=users['treasurer'].id, title='SAP proposal submitted').one()
     payload = dict(notification.payload)
     def fail(*args, **kwargs):
         raise RuntimeError('mail provider unavailable')
