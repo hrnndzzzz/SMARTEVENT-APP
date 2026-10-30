@@ -175,11 +175,20 @@ class OfflineSync extends ChangeNotifier {
           '/logistics',
           '/routing',
           '/readiness',
-          '/sap-proposal',
           '/sap-proposal/workflow',
         ]) {
           read('$path$suffix');
         }
+        // An unsent draft's preview is refused (422) until Parts 1-3 are
+        // complete, which would fail preparation; a sent revision prints.
+        read(
+          '$path/sap-proposal',
+          after: (data) {
+            if (data is Map && ((data['revision_no'] as num?) ?? 0) > 0) {
+              pdf('$path/sap-proposal/pdf');
+            }
+          },
+        );
         read(
           '$path/sap-proposal/attachments',
           after: (data) {
@@ -202,7 +211,6 @@ class OfflineSync extends ChangeNotifier {
             }
           },
         );
-        pdf('$path/sap-proposal/pdf');
         read('/reports/event/${row['id']}');
         pdf('/reports/event/${row['id']}/export', query: {'format': 'pdf'});
       });

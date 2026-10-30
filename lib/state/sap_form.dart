@@ -142,9 +142,11 @@ class SapForm extends ChangeNotifier {
   int get version => _proposal?.version ?? 0;
 
   /// Parts 1 to 3 are the proposer's, and only while the proposal is a
-  /// draft or has been returned.
+  /// draft or has been returned. A form bound to an event whose proposal
+  /// never loaded holds none of it, so it is not editable either.
   bool get canEditProposerParts =>
-      !isReadOnly && (isLocalOnly || (_proposal?.isProposerEditable ?? true));
+      !isReadOnly &&
+      (isLocalOnly || (_proposal?.isProposerEditable ?? _eventId == null));
 
   bool get isReadOnly => _service?.isReadOnly ?? false;
 
@@ -322,6 +324,13 @@ class SapForm extends ChangeNotifier {
       _localOnly = true;
       notifyListeners();
       return true; // Kept locally, which the screens say out loud.
+    }
+    // No version to send: the server refuses 0, and a form that never
+    // loaded would send blanks over what the server holds.
+    if (_proposal == null && !_localOnly) {
+      _error = 'This proposal has not loaded yet. Go back and open it again.';
+      notifyListeners();
+      return false;
     }
 
     _saving = true;
@@ -537,16 +546,22 @@ class SapForm extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final saved = await service.uploadAttachment(
+      // Only the version is taken: adopting the whole reply would drop
+      // edits to Parts 1-3 that have not been saved yet.
+      _proposal = await service.uploadAttachment(
         _eventId!,
+        expectedVersion: version,
         category: category,
         bytes: bytes,
         filename: filename,
       );
-      _attachments = [..._attachments, saved];
+      _attachments = await service.attachments(_eventId!);
       return null;
     } on ArgumentError catch (e) {
       return '${e.message}';
+    } on SapVersionConflict catch (conflict) {
+      _stale = true;
+      return conflict.message;
     } catch (e) {
       return e is ApiException ? e.message : e.toString();
     } finally {

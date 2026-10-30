@@ -26,7 +26,6 @@ import '../api/income_service.dart';
 import '../api/models/scope.dart';
 import '../api/compliance_service.dart';
 import '../api/sap_service.dart';
-import '../api/files_service.dart';
 import '../api/models/compliance.dart';
 import '../api/receipt_service.dart';
 import '../api/scope_service.dart';
@@ -336,6 +335,9 @@ class Account {
   /// its own id up. Null against a backend older than 24 Oct.
   final String? organizationName;
 
+  /// The department's name from `/auth/me`, for the same reason.
+  final String? departmentName;
+
   /// Job title (President, Secretary, …). Never affects permissions.
   final String? position;
 
@@ -353,6 +355,7 @@ class Account {
     this.departmentId,
     this.organizationId,
     this.organizationName,
+    this.departmentName,
     this.position,
     this.isSuspended = false,
     this.mustChangePassword = false,
@@ -962,10 +965,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Creates an Admin or SDS account. Both email a temporary password, so
-  /// both fail when email is not configured — the error says so.
+  /// Creates an Admin, SDS Staff or Signatory account. Each emails a
+  /// temporary password, so each fails when email is not configured — the
+  /// error says so.
   Future<String?> createPrivilegedAccount({
-    required bool isSds,
+    required UserRole role,
     required String fullName,
     required String email,
     String? position,
@@ -973,13 +977,7 @@ class AppState extends ChangeNotifier {
     String? departmentId,
   }) async {
     try {
-      if (isSds) {
-        await _adminService.createSdsStaff(
-          fullName: fullName,
-          email: email,
-          position: position,
-        );
-      } else {
+      if (role == UserRole.admin) {
         if (organizationId == null || departmentId == null) {
           return 'An Admin needs both a department and an organization.';
         }
@@ -988,6 +986,13 @@ class AppState extends ChangeNotifier {
           email: email,
           organizationId: organizationId,
           departmentId: departmentId,
+          position: position,
+        );
+      } else {
+        await _adminService.createSchoolReviewer(
+          role: role,
+          fullName: fullName,
+          email: email,
           position: position,
         );
       }
@@ -1441,7 +1446,6 @@ class AppState extends ChangeNotifier {
   // ---- Receipts and duplicate review -------------------------------------
 
   late final ReceiptService _receiptService = ReceiptService(_apiClient);
-  late final FilesService _filesService = FilesService(_apiClient);
   late final ComplianceService _complianceService = ComplianceService(
     _apiClient,
   );
@@ -1480,10 +1484,6 @@ class AppState extends ChangeNotifier {
   Future<EventReadiness> eventReadiness(String eventId) => _demoMode
       ? Future.error(const FeatureUnavailable())
       : _complianceService.readiness(eventId);
-
-  /// Turns a stored file reference into something an image can load.
-  Future<String> resolveFile(String reference) =>
-      _filesService.resolve(reference);
 
   List<Receipt> receipts = [];
   final LoadState receiptsLoad = LoadState();
@@ -2630,6 +2630,15 @@ class AppState extends ChangeNotifier {
         newPassword: newPassword,
       );
 
+      // The server revokes every token issued before the change, including
+      // the one that made it, so the session continues on a fresh sign-in.
+      try {
+        await _authService.login(email: profile.email, password: newPassword);
+      } catch (_) {
+        await signOut();
+        return 'Your password was changed. Sign in with the new password.';
+      }
+
       _passwordSetupRequired = false;
       final problem = _applyProfile(profile);
       if (problem != null) return problem;
@@ -2759,6 +2768,7 @@ class AppState extends ChangeNotifier {
       departmentId: profile.departmentId,
       organizationId: profile.organizationId,
       organizationName: profile.organizationName,
+      departmentName: profile.departmentName,
       position: profile.position,
       isSuspended: profile.isSuspended,
       mustChangePassword: profile.mustChangePassword,

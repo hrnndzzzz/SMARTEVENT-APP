@@ -1088,22 +1088,20 @@ class SapAttachment {
     required this.id,
     required this.category,
     required this.filename,
-    this.sizeBytes,
-    this.revisionNo,
   });
 
   final String id;
   final SapAttachmentCategory? category;
   final String filename;
-  final int? sizeBytes;
-  final int? revisionNo;
 
+  /// Keys as `SAPAttachmentOut` sends them.
   factory SapAttachment.fromJson(Map<String, dynamic> json) => SapAttachment(
     id: (json['id'] as String?) ?? '',
     category: SapAttachmentCategory.fromWire(json['category'] as String?),
-    filename: (json['filename'] as String?) ?? '',
-    sizeBytes: (json['size_bytes'] as num?)?.toInt(),
-    revisionNo: (json['revision_no'] as num?)?.toInt(),
+    filename:
+        (json['display_name'] as String?) ??
+        (json['file_name'] as String?) ??
+        '',
   );
 }
 

@@ -31,11 +31,11 @@ class UserProfile {
   /// `/organizations`: before this field, a student officer could not
   /// turn their own [organizationId] into a name, and the SAP form's
   /// Part 1 opened blank for exactly the people who fill it in.
-  ///
-  /// There is no `department_name` yet, so a department still has to be
-  /// resolved through the list, and still only by an account that may
-  /// read it.
   final String? organizationName;
+
+  /// The department's name, for the same reason: only an Admin may list
+  /// departments, and Part 1 prints it. Null from an older backend.
+  final String? departmentName;
 
   final bool isActive;
 
@@ -58,6 +58,7 @@ class UserProfile {
     required this.departmentId,
     required this.organizationId,
     this.organizationName,
+    this.departmentName,
     required this.isActive,
     required this.isSuspended,
     required this.mustChangePassword,
@@ -74,6 +75,7 @@ class UserProfile {
       departmentId: json['department_id'] as String?,
       organizationId: json['organization_id'] as String?,
       organizationName: json['organization_name'] as String?,
+      departmentName: json['department_name'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       isSuspended: json['is_suspended'] as bool? ?? false,
       mustChangePassword: json['must_change_password'] as bool? ?? false,
@@ -93,6 +95,7 @@ class UserProfile {
     // id and no name — which only an Admin may look up, so Part 1 opens
     // blank again for exactly the people who fill it in.
     'organization_name': organizationName,
+    'department_name': departmentName,
     'is_active': isActive,
     'is_suspended': isSuspended,
     'must_change_password': mustChangePassword,

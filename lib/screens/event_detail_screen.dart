@@ -241,44 +241,43 @@ class EventDetailScreen extends StatelessWidget {
                   label: 'Proposal form',
                   icon: Icons.description_outlined,
                   tone: BrutTone.neutral,
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      // The SDS Office works all six parts. Everyone else
-                      // only ever fills the first three, and a six-part
-                      // list hands them three they cannot touch.
-                      builder: (_) {
-                        final app = context.read<AppState>();
-                        final form = SapForm(
-                          eventId: eventId,
-                          service: app.isDemoMode ? null : app.sapService,
-                        );
-                        // The demo has no server, so the form would hold
-                        // no proposal and sit at a null state — which
-                        // locks Parts 5 and 6 and hides review and
-                        // signing. Seed it from where the event itself
-                        // has got to, so the SDS role can see the six
-                        // parts it is offered.
-                        //
-                        // The contents too, and from the same place the
-                        // SDS Office reads: seeding only the state left
-                        // the proposer's own form empty while the office
-                        // was looking at a full proposal for the very
-                        // same event. An event the demo does not seed
-                        // still opens blank, which is right.
-                        if (app.isDemoMode) {
-                          form.seedLocally(
-                            state: _demoSapState(event.status),
-                            details: DemoProposals.detailsFor(event),
-                          );
-                          form.setBudgetItems(DemoProposals.budgetFor(event));
-                          form.setSupportRequests(
-                            DemoProposals.supportFor(event),
-                          );
-                        }
-                        return SapFormScreen(form: form);
-                      },
-                    ),
-                  ),
+                  onPressed: () {
+                    // Made here, once. A route's builder runs again on
+                    // every app rebuild, and a form made there was
+                    // swapped for one that never loaded.
+                    final app = context.read<AppState>();
+                    final form = SapForm(
+                      eventId: eventId,
+                      service: app.isDemoMode ? null : app.sapService,
+                    );
+                    // The demo has no server, so the form would hold
+                    // no proposal and sit at a null state — which
+                    // locks Parts 5 and 6 and hides review and
+                    // signing. Seed it from where the event itself
+                    // has got to, so the SDS role can see the six
+                    // parts it is offered.
+                    //
+                    // The contents too, and from the same place the
+                    // SDS Office reads: seeding only the state left
+                    // the proposer's own form empty while the office
+                    // was looking at a full proposal for the very
+                    // same event. An event the demo does not seed
+                    // still opens blank, which is right.
+                    if (app.isDemoMode) {
+                      form.seedLocally(
+                        state: _demoSapState(event.status),
+                        details: DemoProposals.detailsFor(event),
+                      );
+                      form.setBudgetItems(DemoProposals.budgetFor(event));
+                      form.setSupportRequests(DemoProposals.supportFor(event));
+                    }
+                    // The SDS Office works all six parts. Everyone else
+                    // only ever fills the first three, and a six-part
+                    // list hands them three they cannot touch.
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => SapFormScreen(form: form)),
+                    );
+                  },
                 ),
               ],
               if (app.mayProposeEvents &&
@@ -288,18 +287,17 @@ class EventDetailScreen extends StatelessWidget {
                   label: 'Edit proposal',
                   icon: Icons.edit_outlined,
                   tone: BrutTone.neutral,
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => SapFormScreen(
-                        form: SapForm(
-                          eventId: event.remoteId,
-                          service: context.read<AppState>().isDemoMode
-                              ? null
-                              : context.read<AppState>().sapService,
-                        ),
-                      ),
-                    ),
-                  ),
+                  onPressed: () {
+                    final app = context.read<AppState>();
+                    // Outside the builder, for the same reason as above.
+                    final form = SapForm(
+                      eventId: event.remoteId,
+                      service: app.isDemoMode ? null : app.sapService,
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => SapFormScreen(form: form)),
+                    );
+                  },
                 ),
               ],
             ],
