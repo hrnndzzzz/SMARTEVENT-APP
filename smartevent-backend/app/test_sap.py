@@ -63,13 +63,13 @@ def populate(ctx, data=None, proposer='treasurer'):
     for key, items in data['collections'].items():
         result = client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items})
         assert result.status_code == 200, result.text
-    login('sds_staff')
+    result = client.post(base + '/submit', json={'expected_version': version(client, base)})
+    assert result.status_code == 200, result.text
+    login('sds_staff')  # Part 4 is the SDS Office's, filled once the proposal reaches it.
     result = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert result.status_code == 200, result.text
     login(proposer)
-    result = client.post(base + '/submit', json={'expected_version': version(client, base)})
-    assert result.status_code == 200, result.text
-    return result.json()
+    return client.get(base).json()
 
 
 def checkpoint(ctx, slot):
@@ -338,9 +338,6 @@ def test_pre_activity_readiness_blocks_submission(sap_system, monkeypatch):
     client.patch(base, json={'expected_version': version(client, base), 'details': data['details']})
     for key, items in data['collections'].items():
         client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items})
-    login('sds_staff')
-    client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
-    login('treasurer')
     response = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert response.status_code == 409
     assert db.query(SAPRevision).count() == 0 and event.status == 'draft'
@@ -435,6 +432,7 @@ PART_4_TEXT = ('parents_consent_reason', 'attachments', 'class_interruption_rema
 
 def test_part_4_text_boxes_hold_5000_characters_and_print_them(sap_system):
     client, db, users, event, login, base = sap_system
+    populate(sap_system)  # The SDS Office only sees a proposal once it is sent.
     login('sds_staff')
     for key in PART_4_TEXT:
         over = fixture_data()['clearance'] | {key: 'x' * 5001}

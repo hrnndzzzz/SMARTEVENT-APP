@@ -1,9 +1,13 @@
 """SAP 001 is independent of generic document routing."""
 import uuid
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, JSON, LargeBinary, UniqueConstraint, CheckConstraint, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, JSON, LargeBinary, UniqueConstraint, CheckConstraint, and_, func, or_
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import deferred
 from app.database import Base
+
+# States in which a proposal is the SDS Office's work; before them it is the proposer's or the department's.
+SDS_STATES = ('pending_sap_review', 'sds_signed', 'approved', 'completed', 'rejected')
 
 
 class SAPProposal(Base):
@@ -21,6 +25,15 @@ class SAPProposal(Base):
     returned_by = Column(String(10))
     __table_args__ = (CheckConstraint("state IN ('draft','pending_department_review','pending_sap_review','revision_requested','sds_signed','approved','completed','rejected')"),
                      CheckConstraint("returned_by IN ('moderator','dean','sds')"))
+
+    @hybrid_property
+    def seen_by_sds(self):
+        """Whether the SDS Office may see it: it has reached the office, or the office itself returned it."""
+        return self.state in SDS_STATES or (self.state == 'revision_requested' and self.returned_by == 'sds')
+
+    @seen_by_sds.expression
+    def seen_by_sds(cls):
+        return or_(cls.state.in_(SDS_STATES), and_(cls.state == 'revision_requested', cls.returned_by == 'sds'))
 
 
 class SAPItem(Base):

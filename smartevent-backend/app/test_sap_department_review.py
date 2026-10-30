@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from app.models_sap import SAPProposal
 from app.test_access_management import system
 from app.test_sap import sap_system, populate, version, sign_current
 
@@ -29,3 +30,24 @@ def test_department_review_migration():
     assert "'pending_department_review'" in sql
     assert "CHECK (returned_by IN ('moderator','dean','sds'))" in sql
     assert "UPDATE public.sap_proposals SET returned_by = 'sds' WHERE state = 'revision_requested'" in sql
+
+
+@pytest.mark.parametrize('state,returned_by,seen', [
+    ('draft', None, False),
+    ('pending_department_review', None, False),
+    ('revision_requested', 'moderator', False),
+    ('revision_requested', 'dean', False),
+    ('revision_requested', 'sds', True),
+    ('pending_sap_review', None, True),
+    ('sds_signed', None, True),
+    ('rejected', None, True),
+])
+def test_the_sds_office_sees_a_proposal_once_it_reaches_the_office(sap_system, state, returned_by, seen):
+    client, db, users, event, login, base = sap_system
+    proposal = db.query(SAPProposal).one()
+    proposal.state, proposal.returned_by = state, returned_by
+    db.commit()
+    login('sds_staff')
+    assert (str(event.id) in [row['id'] for row in client.get('/events').json()]) is seen
+    assert client.get(f'/events/{event.id}').status_code == (200 if seen else 403)
+    assert client.get(base).status_code == (200 if seen else 403)

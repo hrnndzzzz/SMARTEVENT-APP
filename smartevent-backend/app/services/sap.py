@@ -39,6 +39,8 @@ def load(db, event_id, user, *, write=False, sds=False, proposer=False, owner=Fa
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if required and proposal is None:
         raise HTTPException(404, 'SAP proposal not found')
+    if user.role == 'sds_staff' and proposal is not None and not proposal.seen_by_sds:
+        raise HTTPException(403, 'The SDS Office sees a proposal once the Dean has approved it')
     return event, proposal
 
 

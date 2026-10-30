@@ -137,7 +137,7 @@ def test_review_and_withdrawal_serialize_on_parent_event(pg_sandbox, first):
             sap.withdraw(db, ev, prop, actor)
         else:
             review_notes(event_id, ReviewNotesWrite(expected_version=1, overall_remarks='First review'), db, actor)
-        assert future.result(timeout=8) == 409
+        assert future.result(timeout=8) == (403 if first == 'withdraw' else 409)
     with Session(engine) as db:
         assert db.query(SAPProposal).one().state == ('draft' if first == 'withdraw' else 'pending_sap_review')
         assert db.query(SAPReview).count() == (0 if first == 'withdraw' else 1)
