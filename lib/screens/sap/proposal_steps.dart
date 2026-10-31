@@ -64,6 +64,7 @@ abstract final class LeaveProposal {
                     child: ReportActionTile(
                       label: 'Cancel',
                       icon: Icons.close,
+                      dense: true,
                       onTap: () =>
                           Navigator.of(dialogContext).pop(_Leaving.stay),
                     ),
@@ -73,6 +74,7 @@ abstract final class LeaveProposal {
                     child: ReportActionTile(
                       label: 'Go back',
                       icon: Icons.arrow_back,
+                      dense: true,
                       // It leaves without keeping anything, which is the
                       // one choice here that loses work.
                       tone: BrutTone.coral,
@@ -85,6 +87,7 @@ abstract final class LeaveProposal {
                     child: ReportActionTile(
                       label: 'Save as draft',
                       icon: Icons.bookmark_outline,
+                      dense: true,
                       tone: BrutTone.brand,
                       onTap: () =>
                           Navigator.of(dialogContext).pop(_Leaving.save),
