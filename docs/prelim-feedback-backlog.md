@@ -114,9 +114,9 @@ Where they are not already covered above.
 | # | What | Status |
 |---|---|---|
 | G1 | End-user consultation, documented | not ours |
-| G2 | Identify the super administrator and its permissions | todo |
-| G3 | Organizational administrator hierarchy | todo |
-| G4 | Confirm whether officers are view-only | todo |
+| G2 | Identify the super administrator and its permissions | **done** *(31 Oct)* — [`docs/roles-the-moderator-asked-about.md`](roles-the-moderator-asked-about.md) |
+| G3 | Organizational administrator hierarchy | **done** *(31 Oct)* — same page |
+| G4 | Confirm whether officers are view-only | **done** *(31 Oct)* — same page. Mostly yes; President, Vice President and Secretary may propose |
 | G5 | Validate the UI with end users and adviser | not ours |
 | G6 | Registration confirmation and automatic admission | todo |
 | G7 | Printable and downloadable dashboard reports | **done** — D1–D3 are built |
@@ -151,11 +151,8 @@ is Flutter work:
 1. **G16** — reports split by department and organisation. The reports
    routes scope by the caller's own department and accept no filter,
    so this is a backend ask before it is a screen.
-2. **G2, G3, G4** — identify the super administrator and its
-   permissions, the organizational administrator hierarchy, and
-   whether officers are view-only. The backend's hierarchy work of 25
-   October answers all three in code; what is missing is the written
-   answer.
+2. ~~G2, G3, G4~~ — **answered 31 Oct** in
+   [`roles-the-moderator-asked-about.md`](roles-the-moderator-asked-about.md).
 3. **G6** — registration confirmation and automatic admission.
 4. **G1, G5** — end-user consultation and validation. Not ours.
 
