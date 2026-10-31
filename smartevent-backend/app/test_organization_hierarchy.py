@@ -333,12 +333,13 @@ def test_lead_officers_can_prepare_and_submit_owned_sap_without_sds_powers(syste
     assert client.patch(base, json={"expected_version": version(), "details": data["details"]}).status_code == 409
 
 
-def test_lead_officer_cannot_prepare_another_proposers_sap(system):
+def test_lead_officer_prepares_colleagues_sap_only_in_own_organization(system):
     client, db, users, orgs, resources, login = system
-    event = resources[0]["events"]
-    event.status = "draft"
+    for resource in resources:
+        resource["events"].status = "draft"
     officer_position(system, "President")
-    assert client.post(f"/events/{event.id}/sap-proposal").status_code == 403
+    assert client.post(f"/events/{resources[1]['events'].id}/sap-proposal").status_code == 403
+    assert client.post(f"/events/{resources[0]['events'].id}/sap-proposal").status_code == 201
 
 
 def test_lead_officer_private_letter_access_is_owner_only(system, signer):

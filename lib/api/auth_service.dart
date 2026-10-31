@@ -66,15 +66,15 @@ class AuthService {
   /// The email must match an approved roster entry; name, role and scope
   /// come from that record. The account starts inactive until the OTP is
   /// verified, so the next screen is Verify Email, never a dashboard.
-  Future<UserProfile> register({
+  /// The server answers with a message only, not a profile.
+  Future<void> register({
     required String email,
     required String password,
   }) async {
-    final response = await _client.post(
+    await _client.post(
       '/auth/register',
       body: {'email': email, 'password': password},
     );
-    return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
   /// `POST /auth/verify-otp` — activates the account.

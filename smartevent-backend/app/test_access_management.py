@@ -156,6 +156,7 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
                 ("PUT", "/events/{event_id}/sap-proposal/{collection}"),
                 ("POST", "/events/{event_id}/sap-proposal/attachments"),
                 ("POST", "/events/{event_id}/sap-proposal/submit"),
+                ("POST", "/events/{event_id}/sap-proposal/withdraw"),
             }:
                 continue
             path = re.sub(r"\{[^}]+\}", lambda _: str(uuid4()), route_path)

@@ -49,6 +49,7 @@ def test_current_account_exposes_assigned_organization_name_without_admin_lookup
     assert response.status_code == 200
     assert response.json()["organization_name"] == "Organization A"
     assert response.json()["organization_id"] == str(organizations[0].id)
+    assert response.json()["department_name"] == "CITE"
     assert client.get("/organizations").status_code == 403
     login("super_admin")
     assert client.get("/auth/me").json()["organization_name"] is None
@@ -226,6 +227,18 @@ def test_password_change_invalidates_old_session_and_pending_reset(system):
     assert client.get("/auth/me").status_code == 401
     assert reset(client, user).status_code == 400
     assert db.query(AuditLog).filter(AuditLog.action == "user.password_changed").count() == 1
+
+
+def test_wrong_current_password_keeps_the_session(system):
+    client, db, users, _, _, login = system
+    user = users["officer"]
+    user.password_hash = hash_password("Current-password!")
+    db.commit()
+    login("officer")
+    response = client.post("/auth/change-password", json={"current_password": "Wrong-password!",
+                           "new_password": "New-permanent-password!"})
+    assert response.status_code == 400
+    assert client.get("/auth/me").status_code == 200
 
 
 def test_provisioning_errors_do_not_expose_provider_secrets(system, monkeypatch):

@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from app.database import get_db
 from app.dependencies import require_active_account
 from app.main import app
+from app.services.academic_year import institution_today
 from app.schemas import (
     ConsolidatedFinancialReport,
     ExpenseCreate,
@@ -20,7 +21,7 @@ from app.routers.reports import (
     _calendar_window,
     get_consolidated_financial_report,
 )
-from app.routers import reports as reports_router
+from app.routers import exports as exports_router
 from app.services.report_exports import render_export, financial_sections
 
 
@@ -47,7 +48,7 @@ def test_expense_date_defaults_for_existing_api_clients():
         amount=500,
     )
 
-    assert payload.expense_date == date.today()
+    assert payload.expense_date == institution_today()
 
 
 def test_weekly_window_uses_monday_through_sunday():
@@ -149,7 +150,7 @@ def test_pdf_endpoint_returns_download_and_forwards_filters(monkeypatch):
         forwarded.update(kwargs)
         return report
 
-    monkeypatch.setattr(reports_router, "get_consolidated_financial_report", fake_get_report)
+    monkeypatch.setattr(exports_router, "get_consolidated_financial_report", fake_get_report)
     original_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[require_active_account] = lambda: SimpleNamespace(
         role="admin",
@@ -161,7 +162,7 @@ def test_pdf_endpoint_returns_download_and_forwards_filters(monkeypatch):
 
     try:
         response = TestClient(app).get(
-            "/reports/financial.pdf?period=semester&school_year=2026-2027"
+            "/reports/financial/export?format=pdf&period=semester&school_year=2026-2027"
             "&semester=1st&event_scope=organizational"
         )
     finally:

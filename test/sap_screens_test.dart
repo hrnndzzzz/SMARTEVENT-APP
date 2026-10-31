@@ -405,6 +405,62 @@ void main() {
     expect(find.textContaining('have to match'), findsOneWidget);
   });
 
+  testWidgets('Part 3 keeps typed text and classes when saved on the way out', (
+    tester,
+  ) async {
+    final aggregate = {
+      'id': 'p1',
+      'event_id': 'e1',
+      'state': 'draft',
+      'version': 3,
+      'revision_no': 0,
+      'details': {'title': 'Hack the Future'},
+      'collections': <String, dynamic>{},
+    };
+    final paths = <String>[];
+    final patches = <String>[];
+    final client = MockClient((request) async {
+      paths.add('${request.method} ${request.url.path}');
+      if (request.method == 'PATCH') patches.add(request.body);
+      return http.Response(
+        jsonEncode(aggregate),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final form = SapForm(
+      eventId: 'e1',
+      service: SapService(ApiClient(httpClient: client)),
+    );
+    await form.load();
+
+    await tester.pumpWidget(host(SapPart3Screen(form: form)));
+    await tester.pumpAndSettle();
+    final attendance = find.descendant(
+      of: find.ancestor(
+        of: find.text('ATTENDANCE MONITORING'),
+        matching: find.byType(BrutTextField),
+      ),
+      matching: find.byType(TextField),
+    );
+    await tester.ensureVisible(attendance);
+    await tester.enterText(attendance, 'Typed after the last save');
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save as draft'));
+    await tester.pumpAndSettle();
+
+    expect(patches, hasLength(1));
+    expect(patches.single, contains('Typed after the last save'));
+    final classes = paths.indexWhere(
+      (p) =>
+          p.startsWith('PUT ') &&
+          p.endsWith('/events/e1/sap-proposal/affected-classes'),
+    );
+    expect(classes, isNot(-1), reason: 'sent: $paths');
+    expect(classes, greaterThan(paths.indexWhere((p) => p.startsWith('PATCH'))));
+  });
+
   testWidgets('Part 4 demands a reason for every not-applicable', (
     tester,
   ) async {

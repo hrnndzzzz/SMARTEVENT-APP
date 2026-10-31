@@ -13,6 +13,7 @@ import 'sap_part4_screen.dart';
 import 'sap_part5_screen.dart';
 import 'sds_sign_screen.dart';
 import 'sap_part6_screen.dart';
+import 'sap_proposal_flow.dart';
 
 /// The proposal form, as six parts.
 ///
@@ -35,7 +36,12 @@ class _SapFormScreenState extends State<SapFormScreen> {
   @override
   void initState() {
     super.initState();
-    widget.form.load();
+    // After the load, which replaces the details: a draft opened from the
+    // event needs the account's organization and department as much as a
+    // new one does, and Part 1 has no field for the department.
+    widget.form.load().then((_) {
+      if (mounted) SapProposalFlow.fillFromAccount(context, widget.form);
+    });
     widget.form.loadAttachments();
   }
 
@@ -78,6 +84,13 @@ class _SapFormScreenState extends State<SapFormScreen> {
 
   Future<void> _open(SapPart part) async {
     final form = widget.form;
+    // Opened while offline, say: load it now rather than open a part on a
+    // form that holds none of the proposal.
+    if (form.hasEvent && form.proposal == null && !form.isLocalOnly) {
+      await form.load();
+      if (!mounted) return;
+      SapProposalFlow.fillFromAccount(context, form);
+    }
     final screen = switch (part) {
       SapPart.one => SapPart1Screen(form: form),
       SapPart.two => SapPart2Screen(form: form),

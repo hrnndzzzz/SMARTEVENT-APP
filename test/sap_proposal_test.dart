@@ -444,6 +444,31 @@ void main() {
       );
     });
 
+    test('a compliance refusal keeps its message and blockers', () async {
+      // The shape `require_pre_activity_clearance` raises on submit.
+      final service = serviceReturning({
+        'detail': {
+          'message': 'Pre-activity compliance is incomplete',
+          'blockers': ['Classify the activity as on-campus or off-campus'],
+        },
+      }, status: 409);
+
+      await expectLater(
+        service.submit('e1', expectedVersion: 3),
+        throwsA(
+          isA<SapVersionConflict>()
+              .having(
+                (e) => e.message,
+                'message',
+                startsWith('Pre-activity compliance is incomplete'),
+              )
+              .having((e) => e.blockers, 'blockers', [
+                'Classify the activity as on-campus or off-campus',
+              ]),
+        ),
+      );
+    });
+
     test('a decided proposal is refused by the server, not the client',
         () async {
       final service = serviceReturning({

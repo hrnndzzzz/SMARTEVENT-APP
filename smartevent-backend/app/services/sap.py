@@ -21,7 +21,7 @@ def now():
     return datetime.now(timezone.utc)
 
 
-def load(db, event_id, user, *, write=False, sds=False, proposer=False, required=True):
+def load(db, event_id, user, *, write=False, sds=False, proposer=False, owner=False, required=True):
     query = db.query(Event).filter_by(id=event_id)
     event = (query.with_for_update() if write else query).first()
     if event is None:
@@ -30,8 +30,12 @@ def load(db, event_id, user, *, write=False, sds=False, proposer=False, required
         raise HTTPException(403, 'Only SDS staff can record paper evidence or edit Parts 4 and 6')
     if user.role != 'sds_staff':
         assert_record_scope(user, event, allow_officer_read=not write or (proposer and can_propose_events(user)))
-    if proposer and (user.id != event.proposed_by or not can_propose_events(user)):
-        raise HTTPException(403, 'Only the authorized event proposer may edit Parts 1–3')
+    if proposer and not can_propose_events(user):
+        raise HTTPException(403, 'Only an authorized event proposer may edit Parts 1–3')
+    # Any proposer in scope may write a draft. Members are held to their own organization
+    # above, so they may also send or withdraw a colleague's; an admin sends only their own.
+    if owner and user.id != event.proposed_by and user.role not in {'adviser', 'treasurer', 'officer'}:
+        raise HTTPException(403, "Only the proposer or a member of the event's organization may send or withdraw it")
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if required and proposal is None:
         raise HTTPException(404, 'SAP proposal not found')

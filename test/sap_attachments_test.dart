@@ -30,12 +30,15 @@ void main() {
     return SapService(ApiClient(httpClient: client));
   }
 
+  // Exactly `SAPAttachmentOut` in smartevent-backend/app/schemas_sap.py.
   final row = {
     'id': 'a1',
     'category': 'roc_coc',
-    'filename': 'roc.pdf',
-    'size_bytes': 2048,
-    'revision_no': 1,
+    'display_name': 'roc.pdf',
+    'file_name': 'roc.pdf',
+    'content_type': 'application/pdf',
+    'sha256': 'a' * 64,
+    'uploaded_at': '2026-10-27T08:00:00',
   };
 
   group('what the server will take', () {
@@ -70,20 +73,34 @@ void main() {
   });
 
   group('uploading', () {
-    test('the category rides as a form field', () async {
-      final service = serviceReturning(row);
+    test('the version and category ride as form fields', () async {
+      // The server answers an upload with the whole proposal.
+      final service = serviceReturning({
+        'id': 'p1',
+        'event_id': 'e1',
+        'state': 'draft',
+        'version': 4,
+        'revision_no': 0,
+        'attachments': [row],
+      }, status: 201);
 
       final saved = await service.uploadAttachment(
         'e1',
+        expectedVersion: 3,
         category: SapAttachmentCategory.rocCoc,
         bytes: List.filled(2048, 0),
         filename: 'roc.pdf',
       );
 
-      expect(sent.single.method, 'POST');
-      expect(sent.single.url.path, endsWith('/sap-proposal/attachments'));
-      expect(saved.category, SapAttachmentCategory.rocCoc);
-      expect(saved.filename, 'roc.pdf');
+      final request = sent.single as http.Request;
+      expect(request.method, 'POST');
+      expect(request.url.path, endsWith('/sap-proposal/attachments'));
+      expect(
+        request.body,
+        matches(RegExp(r'name="expected_version"\r\n\r\n3\r\n')),
+      );
+      expect(request.body, matches(RegExp(r'name="category"\r\n\r\nroc_coc')));
+      expect(saved.version, 4);
     });
 
     test('a file the server would refuse never leaves the phone', () async {
@@ -92,6 +109,7 @@ void main() {
       expect(
         () => service.uploadAttachment(
           'e1',
+          expectedVersion: 1,
           category: SapAttachmentCategory.rocCoc,
           bytes: List.filled(10, 0),
           filename: 'notes.docx',
@@ -109,7 +127,7 @@ void main() {
 
       expect(files, hasLength(1));
       expect(files.single.id, 'a1');
-      expect(files.single.revisionNo, 1);
+      expect(files.single.filename, 'roc.pdf');
     });
 
     test('a wrapped list is read too', () async {

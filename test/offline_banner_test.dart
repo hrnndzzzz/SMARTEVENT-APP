@@ -33,4 +33,24 @@ void main() {
       expect(find.textContaining('Expenses: 2026-10-21'), findsOneWidget);
     },
   );
+
+  testWidgets('online, the offline download shows no bar', (tester) async {
+    final app = AppState(apiClient: ApiClient())..devQuickLogin(UserRole.officer);
+    addTearDown(app.dispose);
+    final key = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: app,
+        child: MaterialApp(
+          navigatorKey: key,
+          builder: (_, child) => OfflineBanner(navigatorKey: key, child: child!),
+          home: const Scaffold(body: Text('Records')),
+        ),
+      ),
+    );
+
+    expect(find.text('Records'), findsOneWidget);
+    expect(find.textContaining('Offline'), findsNothing);
+    expect(find.text('Retry'), findsNothing);
+  });
 }

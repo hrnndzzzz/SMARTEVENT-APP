@@ -3,12 +3,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/screens/sap/sap_steps_screen.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
+import 'package:smartevent/theme/brut.dart';
 
 /// The three steps are one screen with three pages.
 ///
 /// They were three pushed routes, so going from the breakdown back to
 /// check something on the activity meant backing out of two screens and
 /// finding the way in again.
+/// Swipes from just under the page's top edge, where each step has its
+/// heading. From the centre a swipe can land on a text field, which keeps
+/// a horizontal drag for selecting text, so the page would not turn.
+Future<void> swipe(WidgetTester tester, double dx) => tester.flingFrom(
+  tester.getTopLeft(find.byType(PageView)) + const Offset(210, 40),
+  Offset(dx, 0),
+  1200,
+);
+
 void main() {
   /// [created] says whether the event record was made: the flow binds the
   /// form to it on success, so the stub does the same.
@@ -43,7 +53,7 @@ void main() {
     await tester.pumpWidget(host(SapForm(eventId: 'e1')));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
 
     expect(find.text('School Support'), findsOneWidget);
@@ -54,9 +64,9 @@ void main() {
     await tester.pumpWidget(host(SapForm(eventId: 'e1')));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
-    await tester.fling(find.byType(PageView), const Offset(400, 0), 1200);
+    await swipe(tester, 400);
     await tester.pumpAndSettle();
 
     expect(find.text('Activity Details'), findsOneWidget);
@@ -70,15 +80,15 @@ void main() {
     await tester.pumpWidget(host(SapForm(eventId: 'e1')));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
     expect(find.text('School Support'), findsOneWidget);
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
     expect(find.text('Additional Information'), findsOneWidget);
 
-    await tester.fling(find.byType(PageView), const Offset(400, 0), 1200);
+    await swipe(tester, 400);
     await tester.pumpAndSettle();
     expect(find.text('School Support'), findsOneWidget);
   });
@@ -94,7 +104,7 @@ void main() {
     await tester.pumpWidget(host(SapForm(), onCreate: () => created++));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
 
     expect(created, 1);
@@ -108,7 +118,7 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final delta in [-400.0, 400.0, -400.0, -400.0]) {
-      await tester.fling(find.byType(PageView), Offset(delta, 0), 1200);
+      await swipe(tester, delta);
       await tester.pumpAndSettle();
     }
 
@@ -125,7 +135,7 @@ void main() {
     await tester.pumpWidget(host(form, created: false));
     await tester.pumpAndSettle();
 
-    await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+    await swipe(tester, -400);
     await tester.pumpAndSettle();
 
     expect(find.text('Activity Details'), findsOneWidget);
@@ -141,11 +151,72 @@ void main() {
     await tester.pumpAndSettle();
 
     for (var i = 0; i < 2; i++) {
-      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+      await swipe(tester, -400);
       await tester.pumpAndSettle();
     }
 
     expect(attempts, 2);
+  });
+
+  testWidgets('saving a draft before there is an event makes one first', (
+    tester,
+  ) async {
+    // A draft is kept on the server or not at all, and until the event
+    // exists there is nowhere there to keep it. Saving one used to report
+    // success and keep nothing.
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    final form = SapForm();
+    String? madeFrom;
+    await tester.pumpWidget(
+      host(form, onCreate: () => madeFrom = form.details.title),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.descendant(
+        of: find.ancestor(
+          of: find.text('ACTIVITY TITLE'),
+          matching: find.byType(BrutTextField),
+        ),
+        matching: find.byType(TextField),
+      ),
+      'Hack the Future',
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save as draft'));
+    await tester.pumpAndSettle();
+
+    expect(madeFrom, 'Hack the Future');
+    expect(form.hasEvent, isTrue);
+  });
+
+  testWidgets('and one that cannot be made keeps you on the activity', (
+    tester,
+  ) async {
+    // No title or date yet, say. Leaving then would lose what was typed,
+    // with nothing on the server to come back to.
+    await tester.binding.setSurfaceSize(const Size(420, 1400));
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light(), home: const Text('Events')),
+    );
+    tester.state<NavigatorState>(find.byType(Navigator)).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SapStepsScreen(
+          form: SapForm(),
+          onCreateEvent: (_) async => false,
+          onSubmit: (_) async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save as draft'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Activity Details'), findsOneWidget);
   });
 
   testWidgets('all three exist at once, not pushed one at a time', (

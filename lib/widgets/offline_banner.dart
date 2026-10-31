@@ -73,24 +73,20 @@ class OfflineBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    if (app.currentAccount == null || app.isDemoMode) return child;
+    // Online, the download runs quietly; the bar is only for saved viewing.
+    if (app.currentAccount == null || app.isDemoMode || !app.isOfflineViewing) {
+      return child;
+    }
     final sync = app.offlineSync;
     final saved = sync.lastCompleted?.toLocal();
-    final message = app.isOfflineViewing
-        ? 'Offline viewing • changes unavailable'
-        : sync.running
-        ? 'Saving for offline viewing: ${sync.completed}/${sync.total}'
-        : sync.ready
-        ? 'Offline copies ready'
-        : 'Offline copies incomplete';
+    const message = 'Offline viewing • changes unavailable';
     return Column(
       children: [
         // The app's own tone, not Material's secondaryContainer: this bar
         // sits above every screen, so a Material-3 derived tint is the
         // one surface on screen that never matches the rest.
         Material(
-          color: (app.isOfflineViewing ? BrutTone.sun : BrutTone.mint)
-              .tint(context),
+          color: BrutTone.sun.tint(context),
           child: SafeArea(
             bottom: false,
             child: Padding(
@@ -101,7 +97,7 @@ class OfflineBanner extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(message, style: AppText.caption),
+                        const Text(message, style: AppText.caption),
                         if (saved != null)
                           // The app's date format. toString() prints
                           // "2026-10-27 16:04:12.123" and was cut at the

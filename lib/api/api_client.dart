@@ -311,7 +311,10 @@ class ApiClient {
       // client this was constructed with and, in a test, reaches the
       // real network.
       return http.Response.fromStream(await _httpClient.send(request));
-    });
+      // Up to 10 MB from a phone, then storage (30 s) and, for a receipt
+      // scan, OCR (30 s) on the server: twenty seconds gave up on uploads
+      // that went on to succeed.
+    }, patience: const Duration(seconds: 90));
   }
 
   /// Fetches a binary response — an export — rather than JSON.
@@ -659,6 +662,16 @@ class ApiClient {
     // The backend's own explanation is always the most specific thing we
     // have — prefer it over any message invented here.
     if (detail is String && detail.trim().isNotEmpty) return detail.trim();
+
+    // Some refusals are objects: `{message, blockers}` for compliance,
+    // `{code, detail}` for a duplicate receipt.
+    if (detail is Map) {
+      final text = detail['message'] ?? detail['detail'];
+      final blockers = detail['blockers'];
+      if (text is String && text.trim().isNotEmpty) {
+        return [text.trim(), if (blockers is List) ...blockers].join('\n');
+      }
+    }
 
     final fieldErrors = _fieldErrorsFor(detail);
     if (fieldErrors.isNotEmpty) {

@@ -54,7 +54,7 @@ abstract final class SapProposalFlow {
       return;
     }
 
-    _fillFromAccount(context, form);
+    fillFromAccount(context, form);
 
     // Already with the SDS Office: there is nothing to fill in, so say
     // where it has got to instead of opening a form nobody may edit.
@@ -204,10 +204,11 @@ abstract final class SapProposalFlow {
   /// 24 Oct — so this now works for the student officers who actually
   /// fill the form, not only for the Admins who may list organizations.
   ///
-  /// The department still has no name on `/auth/me`, so it is resolved
-  /// through the list, and Part 1 asks for it from everyone who cannot
-  /// read that list.
-  static void _fillFromAccount(BuildContext context, SapForm form) {
+  /// The department is named there too since 29 Oct; an older backend
+  /// leaves it to the list, and Part 1 asks for it when neither names it.
+  /// Each is filled whenever it is still blank — a draft saved before then
+  /// may hold the organization and not the department.
+  static void fillFromAccount(BuildContext context, SapForm form) {
     final AppState app;
     try {
       app = context.read<AppState>();
@@ -217,24 +218,28 @@ abstract final class SapProposalFlow {
 
     final account = app.currentAccount;
     if (account == null) return;
-    if ((form.details.organizationName ?? '').isNotEmpty) return;
 
-    // The account's own name for it first; the list is only a fallback
-    // for an older backend that sends the id alone.
+    // The account's own names first; the lists are only a fallback for an
+    // older backend that sends the ids alone.
     final org = (account.organizationName?.isNotEmpty ?? false)
         ? account.organizationName
         : app.organizations
               .where((o) => o.id == account.organizationId)
               .map((o) => o.name)
               .firstOrNull;
-    final department = app.departments
-        .where((d) => d.id == account.departmentId)
-        .map((d) => d.name)
-        .firstOrNull;
+    final department = (account.departmentName?.isNotEmpty ?? false)
+        ? account.departmentName
+        : app.departments
+              .where((d) => d.id == account.departmentId)
+              .map((d) => d.name)
+              .firstOrNull;
 
     if (org == null && department == null) return;
     form.updateDetails(
-      (d) => d.copyWith(organizationName: org, department: department),
+      (d) => d.copyWith(
+        organizationName: (d.organizationName ?? '').isEmpty ? org : null,
+        department: (d.department ?? '').isEmpty ? department : null,
+      ),
     );
   }
 }
