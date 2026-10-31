@@ -316,27 +316,29 @@ def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None
     return out.getvalue()
 
 
-def _watermark(canvas):
+def _watermark(canvas, text):
     canvas.saveState()
     canvas.setFillColor(colors.red)
     canvas.setFillAlpha(0.11)
     canvas.translate(306, 396)
     canvas.rotate(35)
     canvas.setFont('Helvetica-Bold', 25)
-    canvas.drawCentredString(0, 0, 'SIGNED AND APPROVED BY SDS OFFICE')
+    canvas.drawCentredString(0, 0, text)
     canvas.restoreState()
 
 
-def _footer(canvas, revision, verification_url, signed):
+def _footer(canvas, revision, verification_url, signed, rejected=False):
     canvas.saveState()
     canvas.setFont('Helvetica', 6)
-    line = f'SAP revision {revision}' + (' | SDS signed' if signed else ' | Unsigned')
+    line = f'SAP revision {revision}' + (' | SDS signed' if signed else ' | Rejected by SDS' if rejected else ' | Unsigned')
     if verification_url:
         line += ' | Verify: ' + verification_url
     # One line between Word's body (ends at y=72) and its footer rule (near y=57).
     canvas.drawString(72, 63, line)
     if signed:
-        _watermark(canvas)
+        _watermark(canvas, 'SIGNED AND APPROVED BY SDS OFFICE')
+    elif rejected:
+        _watermark(canvas, 'REJECTED BY THE SDS OFFICE')
     canvas.restoreState()
 
 
@@ -405,13 +407,13 @@ def docx_to_pdf(docx):
         _WORD_LOCK.release()
 
 
-def _stamp(pdf, revision, verification_url, signed):
-    """The revision line, the verify link and, once signed, the watermark, on every page Word made."""
+def _stamp(pdf, revision, verification_url, signed, rejected=False):
+    """The revision line, the verify link and, once signed or rejected, the watermark, on every page Word made."""
     writer = PdfWriter(clone_from=PdfReader(BytesIO(pdf)))
     for page in writer.pages:
         layer = BytesIO()
         canvas = Canvas(layer, pagesize=(float(page.mediabox.width), float(page.mediabox.height)))
-        _footer(canvas, revision, verification_url, signed)
+        _footer(canvas, revision, verification_url, signed, rejected)
         canvas.save()
         page.merge_page(PdfReader(layer).pages[0])
         for key in ('/Annots', '/AA'):
@@ -422,6 +424,6 @@ def _stamp(pdf, revision, verification_url, signed):
     return out.getvalue()
 
 
-def render_proposal(snapshot, revision, verification_url=None, *, review=None, signer_name=None, signature_strokes=None, signed=False):
+def render_proposal(snapshot, revision, verification_url=None, *, review=None, signer_name=None, signature_strokes=None, signed=False, rejected=False):
     docx = fill_form(snapshot, review=review, signer_name=signer_name, signature_strokes=signature_strokes, signed=signed)
-    return _stamp(docx_to_pdf(docx), revision, verification_url, signed)
+    return _stamp(docx_to_pdf(docx), revision, verification_url, signed, rejected)

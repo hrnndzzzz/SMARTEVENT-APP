@@ -55,13 +55,13 @@ def _printout(proposal, number, render):
 
 def _record_remarks(db, rev, payload):
     """A decision's remarks go on the revision's review. The section remarks the SDS Office saved
-    while reading stay unless the decision sends its own; a signed review is left as it is."""
+    while reading stay unless the decision sends its own; a signed review cannot change."""
     review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
     if review is None:
         review = SAPReview(revision_id=rev.id, section_remarks={})
         db.add(review)
     elif review.signed_at:
-        return review
+        raise HTTPException(409, 'Signed review is immutable; create a new revision')
     review.overall_remarks = payload.remarks
     if payload.section_remarks is not None:
         review.section_remarks = payload.section_remarks
@@ -364,6 +364,17 @@ def return_proposal(event_id: UUID, payload: DecisionWrite, db: Session = Depend
     return sap.save(db, event, proposal, user, 'sap_returned', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
 
 
+@router.post('/sds-reject', response_model=SAPProposalOut, response_model_exclude_unset=True)
+def reject_proposal(event_id: UUID, payload: DecisionWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    event, proposal = sap.load(db, event_id, user, write=True, sds=True)
+    sap.check_version(proposal, payload.expected_version)
+    if proposal.state != 'pending_sap_review':
+        raise HTTPException(409, 'Only a pending revision can be rejected')
+    _record_remarks(db, sap.revision(db, proposal), payload)
+    proposal.state, event.status = 'rejected', 'rejected'  # final; a rejection is not a return, so return_remarks and returned_by stay
+    return sap.save(db, event, proposal, user, 'sap_rejected', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
+
+
 @router.get('/pdf', response_class=Response, responses={200: {'content': {'application/pdf': {'schema': {'type': 'string', 'format': 'binary'}}}}})
 def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool = False, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
@@ -372,7 +383,7 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
     if revision_no or (proposal.revision_no and not draft) or proposal.state not in {'draft', 'revision_requested'}:
         rev = sap.revision(db, proposal, revision_no)
         signed_review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
-        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else _printout(proposal, rev.revision_no, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None))
+        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else _printout(proposal, rev.revision_no, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None, rejected=proposal.state == 'rejected' and rev.revision_no == proposal.revision_no))
         number = rev.revision_no
     else:
         try:

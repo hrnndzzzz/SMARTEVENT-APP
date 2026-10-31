@@ -121,6 +121,7 @@ def save(db, event, proposal, user, action, *, notify=False, details=None, notif
             'sap_checkpoint_recorded': ('SAP signature checkpoint recorded', 'A physical signature checkpoint was recorded for {title}.'),
             'sap_dean_approved': ('SAP proposal sent to the SDS Office', 'The Dean approved {title}. It is now with the SDS Office.'),
             'sap_department_returned': ('SAP proposal returned', '{title} was returned for changes.'),
+            'sap_rejected': ('SAP proposal rejected', 'The SDS Office rejected {title}.'),
         }.get(action, ('SAP proposal updated', '{title} has been updated.'))
         payload = {'event_id': str(event.id), 'proposal_id': str(proposal.id),
                    'revision_no': proposal.revision_no, 'state': proposal.state, 'action': action}

@@ -20,6 +20,7 @@ from app.services.notifications import deliver_notification
     ('sap_checkpoint_recorded', 'pending_sap_review', 'checkpoint'),
     ('sap_dean_approved', 'pending_sap_review', 'now with the SDS Office'),
     ('sap_department_returned', 'revision_requested', 'returned for changes'),
+    ('sap_rejected', 'rejected', 'rejected'),
 ])
 def test_sap_notification_payload_wording_and_recipients(sap_system, action, state, phrase):
     client, db, users, event, _, base = sap_system
