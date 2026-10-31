@@ -80,19 +80,22 @@ A4 and A5 are what stand between us and filming the flow end to end.
 
 ## F. Creating an event
 
-Our professor called this cluttered. The largest piece of work on the list.
+Our professor called this cluttered. It was the largest piece of work
+on the list and it is now essentially finished: F1 to F9 are all done.
+What is left under F is three behaviours, not layout — F10, F11 and
+F13.
 
 | # | What | Status | P |
 |---|---|---|---|
-| F1 | A starting screen before Part 1, with the La Consolacion header (ACPES form as reference) | todo | P2 |
+| F1 | A starting screen before Part 1, with the La Consolacion header (ACPES form as reference) | **done** *(31 Oct)* — `SapCoverScreen` | P2 |
 | F2 | Date of proposal filled in automatically | **done** *(30 Oct)* — seen on the phone, filled from the activity date | P2 |
 | F3 | Off-campus agreement surfaced there too | **done** *(30 Oct)* — Part 1 offers the setting and the acknowledgement, and Save refuses without one | P2 |
-| F4 | Group the fields by kind and colour-code them: identity (title, org, school year), timing (date, start, end), and so on | todo | P2 |
-| F5 | Support step: smaller square tiles in a grid | todo | P2 |
-| F6 | Breakdown step: reorder | todo | P3 |
+| F4 | Group the fields by kind and colour-code them: identity (title, org, school year), timing (date, start, end), and so on | **done** *(31 Oct)* — five groups, each its own tone: the activity, when, where and who, what kind, why | P2 |
+| F5 | Support step: smaller square tiles in a grid | **done** *(31 Oct)* — `_SupportGrid`, replacing eleven stacked full-width cards | P2 |
+| F6 | Breakdown step: reorder | **done** — budget breakdown first, then affected classes, then the ten headings | P3 |
 | F7 | Two back buttons — remove one | **done** *(30 Oct)* — Parts 1-3 and 5 already had one; Parts 4 and 6 still carried both. A test counts them | P2 |
 | F8 | The top back button asks: save as draft, cancel, go back | **done** *(30 Oct)* — verified on the phone, all three choices | P2 |
-| F9 | Steps swipeable between activity, support and breakdown | todo | P3 |
+| F9 | Steps swipeable between activity, support and breakdown | **done** *(31 Oct)* — covered by `sap_steps_swipe_test.dart` | P3 |
 | F10 | No new event while one is pending | **todo** — never needed the backend; it is a guard on the events already loaded | P2 |
 | F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **todo** — `completed` and the evaluation route both exist now | P3 |
 | F12 | A rejected event is editable against the marks, and resubmitted | **done** *(31 Oct)* — editing and resubmitting already worked; the marks did not show. The hub now leads with what the SDS Office wrote | P2 |
@@ -142,25 +145,23 @@ eighteen.
 
 Left, in the order worth doing it:
 
-1. ~~F7, F8, F2, F3~~ — **done 30 Oct.** Three of the four were
-   already built and only recorded as todo; F7 was half done, with
-   Parts 4 and 6 still carrying two back buttons.
-2. ~~F12~~ — **done 31 Oct.** Worth filming: the SDS Office returns
-   Industry Immersion Talk with a reason, and the proposer opens it to
-   find that reason at the top of the six parts.
-3. **F1, F4, F5** — the visual rework of the form. Real work. Do it only
-   if the four above are finished.
-4. **G8** — cheaper than it looks and worth promoting. Everything
-   under it is built; it needs a screen that shows what
-   `loadEventReport` already returns and a button on the event to open
-   it. Then **G9, G16, G18** — consolidated, by department and
-   organisation, by school year and semester — which are additive and
-   genuinely unstarted.
-5. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
+1. **G8** — a financial report per event. Everything under it exists:
+   the backend route, `ReportsService.eventReport` and `exportEvent`,
+   and `AppState.loadEventReport`. No screen opens any of them. It
+   needs a screen and a button, which is the cheapest of the
+   moderator's eighteen still outstanding.
+2. **F10** — no new event while one is pending. A guard on the events
+   already loaded; it never needed the backend.
+3. **G9, G16, G18** — the report cuts: consolidated weekly, monthly
+   and by school year; split by department and organisation; by school
+   year and semester. Additive, and genuinely unstarted.
+4. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
    every receipt, source of funds, inventory classification.
+5. **F11, F13** — the waiting-for-evaluation screen, and tagging a
+   resubmission. Both unblocked now; neither is on camera.
 6. **G2, G3, G4, G6** — decisions and documentation rather than code.
+7. **E1, E2** — flagged sorting, and the letters upload button.
 
-Not worth starting this week: F6, F9, E1, E2, F11, F13.
-
-The honest read: the demonstration can be filmed today. The list above
-is what would make it score better, not what makes it work.
+The honest read: the demonstration can be filmed today, and the
+professor's "cluttered" is answered. What is left would make it score
+better, not make it work.
