@@ -267,6 +267,7 @@ class EventDetailScreen extends StatelessWidget {
                       form.seedLocally(
                         state: _demoSapState(event.status),
                         details: DemoProposals.detailsFor(event),
+                        returnRemarks: DemoProposals.returnRemarksFor(event),
                       );
                       form.setBudgetItems(DemoProposals.budgetFor(event));
                       form.setSupportRequests(DemoProposals.supportFor(event));

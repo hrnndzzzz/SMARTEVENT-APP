@@ -488,6 +488,16 @@ abstract final class DemoData {
 abstract final class DemoProposals {
   /// Everything the summary reads, for one seeded event. Null for an
   /// event this demo has written nothing for.
+  /// Why the SDS Office sent a proposal back, for the one seeded event
+  /// that came back. Without it the demo shows a returned proposal with
+  /// no reason attached, which is the thing that was wrong before.
+  static String? returnRemarksFor(EventItem event) =>
+      event.remoteId == 'demo-ev-3'
+      ? 'The morning clashes with three classes in Part 3. Move the '
+            'activity to the afternoon, or attach the excuse letter '
+            'arrangement you intend to use.'
+      : null;
+
   static SapDetails? detailsFor(EventItem event) {
     final seeded = _byEvent[event.remoteId];
     if (seeded == null) return null;

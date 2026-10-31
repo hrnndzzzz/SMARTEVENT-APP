@@ -100,6 +100,7 @@ class _ProposalCard extends StatelessWidget {
           form.seedLocally(
             state: _sapStateFor(event.status),
             details: DemoProposals.detailsFor(event),
+            returnRemarks: DemoProposals.returnRemarksFor(event),
           );
           form.setBudgetItems(DemoProposals.budgetFor(event));
           form.setSupportRequests(DemoProposals.supportFor(event));

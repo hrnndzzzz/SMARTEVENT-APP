@@ -136,6 +136,20 @@ class _SapFormScreenState extends State<SapFormScreen> {
                   const Center(child: BrutSpinner()),
                   const SizedBox(height: 40),
                 ] else ...[
+                  // What to change, before the six parts it applies to.
+                  // A returned proposal used to come back with the state
+                  // alone and no reason, so the proposer had to guess —
+                  // the server has carried these words all along.
+                  if (form.wasReturned)
+                    BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.assignment_return_outlined,
+                      text: form.returnRemarks == null
+                          ? 'The SDS Office sent this back for changes. '
+                                'Edit the parts below and submit it again.'
+                          : 'The SDS Office sent this back: '
+                                '${form.returnRemarks}',
+                    ),
                   if (form.isLocalOnly)
                     BrutInlineMessage(
                       tone: BrutTone.sun,

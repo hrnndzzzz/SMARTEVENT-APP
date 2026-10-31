@@ -95,7 +95,7 @@ Our professor called this cluttered. The largest piece of work on the list.
 | F9 | Steps swipeable between activity, support and breakdown | todo | P3 |
 | F10 | No new event while one is pending | **todo** — never needed the backend; it is a guard on the events already loaded | P2 |
 | F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **todo** — `completed` and the evaluation route both exist now | P3 |
-| F12 | A rejected event is editable against the marks, and resubmitted | **todo** — `revision_requested` exists and submit bumps the revision | P2 |
+| F12 | A rejected event is editable against the marks, and resubmitted | **done** *(31 Oct)* — editing and resubmitting already worked; the marks did not show. The hub now leads with what the SDS Office wrote | P2 |
 | F13 | A `resubmitted` status, and events tagged as resubmissions | **todo** — no such state, but `revision_no` above 1 already says it | P3 |
 
 F10–F13 were blocked when this was written. They are not any more. The
@@ -145,9 +145,9 @@ Left, in the order worth doing it:
 1. ~~F7, F8, F2, F3~~ — **done 30 Oct.** Three of the four were
    already built and only recorded as todo; F7 was half done, with
    Parts 4 and 6 still carrying two back buttons.
-2. **F12** — a returned proposal being edited and resubmitted. Now
-   unblocked, and it is the one flow the moderator's feedback circles
-   back to. Worth filming.
+2. ~~F12~~ — **done 31 Oct.** Worth filming: the SDS Office returns
+   Industry Immersion Talk with a reason, and the proposer opens it to
+   find that reason at the top of the six parts.
 3. **F1, F4, F5** — the visual rework of the form. Real work. Do it only
    if the four above are finished.
 4. **G8** — cheaper than it looks and worth promoting. Everything
