@@ -120,7 +120,7 @@ Where they are not already covered above.
 | G5 | Validate the UI with end users and adviser | not ours |
 | G6 | Registration confirmation and automatic admission | todo |
 | G7 | Printable and downloadable dashboard reports | **done** — D1–D3 are built |
-| G8 | A financial report per event | **nearly done, unreachable** *(27 Oct)* — the backend route, `ReportsService.eventReport` / `exportEvent` and `AppState.loadEventReport` all exist; no screen opens any of them. It needs a screen and a button, not a feature |
+| G8 | A financial report per event | **done** *(31 Oct)* — `EventReportScreen`, opened from a finished event. Figures, income by source, withheld named separately, and PDF or CSV |
 | G9 | Consolidated reports weekly, monthly, by school year | todo |
 | G10 | Receipt similarity detection, with stated criteria | todo |
 | G11 | A purpose on every receipt, tied to an event | todo |
@@ -145,11 +145,7 @@ eighteen.
 
 Left, in the order worth doing it:
 
-1. **G8** — a financial report per event. Everything under it exists:
-   the backend route, `ReportsService.eventReport` and `exportEvent`,
-   and `AppState.loadEventReport`. No screen opens any of them. It
-   needs a screen and a button, which is the cheapest of the
-   moderator's eighteen still outstanding.
+1. ~~G8~~ — **done 31 Oct.**
 2. **F10** — no new event while one is pending. A guard on the events
    already loaded; it never needed the backend.
 3. **G9, G16, G18** — the report cuts: consolidated weekly, monthly

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../state/demo_data.dart';
+import 'event_report_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
@@ -279,6 +280,24 @@ class EventDetailScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => SapFormScreen(form: form)),
                     );
                   },
+                ),
+              ],
+              // The event's own finances: what it was allowed, what came
+              // in, what went out. The backend has answered this all
+              // along and no screen opened it, so it had never been
+              // seen. Only once the event is real and past approval —
+              // a liquidation of a draft reports nothing.
+              if (event.remoteId != null && event.status.isResolved) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Financial report',
+                  icon: Icons.receipt_long_outlined,
+                  tone: BrutTone.neutral,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => EventReportScreen(event: event),
+                    ),
+                  ),
                 ),
               ],
               if (app.mayProposeEvents &&

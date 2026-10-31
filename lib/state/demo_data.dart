@@ -288,6 +288,54 @@ abstract final class DemoData {
     );
   }
 
+  /// One event's finances, for the demo. The real one comes from
+  /// `/reports/event/{id}`, which the demo cannot call.
+  static EventReport? eventReportFor(EventItem event) {
+    final id = event.remoteId;
+    if (id == null) return null;
+
+    final figures = <String, (double allocated, double income, double spent)>{
+      'demo-ev-2': (12000, 12000, 11950),
+      'demo-ev-5': (6000, 1250, 5400),
+    };
+    final found = figures[id];
+    if (found == null) return null;
+
+    final (allocated, income, spent) = found;
+    return EventReport(
+      eventId: id,
+      title: event.title,
+      status: event.statusLabel,
+      schoolYear: event.schoolYear,
+      semester: Semester.first,
+      eventScope: EventScope.departmental,
+      estimatedCost: allocated,
+      allocatedBudget: allocated,
+      remainingBudget: allocated - spent,
+      totalIncome: income,
+      totalSpent: spent,
+      netBalance: income - spent,
+      incomeBySource: [
+        IncomeSourceSummary(
+          sourceType: FundSource.registrationFees,
+          source: 'Registration fees',
+          incomeCount: 1,
+          totalIncome: income * 0.8,
+        ),
+        IncomeSourceSummary(
+          sourceType: FundSource.sponsorship,
+          source: 'Sponsorship',
+          incomeCount: 1,
+          totalIncome: income * 0.2,
+        ),
+      ],
+      // One event carries a withheld entry, so the line that says
+      // withheld income is not income has something to describe.
+      withheldIncomeTotal: id == 'demo-ev-5' ? 750 : 0,
+      withheldIncomeCount: id == 'demo-ev-5' ? 1 : 0,
+    );
+  }
+
   /// Letters submitted for events.
   ///
   /// Reading these is the SDS Staff role's only permission, so an empty

@@ -1124,9 +1124,34 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// One event's finances as a file. The service has carried this as
+  /// long as [loadEventReport] has; nothing called either.
+  Future<({DownloadedFile? file, String? error})> exportEventReport(
+    String eventId,
+    ExportFormat format,
+  ) async {
+    try {
+      return (
+        file: await _reportsService.exportEvent(eventId, format),
+        error: null,
+      );
+    } catch (error) {
+      return (file: null, error: _messageForFailure(error));
+    }
+  }
+
   Future<({EventReport? report, String? error})> loadEventReport(
     String eventId,
   ) async {
+    if (_demoMode) {
+      final event = events.where((e) => e.remoteId == eventId).firstOrNull;
+      final seeded = event == null
+          ? null
+          : DemoData.eventReportFor(event);
+      return seeded == null
+          ? (report: null, error: 'The demo has no figures for this event.')
+          : (report: seeded, error: null);
+    }
     try {
       return (report: await _reportsService.eventReport(eventId), error: null);
     } catch (error) {
