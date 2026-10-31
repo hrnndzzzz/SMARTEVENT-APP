@@ -14,7 +14,7 @@ from app.database import get_db
 from app.dependencies import require_active_account
 from app.models import User, DocumentRouting, Approval
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation, SAPAttachment, SAPReview
-from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance
+from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, DecisionWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance
 from app.schemas_sap import (SAPProposalOut, SAPWorkflowOut, SAPAttachmentOut,
                              SAPDownloadOut, SAPVerificationOut)
 from app.services import sap, storage
@@ -51,6 +51,21 @@ def _printout(proposal, number, render):
             _PRINTOUTS.clear()
         data = _PRINTOUTS[key] = render()
     return data
+
+
+def _record_remarks(db, rev, payload):
+    """A decision's remarks go on the revision's review. The section remarks the SDS Office saved
+    while reading stay unless the decision sends its own; a signed review is left as it is."""
+    review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
+    if review is None:
+        review = SAPReview(revision_id=rev.id, section_remarks={})
+        db.add(review)
+    elif review.signed_at:
+        return review
+    review.overall_remarks = payload.remarks
+    if payload.section_remarks is not None:
+        review.section_remarks = payload.section_remarks
+    return review
 
 
 def _cleanup_upload(db, ref):
@@ -338,18 +353,12 @@ def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session 
 
 
 @router.post('/return', response_model=SAPProposalOut, response_model_exclude_unset=True)
-def return_proposal(event_id: UUID, payload: ReturnWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+def return_proposal(event_id: UUID, payload: DecisionWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
     if proposal.state != 'pending_sap_review':
         raise HTTPException(409, 'Only an unsigned pending SAP revision can be returned')
-    rev = sap.revision(db, proposal)
-    review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
-    if review is None:
-        review = SAPReview(revision_id=rev.id, overall_remarks=payload.remarks, section_remarks={})
-        db.add(review)
-    elif not review.signed_at:
-        review.overall_remarks = payload.remarks
+    _record_remarks(db, sap.revision(db, proposal), payload)
     proposal.state, proposal.return_remarks, proposal.returned_by, proposal.clearance = 'revision_requested', payload.remarks, 'sds', None
     event.status = 'draft'
     return sap.save(db, event, proposal, user, 'sap_returned', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})

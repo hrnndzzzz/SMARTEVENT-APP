@@ -1,10 +1,10 @@
 """SAS-SDS-FO-020 version 001: local Manila schedules and paper evidence."""
 from datetime import date, time, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 from copy import copy
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, create_model
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator, create_model
 
 
 class StrictModel(BaseModel):
@@ -187,18 +187,20 @@ def validate_submission(details, collections, clearance):
     return d
 
 
+def _valid_section_remarks(value):
+    allowed = {'activity_details', 'budget', 'support_requests', 'additional_information', 'clearance', 'other'}
+    if any(key not in allowed or not isinstance(text, str) or len(text) > 1000 for key, text in value.items()):
+        raise ValueError('Section remarks contain an unsupported section or exceed 1000 characters')
+    return {key: text.strip() for key, text in value.items() if text.strip()}
+
+
+SectionRemarks = Annotated[dict[str, str], AfterValidator(_valid_section_remarks)]
+
+
 class SDSReviewWrite(Version):
     overall_remarks: str = Field(default='', max_length=3000)
-    section_remarks: dict[str, str] = Field(default_factory=dict)
+    section_remarks: SectionRemarks = Field(default_factory=dict)
     signature_strokes: list[list[dict[str, float]]] = Field(min_length=1, max_length=80)
-
-    @field_validator('section_remarks')
-    @classmethod
-    def valid_section_remarks(cls, value):
-        allowed = {'activity_details', 'budget', 'support_requests', 'additional_information', 'clearance', 'other'}
-        if any(key not in allowed or not isinstance(text, str) or len(text) > 1000 for key, text in value.items()):
-            raise ValueError('Section remarks contain an unsupported section or exceed 1000 characters')
-        return {key: text.strip() for key, text in value.items() if text.strip()}
 
     @field_validator('signature_strokes')
     @classmethod
@@ -214,15 +216,12 @@ class SDSReviewWrite(Version):
 
 class ReviewNotesWrite(Version):
     overall_remarks: str = Field(default='', max_length=3000)
-    section_remarks: dict[str, str] = Field(default_factory=dict)
+    section_remarks: SectionRemarks = Field(default_factory=dict)
 
-    @field_validator('section_remarks')
-    @classmethod
-    def valid_section_remarks(cls, value):
-        allowed = {'activity_details', 'budget', 'support_requests', 'additional_information', 'clearance', 'other'}
-        if any(key not in allowed or not isinstance(text, str) or len(text) > 1000 for key, text in value.items()):
-            raise ValueError('Section remarks contain an unsupported section or exceed 1000 characters')
-        return {key: text.strip() for key, text in value.items() if text.strip()}
+
+class DecisionWrite(Version):
+    remarks: str = Field(min_length=1, max_length=3000)
+    section_remarks: SectionRemarks | None = None  # None keeps the section remarks already saved
 
 
 # Response models are separate from writes: drafts may contain only a few details.
