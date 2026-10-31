@@ -67,15 +67,38 @@ void main() {
     expect(find.text('Continue\ndraft'), findsOneWidget);
   });
 
-  testWidgets('in every other state it starts a new proposal', (tester) async {
+  testWidgets('in every other settled state it starts a new proposal', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(420, 900));
 
     for (final status in EventApprovalStatus.values) {
-      if (status == EventApprovalStatus.draft) continue;
+      // A draft is carried on rather than duplicated, and a proposal
+      // waiting on a decision stops a second one being started at all
+      // — one at a time. Both open something instead of a blank form,
+      // so neither belongs in this list.
+      if (status == EventApprovalStatus.draft || status.isPending) continue;
       expect(
         await openFromBandOne(tester, status),
         isNull,
         reason: '$status opened an existing event',
+      );
+    }
+  });
+
+  testWidgets('and a proposal awaiting a decision starts nothing', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+
+    for (final status in EventApprovalStatus.values.where((s) => s.isPending)) {
+      await pumpHub(tester, status);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(SapCoverScreen),
+        findsNothing,
+        reason: '$status let a second proposal be started',
       );
     }
   });

@@ -62,14 +62,32 @@ class _EventsScreenState extends State<EventsScreen> {
                   icon: Icons.add,
                   size: BrutSize.small,
                   expand: false,
-                  onPressed: () => SapProposalFlow.start(
-                    context,
-                    SapForm(
-                      service: context.read<AppState>().isDemoMode
-                          ? null
-                          : context.read<AppState>().sapService,
-                    ),
-                  ),
+                  onPressed: () {
+                    final app = context.read<AppState>();
+
+                    // One proposal in the queue at a time. Saying which
+                    // one is holding it, rather than greying the button
+                    // out, is the difference between a rule and a bug.
+                    if (app.proposalAwaitingDecision case final waiting?) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '"${waiting.title}" is still waiting on a '
+                            'decision. One proposal at a time.',
+                          ),
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
+                      return;
+                    }
+
+                    SapProposalFlow.start(
+                      context,
+                      SapForm(
+                        service: app.isDemoMode ? null : app.sapService,
+                      ),
+                    );
+                  },
                 ),
             ],
           ),

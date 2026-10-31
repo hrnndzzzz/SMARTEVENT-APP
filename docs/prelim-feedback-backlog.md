@@ -96,7 +96,7 @@ F13.
 | F7 | Two back buttons — remove one | **done** *(30 Oct)* — Parts 1-3 and 5 already had one; Parts 4 and 6 still carried both. A test counts them | P2 |
 | F8 | The top back button asks: save as draft, cancel, go back | **done** *(30 Oct)* — verified on the phone, all three choices | P2 |
 | F9 | Steps swipeable between activity, support and breakdown | **done** *(31 Oct)* — covered by `sap_steps_swipe_test.dart` | P3 |
-| F10 | No new event while one is pending | **todo** — never needed the backend; it is a guard on the events already loaded | P2 |
+| F10 | No new event while one is pending | **done** *(31 Oct)* — band one opens the waiting proposal instead of starting a second, and New says which one is holding the queue | P2 |
 | F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **todo** — `completed` and the evaluation route both exist now | P3 |
 | F12 | A rejected event is editable against the marks, and resubmitted | **done** *(31 Oct)* — editing and resubmitting already worked; the marks did not show. The hub now leads with what the SDS Office wrote | P2 |
 | F13 | A `resubmitted` status, and events tagged as resubmissions | **todo** — no such state, but `revision_no` above 1 already says it | P3 |
@@ -146,8 +146,7 @@ eighteen.
 Left, in the order worth doing it:
 
 1. ~~G8~~ — **done 31 Oct.**
-2. **F10** — no new event while one is pending. A guard on the events
-   already loaded; it never needed the backend.
+2. ~~F10~~ — **done 31 Oct.**
 3. **G9, G16, G18** — the report cuts: consolidated weekly, monthly
    and by school year; split by department and organisation; by school
    year and semester. Additive, and genuinely unstarted.
