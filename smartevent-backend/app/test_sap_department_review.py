@@ -2,9 +2,11 @@
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 from app.models import Approval, AuditLog, Notification, Organization
 from app.models_sap import SAPProposal
+from app.services import sap
 from app.test_access_management import system
 from app.test_sap import sap_system, send, populate, version, sign_current
 
@@ -31,6 +33,7 @@ def test_department_review_migration():
     assert "'pending_department_review'" in sql
     assert "CHECK (returned_by IN ('moderator','dean','sds'))" in sql
     assert "UPDATE public.sap_proposals SET returned_by = 'sds' WHERE state = 'revision_requested'" in sql
+    assert "WHERE state = 'revision_requested' AND returned_by IS NULL;" in sql  # safe to run again after the deploy
 
 
 @pytest.mark.parametrize('state,returned_by,seen', [
@@ -114,6 +117,23 @@ def test_moderator_then_dean_send_it_to_the_sds_office(sap_system):
     assert client.get(base).status_code == 200
 
 
+def test_the_deans_approval_checks_pre_activity_readiness_again(sap_system, monkeypatch):
+    send(sap_system)
+    client, db, users, event, login, base = sap_system
+    assert decide(sap_system, 'adviser', 'approve').status_code == 200
+
+    def blocked(db, event):
+        raise HTTPException(409, 'Required participant documents remain unverified')
+    # Patched only now, because submit() runs the same check.
+    monkeypatch.setattr('app.services.sap.require_pre_activity_clearance', blocked)
+    refused = decide(sap_system, 'admin', 'approve')
+    assert refused.status_code == 409
+    assert refused.json()['detail'] == 'Required participant documents remain unverified'
+    assert db.query(SAPProposal).one().state == 'pending_department_review'
+    assert event.status == 'pending_admin'
+    assert [row.reviewer_id for row in db.query(Approval)] == [users['adviser'].id]
+
+
 def test_the_moderators_approval_is_audited_and_tells_nobody(sap_system):
     send(sap_system)
     client, db, users, event, login, base = sap_system
@@ -139,6 +159,24 @@ def test_each_reviewer_waits_their_turn(sap_system):
     assert decide(sap_system, 'adviser', 'approve').status_code == 409
     assert decide(sap_system, 'adviser', 'reject', 'Too late').status_code == 409
     assert db.query(Approval).count() == 1
+
+
+def test_an_adviser_who_sent_it_is_told_it_is_with_the_dean(sap_system):
+    send(sap_system, proposer='adviser')  # an adviser's own proposal starts with the Dean
+    refused = decide(sap_system, 'adviser', 'approve')
+    assert refused.status_code == 409
+    assert refused.json()['detail'] == 'This proposal is with the Dean'
+
+
+@pytest.mark.parametrize('role', ['adviser', 'admin'])
+def test_a_decision_other_than_approved_or_returned_is_refused_outright(sap_system, role):
+    send(sap_system)
+    client, db, users, event, login, base = sap_system
+    proposal = db.query(SAPProposal).one()
+    with pytest.raises(ValueError):
+        sap.department_review(db, event, proposal, users[role], 'rejected', 'No')
+    assert (proposal.state, event.status) == ('pending_department_review', 'pending_adviser')
+    assert db.query(Approval).count() == 0
 
 
 @pytest.mark.parametrize('reviewer,after_moderator', [('adviser', False), ('admin', False), ('admin', True)])

@@ -216,11 +216,13 @@ def withdraw(db, event, proposal, user):
 def department_review(db, event, proposal, user, decision, remarks):
     """The Moderator, then the Dean, decide a sent proposal before the SDS Office sees it.
     Caller holds the event lock and has run assert_event_read and assert_not_self_review."""
+    if decision not in {'approved', 'returned'}:
+        raise ValueError(f"decision must be 'approved' or 'returned', not {decision!r}")
     if proposal.state != 'pending_department_review':
         raise HTTPException(409, 'This proposal is not waiting on department review')
     if user.role == 'adviser':
         if event.status != 'pending_adviser':
-            raise HTTPException(409, 'The Moderator has already approved this proposal')
+            raise HTTPException(409, 'This proposal is with the Dean')
     elif user.role in {'admin', 'super_admin'}:
         if decision == 'approved' and event.status != 'pending_admin':
             raise HTTPException(409, 'The Moderator approves a proposal before the Dean')
@@ -235,9 +237,12 @@ def department_review(db, event, proposal, user, decision, remarks):
         record_decision(db, 'event', event.id, 'returned', user, remarks)
         return save(db, event, proposal, user, 'sap_department_returned', notify=True, notify_sds=False,
                     details={'revision': proposal.revision_no, 'remarks': remarks, 'returned_by': proposal.returned_by})
-    record_decision(db, 'event', event.id, 'approved', user, remarks)
     if user.role == 'adviser':
+        record_decision(db, 'event', event.id, 'approved', user, remarks)
         event.status = 'pending_admin'
         return save(db, event, proposal, user, 'sap_moderator_approved')
+    # Compliance stays open during department review, so check readiness again before the SDS Office gets it.
+    require_pre_activity_clearance(db, event)
+    record_decision(db, 'event', event.id, 'approved', user, remarks)
     proposal.state, event.status = 'pending_sap_review', 'pending_institutional_review'
     return save(db, event, proposal, user, 'sap_dean_approved', notify=True)
