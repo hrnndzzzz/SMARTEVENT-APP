@@ -113,7 +113,12 @@ class _SapFormScreenState extends State<SapFormScreen> {
           return BrutScreen(
             header: BrutHeader(
               title: 'Proposal form',
-              eyebrow: 'SAS-SDS-FO-020 (001)',
+              // The revision belongs beside the form's own number: a
+              // second submission is a different piece of paper to the
+              // office, and nothing said which one this was.
+              eyebrow: form.isResubmission
+                  ? 'SAS-SDS-FO-020 (001) · REVISION ${form.revisionNo}'
+                  : 'SAS-SDS-FO-020 (001)',
               onBack: () => Navigator.of(context).maybePop(),
             ),
             footer: BrutFooter(
@@ -149,6 +154,18 @@ class _SapFormScreenState extends State<SapFormScreen> {
                                 'Edit the parts below and submit it again.'
                           : 'The SDS Office sent this back: '
                                 '${form.returnRemarks}',
+                    ),
+                  // The activity has run and Part 6 is the office's to
+                  // fill in. Without this the form simply ended, locked,
+                  // with nothing saying who was being waited on.
+                  if (form.awaitingEvaluation)
+                    const BrutInlineMessage(
+                      tone: BrutTone.sun,
+                      icon: Icons.hourglass_top,
+                      text:
+                          'Waiting on the SDS Office to record how this '
+                          'went. Part 6 is theirs to fill in; nothing '
+                          'more is needed from you.',
                     ),
                   if (form.isLocalOnly)
                     BrutInlineMessage(

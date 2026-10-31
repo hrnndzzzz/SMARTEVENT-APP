@@ -73,8 +73,8 @@ A4 and A5 are what stand between us and filming the flow end to end.
 
 | # | What | Status | P |
 |---|---|---|---|
-| E1 | Flagged: sort by severity, date, priority | todo | P3 |
-| E2 | Proposal letters: upload button gets the D1 treatment | todo | P3 |
+| E1 | Flagged: sort by severity, date, priority | **done** *(31 Oct)* — sorts on what the record actually holds | P3 |
+| E2 | Proposal letters: upload button gets the D1 treatment | **done** *(31 Oct)* — a floating button, bottom right | P3 |
 | E3 | Search covers everything, and a search or a question lands you where you need to be | **done** *(27 Oct)* — events, transactions, categories, inventory and screens | P2 |
 | E4 | Floating menu: the orange marker gradients — filled on the outer edge, gradient on the inner, both sides gradient in the middle | **done** *(27 Oct)* | P2 |
 
@@ -97,9 +97,9 @@ F13.
 | F8 | The top back button asks: save as draft, cancel, go back | **done** *(30 Oct)* — verified on the phone, all three choices | P2 |
 | F9 | Steps swipeable between activity, support and breakdown | **done** *(31 Oct)* — covered by `sap_steps_swipe_test.dart` | P3 |
 | F10 | No new event while one is pending | **done** *(31 Oct)* — band one opens the waiting proposal instead of starting a second, and New says which one is holding the queue | P2 |
-| F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **todo** — `completed` and the evaluation route both exist now | P3 |
+| F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **done** *(31 Oct)* — an approved proposal with no evaluation says who it is waiting on | P3 |
 | F12 | A rejected event is editable against the marks, and resubmitted | **done** *(31 Oct)* — editing and resubmitting already worked; the marks did not show. The hub now leads with what the SDS Office wrote | P2 |
-| F13 | A `resubmitted` status, and events tagged as resubmissions | **todo** — no such state, but `revision_no` above 1 already says it | P3 |
+| F13 | A `resubmitted` status, and events tagged as resubmissions | **done** *(31 Oct)* — the hub reads "REVISION 2". No new state was needed; a submit bumps the revision | P3 |
 
 F10–F13 were blocked when this was written. They are not any more. The
 SAP state list is now `draft, pending_sap_review, revision_requested,
@@ -121,16 +121,16 @@ Where they are not already covered above.
 | G6 | Registration confirmation and automatic admission | todo |
 | G7 | Printable and downloadable dashboard reports | **done** — D1–D3 are built |
 | G8 | A financial report per event | **done** *(31 Oct)* — `EventReportScreen`, opened from a finished event. Figures, income by source, withheld named separately, and PDF or CSV |
-| G9 | Consolidated reports weekly, monthly, by school year | todo |
-| G10 | Receipt similarity detection, with stated criteria | todo |
-| G11 | A purpose on every receipt, tied to an event | todo |
-| G12 | Source of funds: registration, donation, sponsorship | todo |
+| G9 | Consolidated reports weekly, monthly, by school year | **done** *(31 Oct)* — the period dropdown on Reports |
+| G10 | Receipt similarity detection, with stated criteria | **done** *(31 Oct)* — same merchant and amount, nearby date; `similarReceiptIds` on the receipt |
+| G11 | A purpose on every receipt, tied to an event | **done** *(31 Oct)* — `receipt.purpose`, shown on review |
+| G12 | Source of funds: registration, donation, sponsorship | **done** *(31 Oct)* — `FundSource` on income |
 | G13 | Inventory records linked to the event they are for | **done** *(27 Oct)* — items carry an event and the list badges "No event link" |
-| G14 | Classify inventory transactions: acquisition, purchase, other | todo |
+| G14 | Classify inventory transactions: acquisition, purchase, other | **done** *(31 Oct)* — `InventoryMovementType` |
 | G15 | Inventory updated only after a purchase completes | **done** *(27 Oct)* — purchase completion creates the item as an unconfirmed draft |
-| G16 | Reports split by department and organisation, with filters | todo |
+| G16 | Reports split by department and organisation, with filters | **blocked** *(31 Oct)* — the reports routes scope by the caller's own department and take no filter. A backend ask, not client work |
 | G17 | A school year on every event record | partly — Part 1 asks for it |
-| G18 | Financial reports by school year and semester | todo |
+| G18 | Financial reports by school year and semester | **done** *(31 Oct)* — school year and semester dropdowns appear when the period needs them |
 
 ---
 
@@ -145,18 +145,20 @@ eighteen.
 
 Left, in the order worth doing it:
 
-1. ~~G8~~ — **done 31 Oct.**
-2. ~~F10~~ — **done 31 Oct.**
-3. **G9, G16, G18** — the report cuts: consolidated weekly, monthly
-   and by school year; split by department and organisation; by school
-   year and semester. Additive, and genuinely unstarted.
-4. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
-   every receipt, source of funds, inventory classification.
-5. **F11, F13** — the waiting-for-evaluation screen, and tagging a
-   resubmission. Both unblocked now; neither is on camera.
-6. **G2, G3, G4, G6** — decisions and documentation rather than code.
-7. **E1, E2** — flagged sorting, and the letters upload button.
+Everything on both lists is built except four things, and none of them
+is Flutter work:
 
-The honest read: the demonstration can be filmed today, and the
-professor's "cluttered" is answered. What is left would make it score
-better, not make it work.
+1. **G16** — reports split by department and organisation. The reports
+   routes scope by the caller's own department and accept no filter,
+   so this is a backend ask before it is a screen.
+2. **G2, G3, G4** — identify the super administrator and its
+   permissions, the organizational administrator hierarchy, and
+   whether officers are view-only. The backend's hierarchy work of 25
+   October answers all three in code; what is missing is the written
+   answer.
+3. **G6** — registration confirmation and automatic admission.
+4. **G1, G5** — end-user consultation and validation. Not ours.
+
+The honest read: the demonstration can be filmed today, the
+professor's "cluttered" is answered, and the moderator's eighteen are
+done bar one backend filter and some documentation.
