@@ -127,3 +127,16 @@ def test_only_the_current_revision_of_a_rejected_proposal_prints_rejected(sap_sy
     assert client.get(base + '/pdf?revision_no=1').status_code == 200
     assert client.get(base + '/pdf').status_code == 200
     assert marks == {1: False, 2: True}
+
+
+def test_slots_five_to_nine_wait_for_the_sds_signature(sap_system):
+    populate(sap_system)
+    client, db, users, event, login, base = sap_system
+    for slot in (1, 3, 2, 4):
+        assert checkpoint(sap_system, slot).status_code == 200
+    assert client.get(base + '/workflow').json()['steps'][4]['actionable'] is False
+    early = checkpoint(sap_system, 5)
+    assert early.status_code == 409 and early.json()['detail'] == 'Slots 5 to 9 are signed after the SDS Office signs'
+    sign_current(sap_system)
+    assert client.get(base + '/workflow').json()['steps'][4]['actionable'] is True
+    assert checkpoint(sap_system, 5).status_code == 200

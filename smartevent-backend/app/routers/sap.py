@@ -317,6 +317,8 @@ def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session 
     row = next((r for r in rows if r.id == step_id), None)
     if row is None:
         raise HTTPException(404, 'Checkpoint not found in the current revision')
+    if row.slot >= 5 and proposal.state != 'sds_signed':
+        raise HTTPException(409, 'Slots 5 to 9 are signed after the SDS Office signs')
     signed = {r.slot: r for r in rows if r.evidence}
     if row.evidence or not set(sap.prerequisites(row.slot)) <= signed.keys():
         raise HTTPException(409, 'Checkpoint already recorded or required predecessors incomplete')

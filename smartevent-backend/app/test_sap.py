@@ -218,13 +218,16 @@ def test_hack_future_return_sign_scan_evaluate(sap_system, monkeypatch, outcome)
     assert old.printable_pdf == old_bytes and old.snapshot == old_snapshot
     assert client.get(base + '/workflow').json()['completed_count'] == 0
     assert client.get('/sap/verify/' + old.verification_token).json()['approval_state'] == 'superseded'
-    for slot in [1, 3, 2, 4, 5, 6, 7, 8, 9]:
+    for slot in [1, 3, 2, 4]:
+        result = checkpoint(sap_system, slot)
+        assert result.status_code == 200, result.text
+    sign_current(sap_system)
+    for slot in [5, 6, 7, 8, 9]:
         result = checkpoint(sap_system, slot)
         assert result.status_code == 200, result.text
     assert db.query(DocumentRouting).filter_by(event_id=event.id).count() == 0
     rev = db.query(SAPRevision).filter_by(revision_no=2).one()
     assert client.get('/sap/verify/' + rev.verification_token).json()['approved'] is False
-    sign_current(sap_system)
     uploads = []
     def upload(data, mime, extension, user_id, org_id):
         uploads.append((data, mime, extension, org_id))
@@ -378,9 +381,11 @@ def test_only_sds_may_record_or_evaluate(sap_system, role):
 def test_private_storage_failure_does_not_approve(sap_system, monkeypatch):
     client, db, users, event, login, base = sap_system
     populate(sap_system)
-    for slot in range(1, 10):
+    for slot in range(1, 5):
         assert checkpoint(sap_system, slot).status_code == 200
     sign_current(sap_system)
+    for slot in range(5, 10):
+        assert checkpoint(sap_system, slot).status_code == 200
     from app.services.storage import StorageError
     def unavailable(*args):
         raise StorageError('unavailable')

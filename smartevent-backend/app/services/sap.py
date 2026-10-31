@@ -91,7 +91,7 @@ def workflow(db, proposal):
             'completed_count': len(signed), 'total_count': 9,
             'steps': [dict(id=row.id, slot=row.slot, position=row.position, display_label=row.label,
                            revision_no=proposal.revision_no, status='recorded' if row.evidence else 'pending',
-                           actionable=proposal.state in {'pending_sap_review', 'sds_signed'} and not row.evidence and set(prerequisites(row.slot)) <= signed,
+                           actionable=proposal.state in {'pending_sap_review', 'sds_signed'} and (row.slot < 5 or proposal.state == 'sds_signed') and not row.evidence and set(prerequisites(row.slot)) <= signed,
                            evidence=row.evidence, recorded_by=row.recorded_by, recorded_at=row.recorded_at)
                       for row in rows]}
 
