@@ -1,6 +1,6 @@
 # SAP backend: progress and remaining work
 
-Updated: 23 October 2026 (Asia/Manila)
+Updated: 31 October 2026 (Asia/Manila)
 
 Tracking: [GitHub issue #9](https://github.com/hrnndzzzz/SMARTEVENT-APP/issues/9)
 
@@ -58,6 +58,21 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
   `supabase/migrations/20261023134616_sap_notification_payload.sql`.
 - Added opt-in PostgreSQL migration and concurrent review/withdrawal checks.
 
+### Department review (Moderator and Dean)
+
+- A sent proposal goes to the event's Moderator, then its Dean, before the SDS
+  Office sees it; one an adviser sent or created starts with the Dean. Either may
+  return it to the draft with remarks. They use the existing
+  `POST /events/{event_id}/approve` and `/reject`, and the proposal waits in the
+  new `pending_department_review` state.
+- A returned proposal says who returned it (`returned_by`: `moderator`, `dean` or
+  `sds`). The SDS Office sees a proposal only from the Dean's approval on, or after
+  it returned the proposal itself. The Dean's approval checks pre-activity
+  readiness again.
+- Backend work only; Flutter changes are a separate handoff. See the
+  [contract](docs/sap-fo-020-frontend-contract.md#state-and-concurrency) and
+  `supabase/migrations/20261030000100_sap_department_review.sql`.
+
 ## Verification completed
 
 | Check | Result |
@@ -97,6 +112,12 @@ the working checkout. They are verification artifacts, not committed user data.
   connected application project has `sap_reviews` and `sap_attachments`, but its
   migration ledger does not list the later review/signature/attachment migration.
   Do not blindly rerun that migration.
+- [ ] Apply the department-review migration
+  `supabase/migrations/20261030000100_sap_department_review.sql` to staging
+  **before** deploying the backend that reads `returned_by`; without the column
+  every approve, reject and SAP route fails. After that backend is live, run the
+  migration's `UPDATE` once more to label any SDS return made in between (it
+  only fills rows with no `returned_by`, so repeating it is safe).
 - [ ] Apply the notification-payload migration to staging **before** deploying
   Release 2 backend models. Existing notifications should have null payloads;
   existing grants and row access rules must remain unchanged.
@@ -121,7 +142,6 @@ Flutter changes are a separate handoff:
 
 | Item | What must happen first |
 | --- | --- |
-| Moderator/Dean approval stage | Confirm approvers, assignments, review order, self-approval rules, and how SDS clearance fits before submission |
 | Independent organizations / null departments | Design registration, organization ownership, access rules, and PDF signatory behavior together |
 | Field-level annotations | Define anchors, authorship, permissions, resolution history, and revision handling |
 | Multiple evaluators | Confirm the requirement; keep one evaluator per proposal for now |

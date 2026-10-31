@@ -78,8 +78,10 @@ Submission synchronizes title, rationale/description, date, start/end times,
 school year, scope and `estimated_cost`. **Allocated and remaining money are not
 silently rewritten.** Complete draft detail saves also synchronize these fields,
 invalidating prior compliance clearance when schedule or location changes. Correct
-and reverify existing student evidence while still draft/returned; submission and
-final approval both require pre-activity readiness. Set the event allocation before creating SAP; proposed total
+and reverify existing student evidence while the proposal is a draft, returned, or
+with the Moderator or the Dean; submission, the Dean's approval and final approval
+each require pre-activity readiness, so a 409 on the Dean's approval means the
+evidence needs repair first. Set the event allocation before creating SAP; proposed total
 cannot exceed it. Actual expenses are never proposal budget lines.
 
 ## Endpoints
@@ -97,6 +99,7 @@ Base: `/events/{event_id}/sap-proposal`. UUID path identifiers.
 | PUT `/affected-classes` | Same | Replace entire collection; empty list clears it |
 | PUT `/sds-clearance` | `{expected_version, clearance: {...}}` | SDS fills Part 4 while `pending_sap_review`; 409 once signed |
 | POST `/submit` | `{expected_version}` | Freeze snapshot/PDF; create all nine checkpoints |
+| POST `/withdraw` | `{expected_version}` | The proposer, or a colleague who may also propose in the event's organization (an admin only their own), takes the proposal back while it waits on the department or the SDS Office, until SDS review has started; returns to draft and clears Part 4 |
 | GET `/workflow` | None | Current revision's nine-step progress |
 | POST `/workflow/{step_id}/record` | Checkpoint body below | Updated workflow |
 | POST `/return` | `{expected_version, remarks}` | Return with nonblank comment; sets `returned_by: sds` |
