@@ -522,4 +522,83 @@ void main() {
       expect(SapPart.six.isSdsOnly, isTrue);
     });
   });
+
+  /// The three choices on the way out, which are squared boxes in the
+  /// dialog's body rather than the text links an AlertDialog puts in its
+  /// actions row. Moving them is why these two exist: only the save path
+  /// had a test, so Cancel and Go back were wired without cover.
+  group('leaving a part-filled proposal', () {
+    ({SapForm form, List<String> patches}) partOne() {
+      final day = DateTime.now().add(const Duration(days: 60));
+      final aggregate = {
+        'id': 'p1',
+        'event_id': 'e1',
+        'state': 'draft',
+        'version': 3,
+        'revision_no': 0,
+        'details': {
+          'title': 'Hack the Future',
+          'activity_date': day.toIso8601String().substring(0, 10),
+          'start_time': '08:00:00',
+          'end_time': '11:00:00',
+          'setting': 'on_campus',
+        },
+        'collections': <String, dynamic>{},
+      };
+      final patches = <String>[];
+      final client = MockClient((request) async {
+        if (request.method == 'PATCH') patches.add(request.body);
+        return http.Response(
+          jsonEncode(aggregate),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      return (
+        form: SapForm(
+          eventId: 'e1',
+          service: SapService(ApiClient(httpClient: client)),
+        ),
+        patches: patches,
+      );
+    }
+
+    testWidgets('Cancel stays, and saves nothing', (tester) async {
+      final one = partOne();
+      await one.form.load();
+
+      await tester.pumpWidget(host(SapPart1Screen(form: one.form)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave this proposal?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave this proposal?'), findsNothing);
+      expect(find.text('ACTIVITY TITLE'), findsOneWidget, reason: 'still here');
+      expect(one.patches, isEmpty, reason: 'Cancel is not a save');
+    });
+
+    testWidgets('Go back saves nothing either', (tester) async {
+      final one = partOne();
+      await one.form.load();
+
+      await tester.pumpWidget(host(SapPart1Screen(form: one.form)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Go back'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave this proposal?'), findsNothing);
+      expect(
+        one.patches,
+        isEmpty,
+        reason: 'going back is the choice that keeps nothing',
+      );
+    });
+  });
 }
