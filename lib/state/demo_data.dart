@@ -493,9 +493,12 @@ abstract final class DemoProposals {
   /// no reason attached, which is the thing that was wrong before.
   static String? returnRemarksFor(EventItem event) =>
       event.remoteId == 'demo-ev-3'
-      ? 'The morning clashes with three classes in Part 3. Move the '
-            'activity to the afternoon, or attach the excuse letter '
-            'arrangement you intend to use.'
+      // True of what is actually seeded: a 9:00 start, and Part 3's
+      // excuse arrangement left blank. A reason that describes rows the
+      // form does not have is worse than no reason.
+      ? 'A 9:00 start takes these students out of morning classes. Move '
+            'it to the afternoon, or set out the excuse letter '
+            'arrangement in Part 3 and send it back to us.'
       : null;
 
   static SapDetails? detailsFor(EventItem event) {
@@ -609,6 +612,40 @@ abstract final class DemoProposals {
           type: SapSupportType.tables,
           quantity: 8,
           specify: 'One per organisation',
+        ),
+      ],
+    ),
+    // The one that comes back. It is seeded because the SDS Office's
+    // reason for returning it names Part 3 — a reason pointing at an
+    // empty part is worse than no reason, and this is the flow the
+    // demonstration walks.
+    'demo-ev-3': _Seeded(
+      start: SapTime(9, 0),
+      end: SapTime(11, 30),
+      venue: 'St. Augustine Building, Room 204',
+      inCharge: 'Engr. Aileen M. Habaradas',
+      students: 60,
+      rationale:
+          'Third and fourth years asked to hear from people doing the '
+          'work. A practitioner session is the cheapest way to give them '
+          'that before immersion placements are chosen.',
+      objectives:
+          'Hear how the industry actually hires.\n'
+          'Ask about the placements on offer this year.',
+      budget: [
+        SapBudgetItem(particulars: 'Speaker honorarium', amount: '3000.00'),
+        SapBudgetItem(
+          particulars: 'Printed handouts',
+          quantity: 60,
+          unitCost: '25.00',
+          amount: '1500.00',
+        ),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.projector,
+          quantity: 1,
+          specify: 'With HDMI',
         ),
       ],
     ),
