@@ -17,9 +17,10 @@ def pdf_text(content):
     return ' '.join(' '.join(page.extract_text() for page in PdfReader(BytesIO(content)).pages).split())
 
 
+@pytest.mark.parametrize('route', ['/return', '/sds-reject'])
 @pytest.mark.parametrize('sent,kept', [(None, {'budget': 'Meals over the allowance'}),
                                        ({'other': 'Attach the venue letter'}, {'other': 'Attach the venue letter'})])
-def test_a_return_keeps_section_remarks_and_prints_them(sap_system, sent, kept):
+def test_a_return_or_rejection_keeps_section_remarks_and_prints_them(sap_system, route, sent, kept):
     populate(sap_system)
     client, db, users, event, login, base = sap_system
     login('sds_staff')
@@ -28,10 +29,10 @@ def test_a_return_keeps_section_remarks_and_prints_them(sap_system, sent, kept):
     body = {'expected_version': version(client, base), 'remarks': 'Fix the budget'}
     if sent is not None:
         body['section_remarks'] = sent
-    returned = client.post(base + '/return', json=body)
-    assert returned.status_code == 200, returned.text
-    assert returned.json()['sds_review']['overall_remarks'] == 'Fix the budget'
-    assert returned.json()['sds_review']['section_remarks'] == kept
+    decided = client.post(base + route, json=body)
+    assert decided.status_code == 200, decided.text
+    assert decided.json()['sds_review']['overall_remarks'] == 'Fix the budget'
+    assert decided.json()['sds_review']['section_remarks'] == kept
     text = pdf_text(client.get(base + '/pdf').content)
     assert 'SDS: Fix the budget' in text
     for remark in kept.values():
@@ -82,6 +83,17 @@ def test_only_the_sds_office_can_reject(sap_system, monkeypatch, role):
     login(role)
     assert client.post(base + '/sds-reject', json={'expected_version': current, 'remarks': 'No'}).status_code == 403
     assert db.query(SAPProposal).one().state == 'pending_sap_review'
+
+
+def test_a_signed_proposal_cannot_be_rejected(sap_system, monkeypatch):
+    monkeypatch.setattr('app.services.sap.render_proposal', lambda *args, **kwargs: b'%PDF-1.4 submitted')
+    monkeypatch.setattr('app.routers.sap.render_proposal', lambda *args, **kwargs: b'%PDF-1.4 signed')
+    populate(sap_system)
+    client, db, users, event, login, base = sap_system
+    sign_current(sap_system)
+    refused = client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'})
+    assert refused.status_code == 409, refused.text
+    assert db.query(SAPProposal).one().state == 'sds_signed'
 
 
 STROKES = [[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]]
