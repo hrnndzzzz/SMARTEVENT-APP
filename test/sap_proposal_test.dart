@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/api/sap_service.dart';
+import 'package:smartevent/state/sap_form.dart';
 
 /// The backend rejects unknown JSON keys and every field name here is
 /// taken from the contract, so these tests exist mainly to pin the wire
@@ -373,6 +374,7 @@ void main() {
     test('only draft and returned are proposer-editable', () {
       expect(SapState.draft.isProposerEditable, isTrue);
       expect(SapState.revisionRequested.isProposerEditable, isTrue);
+      expect(SapState.pendingDepartmentReview.isProposerEditable, isFalse);
       expect(SapState.pendingReview.isProposerEditable, isFalse);
       expect(SapState.approved.isProposerEditable, isFalse);
       expect(SapState.completed.isProposerEditable, isFalse);
@@ -388,6 +390,70 @@ void main() {
         'off_campus',
         'online',
       ]);
+    });
+  });
+
+  group('returned by', () {
+    // `returned_by` arrives with a return and says whose remarks
+    // `return_remarks` holds: the Moderator, the Dean or the SDS Office.
+
+    test('names who sent it back, worded to follow "Returned by"', () async {
+      for (final (wire, who, label) in [
+        ('moderator', SapReturnedBy.moderator, 'the Moderator'),
+        ('dean', SapReturnedBy.dean, 'the Dean'),
+        ('sds', SapReturnedBy.sds, 'the SDS Office'),
+      ]) {
+        final p = await serviceReturning({
+          ...aggregate,
+          'state': 'revision_requested',
+          'returned_by': wire,
+        }).fetch('e1');
+
+        expect(p.returnedBy, who, reason: wire);
+        expect(who.wireName, wire);
+        expect(who.label, label);
+      }
+    });
+
+    test('is empty when absent, null or not one the app knows', () async {
+      for (final extra in <Map<String, dynamic>>[
+        {},
+        {'returned_by': null},
+        {'returned_by': 'registrar'},
+      ]) {
+        final p = await serviceReturning({...aggregate, ...extra}).fetch('e1');
+        expect(p.returnedBy, isNull, reason: '$extra');
+      }
+    });
+
+    test('a form loaded from the server exposes it', () async {
+      final form = SapForm(
+        eventId: 'e1',
+        service: serviceReturning({
+          ...aggregate,
+          'state': 'revision_requested',
+          'returned_by': 'dean',
+          'return_remarks': 'Cut the budget.',
+        }),
+      );
+      await form.load();
+
+      expect(form.returnedBy, SapReturnedBy.dean);
+    });
+
+    test('a form can be seeded as returned, or as resubmitted', () {
+      final returned = SapForm(eventId: 'e1')
+        ..seedLocally(
+          state: SapState.revisionRequested,
+          returnedBy: SapReturnedBy.moderator,
+          revisionNo: 2,
+        );
+      expect(returned.returnedBy, SapReturnedBy.moderator);
+      expect(returned.revisionNo, 2);
+
+      final plain = SapForm(eventId: 'e1')..seedLocally();
+      expect(plain.returnedBy, isNull);
+      expect(plain.revisionNo, 0, reason: 'seeding has always started at 0');
     });
   });
 

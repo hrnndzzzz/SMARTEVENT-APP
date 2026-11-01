@@ -139,7 +139,8 @@ class SapForm extends ChangeNotifier {
 
   SapState? get state => _proposal?.state;
 
-  /// Why the SDS Office sent it back, in their words.
+  /// Why it was sent back, in the words of whoever returned it
+  /// ([returnedBy]).
   ///
   /// The server has carried this since the return route existed and
   /// nothing showed it, so a returned proposal arrived back with no
@@ -148,6 +149,9 @@ class SapForm extends ChangeNotifier {
     final said = _proposal?.returnRemarks?.trim();
     return (said == null || said.isEmpty) ? null : said;
   }
+
+  /// The Moderator, the Dean or the SDS Office, whichever returned it.
+  SapReturnedBy? get returnedBy => _proposal?.returnedBy;
 
   /// Sent back for changes, and the proposer's again.
   bool get wasReturned => state == SapState.revisionRequested;
@@ -819,13 +823,15 @@ class SapForm extends ChangeNotifier {
     SapState? state,
     SapDetails? details,
     String? returnRemarks,
+    SapReturnedBy? returnedBy,
+    int revisionNo = 0,
   }) {
     _proposal = SapProposal(
       id: 'test',
       eventId: _eventId ?? '',
       state: state ?? SapState.draft,
       version: 1,
-      revisionNo: 0,
+      revisionNo: revisionNo,
       formCode: 'SAS-SDS-FO-020',
       formVersion: '001',
       details: details ?? _details,
@@ -835,6 +841,7 @@ class SapForm extends ChangeNotifier {
       affectedClasses: _affectedClasses,
       clearance: _clearance,
       returnRemarks: returnRemarks,
+      returnedBy: returnedBy,
     );
     if (details != null) _details = details;
     notifyListeners();
