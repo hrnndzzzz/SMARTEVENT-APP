@@ -23,8 +23,10 @@ Officer access remains limited to their own organization. Selected organizations
 must belong to the Admin's department. Missing assignments fail closed.
 
 Super Admin is the only role with global operational access. SDS Staff can read
-proposal letters across the school, but cannot read events, finances, inventory,
-reports, user accounts, rosters, or administrative audit history.
+proposal letters across the school, and an event once its activity proposal has
+reached them (the Dean approved it, or the SDS Office returned it itself), but
+cannot read other events, finances, inventory, reports, user accounts, rosters, or
+administrative audit history.
 
 ## Operational and SDS duties
 

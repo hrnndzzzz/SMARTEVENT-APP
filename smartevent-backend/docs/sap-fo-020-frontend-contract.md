@@ -24,7 +24,7 @@ All protected endpoints require the existing Bearer JWT, an active account and
 password-change completion. Organization and department scopes remain enforced.
 SDS is institution-wide, as its existing account role has no organization binding.
 
-| Actor | Parts 1–3 | Part 4 | Record paper checkpoints / return | Final scan | Part 6 |
+| Actor | Parts 1–3 | Part 4 | Record paper checkpoints / return / reject | Final scan | Part 6 |
 |---|---|---|---|---|---|
 | Original event proposer with treasurer/adviser/admin/super_admin role, or Officer holding President/Vice President/Secretary position | Draft or returned only | No | No | No | No |
 | SDS staff | No | While `pending_sap_review` | Yes | Upload/read | Yes |
@@ -45,7 +45,11 @@ High-level physical signers need not have accounts.
 
 Sending goes to the department before the SDS Office. The Moderator (event
 `pending_adviser`) and then the Dean (event `pending_admin`) each decide it with
-`POST /events/{event_id}/approve` or `/reject`, sending `{remarks}`. The Dean's
+`POST /events/{event_id}/approve` or `/reject`, sending `{remarks, expected_version}`.
+`expected_version` is optional, but send the `version` of the last response: a
+proposal that has changed since (taken back and sent again, say) answers 409
+`Proposal changed; reload before retrying`, checked before whose turn it is. Other
+events and expenses ignore it. The Dean's
 approval makes it `pending_sap_review`. A proposal that a Moderator sent or created
 starts with the Dean. A return needs remarks, puts the proposal in
 `revision_requested` and sets `returned_by` to `moderator` or `dean`. The SDS Office
@@ -55,7 +59,16 @@ then its requests for it answer 403.
 `revision_requested -> pending_department_review`, whoever returned it, creates a new
 revision on resubmission. Returning requires a comment. The old PDF, snapshot and
 recorded checkpoints remain unchanged. Never copy old signatures to a new revision.
-`rejected` is reserved in persistence; this slice has no terminal-rejection endpoint.
+
+The SDS Office decides a `pending_sap_review` proposal one of three ways: sign it
+(`sds_signed`; see the implementation handoff), return it (`revision_requested`), or
+reject it (`rejected`). `rejected` is final. `POST /sds-reject` takes the body of
+`/return`, with nonblank remarks, and answers 409 in any other state it sees. The
+proposal and its event become `rejected`; the remarks are saved as
+`sds_review.overall_remarks`, and `returned_by` and `return_remarks` stay empty, since
+a rejection is not a return. Nothing follows it: the proposer's edits, resubmission
+and withdrawal, the SDS Office's further decisions and checkpoints, and the
+department's approve and reject all answer 409.
 
 The mutable proposal has `version` (optimistic edit version) and `revision_no`
 (submitted revision, initially 0). Every mutation except initial creation supplies
@@ -66,14 +79,18 @@ their **business order** remains parallel, but a stale screen must refresh.
 Collection replacement or Part 1–3 editing clears SDS clearance. The proposer
 submits Parts 1–3 without Part 4; SDS fills Part 4 while the revision is
 `pending_sap_review` and must complete it before `/sds-sign` (422 otherwise).
+In any other state it sees, `PUT /sds-clearance` answers 409 `Part 4 is filled in
+while the SDS Office reviews the proposal`: a return clears Part 4, and the SDS Office
+fills it in again once the next revision reaches it.
 The signed PDF records it, since submitted revisions are immutable. Drafts allow
 partial detail saves. Cross-field time, class and budget checks run at submission;
 saving a draft is not clearance.
 
 Event projection: draft/returned -> event `draft`; Moderator review ->
 `pending_adviser`; Dean review -> `pending_admin`; SDS review ->
-`pending_institutional_review`; evidence accepted -> `approved`; evaluated ->
-`completed`. SAP stages are not added to the existing EventStatus enum.
+`pending_institutional_review`; rejected by the SDS Office -> `rejected`; evidence
+accepted -> `approved`; evaluated -> `completed`. SAP stages are not added to the
+existing EventStatus enum.
 Submission synchronizes title, rationale/description, date, start/end times,
 school year, scope and `estimated_cost`. **Allocated and remaining money are not
 silently rewritten.** Complete draft detail saves also synchronize these fields,
@@ -97,12 +114,13 @@ Base: `/events/{event_id}/sap-proposal`. UUID path identifiers.
 | PUT `/budget-items` | Same | Replace entire collection |
 | PUT `/support-requests` | Same | Replace entire collection |
 | PUT `/affected-classes` | Same | Replace entire collection; empty list clears it |
-| PUT `/sds-clearance` | `{expected_version, clearance: {...}}` | SDS fills Part 4 while `pending_sap_review`; 409 once signed |
+| PUT `/sds-clearance` | `{expected_version, clearance: {...}}` | SDS fills Part 4 while `pending_sap_review`; 409 in any other state it sees |
 | POST `/submit` | `{expected_version}` | Freeze snapshot/PDF; create all nine checkpoints |
 | POST `/withdraw` | `{expected_version}` | The proposer, or a colleague who may also propose in the event's organization (an admin only their own), takes the proposal back while it waits on the department or the SDS Office, until SDS review has started; returns to draft and clears Part 4 |
 | GET `/workflow` | None | Current revision's nine-step progress |
 | POST `/workflow/{step_id}/record` | Checkpoint body below | Updated workflow |
-| POST `/return` | `{expected_version, remarks}` | Return with nonblank comment; sets `returned_by: sds` |
+| POST `/return` | `{expected_version, remarks, section_remarks?}` | Return with nonblank remarks of up to 3000 characters (`/revise` keeps 1000); sets `returned_by: sds`. Omitted or `null` `section_remarks` keeps the saved ones; an object replaces them (keys and limits as in the implementation handoff) |
+| POST `/sds-reject` | Same as `/return` | Reject a pending proposal for good; aggregate in `rejected` |
 | GET `/pdf` | Optional `revision_no` >= 1 | Authenticated PDF attachment |
 | POST `/final-signed-copy` | Multipart `expected_version`, `file` | 201 approved aggregate |
 | GET `/final-signed-copy` | None; SDS only | Short-lived private URL + SHA-256 |
@@ -207,7 +225,10 @@ reference even when no app account exists; stable references prevent accidental
 reuse. If an account is supplied its name must match and it must be active.
 Slot 1 must link the original proposer account. Slots 2–9 prohibit that proposer.
 Physical date must be between submission's Manila date and today and must not
-precede prerequisite signatures. Incorrectly recorded evidence is not overwritten:
+precede prerequisite signatures. Slots 1–4 can be recorded from `pending_sap_review`.
+Slots 5–9 are recorded, and `actionable`, only once the SDS Office has signed
+(`sds_signed`); recording one earlier answers 409 `Slots 5 to 9 are signed after the
+SDS Office signs`. Incorrectly recorded evidence is not overwritten:
 return the pending proposal and create a fresh revision.
 
 ```json
@@ -243,6 +264,14 @@ The print template preserves six parts across six clean pages, has nine empty
 physical signature slots, and never includes the scanned sample as a background.
 Part 6 remains blank on the immutable pre-event print; evaluation is a separate
 backend record. Draft previews have no verification QR; submitted copies do.
+
+Whichever way the SDS Office decides, its remarks print in the SDS Coordinator's
+cell of that revision's form: the overall remarks after `SDS:`, then each section
+remark by name. That holds for a returned, a signed and a rejected revision. A
+rejected one, while it is the proposal's current revision, also carries the red
+watermark `REJECTED BY THE SDS OFFICE` and the footer `SAP revision N | Rejected by
+SDS`; earlier revisions print as they were. `GET /sap/verify/{token}` reports the
+rejected current revision as `approval_state: rejected` with `approved: false`.
 
 The generated PDF remains an **unsigned printable copy even after approval**;
 download the private final scan for physical signature evidence. Do not stamp
@@ -282,6 +311,18 @@ distinguish cancellation from conduct. Existing closeout staff permissions remai
 ```json
 {"expected_version":23,"outcome":"conducted","remarks":"Activity completed; reports to follow."}
 ```
+
+## Notifications
+
+Every SAP notice goes to the event's proposer and, once a revision exists, to
+whoever sent that revision (a colleague may have sent what the proposer created;
+nobody is told twice). Active, unsuspended SDS staff are told too, but only while the
+proposal is or just was with the SDS Office: the Dean's approval, an SDS return,
+rejection, signature, correction, checkpoint, final approval and evaluation, and a
+withdrawal from the SDS Office. Sending, the department's return and a withdrawal
+from the department do not reach them. The Moderator and the Dean get none. A
+rejection reads "SAP proposal rejected" with action `sap_rejected`. The payload is
+described in [the release handoff](SAP_ISSUE_9_HANDOFF.md#release-2-notifications).
 
 ## Errors and frontend recovery
 

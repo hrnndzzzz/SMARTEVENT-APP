@@ -142,6 +142,15 @@ def test_slots_five_to_nine_wait_for_the_sds_signature(sap_system):
     assert checkpoint(sap_system, 5).status_code == 200
 
 
+def test_part_4_waits_while_the_proposal_is_back_with_the_organization(sap_system):
+    populate(sap_system)
+    client, db, users, event, login, base = sap_system
+    login('sds_staff')
+    assert client.post(base + '/return', json={'expected_version': version(client, base), 'remarks': 'Fix it'}).status_code == 200
+    late = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': fixture_data()['clearance']})
+    assert late.status_code == 409 and late.json()['detail'] == 'Part 4 is filled in while the SDS Office reviews the proposal'
+
+
 def test_a_colleague_who_sent_it_hears_the_decision(sap_system):
     client, db, users, event, login, base = sap_system
     send(sap_system, proposer='adviser')  # the treasurer created the event

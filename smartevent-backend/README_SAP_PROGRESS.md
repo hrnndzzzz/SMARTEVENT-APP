@@ -44,8 +44,10 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
 ### Release 2
 
 - Added `POST /events/{event_id}/sap-proposal/withdraw` with `expected_version`.
-- Restricted withdrawal to the original authorized proposer, before any current
-  SDS review record, signature, or recorded checkpoint.
+- Restricted withdrawal to the proposer, or a colleague who may also propose in the
+  event's organization (an admin only their own), while the proposal waits on the
+  Moderator, the Dean or the SDS Office and before any current SDS review record,
+  signature, or recorded checkpoint.
 - Withdrawal restores the proposal/event to draft, clears SDS clearance, and
   preserves submitted revisions, PDFs, verification tokens, and checkpoints.
 - Attachment metadata carries forward to the next draft while reusing private
@@ -72,6 +74,23 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
 - Backend work only; Flutter changes are a separate handoff. See the
   [contract](docs/sap-fo-020-frontend-contract.md#state-and-concurrency) and
   `supabase/migrations/20261030000100_sap_department_review.sql`.
+
+### SDS Office decisions
+
+- The SDS Office can sign, return or reject a proposal it is reviewing. Rejecting
+  (`POST /sds-reject`, remarks required) is final: the proposal and its event become
+  `rejected` and whoever sent the proposal is told. A return takes optional
+  `section_remarks` too, and keeps the saved ones when it sends none.
+- SDS remarks print on the form for a returned, signed or rejected revision, and a
+  rejected one carries a "REJECTED BY THE SDS OFFICE" mark.
+- Paper slots 5 to 9 are recorded only after the SDS Office signs, and Part 4 is
+  filled in only while it reviews the proposal.
+- Every SAP notice also reaches whoever sent the revision. The Moderator's and the
+  Dean's approve and reject accept `expected_version`, so an outdated screen is
+  refused.
+- Backend work only, with no migration (the database already allows `rejected`);
+  Flutter changes are a separate handoff. See the
+  [contract](docs/sap-fo-020-frontend-contract.md#state-and-concurrency).
 
 ## Verification completed
 
@@ -137,6 +156,9 @@ Flutter changes are a separate handoff:
 4. Add withdrawal with 403/409 handling and reload after stale-version errors.
 5. Use notification payloads to open the relevant proposal; support null payloads
    on older notifications.
+6. Offer the SDS Office Reject and treat `rejected` as final, send `section_remarks`
+   with a return, and send `expected_version` with the Moderator's and the Dean's
+   approve and reject.
 
 ## Explicitly deferred
 

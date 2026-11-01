@@ -277,9 +277,9 @@ def revise_signed(event_id: UUID, payload: ReturnWrite, db: Session = Depends(ge
 def clearance(event_id: UUID, payload: ClearanceWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
-    # Part 4 is filled in while reviewing what was sent, up until signing.
-    if proposal.state not in {'draft', 'revision_requested', 'pending_sap_review'}:
-        raise HTTPException(409, 'Part 4 can no longer change once the revision is signed')
+    # Part 4 is the SDS Office's to fill in while it reviews what was sent; a return clears it, so it waits for the next revision.
+    if proposal.state != 'pending_sap_review':
+        raise HTTPException(409, 'Part 4 is filled in while the SDS Office reviews the proposal')
     proposal.clearance = payload.clearance.model_dump(mode='json')
     return sap.save(db, event, proposal, user, 'sap_clearance_updated')
 
