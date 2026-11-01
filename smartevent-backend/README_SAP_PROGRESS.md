@@ -86,8 +86,8 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
 - Paper slots 5 to 9 are recorded only after the SDS Office signs, and Part 4 is
   filled in only while it reviews the proposal.
 - Every SAP notice also reaches whoever sent the revision. The Moderator's and the
-  Dean's approve and reject accept `expected_version`, so an outdated screen is
-  refused.
+  Dean's approve and reject accept an optional `expected_version`, so an outdated
+  screen is refused only when it sends one.
 - Backend work only, with no migration (the database already allows `rejected`);
   Flutter changes are a separate handoff. See the
   [contract](docs/sap-fo-020-frontend-contract.md#state-and-concurrency).
@@ -159,6 +159,12 @@ Flutter changes are a separate handoff:
 6. Offer the SDS Office Reject and treat `rejected` as final, send `section_remarks`
    with a return, and send `expected_version` with the Moderator's and the Dean's
    approve and reject.
+7. Enable the final-scan upload only in `sds_signed` (the app checks
+   `pending_sap_review`, so the button never enables) and the Part 4 "Confirm
+   clearance" action only in `pending_sap_review`.
+8. Show a rejected SAP event read-only, including its compliance and letter screens
+   (the backend still lets those side records change; they cannot reopen the
+   proposal).
 
 ## Explicitly deferred
 

@@ -275,12 +275,17 @@ watermark `REJECTED BY THE SDS OFFICE` and the footer `SAP revision N | Rejected
 SDS`; earlier revisions print as they were. `GET /sap/verify/{token}` reports the
 rejected current revision as `approval_state: rejected` with `approved: false`.
 
-The generated PDF remains an **unsigned printable copy even after approval**;
-download the private final scan for physical signature evidence. Do not stamp
-signature images or an electronic approval watermark over historical PDF bytes.
+A revision the SDS Office has signed prints as the copy stored at signing: the
+signer's name and drawn signature in the SDS Coordinator's cell, the red watermark
+`SIGNED AND APPROVED BY SDS OFFICE` on every page and the footer `SAP revision N |
+SDS signed`. It still does after approval. A revision that is neither signed nor the
+rejected current one prints with the footer `SAP revision N | Unsigned` and no
+watermark. On every copy the other signature slots print empty, and none of these
+marks is a physical signature: download the private final scan for that evidence.
 
-Final upload accepts at most 10 MB, exactly six unencrypted PDF pages, no active
-forms/actions/annotations/embedded attachments. Scan paper to a flattened PDF.
+Final upload accepts at most 10 MB, an unencrypted PDF of at least three pages and the
+same page count as the SDS-signed copy (the form and its addenda; otherwise 422), no
+active forms/actions/annotations/embedded attachments. Scan paper to a flattened PDF.
 This is conservative validation, not malware scanning or handwriting recognition.
 All nine checkpoints and existing pre-activity compliance readiness are required.
 The final upload is write-once; replacement after approval is intentionally not
@@ -322,9 +327,10 @@ nobody is told twice). Active, unsuspended SDS staff are told too, but only whil
 proposal is or just was with the SDS Office: the Dean's approval, an SDS return,
 rejection, signature, correction, checkpoint, final approval and evaluation, and a
 withdrawal from the SDS Office. Sending, the department's return and a withdrawal
-from the department do not reach them. The Moderator and the Dean get none. A
-rejection reads "SAP proposal rejected" with action `sap_rejected`. The payload is
-described in [the release handoff](SAP_ISSUE_9_HANDOFF.md#release-2-notifications).
+from the department do not reach them. The Moderator and the Dean get none as
+reviewers. A rejection reads "SAP proposal rejected" with action `sap_rejected`.
+The payload is described in
+[the release handoff](SAP_ISSUE_9_HANDOFF.md#release-2-notifications).
 
 ## Errors and frontend recovery
 

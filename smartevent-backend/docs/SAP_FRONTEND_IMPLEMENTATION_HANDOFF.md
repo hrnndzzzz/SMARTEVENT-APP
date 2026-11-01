@@ -6,7 +6,7 @@ Updated: 31 October 2026.
 
 The backend fixes cover Python syntax, PDF overflow, returned remarks, signed-revision corrections, validated supporting files, upload concurrency, and PDF query size.
 
-The Flutter SAP form now has an **SDS review and signature** screen with overall/section remarks, a signature pad, PDF sharing, and a correction action. It recognizes **sds_signed** and enables the final scan only in that state. Existing proposal-entry screens remain in place.
+The Flutter SAP form now has an **SDS review and signature** screen with overall/section remarks, a signature pad, PDF sharing, and a correction action. It recognizes **sds_signed** for printing, but its Part 5 final-scan upload still enables only in **pending_sap_review**. The server accepts the scan only in **sds_signed**, and slots 5 to 9 are recorded only after the signature, so that button never enables until the app changes (see Remaining frontend integration). Existing proposal-entry screens remain in place.
 
 Validation: the full backend suite now passes: **452 passed, 0 failed** on 22 October 2026. See [Backend test report](BACKEND_TEST_REPORT.md) for module results and limitations. Live storage, deployed PostgreSQL migrations/policies, and visual print layout remain unverified. Prior targeted Dart analysis reported an unresolved local file_picker package; frontend work belongs to the separate frontend team.
 
@@ -21,7 +21,7 @@ Validation: the full backend suite now passes: **452 passed, 0 failed** on 22 Oc
 - SDS can request a correction using **/revise** while the signed proposal awaits paper approval. The original signed bytes and hash stay in history. The next submission creates a new revision with no inherited signature or checkpoints.
 - Paper checkpoints 1 to 4 can be recorded while the proposal is pending or signed; checkpoints 5 to 9 only once it is **sds_signed**, and they are not **actionable** before that.
 - Final paper-scan approval follows SDS signing and all existing paper evidence checkpoints. Approved/completed proposals cannot use **/revise**.
-- Every SAP notice goes to the event's proposer and, once a revision exists, to whoever sent that revision. SDS staff are told too only while the proposal is or just was with the SDS Office; the Moderator and the Dean get none.
+- Every SAP notice goes to the event's proposer and, once a revision exists, to whoever sent that revision. SDS staff are told too only while the proposal is or just was with the SDS Office; the Moderator and the Dean get none as reviewers.
 
 All writes except proposal creation require **expected_version**. A 409 means reload and let the user review the current state before retrying. Do not automatically retry uploads.
 
@@ -104,7 +104,7 @@ The signing/review fixes are wired from Event details → Proposal form → SDS 
 
 The proposal upload UI still needs to consume the supporting-file endpoints, and the off-campus form controls must send the agreement and ROC/COC fields. These were not part of the targeted review-fix integration.
 
-The app also has to offer the SDS Office a Reject action (**/sds-reject**) and treat **rejected** as final, send the optional **section_remarks** with a return, and send **expected_version** with the Moderator's and the Dean's approve and reject of a proposal.
+The app also has to offer the SDS Office a Reject action (**/sds-reject**) and treat **rejected** as final, send the optional **section_remarks** with a return, and send **expected_version** with the Moderator's and the Dean's approve and reject of a proposal. It must also enable the Part 5 final-scan upload only in **sds_signed** (today it checks **pending_sap_review**) and the Part 4 "Confirm clearance" action only in **pending_sap_review** (today only the app's read-only flag gates it; the server answers 409 in any other state it sees), and show a rejected SAP event read-only, including its compliance and letter screens: the backend still lets those side records change, but they cannot reopen the proposal.
 
 ## Deployment
 
