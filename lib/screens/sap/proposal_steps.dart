@@ -52,8 +52,8 @@ abstract final class LeaveProposal {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Nothing has been sent to the SDS Office yet. You can keep '
-              'what you have written as a draft and come back to it.',
+              'Nothing has been sent yet. You can keep what you have '
+              'written as a draft and come back to it.',
             ),
             const SizedBox(height: 16),
             IntrinsicHeight(

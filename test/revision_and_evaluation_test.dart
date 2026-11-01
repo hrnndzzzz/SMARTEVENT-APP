@@ -76,6 +76,24 @@ void main() {
     expect(find.textContaining('REVISION 2'), findsOneWidget);
   });
 
+  testWidgets('a resubmission goes back to the department first', (
+    tester,
+  ) async {
+    // Sending it again starts the round again: the Moderator and Dean
+    // see revision 2 before the SDS Office does.
+    final form = await proposal(
+      state: 'pending_department_review',
+      revisionNo: 2,
+    );
+
+    expect(form.isResubmission, isTrue);
+    await open(tester, form);
+
+    expect(find.textContaining('REVISION 2'), findsOneWidget);
+    expect(find.textContaining('With your Moderator and Dean'), findsOneWidget);
+    expect(find.textContaining('sent this back'), findsNothing);
+  });
+
   testWidgets('a first submission says nothing about revisions', (
     tester,
   ) async {

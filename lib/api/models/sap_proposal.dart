@@ -951,8 +951,9 @@ class SapProposal {
   final SapEvaluation? evaluation;
   final String? returnRemarks;
 
-  /// Who returned it, alongside [returnRemarks]. Null if it never was, and
-  /// for a rejection, which is not a return.
+  /// Who returned it, alongside [returnRemarks]. Null unless the proposal
+  /// is currently returned: the server clears it when the proposal is sent
+  /// again, and a rejection is not a return.
   final SapReturnedBy? returnedBy;
 
   /// What the SDS Office last saved against the current revision, signed

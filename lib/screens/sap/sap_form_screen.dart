@@ -141,6 +141,18 @@ class _SapFormScreenState extends State<SapFormScreen> {
                   const Center(child: BrutSpinner()),
                   const SizedBox(height: 40),
                 ] else ...[
+                  // Who has the proposal, before the six parts. Sending it
+                  // goes to the Moderator and the Dean first, and the
+                  // proposal used to read as nothing in particular while
+                  // they had it.
+                  if (form.state == SapState.pendingDepartmentReview)
+                    const BrutInlineMessage(
+                      tone: BrutTone.sun,
+                      icon: Icons.hourglass_top,
+                      text:
+                          'With your Moderator and Dean. They approve it '
+                          'before it goes to the SDS Office.',
+                    ),
                   // What to change, before the six parts it applies to.
                   // A returned proposal used to come back with the state
                   // alone and no reason, so the proposer had to guess —
@@ -149,11 +161,19 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     BrutInlineMessage(
                       tone: BrutTone.coral,
                       icon: Icons.assignment_return_outlined,
-                      text: form.returnRemarks == null
-                          ? 'The SDS Office sent this back for changes. '
-                                'Edit the parts below and submit it again.'
-                          : 'The SDS Office sent this back: '
-                                '${form.returnRemarks}',
+                      text: _returnedText(form),
+                    ),
+                  // Final: nothing follows it and nothing can be sent
+                  // again, so it says so rather than reading as a return.
+                  if (form.state == SapState.rejected)
+                    BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.block,
+                      text: [
+                        'Rejected by the SDS Office. This proposal is '
+                            'final; start a new one to try again.',
+                        ...form.sdsRemarkLines(overall: true),
+                      ].join('\n'),
                     ),
                   // The activity has run and Part 6 is the office's to
                   // fill in. Without this the form simply ended, locked,
@@ -250,18 +270,24 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     // copy while it is still being filled in, and the
                     // stored signed form once the SDS Office has signed
                     // it. The nine on paper print empty either way.
-                    text:
-                        form.state == SapState.sdsSigned ||
-                            form.state == SapState.approved ||
-                            form.state == SapState.completed
-                        ? 'This is the signed form the SDS Office stored, '
-                              'watermarked by the server. The nine signature '
-                              'slots print empty, to be signed by hand.'
-                        : 'The printed copy uses the university\'s own '
-                              'six-page layout, produced by the server so the '
-                              'paper always matches the record. The nine '
-                              'signature slots print empty, to be signed by '
-                              'hand.',
+                    text: switch (form.state) {
+                      SapState.sdsSigned ||
+                      SapState.approved ||
+                      SapState.completed =>
+                        'This is the signed form the SDS Office stored, '
+                            'watermarked by the server. The nine signature '
+                            'slots print empty, to be signed by hand.',
+                      // The server marks it, as it marks the signed one.
+                      SapState.rejected =>
+                        'This copy prints with the SDS Office\'s rejection '
+                            'mark, added by the server.',
+                      _ =>
+                        'The printed copy uses the university\'s own '
+                            'six-page layout, produced by the server so the '
+                            'paper always matches the record. The nine '
+                            'signature slots print empty, to be signed by '
+                            'hand.',
+                    },
                   ),
                   if (form.state == SapState.pendingReview) ...[
                     const SizedBox(height: 18),
@@ -302,11 +328,34 @@ class _SapFormScreenState extends State<SapFormScreen> {
       SnackBar(
         content: Text(
           ok
-              ? 'Submitted. Print it and collect the nine signatures.'
+              ? 'Sent for department review.'
               : form.error ?? 'Could not submit.',
         ),
       ),
     );
+  }
+
+  /// Whose words these are. An older server and the demo do not say who
+  /// returned it, and before the department could send a proposal back
+  /// only the SDS Office did, so that is what the old wording stays for.
+  String _returnedText(SapForm form) {
+    final who = form.returnedBy;
+    final said = form.returnRemarks;
+    if (who == null) {
+      return said == null
+          ? 'The SDS Office sent this back for changes. '
+                'Edit the parts below and submit it again.'
+          : 'The SDS Office sent this back: $said';
+    }
+    return [
+      said == null
+          ? 'Returned by ${who.label}. '
+                'Edit the parts below and submit it again.'
+          : 'Returned by ${who.label}: $said',
+      // Pinned to a section of the form, so they are the office's own and
+      // not something to put under the Moderator's or the Dean's name.
+      if (who == SapReturnedBy.sds) ...form.sdsRemarkLines(),
+    ].join('\n');
   }
 }
 

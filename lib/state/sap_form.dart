@@ -151,6 +151,10 @@ class SapForm extends ChangeNotifier {
   }
 
   /// The Moderator, the Dean or the SDS Office, whichever returned it.
+  ///
+  /// Null unless the proposal is currently returned: the server clears it
+  /// when the proposal is sent again, and a rejection is not a return. So
+  /// read it only while [wasReturned].
   SapReturnedBy? get returnedBy => _proposal?.returnedBy;
 
   /// Sent back for changes, and the proposer's again.
@@ -621,6 +625,17 @@ class SapForm extends ChangeNotifier {
   Map<SapRemarkSection, String> sectionRemarks = {};
   String overallRemarks = '';
 
+  /// What the SDS Office wrote against the form, as lines to list under a
+  /// message: its overall remark when [overall], then one line for each
+  /// section it pinned something to, in the form's order ("Budget: …").
+  /// Blank ones are left out.
+  List<String> sdsRemarkLines({bool overall = false}) => [
+    if (overall && overallRemarks.trim().isNotEmpty) overallRemarks.trim(),
+    for (final section in SapRemarkSection.values)
+      if (sectionRemarks[section]?.trim() case final said? when said.isNotEmpty)
+        '${section.label}: $said',
+  ];
+
   /// `PUT /sds-review` — saves remarks without signing. Returns the
   /// reason it failed, or null.
   Future<String?> saveReviewNotes() async {
@@ -779,9 +794,15 @@ class SapForm extends ChangeNotifier {
             ? SapPartStatus.empty
             : SapPartStatus.complete;
       case SapPart.five:
-        // Nothing exists until the proposal has been submitted once.
+        // Nothing exists until the proposal has been submitted once, and
+        // nothing in it can be recorded while the Moderator and Dean still
+        // have it: the paper only goes round once the SDS Office does.
         final s = state;
-        if (s == null || s == SapState.draft) return SapPartStatus.locked;
+        if (s == null ||
+            s == SapState.draft ||
+            s == SapState.pendingDepartmentReview) {
+          return SapPartStatus.locked;
+        }
         return SapPartStatus.partial;
       case SapPart.six:
         if (_proposal?.evaluation != null) return SapPartStatus.complete;

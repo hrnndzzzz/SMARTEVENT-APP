@@ -285,7 +285,7 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
           // same thing, and neither said whether anything was kept.
           footer: BrutFooter(
             child: BrutButton(
-              label: widget.step == null ? 'Save' : 'Send to the SDS Office',
+              label: widget.step == null ? 'Save' : 'Send for review',
               busy: _form.saving,
               busyLabel: 'Saving',
               onPressed: _editable ? _save : null,

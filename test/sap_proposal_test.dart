@@ -450,10 +450,12 @@ void main() {
         );
       expect(returned.returnedBy, SapReturnedBy.moderator);
       expect(returned.revisionNo, 2);
+      expect(returned.isResubmission, isTrue);
 
       final plain = SapForm(eventId: 'e1')..seedLocally();
       expect(plain.returnedBy, isNull);
       expect(plain.revisionNo, 0, reason: 'seeding has always started at 0');
+      expect(plain.isResubmission, isFalse);
     });
   });
 

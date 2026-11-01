@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:smartevent/api/api_client.dart';
+import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/api/sap_service.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
@@ -28,7 +29,9 @@ void main() {
     ),
   );
 
-  Future<SapForm> returned({String? remarks}) async {
+  /// [by] is the server's `returned_by`: the Moderator, the Dean or the SDS
+  /// Office. An older backend sends none.
+  Future<SapForm> returned({String? remarks, String? by}) async {
     final body = {
       'id': 'p1',
       'event_id': 'e1',
@@ -38,6 +41,7 @@ void main() {
       'details': {'title': 'Hack the Future'},
       'collections': <String, dynamic>{},
       if (remarks != null) 'return_remarks': remarks,
+      'returned_by': ?by,
     };
     final client = MockClient(
       (_) async => http.Response(
@@ -60,6 +64,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final form = await returned(
+      by: 'sds',
       remarks: 'Move it to the afternoon; the morning clashes with classes.',
     );
 
@@ -71,6 +76,7 @@ void main() {
       findsOneWidget,
       reason: 'the words the SDS Office actually wrote',
     );
+    expect(find.textContaining('Returned by the SDS Office'), findsOneWidget);
   });
 
   testWidgets('and told so even when no reason was given', (tester) async {
@@ -80,13 +86,78 @@ void main() {
 
     // The remarks are required on the return route, but an older row may
     // carry none. Saying nothing at all is worse than saying it came
-    // back.
+    // back — and saying whose hands it came back from is the point of
+    // returned_by, so it is the Dean here, not the SDS Office.
+    final form = await returned(by: 'dean');
+
+    await tester.pumpWidget(host(form));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('Returned by the Dean'), findsOneWidget);
+    expect(find.textContaining('submit it again'), findsOneWidget);
+    expect(find.textContaining('SDS Office sent'), findsNothing);
+  });
+
+  testWidgets('and falls back to the SDS Office when it is not said who', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 2.75;
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+
+    // An older backend, and the demo, send no returned_by. Before the
+    // department could send a proposal back, only the SDS Office did.
     final form = await returned();
 
     await tester.pumpWidget(host(form));
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.textContaining('sent this back'), findsOneWidget);
+    expect(
+      find.textContaining('The SDS Office sent this back'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Returned by'), findsNothing);
+  });
+
+  testWidgets('and so does the demo, whose returned proposal never says who', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 2.75;
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+
+    final form = SapForm(eventId: 'e1')
+      ..seedLocally(
+        state: SapState.revisionRequested,
+        returnRemarks: 'Fix the budget.',
+      );
+
+    await tester.pumpWidget(host(form));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.textContaining('The SDS Office sent this back: Fix the budget.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Returned by'), findsNothing);
+  });
+
+  testWidgets('with the words it was sent back with, when it has them', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 2.75;
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+
+    final form = await returned(remarks: 'Fix the budget.');
+
+    await tester.pumpWidget(host(form));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.textContaining('The SDS Office sent this back: Fix the budget.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('and can still edit and resubmit it', (tester) async {
