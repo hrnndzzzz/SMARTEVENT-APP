@@ -101,6 +101,7 @@ class ReportActionTile extends StatelessWidget {
     this.detail,
     this.tone = BrutTone.neutral,
     this.busy = false,
+    this.dense = false,
   });
 
   final String label;
@@ -110,28 +111,35 @@ class ReportActionTile extends StatelessWidget {
   final BrutTone tone;
   final bool busy;
 
+  /// Tighter, for a set of choices in a dialog rather than a page of
+  /// actions. The reports screen's tiles carry a line of detail and
+  /// have a page to sit on; three of these in a dialog do not.
+  final bool dense;
+
   @override
   Widget build(BuildContext context) {
     return BrutCard(
       tone: tone,
       onTap: busy ? null : onTap,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: dense
+          ? const EdgeInsets.symmetric(vertical: 8, horizontal: 8)
+          : const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (busy)
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: BrutSpinner(size: 22),
+            SizedBox(
+              width: dense ? 16 : 22,
+              height: dense ? 16 : 22,
+              child: BrutSpinner(size: dense ? 16 : 22),
             )
           else
-            Icon(icon, size: 22, color: context.palette.ink),
-          const SizedBox(height: 10),
+            Icon(icon, size: dense ? 16 : 22, color: context.palette.ink),
+          SizedBox(height: dense ? 5 : 10),
           Text(
             label,
-            style: AppText.cardTitle.copyWith(fontSize: 13),
+            style: AppText.cardTitle.copyWith(fontSize: dense ? 12 : 13),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),

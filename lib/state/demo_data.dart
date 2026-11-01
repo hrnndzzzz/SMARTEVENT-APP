@@ -288,6 +288,54 @@ abstract final class DemoData {
     );
   }
 
+  /// One event's finances, for the demo. The real one comes from
+  /// `/reports/event/{id}`, which the demo cannot call.
+  static EventReport? eventReportFor(EventItem event) {
+    final id = event.remoteId;
+    if (id == null) return null;
+
+    final figures = <String, (double allocated, double income, double spent)>{
+      'demo-ev-2': (12000, 12000, 11950),
+      'demo-ev-5': (6000, 1250, 5400),
+    };
+    final found = figures[id];
+    if (found == null) return null;
+
+    final (allocated, income, spent) = found;
+    return EventReport(
+      eventId: id,
+      title: event.title,
+      status: event.statusLabel,
+      schoolYear: event.schoolYear,
+      semester: Semester.first,
+      eventScope: EventScope.departmental,
+      estimatedCost: allocated,
+      allocatedBudget: allocated,
+      remainingBudget: allocated - spent,
+      totalIncome: income,
+      totalSpent: spent,
+      netBalance: income - spent,
+      incomeBySource: [
+        IncomeSourceSummary(
+          sourceType: FundSource.registrationFees,
+          source: 'Registration fees',
+          incomeCount: 1,
+          totalIncome: income * 0.8,
+        ),
+        IncomeSourceSummary(
+          sourceType: FundSource.sponsorship,
+          source: 'Sponsorship',
+          incomeCount: 1,
+          totalIncome: income * 0.2,
+        ),
+      ],
+      // One event carries a withheld entry, so the line that says
+      // withheld income is not income has something to describe.
+      withheldIncomeTotal: id == 'demo-ev-5' ? 750 : 0,
+      withheldIncomeCount: id == 'demo-ev-5' ? 1 : 0,
+    );
+  }
+
   /// Letters submitted for events.
   ///
   /// Reading these is the SDS Staff role's only permission, so an empty
@@ -488,6 +536,19 @@ abstract final class DemoData {
 abstract final class DemoProposals {
   /// Everything the summary reads, for one seeded event. Null for an
   /// event this demo has written nothing for.
+  /// Why the SDS Office sent a proposal back, for the one seeded event
+  /// that came back. Without it the demo shows a returned proposal with
+  /// no reason attached, which is the thing that was wrong before.
+  static String? returnRemarksFor(EventItem event) =>
+      event.remoteId == 'demo-ev-3'
+      // True of what is actually seeded: a 9:00 start, and Part 3's
+      // excuse arrangement left blank. A reason that describes rows the
+      // form does not have is worse than no reason.
+      ? 'A 9:00 start takes these students out of morning classes. Move '
+            'it to the afternoon, or set out the excuse letter '
+            'arrangement in Part 3 and send it back to us.'
+      : null;
+
   static SapDetails? detailsFor(EventItem event) {
     final seeded = _byEvent[event.remoteId];
     if (seeded == null) return null;
@@ -599,6 +660,40 @@ abstract final class DemoProposals {
           type: SapSupportType.tables,
           quantity: 8,
           specify: 'One per organisation',
+        ),
+      ],
+    ),
+    // The one that comes back. It is seeded because the SDS Office's
+    // reason for returning it names Part 3 — a reason pointing at an
+    // empty part is worse than no reason, and this is the flow the
+    // demonstration walks.
+    'demo-ev-3': _Seeded(
+      start: SapTime(9, 0),
+      end: SapTime(11, 30),
+      venue: 'St. Augustine Building, Room 204',
+      inCharge: 'Engr. Aileen M. Habaradas',
+      students: 60,
+      rationale:
+          'Third and fourth years asked to hear from people doing the '
+          'work. A practitioner session is the cheapest way to give them '
+          'that before immersion placements are chosen.',
+      objectives:
+          'Hear how the industry actually hires.\n'
+          'Ask about the placements on offer this year.',
+      budget: [
+        SapBudgetItem(particulars: 'Speaker honorarium', amount: '3000.00'),
+        SapBudgetItem(
+          particulars: 'Printed handouts',
+          quantity: 60,
+          unitCost: '25.00',
+          amount: '1500.00',
+        ),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.projector,
+          quantity: 1,
+          specify: 'With HDMI',
         ),
       ],
     ),

@@ -1124,9 +1124,34 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// One event's finances as a file. The service has carried this as
+  /// long as [loadEventReport] has; nothing called either.
+  Future<({DownloadedFile? file, String? error})> exportEventReport(
+    String eventId,
+    ExportFormat format,
+  ) async {
+    try {
+      return (
+        file: await _reportsService.exportEvent(eventId, format),
+        error: null,
+      );
+    } catch (error) {
+      return (file: null, error: _messageForFailure(error));
+    }
+  }
+
   Future<({EventReport? report, String? error})> loadEventReport(
     String eventId,
   ) async {
+    if (_demoMode) {
+      final event = events.where((e) => e.remoteId == eventId).firstOrNull;
+      final seeded = event == null
+          ? null
+          : DemoData.eventReportFor(event);
+      return seeded == null
+          ? (report: null, error: 'The demo has no figures for this event.')
+          : (report: seeded, error: null);
+    }
     try {
       return (report: await _reportsService.eventReport(eventId), error: null);
     } catch (error) {
@@ -2444,6 +2469,16 @@ class AppState extends ChangeNotifier {
       return _messageForFailure(error);
     }
   }
+
+  /// The proposal already waiting on someone's decision, if there is
+  /// one.
+  ///
+  /// One at a time: a second proposal joining the queue while the first
+  /// is undecided is what the review asked us to prevent. A draft is
+  /// not this — an unsent draft is nobody's to decide on, and the
+  /// events hub already offers to carry it on.
+  EventItem? get proposalAwaitingDecision =>
+      events.where((e) => e.status.isPending).firstOrNull;
 
   List<EventItem> get pendingAdviserEvents => events
       .where((e) => e.status == EventApprovalStatus.pendingAdviser)

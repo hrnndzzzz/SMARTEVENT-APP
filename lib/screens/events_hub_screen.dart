@@ -8,6 +8,7 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
+import 'event_detail_screen.dart';
 import 'events_screen.dart';
 
 /// Events, one swipe left of the dashboard.
@@ -60,7 +61,11 @@ class EventsHubScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    child: _CreateBand(canPropose: canPropose, latest: latest),
+                    child: _CreateBand(
+                      canPropose: canPropose,
+                      latest: latest,
+                      awaiting: app.proposalAwaitingDecision,
+                    ),
                   ),
                   Expanded(
                     child: _Band(
@@ -95,10 +100,23 @@ class EventsHubScreen extends StatelessWidget {
 /// create button anywhere in this app, and one here would only collect a
 /// 403. While the newest proposal is a draft, it is the way back into it.
 class _CreateBand extends StatelessWidget {
-  const _CreateBand({required this.canPropose, required this.latest});
+  const _CreateBand({
+    required this.canPropose,
+    required this.latest,
+    required this.awaiting,
+  });
 
   final bool canPropose;
   final EventItem? latest;
+
+  /// A proposal already waiting on a decision. One at a time: while
+  /// something is in the queue the band opens it rather than starting a
+  /// second beside it.
+  final EventItem? awaiting;
+
+  /// A draft takes precedence — it is unsent, so nobody is waiting on
+  /// it, and carrying it on is not starting anything new.
+  bool get _blocked => awaiting != null && _draft == null;
 
   /// What the band says. Null means nothing has been proposed yet,
   /// which is its own state — not a pending one, and not a finished one.
@@ -147,6 +165,19 @@ class _CreateBand extends StatelessWidget {
   /// a second proposal beside it.
   void _open(BuildContext context) {
     if (!canPropose) return;
+
+    // Blocked means there is somewhere better to go: the proposal that
+    // is holding the queue. A band that simply did nothing would read
+    // as broken.
+    if (_blocked) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => EventDetailScreen(event: awaiting!),
+        ),
+      );
+      return;
+    }
+
     final app = context.read<AppState>();
     SapProposalFlow.start(
       context,
@@ -174,7 +205,11 @@ class _CreateBand extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Semantics(
         label: canPropose
-            ? (continues ? 'Continue the draft' : 'Create an event')
+            ? (_blocked
+                  ? 'See the proposal already waiting on a decision'
+                  : continues
+                  ? 'Continue the draft'
+                  : 'Create an event')
             : headline,
         button: canPropose,
         child: Container(
@@ -214,7 +249,11 @@ class _CreateBand extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         canPropose
-                            ? (continues ? 'Continue\ndraft' : 'Create\nevent')
+                            ? (_blocked
+                                  ? 'See\nproposal'
+                                  : continues
+                                  ? 'Continue\ndraft'
+                                  : 'Create\nevent')
                             : 'Latest\nproposal',
                         style: AppText.display.copyWith(
                           fontSize: 34,
@@ -240,7 +279,11 @@ class _CreateBand extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.keyboard_arrow_up, size: 24, color: on),
+                    // The swipe-up hint belongs to creating. While a
+                    // proposal is waiting there is nothing to swipe up
+                    // into, and a plus that does not add is a lie.
+                    if (!_blocked)
+                      Icon(Icons.keyboard_arrow_up, size: 24, color: on),
                     Container(
                       width: 52,
                       height: 52,
@@ -249,7 +292,11 @@ class _CreateBand extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: on, width: 2),
                       ),
-                      child: Icon(Icons.add, size: 26, color: on),
+                      child: Icon(
+                        _blocked ? Icons.arrow_forward : Icons.add,
+                        size: 26,
+                        color: on,
+                      ),
                     ),
                   ],
                 )

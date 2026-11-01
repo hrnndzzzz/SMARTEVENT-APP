@@ -139,6 +139,38 @@ class SapForm extends ChangeNotifier {
 
   SapState? get state => _proposal?.state;
 
+  /// Why the SDS Office sent it back, in their words.
+  ///
+  /// The server has carried this since the return route existed and
+  /// nothing showed it, so a returned proposal arrived back with no
+  /// reason attached and the proposer had to guess what to change.
+  String? get returnRemarks {
+    final said = _proposal?.returnRemarks?.trim();
+    return (said == null || said.isEmpty) ? null : said;
+  }
+
+  /// Sent back for changes, and the proposer's again.
+  bool get wasReturned => state == SapState.revisionRequested;
+
+  /// Which submitted revision this is; 0 before the first submission.
+  int get revisionNo => _proposal?.revisionNo ?? 0;
+
+  /// The activity has run and the SDS Office has not yet recorded how
+  /// it went.
+  ///
+  /// Part 6 is theirs to fill in, so a proposer reaching the end of the
+  /// form found it locked with nothing saying why they were waiting.
+  bool get awaitingEvaluation =>
+      (state == SapState.approved || state == SapState.completed) &&
+      _proposal?.evaluation == null;
+
+  /// It has been sent more than once.
+  ///
+  /// There is no `resubmitted` state on the server and there does not
+  /// need to be: a submit bumps the revision, so a revision above one
+  /// already says this happened. It just never showed.
+  bool get isResubmission => revisionNo > 1;
+
   int get version => _proposal?.version ?? 0;
 
   /// Parts 1 to 3 are the proposer's, and only while the proposal is a
@@ -783,7 +815,11 @@ class SapForm extends ChangeNotifier {
   /// locks Parts 5 and 6 and hides the review and signing screen — so
   /// the role offered as "all six parts of the proposal form" showed
   /// four and two closed rows.
-  void seedLocally({SapState? state, SapDetails? details}) {
+  void seedLocally({
+    SapState? state,
+    SapDetails? details,
+    String? returnRemarks,
+  }) {
     _proposal = SapProposal(
       id: 'test',
       eventId: _eventId ?? '',
@@ -798,6 +834,7 @@ class SapForm extends ChangeNotifier {
       supportRequests: _supportRequests,
       affectedClasses: _affectedClasses,
       clearance: _clearance,
+      returnRemarks: returnRemarks,
     );
     if (details != null) _details = details;
     notifyListeners();

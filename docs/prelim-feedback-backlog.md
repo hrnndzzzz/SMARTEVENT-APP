@@ -73,30 +73,33 @@ A4 and A5 are what stand between us and filming the flow end to end.
 
 | # | What | Status | P |
 |---|---|---|---|
-| E1 | Flagged: sort by severity, date, priority | todo | P3 |
-| E2 | Proposal letters: upload button gets the D1 treatment | todo | P3 |
+| E1 | Flagged: sort by severity, date, priority | **done** *(31 Oct)* — sorts on what the record actually holds | P3 |
+| E2 | Proposal letters: upload button gets the D1 treatment | **done** *(31 Oct)* — a floating button, bottom right | P3 |
 | E3 | Search covers everything, and a search or a question lands you where you need to be | **done** *(27 Oct)* — events, transactions, categories, inventory and screens | P2 |
 | E4 | Floating menu: the orange marker gradients — filled on the outer edge, gradient on the inner, both sides gradient in the middle | **done** *(27 Oct)* | P2 |
 
 ## F. Creating an event
 
-Our professor called this cluttered. The largest piece of work on the list.
+Our professor called this cluttered. It was the largest piece of work
+on the list and it is now essentially finished: F1 to F9 are all done.
+What is left under F is three behaviours, not layout — F10, F11 and
+F13.
 
 | # | What | Status | P |
 |---|---|---|---|
-| F1 | A starting screen before Part 1, with the La Consolacion header (ACPES form as reference) | todo | P2 |
+| F1 | A starting screen before Part 1, with the La Consolacion header (ACPES form as reference) | **done** *(31 Oct)* — `SapCoverScreen` | P2 |
 | F2 | Date of proposal filled in automatically | **done** *(30 Oct)* — seen on the phone, filled from the activity date | P2 |
 | F3 | Off-campus agreement surfaced there too | **done** *(30 Oct)* — Part 1 offers the setting and the acknowledgement, and Save refuses without one | P2 |
-| F4 | Group the fields by kind and colour-code them: identity (title, org, school year), timing (date, start, end), and so on | todo | P2 |
-| F5 | Support step: smaller square tiles in a grid | todo | P2 |
-| F6 | Breakdown step: reorder | todo | P3 |
+| F4 | Group the fields by kind and colour-code them: identity (title, org, school year), timing (date, start, end), and so on | **done** *(31 Oct)* — five groups, each its own tone: the activity, when, where and who, what kind, why | P2 |
+| F5 | Support step: smaller square tiles in a grid | **done** *(31 Oct)* — `_SupportGrid`, replacing eleven stacked full-width cards | P2 |
+| F6 | Breakdown step: reorder | **done** — budget breakdown first, then affected classes, then the ten headings | P3 |
 | F7 | Two back buttons — remove one | **done** *(30 Oct)* — Parts 1-3 and 5 already had one; Parts 4 and 6 still carried both. A test counts them | P2 |
 | F8 | The top back button asks: save as draft, cancel, go back | **done** *(30 Oct)* — verified on the phone, all three choices | P2 |
-| F9 | Steps swipeable between activity, support and breakdown | todo | P3 |
-| F10 | No new event while one is pending | **todo** — never needed the backend; it is a guard on the events already loaded | P2 |
-| F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **todo** — `completed` and the evaluation route both exist now | P3 |
-| F12 | A rejected event is editable against the marks, and resubmitted | **todo** — `revision_requested` exists and submit bumps the revision | P2 |
-| F13 | A `resubmitted` status, and events tagged as resubmissions | **todo** — no such state, but `revision_no` above 1 already says it | P3 |
+| F9 | Steps swipeable between activity, support and breakdown | **done** *(31 Oct)* — covered by `sap_steps_swipe_test.dart` | P3 |
+| F10 | No new event while one is pending | **done** *(31 Oct)* — band one opens the waiting proposal instead of starting a second, and New says which one is holding the queue | P2 |
+| F11 | Concluded events show a waiting-for-evaluation screen (Part 6) | **done** *(31 Oct)* — an approved proposal with no evaluation says who it is waiting on | P3 |
+| F12 | A rejected event is editable against the marks, and resubmitted | **done** *(31 Oct)* — editing and resubmitting already worked; the marks did not show. The hub now leads with what the SDS Office wrote | P2 |
+| F13 | A `resubmitted` status, and events tagged as resubmissions | **done** *(31 Oct)* — the hub reads "REVISION 2". No new state was needed; a submit bumps the revision | P3 |
 
 F10–F13 were blocked when this was written. They are not any more. The
 SAP state list is now `draft, pending_sap_review, revision_requested,
@@ -111,23 +114,23 @@ Where they are not already covered above.
 | # | What | Status |
 |---|---|---|
 | G1 | End-user consultation, documented | not ours |
-| G2 | Identify the super administrator and its permissions | todo |
-| G3 | Organizational administrator hierarchy | todo |
-| G4 | Confirm whether officers are view-only | todo |
+| G2 | Identify the super administrator and its permissions | **done** *(31 Oct)* — [`docs/roles-the-moderator-asked-about.md`](roles-the-moderator-asked-about.md) |
+| G3 | Organizational administrator hierarchy | **done** *(31 Oct)* — same page |
+| G4 | Confirm whether officers are view-only | **done** *(31 Oct)* — same page. Mostly yes; President, Vice President and Secretary may propose |
 | G5 | Validate the UI with end users and adviser | not ours |
 | G6 | Registration confirmation and automatic admission | todo |
 | G7 | Printable and downloadable dashboard reports | **done** — D1–D3 are built |
-| G8 | A financial report per event | **nearly done, unreachable** *(27 Oct)* — the backend route, `ReportsService.eventReport` / `exportEvent` and `AppState.loadEventReport` all exist; no screen opens any of them. It needs a screen and a button, not a feature |
-| G9 | Consolidated reports weekly, monthly, by school year | todo |
-| G10 | Receipt similarity detection, with stated criteria | todo |
-| G11 | A purpose on every receipt, tied to an event | todo |
-| G12 | Source of funds: registration, donation, sponsorship | todo |
+| G8 | A financial report per event | **done** *(31 Oct)* — `EventReportScreen`, opened from a finished event. Figures, income by source, withheld named separately, and PDF or CSV |
+| G9 | Consolidated reports weekly, monthly, by school year | **done** *(31 Oct)* — the period dropdown on Reports |
+| G10 | Receipt similarity detection, with stated criteria | **done** *(31 Oct)* — same merchant and amount, nearby date; `similarReceiptIds` on the receipt |
+| G11 | A purpose on every receipt, tied to an event | **done** *(31 Oct)* — `receipt.purpose`, shown on review |
+| G12 | Source of funds: registration, donation, sponsorship | **done** *(31 Oct)* — `FundSource` on income |
 | G13 | Inventory records linked to the event they are for | **done** *(27 Oct)* — items carry an event and the list badges "No event link" |
-| G14 | Classify inventory transactions: acquisition, purchase, other | todo |
+| G14 | Classify inventory transactions: acquisition, purchase, other | **done** *(31 Oct)* — `InventoryMovementType` |
 | G15 | Inventory updated only after a purchase completes | **done** *(27 Oct)* — purchase completion creates the item as an unconfirmed draft |
-| G16 | Reports split by department and organisation, with filters | todo |
+| G16 | Reports split by department and organisation, with filters | **blocked** *(31 Oct)* — the reports routes scope by the caller's own department and take no filter. A backend ask, not client work |
 | G17 | A school year on every event record | partly — Part 1 asks for it |
-| G18 | Financial reports by school year and semester | todo |
+| G18 | Financial reports by school year and semester | **done** *(31 Oct)* — school year and semester dropdowns appear when the period needs them |
 
 ---
 
@@ -142,25 +145,17 @@ eighteen.
 
 Left, in the order worth doing it:
 
-1. ~~F7, F8, F2, F3~~ — **done 30 Oct.** Three of the four were
-   already built and only recorded as todo; F7 was half done, with
-   Parts 4 and 6 still carrying two back buttons.
-2. **F12** — a returned proposal being edited and resubmitted. Now
-   unblocked, and it is the one flow the moderator's feedback circles
-   back to. Worth filming.
-3. **F1, F4, F5** — the visual rework of the form. Real work. Do it only
-   if the four above are finished.
-4. **G8** — cheaper than it looks and worth promoting. Everything
-   under it is built; it needs a screen that shows what
-   `loadEventReport` already returns and a button on the event to open
-   it. Then **G9, G16, G18** — consolidated, by department and
-   organisation, by school year and semester — which are additive and
-   genuinely unstarted.
-5. **G10, G11, G12, G14** — receipt similarity criteria, a purpose on
-   every receipt, source of funds, inventory classification.
-6. **G2, G3, G4, G6** — decisions and documentation rather than code.
+Everything on both lists is built except four things, and none of them
+is Flutter work:
 
-Not worth starting this week: F6, F9, E1, E2, F11, F13.
+1. **G16** — reports split by department and organisation. The reports
+   routes scope by the caller's own department and accept no filter,
+   so this is a backend ask before it is a screen.
+2. ~~G2, G3, G4~~ — **answered 31 Oct** in
+   [`roles-the-moderator-asked-about.md`](roles-the-moderator-asked-about.md).
+3. **G6** — registration confirmation and automatic admission.
+4. **G1, G5** — end-user consultation and validation. Not ours.
 
-The honest read: the demonstration can be filmed today. The list above
-is what would make it score better, not what makes it work.
+The honest read: the demonstration can be filmed today, the
+professor's "cluttered" is answered, and the moderator's eighteen are
+done bar one backend filter and some documentation.
