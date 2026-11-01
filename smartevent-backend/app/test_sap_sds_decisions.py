@@ -161,3 +161,24 @@ def test_a_proposer_who_also_sent_it_is_told_once(sap_system, monkeypatch):
     assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'}).status_code == 200
     told = [row.user_id for row in db.query(Notification).filter_by(title='SAP proposal rejected')]
     assert len(told) == 2 and set(told) == {users['treasurer'].id, users['sds_staff'].id}
+
+
+def test_a_stale_department_screen_is_refused(sap_system):
+    send(sap_system)
+    client, db, users, event, login, base = sap_system
+    current = version(client, base)
+    login('adviser')
+    stale = client.post(f'/events/{event.id}/approve', json={'expected_version': current - 1})
+    assert stale.status_code == 409 and stale.json()['detail'] == 'Proposal changed; reload before retrying'
+    assert client.post(f'/events/{event.id}/approve', json={'expected_version': current}).status_code == 200
+
+
+def test_a_stale_department_screen_cannot_return_it_either(sap_system):
+    send(sap_system)
+    client, db, users, event, login, base = sap_system
+    current = version(client, base)
+    login('adviser')
+    stale = client.post(f'/events/{event.id}/reject', json={'expected_version': current - 1, 'remarks': 'Fix the budget'})
+    assert stale.status_code == 409 and stale.json()['detail'] == 'Proposal changed; reload before retrying'
+    assert (db.query(SAPProposal).one().state, event.status) == ('pending_department_review', 'pending_adviser')
+    assert client.post(f'/events/{event.id}/reject', json={'expected_version': current, 'remarks': 'Fix the budget'}).status_code == 200

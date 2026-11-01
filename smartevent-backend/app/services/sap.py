@@ -216,11 +216,13 @@ def withdraw(db, event, proposal, user):
     return save(db, event, proposal, user, 'sap_withdrawn', notify=True, notify_sds=with_sds)
 
 
-def department_review(db, event, proposal, user, decision, remarks):
+def department_review(db, event, proposal, user, decision, remarks, expected_version=None):
     """The Moderator, then the Dean, decide a sent proposal before the SDS Office sees it.
     Caller holds the event lock and has run assert_event_read and assert_not_self_review."""
     if decision not in {'approved', 'returned'}:
         raise ValueError(f"decision must be 'approved' or 'returned', not {decision!r}")
+    if expected_version is not None:  # first, so an outdated screen is told to reload, not given a turn or role error
+        check_version(proposal, expected_version)
     if proposal.state != 'pending_department_review':
         raise HTTPException(409, 'This proposal is not waiting on department review')
     if user.role == 'adviser':

@@ -338,6 +338,7 @@ class EventOut(BaseModel):
 class ApprovalDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     remarks: str | None = Field(default=None, max_length=2000)
+    expected_version: int | None = Field(default=None, ge=1)  # SAP proposals only; other events and expenses ignore it
 
 
 class DocumentRoutingUpdate(BaseModel):

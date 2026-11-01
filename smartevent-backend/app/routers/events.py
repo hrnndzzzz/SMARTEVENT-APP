@@ -380,7 +380,7 @@ def approve_event(
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if proposal is not None:
         from app.services import sap
-        sap.department_review(db, event, proposal, current_user, "approved", payload.remarks)
+        sap.department_review(db, event, proposal, current_user, "approved", payload.remarks, payload.expected_version)
         db.refresh(event)
         return event
     _require_academic_metadata(event)
@@ -424,7 +424,7 @@ def reject_event(
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if proposal is not None:
         from app.services import sap
-        sap.department_review(db, event, proposal, current_user, "returned", payload.remarks)
+        sap.department_review(db, event, proposal, current_user, "returned", payload.remarks, payload.expected_version)
         db.refresh(event)
         return event
 
