@@ -140,3 +140,24 @@ def test_slots_five_to_nine_wait_for_the_sds_signature(sap_system):
     sign_current(sap_system)
     assert client.get(base + '/workflow').json()['steps'][4]['actionable'] is True
     assert checkpoint(sap_system, 5).status_code == 200
+
+
+def test_a_colleague_who_sent_it_hears_the_decision(sap_system):
+    client, db, users, event, login, base = sap_system
+    send(sap_system, proposer='adviser')  # the treasurer created the event
+    department_approves(sap_system)
+    login('sds_staff')
+    assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'}).status_code == 200
+    told = {row.user_id for row in db.query(Notification).filter_by(title='SAP proposal rejected')}
+    assert {users['treasurer'].id, users['adviser'].id} <= told
+
+
+def test_a_proposer_who_also_sent_it_is_told_once(sap_system, monkeypatch):
+    monkeypatch.setattr('app.services.sap.render_proposal', lambda *args, **kwargs: b'%PDF-1.4 submitted')
+    client, db, users, event, login, base = sap_system
+    send(sap_system)  # the treasurer created it and sent it
+    department_approves(sap_system)
+    login('sds_staff')
+    assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'}).status_code == 200
+    told = [row.user_id for row in db.query(Notification).filter_by(title='SAP proposal rejected')]
+    assert len(told) == 2 and set(told) == {users['treasurer'].id, users['sds_staff'].id}

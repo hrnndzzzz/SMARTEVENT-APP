@@ -9,26 +9,26 @@ from app.services import sap
 from app.services.notifications import deliver_notification
 
 
-@pytest.mark.parametrize('action,state,phrase', [
-    ('sap_submitted', 'pending_department_review', 'department review'),
-    ('sap_returned', 'revision_requested', 'returned for changes'),
-    ('sap_signed_revision_correction_requested', 'revision_requested', 'returned for changes'),
-    ('sap_revision_signed', 'sds_signed', 'signed'),
-    ('sap_approved_with_physical_evidence', 'approved', 'approved'),
-    ('sap_evaluated', 'completed', 'evaluation'),
-    ('sap_withdrawn', 'draft', 'withdrawn'),
-    ('sap_checkpoint_recorded', 'pending_sap_review', 'checkpoint'),
-    ('sap_dean_approved', 'pending_sap_review', 'now with the SDS Office'),
-    ('sap_department_returned', 'revision_requested', 'returned for changes'),
-    ('sap_rejected', 'rejected', 'rejected'),
+@pytest.mark.parametrize('action,state,phrase,sds_hears', [
+    ('sap_submitted', 'pending_department_review', 'department review', False),
+    ('sap_returned', 'revision_requested', 'returned for changes', True),
+    ('sap_signed_revision_correction_requested', 'revision_requested', 'returned for changes', True),
+    ('sap_revision_signed', 'sds_signed', 'signed', True),
+    ('sap_approved_with_physical_evidence', 'approved', 'approved', True),
+    ('sap_evaluated', 'completed', 'evaluation', True),
+    ('sap_withdrawn', 'draft', 'withdrawn', True),
+    ('sap_checkpoint_recorded', 'pending_sap_review', 'checkpoint', True),
+    ('sap_dean_approved', 'pending_sap_review', 'now with the SDS Office', True),
+    ('sap_department_returned', 'revision_requested', 'returned for changes', False),
+    ('sap_rejected', 'rejected', 'rejected', True),
 ])
-def test_sap_notification_payload_wording_and_recipients(sap_system, action, state, phrase):
+def test_sap_notification_payload_wording_and_recipients(sap_system, action, state, phrase, sds_hears):
     client, db, users, event, _, base = sap_system
     proposal = db.query(SAPProposal).one()
     proposal.state = state
-    sap.save(db, event, proposal, users['treasurer'], action, notify=True)
+    sap.save(db, event, proposal, users['treasurer'], action, notify=True, notify_sds=sds_hears)
     rows = db.query(Notification).filter_by(kind='sap_workflow').all()
-    assert {row.user_id for row in rows} == {users['treasurer'].id, users['sds_staff'].id}
+    assert {row.user_id for row in rows} == {users['treasurer'].id} | ({users['sds_staff'].id} if sds_hears else set())
     expected = {'event_id': str(event.id), 'proposal_id': str(proposal.id),
                 'revision_no': proposal.revision_no, 'state': state, 'action': action}
     for row in rows:

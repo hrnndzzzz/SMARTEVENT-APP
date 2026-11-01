@@ -126,6 +126,8 @@ def save(db, event, proposal, user, action, *, notify=False, details=None, notif
         payload = {'event_id': str(event.id), 'proposal_id': str(proposal.id),
                    'revision_no': proposal.revision_no, 'state': proposal.state, 'action': action}
         recipients = {event.proposed_by}
+        if proposal.revision_no:  # a colleague may have sent what the proposer created; a set tells nobody twice
+            recipients.add(revision(db, proposal).submitted_by)
         if notify_sds:
             recipients |= {row.id for row in db.query(User).filter_by(role='sds_staff', is_active=True, is_suspended=False)}
         for recipient in recipients:
