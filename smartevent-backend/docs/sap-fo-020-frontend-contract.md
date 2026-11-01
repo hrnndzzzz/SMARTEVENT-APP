@@ -211,25 +211,27 @@ Example SDS clearance:
 
 1. Organization President — Prepared by (original proposer preparation attestation).
 2. Organization Moderator — Reviewed by.
-3. Organization Moderator — Reviewed by (required parallel pair with slot 2).
-4. College Dean — Reviewed by.
-5. SDS Coordinator/Activity Officer — Reviewed by.
-6. SAS Director — Noted by.
-7. Assistant VPAA — Endorsed by.
-8. VPAA — Recommending Approval.
+3. College Dean — Reviewed by (required parallel pair with slot 2).
+4. SDS Coordinator/Activity Officer — Reviewed by.
+5. Director, SAS — Noted by.
+6. Assistant VPAA — Endorsed by.
+7. VPAA — Recommending Approval.
+8. Applicable admins — Recommending Approval.
 9. University President — Approved by.
 
-For the fixture these render as ACPES President, two ACPES Moderators and CITE
-Dean. All nine must be distinct people. SDS supplies an institutional person
+For the fixture these render as ACPES President, ACPES Moderator and CITE Dean.
+All nine must be distinct people. SDS supplies an institutional person
 reference even when no app account exists; stable references prevent accidental
 reuse. If an account is supplied its name must match and it must be active.
 Slot 1 must link the original proposer account. Slots 2–9 prohibit that proposer.
-Physical date must be between submission's Manila date and today and must not
-precede prerequisite signatures. Slots 1–4 can be recorded from `pending_sap_review`.
-Slots 5–9 are recorded, and `actionable`, only once the SDS Office has signed
-(`sds_signed`); recording one earlier answers 409 `Slots 5 to 9 are signed after the
-SDS Office signs`. Incorrectly recorded evidence is not overwritten:
-return the pending proposal and create a fresh revision.
+Slot 1 is recorded first, slots 2 and 3 in either order, and each later slot only
+after every slot before it. Physical date must be between submission's Manila date
+and today and must not precede prerequisite signatures. Slots 1–4 can be recorded
+from `pending_sap_review`. Slots 5–9 (Director, SAS onward) are recorded, and
+`actionable`, only once the SDS Office has signed (`sds_signed`); recording one
+earlier answers 409 `Slots 5 to 9 are signed after the SDS Office signs`. Incorrectly
+recorded evidence is not overwritten: return the pending proposal and create a fresh
+revision.
 
 ```json
 {"expected_version":10,"signer_name":"Physical Signer Name",

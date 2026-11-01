@@ -72,7 +72,7 @@ Overall remarks: maximum 3,000 characters. Each section remark: maximum 1,000. E
 
 Coordinates are normalized 0–1 from the signature pad's top-left corner. Maximum 80 strokes and 5,000 points. The server uses the authenticated SDS account name. Signing cannot succeed in the frontend's offline/local-only mode.
 
-Return and reject send the overall remarks as **remarks** (1 to 3,000 characters, not blank) and may add **section_remarks** with the same keys and limit. The old body without **section_remarks** still works. Unlike signing, omitting **section_remarks** or sending null keeps the notes already saved; an object replaces them, and an empty one clears them. **/revise** keeps its own **remarks** limit of 1,000 characters.
+Return and reject send the overall remarks as **remarks** (1 to 3,000 characters, not blank) and may add **section_remarks** with the same keys and limit. The old body without **section_remarks** still works. As with signing, omitting **section_remarks** keeps the notes already saved; a return or rejection also keeps them on null (signing answers 422 for null). An object replaces them, and an empty one clears them. **/revise** keeps its own **remarks** limit of 1,000 characters.
 
 ### Supporting documents
 
