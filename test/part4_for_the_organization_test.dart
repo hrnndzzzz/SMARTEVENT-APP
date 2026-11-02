@@ -330,6 +330,28 @@ void main() {
 
       expect(find.text('No remarks from the SDS Office yet.'), findsOneWidget);
     });
+
+    testWidgets('does not say "yet" once the office has signed', (
+      tester,
+    ) async {
+      // Nothing more comes from the office after it signs, so "yet" promised
+      // remarks that cannot arrive.
+      for (final wire in ['sds_signed', 'approved', 'completed']) {
+        final form = await loaded(wire, confirmed: true);
+        await open(
+          tester,
+          SapPart4Screen(form: form),
+          role: UserRole.treasurer,
+        );
+
+        expect(
+          find.text('The SDS Office left no remarks.'),
+          findsOneWidget,
+          reason: wire,
+        );
+        expect(find.textContaining('yet'), findsNothing, reason: wire);
+      }
+    });
   });
 
   group('Part 4 for the SDS Office', () {

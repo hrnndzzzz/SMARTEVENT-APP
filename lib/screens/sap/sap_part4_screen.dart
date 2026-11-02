@@ -403,6 +403,13 @@ class _Outcome extends StatelessWidget {
       ),
     };
     final remarks = form.sdsRemarkLines(overall: true);
+    // "Yet" only while something can still come: the office says nothing more
+    // once it has signed.
+    final signed = const {
+      SapState.sdsSigned,
+      SapState.approved,
+      SapState.completed,
+    }.contains(form.state);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -427,7 +434,9 @@ class _Outcome extends StatelessWidget {
           tone: BrutTone.neutral,
           icon: Icons.chat_bubble_outline,
           text: remarks.isEmpty
-              ? 'No remarks from the SDS Office yet.'
+              ? signed
+                    ? 'The SDS Office left no remarks.'
+                    : 'No remarks from the SDS Office yet.'
               : remarks.join('\n'),
         ),
       ],
