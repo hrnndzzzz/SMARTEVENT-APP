@@ -30,4 +30,38 @@ void main() {
     expect(find.textContaining('Edit proposal'), findsNothing);
     expect(find.textContaining('Resubmitting'), findsNothing);
   });
+
+  // A proposal goes to the Moderator, then the Dean, then the SDS Office. The
+  // help still taught two stages with an Admin's final sign-off, where either
+  // could reject it.
+  testWidgets('approval goes Moderator, Dean, then the SDS Office', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1600));
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => AppSettings(),
+        child: MaterialApp(theme: AppTheme.light(), home: const HelpScreen()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('Who approves it, and in what order?'));
+    await tester.pump();
+
+    expect(find.textContaining('Moderator'), findsOneWidget);
+    expect(find.textContaining('Dean'), findsOneWidget);
+    expect(find.textContaining('SDS Office'), findsOneWidget);
+    expect(
+      find.textContaining('only the SDS Office can reject it'),
+      findsOneWidget,
+    );
+    // The self-approval rule is still true, and still said.
+    expect(
+      find.textContaining('Nobody can approve a proposal they wrote'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('final sign-off'), findsNothing);
+    expect(find.textContaining('reject it with a remark'), findsNothing);
+  });
 }

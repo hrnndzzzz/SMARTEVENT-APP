@@ -36,9 +36,12 @@ class HelpScreen extends StatelessWidget {
           const _FaqTile(
             question: 'Who approves it, and in what order?',
             answer:
-                'Two stages. The Adviser reviews it first; if '
-                'approved it moves to an Admin for final sign-off. '
-                'Either can reject it with a remark. Nobody can '
+                'Three stages. Your Moderator (the organization\'s '
+                'adviser) reviews it first, then the Dean (the '
+                'department\'s admin), then the SDS Office. The '
+                'Moderator or Dean can return it with remarks for '
+                'you to change and send again; only the SDS Office '
+                'can reject it, and that is final. Nobody can '
                 'approve a proposal they wrote themselves — the '
                 'button does not appear, and the API refuses it.',
           ),
