@@ -846,12 +846,16 @@ class SapForm extends ChangeNotifier {
   /// locks Parts 5 and 6 and hides the review and signing screen — so
   /// the role offered as "all six parts of the proposal form" showed
   /// four and two closed rows.
+  ///
+  /// [sdsRemarks] is the SDS Office's overall remark, which is where a
+  /// rejection's reason lives; [returnRemarks] is only a return's.
   void seedLocally({
     SapState? state,
     SapDetails? details,
     String? returnRemarks,
     SapReturnedBy? returnedBy,
     int revisionNo = 0,
+    String? sdsRemarks,
   }) {
     _proposal = SapProposal(
       id: 'test',
@@ -871,6 +875,7 @@ class SapForm extends ChangeNotifier {
       returnedBy: returnedBy,
     );
     if (details != null) _details = details;
+    if (sdsRemarks != null) overallRemarks = sdsRemarks;
     notifyListeners();
   }
 

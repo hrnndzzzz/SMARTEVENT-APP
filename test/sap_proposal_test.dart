@@ -457,6 +457,22 @@ void main() {
       expect(plain.revisionNo, 0, reason: 'seeding has always started at 0');
       expect(plain.isResubmission, isFalse);
     });
+
+    test('a form can be seeded with what the SDS Office wrote', () {
+      final rejected = SapForm(eventId: 'e1')
+        ..seedLocally(
+          state: SapState.rejected,
+          sdsRemarks: 'Part 3 sets out no excuse letter arrangement.',
+        );
+      expect(rejected.sdsRemarkLines(overall: true), [
+        'Part 3 sets out no excuse letter arrangement.',
+      ]);
+      // A rejection is not a return: nothing is seeded as one.
+      expect(rejected.returnRemarks, isNull);
+
+      final plain = SapForm(eventId: 'e1')..seedLocally();
+      expect(plain.sdsRemarkLines(overall: true), isEmpty);
+    });
   });
 
   group('withdrawal', () {

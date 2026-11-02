@@ -18,6 +18,11 @@ Future<AppState> pumpHub(
   app.events.first
     ..status = status
     ..proposedBy = 'demo-account-president';
+  // Only the newest event is under test. Another one the demo has waiting
+  // would hold the queue, and the band would open that one instead.
+  for (final other in app.events.skip(1)) {
+    if (other.status.isPending) other.status = EventApprovalStatus.completed;
+  }
 
   await tester.pumpWidget(
     ChangeNotifierProvider.value(

@@ -165,7 +165,9 @@ abstract final class DemoData {
       on: DateTime(2026, 11, 5),
       budget: '8000',
       status: EventApprovalStatus.rejected,
-      rejectedBy: 'Engr. Aileen M. Habaradas',
+      // The SDS Office's alone to give: the Moderator and the Dean return a
+      // proposal, they do not reject it.
+      rejectedBy: 'the SDS Office',
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.organizational,
@@ -195,6 +197,22 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.departmental,
+      proposedBy: 'demo-account-treasurer',
+    ),
+    // Last, so the numbering above holds. Past the Moderator and the Dean
+    // and with the SDS Office: the one the demo's SDS role has to review
+    // and sign, which nothing else here is.
+    EventItem(
+      remoteId: 'demo-ev-6',
+      title: 'Cloud Computing Workshop for Capstone Teams',
+      org: 'ACPES',
+      date: '19 Nov 2026',
+      on: DateTime(2026, 11, 19),
+      budget: '4500',
+      status: EventApprovalStatus.pendingInstitutional,
+      schoolYear: '2026-2027',
+      semester: Semester.first,
+      eventScope: EventScope.organizational,
       proposedBy: 'demo-account-treasurer',
     ),
   ];
@@ -503,17 +521,17 @@ abstract final class DemoData {
       // notice does. Without this the demo cannot show that at all.
       payload: const {'event_id': 'demo-ev-1', 'action': 'sap_cleared'},
     ),
+    // As the server words a rejection. The reasons are on the proposal, not
+    // in the notice.
     AppNotice(
       id: 'demo-n-2',
-      kind: 'event_returned',
+      kind: 'sap_rejected',
       emailStatus: 'sent',
-      title: 'Returned for revision',
-      body:
-          'Industry Immersion Talk: move it to the afternoon if there are '
-          'affected classes in the morning.',
+      title: 'SAP proposal rejected',
+      body: 'The SDS Office rejected Industry Immersion Talk.',
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
       readAt: null,
-      payload: const {'event_id': 'demo-ev-3', 'action': 'sap_returned'},
+      payload: const {'event_id': 'demo-ev-3', 'action': 'sap_rejected'},
     ),
     AppNotice(
       id: 'demo-n-3',
@@ -536,17 +554,19 @@ abstract final class DemoData {
 abstract final class DemoProposals {
   /// Everything the summary reads, for one seeded event. Null for an
   /// event this demo has written nothing for.
-  /// Why the SDS Office sent a proposal back, for the one seeded event
-  /// that came back. Without it the demo shows a returned proposal with
-  /// no reason attached, which is the thing that was wrong before.
-  static String? returnRemarksFor(EventItem event) =>
+  /// Why the SDS Office rejected a proposal, for the one seeded event it
+  /// turned down. Without it the demo shows a rejected proposal with no
+  /// reason attached, which is the thing that was wrong before.
+  ///
+  /// A rejection is final, so this asks for nothing to be sent back.
+  static String? sdsRemarksFor(EventItem event) =>
       event.remoteId == 'demo-ev-3'
       // True of what is actually seeded: a 9:00 start, and Part 3's
       // excuse arrangement left blank. A reason that describes rows the
       // form does not have is worse than no reason.
-      ? 'A 9:00 start takes these students out of morning classes. Move '
-            'it to the afternoon, or set out the excuse letter '
-            'arrangement in Part 3 and send it back to us.'
+      ? 'A 9:00 start takes these students out of morning classes, and '
+            'Part 3 sets out no excuse letter arrangement for them. The '
+            'activity cannot be approved as proposed.'
       : null;
 
   static SapDetails? detailsFor(EventItem event) {
@@ -663,10 +683,9 @@ abstract final class DemoProposals {
         ),
       ],
     ),
-    // The one that comes back. It is seeded because the SDS Office's
-    // reason for returning it names Part 3 — a reason pointing at an
-    // empty part is worse than no reason, and this is the flow the
-    // demonstration walks.
+    // The one the SDS Office turns down. It is seeded because its reason
+    // names Part 3 — a reason pointing at an empty part is worse than no
+    // reason, and this is the flow the demonstration walks.
     'demo-ev-3': _Seeded(
       start: SapTime(9, 0),
       end: SapTime(11, 30),
@@ -690,6 +709,54 @@ abstract final class DemoProposals {
         ),
       ],
       support: [
+        SapSupportRequest(
+          type: SapSupportType.projector,
+          quantity: 1,
+          specify: 'With HDMI',
+        ),
+      ],
+    ),
+    // With the SDS Office, so the office has a whole proposal to read and
+    // sign. The three items add up to what the event asks for.
+    'demo-ev-6': _Seeded(
+      start: SapTime(13, 0),
+      end: SapTime(17, 0),
+      venue: 'St. Augustine Building, Room 301',
+      inCharge: 'Engr. Glazen M. Perez',
+      students: 80,
+      rationale:
+          'Capstone teams build on a laptop and meet a real host for the '
+          'first time at the panel. A half-day workshop on putting a '
+          'project online, before the defenses, gives every team the same '
+          'starting point.',
+      objectives:
+          'Put a small web application online.\n'
+          'Read a hosting bill before it arrives.\n'
+          'Know what to show the panel about where it runs.',
+      budget: [
+        SapBudgetItem(
+          particulars: 'Resource speaker honorarium',
+          amount: '2500.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Snacks',
+          quantity: 80,
+          unitCost: '15.00',
+          amount: '1200.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Certificates and handouts',
+          quantity: 80,
+          unitCost: '10.00',
+          amount: '800.00',
+        ),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.room,
+          quantity: 1,
+          specify: 'St. Augustine Bldg. Room 301, 1:00 to 5:00 PM',
+        ),
         SapSupportRequest(
           type: SapSupportType.projector,
           quantity: 1,

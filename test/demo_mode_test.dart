@@ -50,12 +50,34 @@ void main() {
     for (final wanted in [
       EventApprovalStatus.draft,
       EventApprovalStatus.pendingAdviser,
+      // With the SDS Office, which is the one the demo's SDS role reviews.
+      EventApprovalStatus.pendingInstitutional,
       EventApprovalStatus.approved,
       EventApprovalStatus.rejected,
       EventApprovalStatus.completed,
     ]) {
       expect(states, contains(wanted), reason: '$wanted has no demo event');
     }
+  });
+
+  // A rejection is final and the SDS Office's alone. The demo's used to name
+  // a person and carry a notice about being returned for revision.
+  test('the rejected event is the SDS Office\'s, in its status and notice', () {
+    final app = AppState()..enterDemo();
+    final event = app.events.firstWhere(
+      (e) => e.status == EventApprovalStatus.rejected,
+    );
+    final notice = app.notices.firstWhere(
+      (n) => n.payload['event_id'] == event.remoteId,
+    );
+
+    expect(event.statusLabel, 'Rejected by the SDS Office');
+    expect(notice.title.toLowerCase(), contains('rejected'));
+    expect(notice.body, contains('SDS Office'));
+    expect(
+      '${notice.title} ${notice.body}'.toLowerCase(),
+      isNot(contains('return')),
+    );
   });
 
   test('no module is left looking like it is still loading', () {

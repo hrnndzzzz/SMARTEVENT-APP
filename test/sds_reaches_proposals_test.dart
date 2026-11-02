@@ -7,6 +7,7 @@ import 'package:smartevent/screens/proposal_letters_screen.dart';
 import 'package:smartevent/screens/sap/sds_summary_screen.dart';
 import 'package:smartevent/screens/sds_proposals_screen.dart';
 import 'package:smartevent/state/app_state.dart';
+import 'package:smartevent/state/demo_data.dart';
 import 'package:smartevent/state/user_role.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
@@ -90,6 +91,33 @@ void main() {
     final rejected = SdsProposalsScreen.stageOf(EventApprovalStatus.rejected);
 
     expect(rejected, ('Rejected', BrutTone.coral));
+  });
+
+  // The demo's SDS role is offered review and signing, and used to have
+  // nothing to do it to: no seeded proposal was with the office.
+  testWidgets('the demo has a proposal with the office to review and sign', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1600));
+    final app = AppState()..enterDemo(role: UserRole.sdsStaff);
+    final withTheOffice = [
+      for (final e in app.events)
+        if (e.status == EventApprovalStatus.pendingInstitutional) e,
+    ];
+    expect(withTheOffice, isNotEmpty, reason: 'nothing in the demo is theirs');
+    final event = withTheOffice.first;
+
+    // And it is a proposal, not a title: the office has something to read.
+    expect(DemoProposals.detailsFor(event), isNotNull);
+    expect(DemoProposals.budgetFor(event), isNotEmpty);
+    expect(DemoProposals.supportFor(event), isNotEmpty);
+
+    await tester.pumpWidget(host(app, const SdsProposalsScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(event.title));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Review and sign'), findsOneWidget);
   });
 
   testWidgets('and the summary opens where the event has got to', (
