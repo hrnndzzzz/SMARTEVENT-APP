@@ -69,7 +69,8 @@ void main() {
   });
 
   test('each desk says who is actually holding it up', () {
-    expect(EventStage.withModerator.note, contains('moderator'));
+    expect(EventStage.withModerator.label, 'With the Moderator');
+    expect(EventStage.withModerator.note, contains('Moderator'));
     expect(EventStage.withDean.note, contains('Dean'));
     expect(EventStage.withSds.label, contains('SDS Office'));
   });

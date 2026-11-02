@@ -18,7 +18,7 @@ import '../theme/palette.dart';
 enum EventStage {
   drafting('Drafting', 0),
   rejected('Rejected', 1),
-  withModerator('With the moderator', 2),
+  withModerator('With the Moderator', 2),
   withDean('With the Dean', 3),
   withSds('With the SDS Office', 4),
   approved('Approved', 5),
@@ -47,7 +47,7 @@ enum EventStage {
   String get note => switch (this) {
     EventStage.drafting => 'Not submitted yet',
     EventStage.rejected => 'Final. Start a new proposal',
-    EventStage.withModerator => 'Waiting on your moderator',
+    EventStage.withModerator => 'Waiting on your Moderator',
     EventStage.withDean => 'Waiting on the Dean',
     // True of all of it: the event stays here after the office has signed,
     // while the paper goes round, until the final scan. Kept short because

@@ -83,6 +83,23 @@ void main() {
     expect(find.textContaining('NEEDS CHANGES'), findsNothing);
   });
 
+  // The band starts the proposal wizard, so it says who has the proposal in
+  // the wizard's words: the Moderator, the Dean and the SDS Office, and not
+  // the adviser, the admin and the signatories.
+  testWidgets('and names who has a proposal that is waiting', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+
+    for (final (status, said) in [
+      (EventApprovalStatus.pendingAdviser, 'WITH THE MODERATOR'),
+      (EventApprovalStatus.pendingAdmin, 'WITH THE DEAN'),
+      (EventApprovalStatus.pendingInstitutional, 'WITH THE SDS OFFICE'),
+    ]) {
+      await pumpHub(tester, status);
+
+      expect(find.text(said), findsOneWidget, reason: status.name);
+    }
+  });
+
   testWidgets('in every other settled state it starts a new proposal', (
     tester,
   ) async {

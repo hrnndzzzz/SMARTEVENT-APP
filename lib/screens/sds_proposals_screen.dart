@@ -24,7 +24,7 @@ class SdsProposalsScreen extends StatelessWidget {
       switch (status) {
         EventApprovalStatus.draft => ('Still being written', BrutTone.neutral),
         EventApprovalStatus.pendingAdviser => (
-          'With the moderator',
+          'With the Moderator',
           BrutTone.sun,
         ),
         EventApprovalStatus.pendingAdmin => ('With the Dean', BrutTone.sun),

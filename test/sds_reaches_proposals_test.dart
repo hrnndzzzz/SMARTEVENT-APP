@@ -70,7 +70,7 @@ void main() {
 
     expect(
       SdsProposalsScreen.stageOf(EventApprovalStatus.pendingAdviser).$1,
-      'With the moderator',
+      'With the Moderator',
     );
   });
 
