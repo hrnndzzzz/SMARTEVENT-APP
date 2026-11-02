@@ -51,7 +51,7 @@ class SapSingleChoice<T> extends StatelessWidget {
                 // paper lets you leave a row blank and the form should
                 // not trap someone into an answer they cannot undo.
                   onTap: !enabled
-                      ? () {}
+                      ? null
                       : () => onChanged(option == value ? null : option),
                 ),
               ),
@@ -98,7 +98,7 @@ class SapMultiChoice<T> extends StatelessWidget {
                   label: labelOf(option),
                   selected: selected.contains(option),
                   onTap: !enabled
-                      ? () {}
+                      ? null
                       : () {
                           final next = [...selected];
                           selected.contains(option)

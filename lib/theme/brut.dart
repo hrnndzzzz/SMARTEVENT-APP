@@ -1944,6 +1944,9 @@ class _ChoiceRow<T> extends StatelessWidget {
 /// A filter chip. Selected takes the area accent with ink on it;
 /// unselected is a plain outline with no shadow, so a row of chips reads
 /// as one chosen and the rest available.
+///
+/// A chip with no [onTap] is disabled: flat and muted, silent, and read as
+/// disabled by a screen reader. Pass a callback only when a tap does something.
 class BrutChip extends StatelessWidget {
   const BrutChip({
     super.key,
@@ -1955,7 +1958,7 @@ class BrutChip extends StatelessWidget {
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   /// Defaults to the area accent.
   final BrutTone? tone;
@@ -1966,8 +1969,9 @@ class BrutChip extends StatelessWidget {
         ? (tone ?? BrutTone.brand).fill(context)
         : context.palette.surface;
 
-    return BrutSurface(
+    final chip = BrutSurface(
       onTap: onTap,
+      enabled: onTap != null,
       fill: fill,
       radius: AppRadius.controlAll,
       shadow: selected ? AppShadows.sm : AppShadows.none,
@@ -1981,6 +1985,10 @@ class BrutChip extends StatelessWidget {
         ),
       ),
     );
+
+    // BrutSurface draws a disabled control but says nothing about it, so a
+    // screen reader would offer this as a live chip.
+    return onTap == null ? Semantics(enabled: false, child: chip) : chip;
   }
 }
 
