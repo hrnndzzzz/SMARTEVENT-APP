@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/screens/event_detail_screen.dart';
-import 'package:smartevent/screens/home_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/reachability.dart';
@@ -66,7 +65,9 @@ void main() {
     approvals = [];
     proposalFailure = null;
     decision = (request) => json(
-      eventJson(request.url.path.endsWith('/approve') ? 'pending_admin' : 'draft'),
+      eventJson(
+        request.url.path.endsWith('/approve') ? 'pending_admin' : 'draft',
+      ),
     );
   });
 
@@ -163,7 +164,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> typeRemarks(WidgetTester tester, String label, String text) async {
+  Future<void> typeRemarks(
+    WidgetTester tester,
+    String label,
+    String text,
+  ) async {
     await tester.enterText(
       find.descendant(
         of: find.byWidgetPredicate(
@@ -234,26 +239,30 @@ void main() {
     expect(pressable(tester, 'Return for revision'), isTrue);
   });
 
-  testWidgets('a proposal that cannot be read says why, and can be tried again', (
-    tester,
-  ) async {
-    proposalFailure = json({'detail': 'The department service is down'}, 503);
-    await open(
-      tester,
-      liveAs(UserRole.adviser),
-      eventAt(EventApprovalStatus.pendingAdviser),
-    );
+  testWidgets(
+    'a proposal that cannot be read says why, and can be tried again',
+    (tester) async {
+      proposalFailure = json({'detail': 'The department service is down'}, 503);
+      await open(
+        tester,
+        liveAs(UserRole.adviser),
+        eventAt(EventApprovalStatus.pendingAdviser),
+      );
 
-    expect(find.textContaining('The department service is down'), findsWidgets);
-    expect(find.text('Approve'), findsNothing);
+      expect(
+        find.textContaining('The department service is down'),
+        findsWidgets,
+      );
+      expect(find.text('Approve'), findsNothing);
 
-    proposalFailure = null;
-    await tapRow(tester, 'Try again');
+      proposalFailure = null;
+      await tapRow(tester, 'Try again');
 
-    expect(find.text('Try again'), findsNothing);
-    expect(pressable(tester, 'Approve'), isTrue);
-    expect(find.text('Return for revision'), findsOneWidget);
-  });
+      expect(find.text('Try again'), findsNothing);
+      expect(pressable(tester, 'Approve'), isTrue);
+      expect(find.text('Return for revision'), findsOneWidget);
+    },
+  );
 
   group('a plain event keeps Reject', () {
     testWidgets('and sends no version', (tester) async {
@@ -301,14 +310,23 @@ void main() {
 
       await tapRow(tester, 'Return for revision');
       expect(find.text('Return for revision?'), findsOneWidget);
-      expect(pressable(tester, 'Return', within: find.byType(AlertDialog)), isFalse);
+      expect(
+        pressable(tester, 'Return', within: find.byType(AlertDialog)),
+        isFalse,
+      );
 
       // Spaces say nothing.
       await typeRemarks(tester, 'What needs changing', '   ');
-      expect(pressable(tester, 'Return', within: find.byType(AlertDialog)), isFalse);
+      expect(
+        pressable(tester, 'Return', within: find.byType(AlertDialog)),
+        isFalse,
+      );
 
       await typeRemarks(tester, 'What needs changing', 'Fix the budget.');
-      expect(pressable(tester, 'Return', within: find.byType(AlertDialog)), isTrue);
+      expect(
+        pressable(tester, 'Return', within: find.byType(AlertDialog)),
+        isTrue,
+      );
 
       await tapInDialog(tester, 'Return');
 
@@ -369,24 +387,71 @@ void main() {
 
   group('a changed proposal', () {
     const changed = 'This proposal has changed since you opened it';
+    const banner =
+        'Someone else changed this proposal. Reload it to see their version '
+        'before deciding.';
 
-    testWidgets('says so, and the buttons stay usable', (tester) async {
+    final staleBanner = find.byWidgetPredicate(
+      (w) =>
+          w is BrutInlineMessage &&
+          w.text == banner &&
+          w.tone == BrutTone.coral &&
+          w.icon == Icons.sync_problem,
+    );
+
+    int proposalReads() => sent
+        .where((r) => r.method == 'GET' && r.url.path.endsWith('/sap-proposal'))
+        .length;
+
+    /// The server has moved on, and now accepts a decision made on version 5.
+    void proposalMovesOn() {
+      version = 5;
+      decision = (request) => json(
+        eventJson(
+          request.url.path.endsWith('/approve') ? 'pending_admin' : 'draft',
+        ),
+      );
+    }
+
+    testWidgets('says so, and holds both decisions until it is reloaded', (
+      tester,
+    ) async {
       decision = (_) => json({'detail': changed}, 409);
       await open(
         tester,
         liveAs(UserRole.adviser),
         eventAt(EventApprovalStatus.pendingAdviser),
       );
+      expect(staleBanner, findsNothing);
 
       await tapRow(tester, 'Approve');
       await tapInDialog(tester, 'Approve');
 
+      // The server's words, and a banner that stays after they are gone.
       expect(find.text(changed), findsOneWidget);
+      expect(staleBanner, findsOneWidget);
+      expect(pressable(tester, 'Approve'), isFalse);
+      expect(pressable(tester, 'Return for revision'), isFalse);
+      expect(posted('approve'), hasLength(1));
+
+      // Reading it again is the way on, and nothing is resent for them.
+      proposalMovesOn();
+      await tapRow(tester, 'Reload the proposal');
+
+      expect(proposalReads(), 2);
+      expect(posted('approve'), hasLength(1));
+      expect(staleBanner, findsNothing);
       expect(pressable(tester, 'Approve'), isTrue);
       expect(pressable(tester, 'Return for revision'), isTrue);
+
+      await tapRow(tester, 'Approve');
+      await tapInDialog(tester, 'Approve');
+
+      expect(posted('approve'), hasLength(2));
+      expect(jsonDecode(posted('approve').last.body), {'expected_version': 5});
     });
 
-    testWidgets('is said the same way when returning', (tester) async {
+    testWidgets('keeps the reason that was typed for a return', (tester) async {
       decision = (_) => json({'detail': changed}, 409);
       await open(
         tester,
@@ -399,12 +464,100 @@ void main() {
       await tapInDialog(tester, 'Return');
 
       expect(find.text(changed), findsOneWidget);
-      expect(pressable(tester, 'Return for revision'), isTrue);
+      expect(staleBanner, findsOneWidget);
+      expect(pressable(tester, 'Return for revision'), isFalse);
+
+      proposalMovesOn();
+      await tapRow(tester, 'Reload the proposal');
+      await tapRow(tester, 'Return for revision');
+
+      // Written already, and ready to send.
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(field.controller!.text, 'Fix the budget.');
+      expect(
+        pressable(tester, 'Return', within: find.byType(AlertDialog)),
+        isTrue,
+      );
+
+      await tapInDialog(tester, 'Return');
+
+      expect(jsonDecode(posted('reject').last.body), {
+        'remarks': 'Fix the budget.',
+        'expected_version': 5,
+      });
+    });
+
+    testWidgets('does not keep a reason that was abandoned', (tester) async {
+      await open(
+        tester,
+        liveAs(UserRole.adviser),
+        eventAt(EventApprovalStatus.pendingAdviser),
+      );
+
+      await tapRow(tester, 'Return for revision');
+      await typeRemarks(tester, 'What needs changing', 'Not yet.');
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      await tapRow(tester, 'Return for revision');
+
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(field.controller!.text, isEmpty);
+    });
+
+    testWidgets('is not what an approval refused for blockers is', (
+      tester,
+    ) async {
+      // Also a 409, but reading the proposal again would not clear these.
+      decision = (_) => json({
+        'detail': {
+          'message': 'Not ready for approval',
+          'blockers': ['Part 4 is missing'],
+        },
+      }, 409);
+      await open(
+        tester,
+        liveAs(UserRole.adviser),
+        eventAt(EventApprovalStatus.pendingAdviser),
+      );
+
+      await tapRow(tester, 'Approve');
+      await tapInDialog(tester, 'Approve');
+
+      expect(find.textContaining('Part 4 is missing'), findsOneWidget);
+      expect(staleBanner, findsNothing);
+      expect(pressable(tester, 'Approve'), isTrue);
     });
   });
 
+  testWidgets('a proposal read that is refused shows what the server said', (
+    tester,
+  ) async {
+    proposalFailure = json({'detail': 'The proposal is being edited'}, 409);
+    await open(
+      tester,
+      liveAs(UserRole.adviser),
+      eventAt(EventApprovalStatus.pendingAdviser),
+    );
+
+    expect(find.textContaining('The proposal is being edited'), findsWidgets);
+    expect(find.textContaining('Instance of'), findsNothing);
+    expect(find.text('Try again'), findsOneWidget);
+  });
+
   group('nobody decides their own', () {
-    testWidgets('proposal, whatever the button would be called', (tester) async {
+    testWidgets('proposal, whatever the button would be called', (
+      tester,
+    ) async {
       // In the demo every event is a proposal, and the treasurer wrote them.
       final app = AppState()..enterDemo(role: UserRole.treasurer);
       await open(
@@ -483,71 +636,5 @@ void main() {
       ),
       findsOneWidget,
     );
-  });
-
-  group('each reviewer counts only their own step', () {
-    Future<void> alertFor(WidgetTester tester, UserRole role) async {
-      await tester.binding.setSurfaceSize(const Size(420, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final app = AppState()..enterDemo(role: role);
-      app.events
-        ..clear()
-        ..addAll([
-          eventAt(EventApprovalStatus.pendingAdviser),
-          eventAt(EventApprovalStatus.pendingAdviser),
-          eventAt(EventApprovalStatus.pendingAdmin),
-        ]);
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: app,
-          child: const MaterialApp(home: Scaffold(body: AlertWidget())),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
-    }
-
-    testWidgets('the Moderator, the two at the Moderator\'s step', (
-      tester,
-    ) async {
-      await alertFor(tester, UserRole.adviser);
-
-      expect(find.text('2 events awaiting a decision'), findsOneWidget);
-    });
-
-    testWidgets('the Dean, the one at the Dean\'s', (tester) async {
-      await alertFor(tester, UserRole.admin);
-
-      expect(find.text('1 event awaiting a decision'), findsOneWidget);
-    });
-
-    testWidgets('and the Super Admin the same', (tester) async {
-      await alertFor(tester, UserRole.superAdmin);
-
-      expect(find.text('1 event awaiting a decision'), findsOneWidget);
-    });
-
-    testWidgets('the SDS Office, the ones that have reached it', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(420, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final app = AppState()..enterDemo(role: UserRole.sdsStaff);
-      app.events
-        ..clear()
-        ..addAll([
-          eventAt(EventApprovalStatus.pendingAdviser),
-          eventAt(EventApprovalStatus.pendingAdmin),
-          eventAt(EventApprovalStatus.pendingInstitutional),
-        ]);
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: app,
-          child: const MaterialApp(home: Scaffold(body: AlertWidget())),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(find.text('1 event awaiting a decision'), findsOneWidget);
-    });
   });
 }

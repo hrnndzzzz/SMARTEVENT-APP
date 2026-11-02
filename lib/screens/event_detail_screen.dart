@@ -25,15 +25,21 @@ class EventDetailScreen extends StatelessWidget {
   /// any other event it is a rejection with an optional note.
   /// [expectedVersion] is the proposal version the reviewer read, sent back
   /// so a proposal that changed meanwhile is refused.
-  Future<void> _decide(
+  ///
+  /// [note] opens the dialog already written. The answer says whether the
+  /// proposal had changed, and what to open the dialog with next time: what
+  /// was typed if the decision did not go through, so that a long reason is
+  /// not lost to a refusal, and nothing otherwise.
+  Future<({bool changed, String kept})> _decide(
     BuildContext context, {
     required bool approved,
     required bool isAdviserStage,
     required bool isProposal,
     int? expectedVersion,
+    String note = '',
   }) async {
     final isReturn = isProposal && !approved;
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: note);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -105,35 +111,36 @@ class EventDetailScreen extends StatelessWidget {
       ),
     );
 
-    if (confirmed == true) {
-      final app = context.read<AppState>();
-      // A blank note is no note: nothing is sent for it.
-      final text = controller.text.trim();
-      final note = text.isEmpty ? null : text;
-      final String? error = isAdviserStage
-          ? await app.adviserDecision(
-              event,
-              approved: approved,
-              note: note,
-              expectedVersion: expectedVersion,
-            )
-          : await app.adminDecision(
-              event,
-              approved: approved,
-              note: note,
-              expectedVersion: expectedVersion,
-            );
+    if (confirmed != true) return (changed: false, kept: '');
 
-      if (!context.mounted) return;
+    final app = context.read<AppState>();
+    // A blank note is no note: nothing is sent for it.
+    final text = controller.text.trim();
+    final result = isAdviserStage
+        ? await app.adviserDecision(
+            event,
+            approved: approved,
+            note: text.isEmpty ? null : text,
+            expectedVersion: expectedVersion,
+          )
+        : await app.adminDecision(
+            event,
+            approved: approved,
+            note: text.isEmpty ? null : text,
+            expectedVersion: expectedVersion,
+          );
+
+    if (context.mounted) {
       final outcome = approved
           ? 'Approved'
           : isReturn
           ? 'Returned for revision'
           : 'Rejected';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? '${event.title} — $outcome')),
+        SnackBar(content: Text(result.error ?? '${event.title} — $outcome')),
       );
     }
+    return (changed: result.changed, kept: result.error == null ? '' : text);
   }
 
   @override
@@ -188,12 +195,14 @@ class EventDetailScreen extends StatelessWidget {
                         required bool approved,
                         required bool isProposal,
                         int? expectedVersion,
+                        required String note,
                       }) => _decide(
                         context,
                         approved: approved,
                         isAdviserStage: canAdviserDecide,
                         isProposal: isProposal,
                         expectedVersion: expectedVersion,
+                        note: note,
                       ),
                 ),
               ],
@@ -354,17 +363,23 @@ class EventDetailScreen extends StatelessWidget {
 /// Turning down depends on what the event is. A SAP proposal is sent back
 /// for revision, with a reason, and the Moderator and the Dean never reject
 /// one; any other event is rejected, as it always was. So the proposal is
-/// read once, here: it says which of the two to offer, and its version is
-/// what the decision sends back, so that a proposal someone changed since
-/// is refused instead of decided blind. Reopening the event reads it again.
+/// read here: it says which of the two to offer, and its version is what the
+/// decision sends back, so that a proposal someone changed since is refused
+/// instead of decided blind.
+///
+/// A refusal for that reason leaves the row stale: the version it holds is
+/// out of date, so sending again would only be refused again, or worse
+/// accepted over changes nobody has looked at. It offers to read the
+/// proposal again and waits for that, as the SDS review screen does.
 class _DecisionRow extends StatefulWidget {
   const _DecisionRow({required this.event, required this.onDecide});
 
   final EventItem event;
-  final Future<void> Function({
+  final Future<({bool changed, String kept})> Function({
     required bool approved,
     required bool isProposal,
     int? expectedVersion,
+    required String note,
   })
   onDecide;
 
@@ -377,6 +392,11 @@ class _DecisionRowState extends State<_DecisionRow> {
   bool _isProposal = false;
   int? _version;
   String? _error;
+  bool _stale = false;
+
+  /// What was typed for each decision (keyed by whether it approves) and not
+  /// sent, offered again the next time that dialog opens.
+  final Map<bool, String> _kept = {};
 
   @override
   void initState() {
@@ -398,6 +418,7 @@ class _DecisionRowState extends State<_DecisionRow> {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _stale = false;
         _isProposal = version != null;
         _version = version;
       });
@@ -405,17 +426,31 @@ class _DecisionRowState extends State<_DecisionRow> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '$error';
+        _error = app.describeFailure(error);
       });
     }
   }
 
-  void _retry() {
+  void _reload() {
     setState(() {
       _loading = true;
       _error = null;
     });
     _load();
+  }
+
+  Future<void> _decide(bool approved) async {
+    final result = await widget.onDecide(
+      approved: approved,
+      isProposal: _isProposal,
+      expectedVersion: _version,
+      note: _kept[approved] ?? '',
+    );
+    if (!mounted) return;
+    setState(() {
+      _kept[approved] = result.kept;
+      if (result.changed) _stale = true;
+    });
   }
 
   @override
@@ -429,36 +464,54 @@ class _DecisionRowState extends State<_DecisionRow> {
           BrutButton(
             label: 'Try again',
             tone: BrutTone.neutral,
-            onPressed: _retry,
+            onPressed: _reload,
           ),
         ],
       );
     }
 
-    VoidCallback? decide(bool approved) => _loading
-        ? null
-        : () => widget.onDecide(
-            approved: approved,
-            isProposal: _isProposal,
-            expectedVersion: _version,
-          );
+    VoidCallback? decide(bool approved) =>
+        _loading || _stale ? null : () => _decide(approved);
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: BrutButton(
-            label: _isProposal ? 'Return for revision' : 'Reject',
+        if (_stale) ...[
+          const BrutInlineMessage(
             tone: BrutTone.coral,
-            onPressed: decide(false),
+            icon: Icons.sync_problem,
+            text:
+                'Someone else changed this proposal. Reload it to see their '
+                'version before deciding.',
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: BrutButton(
-            label: 'Approve',
-            tone: BrutTone.mint,
-            onPressed: decide(true),
+          const SizedBox(height: 10),
+          BrutButton(
+            label: 'Reload the proposal',
+            tone: BrutTone.neutral,
+            busy: _loading,
+            busyLabel: 'Reloading',
+            onPressed: _reload,
           ),
+          const SizedBox(height: 14),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: BrutButton(
+                label: _isProposal ? 'Return for revision' : 'Reject',
+                tone: BrutTone.coral,
+                onPressed: decide(false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: BrutButton(
+                label: 'Approve',
+                tone: BrutTone.mint,
+                onPressed: decide(true),
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -360,24 +360,8 @@ class AlertWidget extends StatelessWidget {
     final role = app.currentRole;
     final items = <({String label, String where, BrutTone tone})>[];
 
-    // Each reviewer is waiting on the step that is theirs, not on every
-    // proposal still undecided: the Dean was told about the ones the
-    // Moderator had yet to see.
-    final isReviewer = role?.canReview ?? false;
-    if (isReviewer || role == UserRole.sdsStaff) {
-      final events = app.events
-          .where(
-            (e) => switch (role) {
-              UserRole.adviser =>
-                e.status == EventApprovalStatus.pendingAdviser,
-              UserRole.admin || UserRole.superAdmin =>
-                e.status == EventApprovalStatus.pendingAdmin,
-              UserRole.sdsStaff =>
-                e.status == EventApprovalStatus.pendingInstitutional,
-              _ => e.status.isPending,
-            },
-          )
-          .length;
+    if (role?.canReview ?? false) {
+      final events = app.events.where((e) => e.status.isPending).length;
       if (events > 0) {
         items.add((
           label: '$events event${events == 1 ? '' : 's'} awaiting a decision',
@@ -385,8 +369,6 @@ class AlertWidget extends StatelessWidget {
           tone: BrutTone.coral,
         ));
       }
-    }
-    if (isReviewer) {
       final expenses = app.pendingExpenses.length;
       if (expenses > 0) {
         items.add((

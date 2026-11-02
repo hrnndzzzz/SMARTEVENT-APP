@@ -654,6 +654,8 @@ class AppState extends ChangeNotifier {
     if (error is ApiException) return error.message;
     if (error is NetworkException) return error.message;
     if (error is OfflineUnavailable) return error.message;
+    // Not an ApiException, but it carries the server's own words.
+    if (error is SapVersionConflict) return error.message;
     return 'Unexpected problem handling the server response: $error';
   }
 
@@ -2526,19 +2528,31 @@ class AppState extends ChangeNotifier {
       )
       .toList();
 
-  /// Returns null on success, or an error message.
+  /// The decision's outcome: [error] is null on success, otherwise the
+  /// message to show. [changed] is true when the server refused because the
+  /// proposal is no longer at the version that was read (a 409 on a decision
+  /// that sent one), which the screen must answer by reloading, not by
+  /// resending.
+  ///
+  /// Only a 409 that says so: an approval refused for readiness blockers is
+  /// also a 409, but reloading the proposal does not clear those, so it is
+  /// an ordinary error.
   ///
   /// [expectedVersion] is the proposal version the Moderator read. With it,
   /// not approving is a return for revision: the proposal goes back to
   /// the organization as a draft, and nobody rejected it.
-  Future<String?> adviserDecision(
+  Future<({String? error, bool changed})> adviserDecision(
     EventItem event, {
     required bool approved,
     String? note,
     int? expectedVersion,
   }) async {
-    if (event.remoteId == null)
-      return 'This event has no real backend record yet.';
+    if (event.remoteId == null) {
+      return (
+        error: 'This event has no real backend record yet.',
+        changed: false,
+      );
+    }
     try {
       final RemoteEvent updated = approved
           ? await _eventService.approve(
@@ -2557,22 +2571,28 @@ class AppState extends ChangeNotifier {
       if (!approved && expectedVersion == null) event.rejectedBy = 'Adviser';
 
       notifyListeners();
-      return null;
+      return (error: null, changed: false);
     } catch (error) {
-      return _messageForFailure(error);
+      return (
+        error: _messageForFailure(error),
+        changed: _proposalChanged(error, expectedVersion),
+      );
     }
   }
 
-  /// Returns null on success, or an error message. [expectedVersion] is as
-  /// for [adviserDecision].
-  Future<String?> adminDecision(
+  /// The Dean's counterpart to [adviserDecision], with the same outcome.
+  Future<({String? error, bool changed})> adminDecision(
     EventItem event, {
     required bool approved,
     String? note,
     int? expectedVersion,
   }) async {
-    if (event.remoteId == null)
-      return 'This event has no real backend record yet.';
+    if (event.remoteId == null) {
+      return (
+        error: 'This event has no real backend record yet.',
+        changed: false,
+      );
+    }
     try {
       final RemoteEvent updated = approved
           ? await _eventService.approve(
@@ -2591,11 +2611,26 @@ class AppState extends ChangeNotifier {
       if (!approved && expectedVersion == null) event.rejectedBy = 'Admin';
 
       notifyListeners();
-      return null;
+      return (error: null, changed: false);
     } catch (error) {
-      return _messageForFailure(error);
+      return (
+        error: _messageForFailure(error),
+        changed: _proposalChanged(error, expectedVersion),
+      );
     }
   }
+
+  bool _proposalChanged(Object error, int? sentVersion) {
+    if (sentVersion == null || error is! ApiException || !error.isConflict) {
+      return false;
+    }
+    final detail = error.detail;
+    final blockers = detail is Map ? detail['blockers'] : null;
+    return blockers is! List || blockers.isEmpty;
+  }
+
+  /// The words for a call a screen made itself, as the decisions give them.
+  String describeFailure(Object error) => _messageForFailure(error);
 
   /// Only used by the dev quick-login shortcut.
   final List<Account> _accounts = [];
