@@ -422,9 +422,13 @@ class SapService {
   /// stored bytes of the submitted revision. [revisionNo] fetches an
   /// earlier printed copy instead.
   ///
-  /// It stays an unsigned printable copy even after approval: the signed
-  /// scan is a separate download, and nothing stamps a signature or an
-  /// approval mark onto these bytes.
+  /// A revision the SDS Office has signed prints as the copy stored at
+  /// signing: the signer's name and drawn signature in the SDS Coordinator's
+  /// cell, the watermark "SIGNED AND APPROVED BY SDS OFFICE" and the footer
+  /// "SAP revision N | SDS signed". The rejected current revision prints with
+  /// the watermark "REJECTED BY THE SDS OFFICE"; any other prints "Unsigned".
+  /// The other signature slots always print empty, and the signed scan, a
+  /// separate download, is the evidence of the paper signatures.
   Future<DownloadedFile> pdf(String eventId, {int? revisionNo}) {
     return _guard(() async {
       return _client.download(
@@ -440,9 +444,12 @@ class SapService {
   /// `POST /final-signed-copy` — the scanned, signed paper.
   ///
   /// Write-once: there is deliberately no replacement after approval, so
-  /// the caller should be sure before sending. The server requires
-  /// exactly six unencrypted pages with no forms or annotations, which is
-  /// what flattening a scan produces.
+  /// the caller should be sure before sending. The server takes it only
+  /// while the proposal is `sds_signed` with all nine checkpoints recorded,
+  /// and only as an unencrypted PDF of at most 10 MB with at least three
+  /// pages and the same page count as the SDS-signed copy (the form and its
+  /// addenda), and no forms, actions, annotations or embedded files, which
+  /// is what flattening a scan produces.
   Future<SapProposal> uploadFinalScan(
     String eventId, {
     required int expectedVersion,

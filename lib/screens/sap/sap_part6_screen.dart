@@ -4,6 +4,7 @@ import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
+import 'sap_proposal_flow.dart';
 
 /// Part 6 — Evaluation.
 ///
@@ -66,6 +67,12 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
     return AnimatedBuilder(
       animation: _form,
       builder: (context, _) {
+        // `isReadOnly` is the session being offline or signed out, which says
+        // nothing about whose account this is: the server takes the
+        // evaluation from the SDS Office alone.
+        final canWrite =
+            SapProposalFlow.isSdsStaff(context) && !_form.isReadOnly;
+
         return BrutScreen(
           header: BrutHeader(
             title: 'Evaluation',
@@ -82,7 +89,7 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
                     label: 'Record evaluation',
                     busy: _form.saving,
                     busyLabel: 'Saving',
-                    onPressed: !_form.isReadOnly && _valid ? _record : null,
+                    onPressed: canWrite && _valid ? _record : null,
                   ),
                 ),
           child: Column(
@@ -101,7 +108,7 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
                 )
               else ...[
                 SapSingleChoice<SapEvaluationOutcome>(
-                  enabled: !_form.isReadOnly,
+                  enabled: canWrite,
                   label: 'Outcome',
                   options: SapEvaluationOutcome.values,
                   labelOf: (o) => o.label,
@@ -132,7 +139,7 @@ class _SapPart6ScreenState extends State<SapPart6Screen> {
                 controller: _remarks,
                 label: 'Remarks',
                 hint: 'Activity completed; reports to follow.',
-                enabled: !_form.isReadOnly && !_recorded,
+                enabled: canWrite && !_recorded,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => setState(() {}),
