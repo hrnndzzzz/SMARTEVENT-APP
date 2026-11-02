@@ -245,6 +245,44 @@ void main() {
       expect(find.textContaining('nine signatures'), findsNothing);
       expect(form.state, SapState.pendingDepartmentReview);
     });
+
+    // The demo has no server and seeds the state it wants shown. A form with
+    // no service counts as local, and local used to mean editable whatever
+    // the state said, so a seeded rejected or department-review proposal
+    // still offered "Submit for review".
+    group('with no server', () {
+      Future<bool> canSubmit(WidgetTester tester, SapForm form) async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await openHub(tester, form);
+        final submit = find.widgetWithText(BrutButton, 'Submit for review');
+        return tester.widget<BrutButton>(submit).onPressed != null;
+      }
+
+      testWidgets('offers sending only what is a draft or was returned', (
+        tester,
+      ) async {
+        for (final state in SapState.values) {
+          final form = SapForm(eventId: 'e1')..seedLocally(state: state);
+
+          expect(
+            await canSubmit(tester, form),
+            state.isProposerEditable,
+            reason: state.name,
+          );
+        }
+      });
+
+      testWidgets('and keeps a proposal that has no state yet editable', (
+        tester,
+      ) async {
+        expect(await canSubmit(tester, SapForm()), isTrue, reason: 'brand new');
+        expect(
+          await canSubmit(tester, SapForm(eventId: 'e1')),
+          isTrue,
+          reason: 'an event the demo does not seed',
+        );
+      });
+    });
   });
 
   group('the steps', () {

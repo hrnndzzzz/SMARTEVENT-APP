@@ -184,9 +184,15 @@ class SapForm extends ChangeNotifier {
   /// Parts 1 to 3 are the proposer's, and only while the proposal is a
   /// draft or has been returned. A form bound to an event whose proposal
   /// never loaded holds none of it, so it is not editable either.
+  ///
+  /// A form with no server follows its state too, once it has one: the demo
+  /// seeds the state it wants shown, and a rejected or department-review
+  /// proposal is not the proposer's to send again for being local. Only a
+  /// form with no proposal at all — a new one, or one the server has none
+  /// for — is editable because it is local.
   bool get canEditProposerParts =>
       !isReadOnly &&
-      (isLocalOnly || (_proposal?.isProposerEditable ?? _eventId == null));
+      (_proposal?.isProposerEditable ?? (isLocalOnly || _eventId == null));
 
   bool get isReadOnly => _service?.isReadOnly ?? false;
 

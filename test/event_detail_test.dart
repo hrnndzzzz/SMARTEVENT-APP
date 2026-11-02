@@ -167,6 +167,16 @@ void main() {
         state,
         reason: status.name,
       );
+
+      // And it lets the proposer send it again only where that is theirs to
+      // do: a seeded rejected or department-review proposal used to keep
+      // "Submit for review" lit, since the demo form has no server.
+      final submit = find.widgetWithText(BrutButton, 'Submit for review');
+      expect(
+        tester.widget<BrutButton>(submit).onPressed != null,
+        state.isProposerEditable,
+        reason: '${status.name} offers sending it again',
+      );
     }
   });
 
