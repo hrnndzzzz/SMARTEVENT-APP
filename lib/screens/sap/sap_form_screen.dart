@@ -88,6 +88,7 @@ class _SapFormScreenState extends State<SapFormScreen> {
       value: widget.form,
       child: Consumer<SapForm>(
         builder: (context, form, _) {
+          final isSds = SapProposalFlow.isSdsStaff(context);
           return BrutScreen(
             header: BrutHeader(
               title: 'Proposal form',
@@ -128,7 +129,7 @@ class _SapFormScreenState extends State<SapFormScreen> {
                       tone: BrutTone.sun,
                       icon: Icons.hourglass_top,
                       text:
-                          'With your Moderator and Dean. They approve it '
+                          'With the Moderator and Dean. They approve it '
                           'before it goes to the SDS Office.',
                     ),
                   // What to change, before the six parts it applies to.
@@ -143,13 +144,18 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     ),
                   // Final: nothing follows it and nothing can be sent
                   // again, so it says so rather than reading as a return.
+                  // The office made the decision, so it is not advised to
+                  // start a new proposal.
                   if (form.state == SapState.rejected)
                     BrutInlineMessage(
                       tone: BrutTone.coral,
                       icon: Icons.block,
                       text: [
-                        'Rejected by the SDS Office. This proposal is '
-                            'final; start a new one to try again.',
+                        isSds
+                            ? 'Rejected by the SDS Office. This proposal is '
+                                  'final.'
+                            : 'Rejected by the SDS Office. This proposal is '
+                                  'final; start a new one to try again.',
                         ...form.sdsRemarkLines(overall: true),
                       ].join('\n'),
                     ),
@@ -157,13 +163,15 @@ class _SapFormScreenState extends State<SapFormScreen> {
                   // fill in. Without this the form simply ended, locked,
                   // with nothing saying who was being waited on.
                   if (form.awaitingEvaluation)
-                    const BrutInlineMessage(
+                    BrutInlineMessage(
                       tone: BrutTone.sun,
                       icon: Icons.hourglass_top,
-                      text:
-                          'Waiting on the SDS Office to record how this '
-                          'went. Part 6 is theirs to fill in; nothing '
-                          'more is needed from you.',
+                      text: isSds
+                          ? 'The activity has run. Record how it went in '
+                                'Part 6.'
+                          : 'Waiting on the SDS Office to record how this '
+                                'went. Part 6 is theirs to fill in; nothing '
+                                'more is needed from you.',
                     ),
                   if (form.isLocalOnly)
                     BrutInlineMessage(
@@ -269,8 +277,7 @@ class _SapFormScreenState extends State<SapFormScreen> {
                   ),
                   // The office's own actions: the server takes them from
                   // SDS staff alone, so nobody else is offered them.
-                  if (form.state == SapState.pendingReview &&
-                      SapProposalFlow.isSdsStaff(context)) ...[
+                  if (form.state == SapState.pendingReview && isSds) ...[
                     const SizedBox(height: 18),
                     const BrutSectionTitle('SDS Office'),
                     const SizedBox(height: 8),

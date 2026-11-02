@@ -311,17 +311,30 @@ class SapProposalStatus extends StatelessWidget {
         ].join('\n'),
         BrutTone.coral,
       ),
+      // A load that failed, or has not finished, leaves no state to read.
+      // That is not a proposal the office has, so it must not say so.
+      null => (
+        'Not loaded',
+        form.error ??
+            'The proposal could not be loaded. Open it again to retry.',
+        BrutTone.neutral,
+      ),
       _ => ('Sent', 'Waiting on the SDS Office.', BrutTone.sun),
     };
 
     // Open to the proposer again, or closed for good: "read-only while it
-    // is under review" is neither, so it says nothing then.
+    // is under review" is neither, so it says nothing then. Nor does it
+    // for a proposal that never loaded, which is not under review at all.
     final lock = switch (form.state) {
-      SapState.revisionRequested || SapState.rejected => null,
+      null || SapState.revisionRequested || SapState.rejected => null,
       SapState.pendingDepartmentReview =>
         'Parts 1 to 3 are read-only while it is under review. If '
             'something has to change, the Moderator or Dean returns it and '
             'they open again.',
+      // Signed, the revision stays as it is; "under review" and a return
+      // are no longer what happens to it.
+      SapState.sdsSigned || SapState.approved || SapState.completed =>
+        'Parts 1 to 3 are locked: the SDS Office has signed this revision.',
       _ =>
         'Parts 1 to 3 are read-only while it is under review. If '
             'something has to change, the SDS Office returns it and '

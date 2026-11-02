@@ -853,11 +853,16 @@ class SapForm extends ChangeNotifier {
       case SapPart.five:
         // Nothing exists until the proposal has been submitted once, and
         // nothing in it can be recorded while the Moderator and Dean still
-        // have it: the paper only goes round once the SDS Office does.
+        // have it: the paper only goes round once the SDS Office does. A
+        // return from either of them puts it back before that point; the
+        // office's own return keeps what it had started.
         final s = state;
         if (s == null ||
             s == SapState.draft ||
-            s == SapState.pendingDepartmentReview) {
+            s == SapState.pendingDepartmentReview ||
+            (s == SapState.revisionRequested &&
+                (returnedBy == SapReturnedBy.moderator ||
+                    returnedBy == SapReturnedBy.dean))) {
           return SapPartStatus.locked;
         }
         return SapPartStatus.partial;

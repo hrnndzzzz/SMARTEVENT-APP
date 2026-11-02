@@ -90,7 +90,7 @@ void main() {
     await open(tester, form);
 
     expect(find.textContaining('REVISION 2'), findsOneWidget);
-    expect(find.textContaining('With your Moderator and Dean'), findsOneWidget);
+    expect(find.textContaining('With the Moderator and Dean'), findsOneWidget);
     expect(find.textContaining('sent this back'), findsNothing);
   });
 

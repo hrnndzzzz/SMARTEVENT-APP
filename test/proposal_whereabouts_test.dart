@@ -13,6 +13,7 @@ import 'package:smartevent/screens/sap/sap_part1_screen.dart';
 import 'package:smartevent/screens/sap/sap_part3_screen.dart';
 import 'package:smartevent/screens/sap/sap_proposal_flow.dart';
 import 'package:smartevent/state/app_settings.dart';
+import 'package:smartevent/state/app_state.dart' show AppState, UserRole;
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
@@ -66,11 +67,25 @@ void main() {
     return form;
   }
 
-  Future<void> openHub(WidgetTester tester, SapForm form) async {
+  /// The hub, as [role] when one is given and as nobody in particular when
+  /// not.
+  Future<void> openHub(
+    WidgetTester tester,
+    SapForm form, {
+    UserRole? role,
+  }) async {
     tester.view.devicePixelRatio = 2.75;
     tester.view.physicalSize = const Size(1080, 2400);
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(host(SapFormScreen(form: form)));
+    final hub = host(SapFormScreen(form: form));
+    await tester.pumpWidget(
+      role == null
+          ? hub
+          : ChangeNotifierProvider.value(
+              value: AppState()..enterDemo(role: role),
+              child: hub,
+            ),
+    );
     await tester.pump(const Duration(milliseconds: 300));
   }
 
@@ -94,7 +109,7 @@ void main() {
       });
       await openHub(tester, form);
 
-      final notice = banner(tester, 'With your Moderator and Dean');
+      final notice = banner(tester, 'With the Moderator and Dean');
       expect(notice.text, contains('before it goes to the SDS Office'));
       expect(notice.tone, BrutTone.sun);
       expect(notice.icon, Icons.hourglass_top);
@@ -283,6 +298,200 @@ void main() {
           reason: 'an event the demo does not seed',
         );
       });
+    });
+  });
+
+  // The hub and the status card are read by the proposer, by the Moderator
+  // and the Dean, and by the SDS Office. Each of them used to be told the
+  // proposer's version: "your" Moderator, "start a new one", "nothing more is
+  // needed from you".
+  group('the hub, read by each role', () {
+    testWidgets('says the Moderator and Dean have it, to everyone', (
+      tester,
+    ) async {
+      for (final role in [null, UserRole.sdsStaff]) {
+        final form = await loaded('pending_department_review');
+        await tester.pumpWidget(const SizedBox.shrink());
+        await openHub(tester, form, role: role);
+
+        final notice = banner(tester, 'With the Moderator and Dean');
+        expect(
+          notice.text,
+          'With the Moderator and Dean. They approve it before it goes to '
+          'the SDS Office.',
+          reason: '$role',
+        );
+        expect(notice.tone, BrutTone.sun, reason: '$role');
+        expect(notice.icon, Icons.hourglass_top, reason: '$role');
+        expect(find.textContaining('your Moderator'), findsNothing);
+      }
+    });
+
+    testWidgets('tells the SDS Office a rejection is final, and no more', (
+      tester,
+    ) async {
+      final rejected = {
+        'sds_review': {
+          'overall_remarks': 'Not an organizational activity',
+          'section_remarks': {'budget': 'Meals over the allowance'},
+        },
+      };
+
+      await openHub(
+        tester,
+        await loaded('rejected', rejected),
+        role: UserRole.sdsStaff,
+      );
+      final office = banner(tester, 'Rejected by the SDS Office');
+      expect(
+        office.text,
+        'Rejected by the SDS Office. This proposal is final.\n'
+        'Not an organizational activity\n'
+        'Budget: Meals over the allowance',
+      );
+      expect(office.tone, BrutTone.coral);
+      expect(office.icon, Icons.block);
+
+      // The proposer still reads the advice meant for them.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await openHub(tester, await loaded('rejected', rejected));
+      expect(
+        banner(tester, 'Rejected by the SDS Office').text,
+        contains('start a new one to try again'),
+      );
+    });
+
+    testWidgets('tells the SDS Office to record how the activity went', (
+      tester,
+    ) async {
+      await openHub(tester, await loaded('approved'), role: UserRole.sdsStaff);
+
+      final office = banner(tester, 'The activity has run');
+      expect(
+        office.text,
+        'The activity has run. Record how it went in Part 6.',
+      );
+      expect(office.tone, BrutTone.sun);
+      expect(office.icon, Icons.hourglass_top);
+      expect(find.textContaining('nothing more is needed'), findsNothing);
+
+      // The proposer is told to wait for the office, as before.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await openHub(tester, await loaded('approved'));
+      expect(
+        banner(tester, 'Waiting on the SDS Office').text,
+        contains('nothing more is needed from you'),
+      );
+      expect(find.textContaining('The activity has run'), findsNothing);
+    });
+
+    testWidgets(
+      'shuts Part 5 after the department\'s return, not the office\'s',
+      (tester) async {
+        // A Moderator or Dean return sends the paper back before the office
+        // has it, so there is nothing in Part 5 to do; the office's own
+        // return leaves the clearance it had started.
+        for (final (by, shut) in <(String?, bool)>[
+          ('moderator', true),
+          ('dean', true),
+          ('sds', false),
+          (null, false),
+        ]) {
+          final form = await loaded('revision_requested', {'returned_by': ?by});
+          await tester.pumpWidget(const SizedBox.shrink());
+          await openHub(tester, form);
+
+          final part5 = find.widgetWithText(
+            BrutListRow,
+            'University Clearance',
+          );
+          expect(
+            find.descendant(of: part5, matching: find.text('Not yet')),
+            shut ? findsOneWidget : findsNothing,
+            reason: '$by',
+          );
+          expect(
+            tester.widget<BrutListRow>(part5).onTap,
+            shut ? isNull : isNotNull,
+            reason: '$by',
+          );
+        }
+      },
+    );
+
+    // The card and its lock note behind the hub, once it is no longer the
+    // proposer's to edit.
+    Future<void> show(WidgetTester tester, SapForm form) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(host(SapProposalStatus(form: form)));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('does not say a proposal that never loaded was sent', (
+      tester,
+    ) async {
+      // No reply yet, and then a reply that failed: neither is "Sent".
+      final unloaded = formFor(
+        MockClient((_) async => http.Response('Server error', 500)),
+      );
+      final failed = formFor(
+        MockClient((_) async => http.Response('Server error', 500)),
+      );
+      await failed.load();
+      expect(failed.state, isNull);
+      expect(failed.error, isNotNull);
+
+      await show(tester, unloaded);
+      expect(find.text('Not loaded'), findsOneWidget);
+      expect(
+        find.text('The proposal could not be loaded. Open it again to retry.'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<BrutCard>(find.byType(BrutCard)).tone,
+        BrutTone.neutral,
+      );
+      expect(find.text('Sent'), findsNothing);
+      expect(find.textContaining('Waiting on the SDS Office'), findsNothing);
+      expect(find.textContaining('read-only'), findsNothing);
+
+      await show(tester, failed);
+      expect(find.text('Not loaded'), findsOneWidget);
+      expect(find.text(failed.error!), findsOneWidget);
+      expect(find.textContaining('could not be loaded'), findsNothing);
+      expect(find.text('Sent'), findsNothing);
+    });
+
+    testWidgets('says who signed once the SDS Office has', (tester) async {
+      for (final state in [
+        SapState.sdsSigned,
+        SapState.approved,
+        SapState.completed,
+      ]) {
+        await show(tester, SapForm(eventId: 'e1')..seedLocally(state: state));
+
+        expect(
+          find.text(
+            'Parts 1 to 3 are locked: the SDS Office has signed this '
+            'revision.',
+          ),
+          findsOneWidget,
+          reason: state.name,
+        );
+        expect(find.textContaining('under review'), findsNothing);
+        expect(find.textContaining('returns it'), findsNothing);
+      }
+
+      // Still under review, the note is the one it was.
+      await show(
+        tester,
+        SapForm(eventId: 'e1')..seedLocally(state: SapState.pendingReview),
+      );
+      expect(
+        find.textContaining('read-only while it is under review'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('the SDS Office returns it'), findsOneWidget);
     });
   });
 
