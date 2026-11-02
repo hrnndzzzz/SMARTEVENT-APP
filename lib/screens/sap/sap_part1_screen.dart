@@ -599,7 +599,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                                   offCampusAgreement: !x.offCampusAgreement,
                                 ),
                               )
-                            : () {},
+                            : null,
                       ),
                     ),
                   ),
