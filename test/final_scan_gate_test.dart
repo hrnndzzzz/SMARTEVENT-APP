@@ -293,6 +293,93 @@ void main() {
     });
   });
 
+  // Once the SDS Office has decided there is no road to a scan left to
+  // describe: a rejection is final and no scan follows it, and an approval is
+  // the scan itself. Part 5 went on telling everyone how to get to one.
+  group('Part 5 after the SDS Office has decided', () {
+    final readers = [UserRole.sdsStaff, UserRole.treasurer];
+
+    testWidgets('says no signed scan follows a rejection', (tester) async {
+      for (final role in readers) {
+        // Rejected while the office was recording, so four slots are on file.
+        final form = await loaded('rejected', recorded: 4);
+        await open(tester, SapPart5Screen(form: form), role: role);
+
+        final reason = role.name;
+        final notice = scanNotice(tester);
+        expect(
+          notice.text,
+          contains('Rejected by the SDS Office'),
+          reason: reason,
+        );
+        expect(notice.text, contains('no signed scan'), reason: reason);
+        expect(notice.tone, BrutTone.coral, reason: reason);
+        for (final said in [
+          'once all nine',
+          'have to be recorded',
+          'Slots 5 to 9',
+        ]) {
+          expect(
+            find.textContaining(said),
+            findsNothing,
+            reason: '$reason: $said',
+          );
+        }
+      }
+    });
+
+    testWidgets('closes the page of a rejection that has no slots', (
+      tester,
+    ) async {
+      // The demo has no server, so what it seeds as rejected has no workflow.
+      for (final role in readers) {
+        final form = SapForm(eventId: 'e1')
+          ..seedLocally(state: SapState.rejected);
+        await open(tester, SapPart5Screen(form: form), role: role);
+
+        final reason = role.name;
+        expect(
+          find.textContaining('open once the proposal is submitted'),
+          findsNothing,
+          reason: reason,
+        );
+        final line = banner(tester, 'Rejected by the SDS Office');
+        expect(
+          line.text,
+          contains('Nothing more is recorded or uploaded'),
+          reason: reason,
+        );
+        expect(line.tone, BrutTone.coral, reason: reason);
+        expect(line.icon, Icons.block, reason: reason);
+      }
+    });
+
+    testWidgets('says the signed scan is stored once approved', (tester) async {
+      for (final state in ['approved', 'completed']) {
+        for (final role in readers) {
+          final form = await loaded(state);
+          await open(tester, SapPart5Screen(form: form), role: role);
+
+          final reason = '${role.name} at $state';
+          final notice = scanNotice(tester);
+          expect(notice.text, contains('is stored'), reason: reason);
+          expect(notice.text, contains('cannot be replaced'), reason: reason);
+          expect(notice.tone, BrutTone.mint, reason: reason);
+          expect(
+            find.textContaining('Upload the scanned'),
+            findsNothing,
+            reason: reason,
+          );
+          expect(
+            find.textContaining('uploads the signed scan'),
+            findsNothing,
+            reason: reason,
+          );
+        }
+      }
+    });
+  });
+
   group('Part 6', () {
     SapSingleChoice<SapEvaluationOutcome> outcome(WidgetTester tester) =>
         tester.widget(find.byType(SapSingleChoice<SapEvaluationOutcome>));

@@ -170,6 +170,12 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
         final canWrite = isSds && !_form.isReadOnly;
         final allRecorded =
             workflow != null && workflow.completedCount == workflow.totalCount;
+        // Once the office has decided there is nothing left to record: a
+        // rejection is final, and an approval means the scan is in.
+        final rejected = _form.state == SapState.rejected;
+        final scanStored =
+            _form.state == SapState.approved ||
+            _form.state == SapState.completed;
 
         return BrutScreen(
           header: BrutHeader(
@@ -228,13 +234,22 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
               const SizedBox(height: 16),
 
               if (!live) ...[
-                const BrutInlineMessage(
-                  tone: BrutTone.sun,
-                  icon: Icons.lock_clock,
-                  text:
-                      'The nine slots open once the proposal is submitted. '
-                      'Until then this is how the printed page will look.',
-                ),
+                if (rejected)
+                  const BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.block,
+                    text:
+                        'Rejected by the SDS Office. Nothing more is recorded '
+                        'or uploaded on this proposal.',
+                  )
+                else
+                  const BrutInlineMessage(
+                    tone: BrutTone.sun,
+                    icon: Icons.lock_clock,
+                    text:
+                        'The nine slots open once the proposal is submitted. '
+                        'Until then this is how the printed page will look.',
+                  ),
                 const SizedBox(height: 14),
                 for (final (slot, position, label)
                     in SapPart5Screen.blankSlots) ...[
@@ -267,25 +282,39 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                const SizedBox(height: 6),
-                const BrutInlineMessage(
-                  tone: BrutTone.neutral,
-                  icon: Icons.info_outline,
-                  text:
-                      'Slots 2 and 3 can be recorded in either order. The '
-                      'rest follow the page, each after the one above it. '
-                      'Slots 5 to 9 open once the SDS Office has signed. A '
-                      'checkpoint recorded wrongly is not overwritten: return '
-                      'the proposal and start a fresh revision.',
-                ),
+                if (!rejected) ...[
+                  const SizedBox(height: 6),
+                  const BrutInlineMessage(
+                    tone: BrutTone.neutral,
+                    icon: Icons.info_outline,
+                    text:
+                        'Slots 2 and 3 can be recorded in either order. The '
+                        'rest follow the page, each after the one above it. '
+                        'Slots 5 to 9 open once the SDS Office has signed. A '
+                        'checkpoint recorded wrongly is not overwritten: '
+                        'return the proposal and start a fresh revision.',
+                  ),
+                ],
                 const SizedBox(height: 22),
 
                 const BrutSectionTitle('Signed scan'),
                 const SizedBox(height: 8),
                 BrutInlineMessage(
-                  tone: isSds && !allRecorded ? BrutTone.sun : BrutTone.neutral,
+                  tone: rejected
+                      ? BrutTone.coral
+                      : scanStored
+                      ? BrutTone.mint
+                      : isSds && !allRecorded
+                      ? BrutTone.sun
+                      : BrutTone.neutral,
                   icon: Icons.upload_file,
-                  text: !isSds
+                  text: rejected
+                      ? 'Rejected by the SDS Office, so no signed scan '
+                            'follows.'
+                      : scanStored
+                      ? 'The signed scan is stored as the evidence of '
+                            'approval. It cannot be replaced.'
+                      : !isSds
                       ? 'The SDS Office uploads the signed scan once all nine '
                             'are recorded.'
                       : allRecorded
