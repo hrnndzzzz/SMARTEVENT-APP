@@ -559,8 +559,7 @@ abstract final class DemoProposals {
   /// reason attached, which is the thing that was wrong before.
   ///
   /// A rejection is final, so this asks for nothing to be sent back.
-  static String? sdsRemarksFor(EventItem event) =>
-      event.remoteId == 'demo-ev-3'
+  static String? sdsRemarksFor(EventItem event) => event.remoteId == 'demo-ev-3'
       // True of what is actually seeded: a 9:00 start, and Part 3's
       // excuse arrangement left blank. A reason that describes rows the
       // form does not have is worse than no reason.
