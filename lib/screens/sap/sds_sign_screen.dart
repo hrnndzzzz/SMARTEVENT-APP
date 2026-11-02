@@ -62,7 +62,11 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
   /// server refuses a blank one. They do not need Part 4: the office may
   /// send a proposal back before filling it in.
   bool get _hasReason => _overall.text.trim().isNotEmpty;
-  bool get _canDecide => _open && _hasReason && !_form.saving;
+
+  /// Nothing is sent from a stale form: every request would carry the old
+  /// version and be refused again, so the way on is to reload it first.
+  bool get _canDecide =>
+      _open && _hasReason && !_form.saving && !_form.isStale;
 
   void _collect() {
     _form.overallRemarks = _overall.text.trim();
@@ -183,7 +187,8 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
               icon: Icons.draw_outlined,
               busy: _form.saving,
               busyLabel: 'Signing',
-              onPressed: _open && _cleared && _signature.isSendable
+              onPressed:
+                  _open && _cleared && _signature.isSendable && !_form.isStale
                   ? _sign
                   : null,
             ),
@@ -204,6 +209,27 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                             'reviewed here.',
                 ),
               if (!_open) const SizedBox(height: 16),
+
+              // The remarks typed here stay put through a reload: they live
+              // in this screen's fields, not in what the form reloads.
+              if (_form.isStale) ...[
+                const BrutInlineMessage(
+                  tone: BrutTone.coral,
+                  icon: Icons.sync_problem,
+                  text:
+                      'Someone else changed this proposal. Reload it to see '
+                      'their version before deciding.',
+                ),
+                const SizedBox(height: 10),
+                BrutButton(
+                  label: 'Reload the proposal',
+                  tone: BrutTone.neutral,
+                  busy: _form.loading,
+                  busyLabel: 'Reloading',
+                  onPressed: _form.load,
+                ),
+                const SizedBox(height: 16),
+              ],
 
               const BrutSectionTitle('Remarks'),
               const SizedBox(height: 10),
@@ -240,7 +266,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 tone: BrutTone.neutral,
                 busy: _form.saving,
                 busyLabel: 'Saving',
-                onPressed: _open ? _saveNotes : null,
+                onPressed: _open && !_form.isStale ? _saveNotes : null,
               ),
 
               const SizedBox(height: 24),

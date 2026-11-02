@@ -10,6 +10,7 @@ import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/api/sap_service.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/screens/sap/sds_sign_screen.dart';
+import 'package:smartevent/screens/sap/signature_pad.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
@@ -25,9 +26,15 @@ void main() {
   late List<http.Request> requests;
   var conflict = false;
 
+  /// The version and state a read of the proposal answers with.
+  var served = 3;
+  var servedState = 'pending_sap_review';
+
   setUp(() {
     requests = [];
     conflict = false;
+    served = 3;
+    servedState = 'pending_sap_review';
   });
 
   http.Response json(Map<String, dynamic> body, [int status = 200]) =>
@@ -62,17 +69,17 @@ void main() {
     if (remarks != null) 'sds_review': {'overall_remarks': remarks},
   };
 
-  /// A proposal the server holds at version 3, waiting on the SDS Office. A
-  /// decision is answered with the proposal one version on, unless [conflict]
-  /// says someone else got there first. [requests] holds what was sent after
-  /// the load.
+  /// A proposal the server holds at version 3 ([served]), waiting on the SDS
+  /// Office. A decision is answered with the proposal one version on, unless
+  /// [conflict] says someone else got there first. [requests] holds what was
+  /// sent after the load.
   Future<SapForm> loaded({bool cleared = true}) async {
     final client = ApiClient(
       httpClient: MockClient((request) async {
         requests.add(request);
         if (request.method == 'GET') {
           return json(
-            proposal('pending_sap_review', version: 3, cleared: cleared),
+            proposal(servedState, version: served, cleared: cleared),
           );
         }
         if (conflict) {
@@ -137,6 +144,15 @@ void main() {
     of: find.widgetWithText(BrutTextField, label),
     matching: find.byType(TextField),
   );
+
+  /// One stroke on the signature pad, enough to be sent.
+  Future<void> draw(WidgetTester tester) async {
+    await tester.dragFrom(
+      tester.getTopLeft(find.byType(SapSignaturePad)) + const Offset(40, 60),
+      const Offset(50, 30),
+    );
+    await tester.pumpAndSettle();
+  }
 
   Future<void> write(WidgetTester tester, String label, String text) async {
     await tester.enterText(field(label), text);
@@ -286,11 +302,16 @@ void main() {
       expect(form.state, SapState.pendingReview);
     });
 
-    testWidgets('a changed proposal says so', (tester) async {
+    testWidgets('a changed proposal says so and waits for a reload', (
+      tester,
+    ) async {
       conflict = true;
       final form = await loaded();
       await open(tester, form);
       await write(tester, 'OVERALL', 'Move it to the afternoon.');
+      await draw(tester);
+      expect(pressable(tester, 'Approve and sign'), isTrue);
+      expect(find.textContaining('Reload it'), findsNothing);
 
       await decide(tester, 'Return for revision', confirm: 'Return');
 
@@ -298,14 +319,87 @@ void main() {
       expect(
         find.text('Someone else changed this proposal.'),
         findsOneWidget,
+        reason: 'the snackbar carries the words the server sent',
       );
       expect(find.byType(SdsSignScreen), findsOneWidget);
       expect(form.isStale, isTrue);
       expect(form.state, SapState.pendingReview);
-      // What was typed is still there, and so is the way to try again.
+
+      // The way on is named, and nothing can be sent until it is taken: every
+      // request would carry the old version and be refused again.
+      final banner = tester.widget<BrutInlineMessage>(
+        find.byWidgetPredicate(
+          (w) => w is BrutInlineMessage && w.text.contains('Reload it'),
+        ),
+      );
+      expect(banner.tone, BrutTone.coral);
+      expect(banner.icon, Icons.sync_problem);
+      expect(banner.text, contains('Someone else changed this proposal.'));
+      for (final label in [
+        'Return for revision',
+        'Reject',
+        'Approve and sign',
+        'Save remarks',
+      ]) {
+        expect(pressable(tester, label), isFalse, reason: label);
+      }
+      expect(pressable(tester, 'Reload the proposal'), isTrue);
       expect(find.text('Move it to the afternoon.'), findsOneWidget);
-      expect(pressable(tester, 'Return for revision'), isTrue);
-      expect(pressable(tester, 'Reject'), isTrue);
+
+      // Meanwhile the proposal moved on a version, and is still waiting.
+      conflict = false;
+      served = 4;
+      requests.clear();
+      await tester.tap(find.widgetWithText(BrutButton, 'Reload the proposal'));
+      await tester.pumpAndSettle();
+
+      expect(requests.single.method, 'GET');
+      expect(requests.single.url.path, '/events/e1/sap-proposal');
+      expect(form.isStale, isFalse);
+      expect(form.version, 4);
+      expect(find.textContaining('Reload it'), findsNothing);
+      expect(find.text('Reload the proposal'), findsNothing);
+      expect(find.text('Move it to the afternoon.'), findsOneWidget);
+      for (final label in ['Return for revision', 'Reject', 'Approve and sign']) {
+        expect(pressable(tester, label), isTrue, reason: label);
+      }
+
+      await decide(tester, 'Return for revision', confirm: 'Return');
+
+      final post = requests.last;
+      expect(post.method, 'POST');
+      expect(post.url.path, '/events/e1/sap-proposal/return');
+      expect(jsonDecode(post.body), {
+        'expected_version': 4,
+        'remarks': 'Move it to the afternoon.',
+        'section_remarks': <String, dynamic>{},
+      });
+      expect(find.byType(SdsSignScreen), findsNothing);
+    });
+
+    testWidgets('a reload that finds the proposal decided locks the screen', (
+      tester,
+    ) async {
+      conflict = true;
+      final form = await loaded();
+      await open(tester, form);
+      await write(tester, 'OVERALL', 'Move it to the afternoon.');
+      await decide(tester, 'Return for revision', confirm: 'Return');
+      expect(form.isStale, isTrue);
+
+      // Someone else got there first and signed it.
+      conflict = false;
+      served = 4;
+      servedState = 'sds_signed';
+      await tester.tap(find.widgetWithText(BrutButton, 'Reload the proposal'));
+      await tester.pumpAndSettle();
+
+      expect(form.isStale, isFalse);
+      expect(find.textContaining('Reload it'), findsNothing);
+      expect(find.textContaining('This revision is signed'), findsOneWidget);
+      expect(pressable(tester, 'Return for revision'), isFalse);
+      expect(pressable(tester, 'Reject'), isFalse);
+      expect(find.text('Move it to the afternoon.'), findsOneWidget);
     });
 
     testWidgets('returning does not wait for Part 4', (tester) async {
