@@ -385,7 +385,11 @@ class _ApprovalStatusCard extends StatelessWidget {
                 Expanded(
                   child: _StageChip(
                     label: 'Admin approval',
+                    // Institutional review follows the admin's approval, in
+                    // both flows.
                     done:
+                        event.status ==
+                            EventApprovalStatus.pendingInstitutional ||
                         event.status == EventApprovalStatus.approved ||
                         event.status == EventApprovalStatus.completed,
                     current: event.status == EventApprovalStatus.pendingAdmin,

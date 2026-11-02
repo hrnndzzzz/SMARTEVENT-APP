@@ -225,6 +225,15 @@ void main() {
       expect(find.byIcon(Icons.hourglass_top), findsOneWidget);
     });
 
+    // The SDS Office has it, so the Dean has approved: it follows the Dean's
+    // approval in both flows. The chip stayed grey as if nobody had it yet.
+    testWidgets('with the SDS Office, both are done', (tester) async {
+      await show(tester, EventApprovalStatus.pendingInstitutional);
+
+      expect(find.byIcon(Icons.check_circle), findsNWidgets(2));
+      expect(find.byIcon(Icons.hourglass_top), findsNothing);
+    });
+
     testWidgets('approved ticks both', (tester) async {
       await show(tester, EventApprovalStatus.approved);
 
