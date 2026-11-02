@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/screens/proposal_letters_screen.dart';
+import 'package:smartevent/screens/sap/signature_pad.dart';
 import 'package:smartevent/screens/sap/sds_summary_screen.dart';
 import 'package:smartevent/screens/sds_proposals_screen.dart';
 import 'package:smartevent/state/app_state.dart';
@@ -120,16 +121,74 @@ void main() {
     expect(find.text('Review and decide'), findsOneWidget);
   });
 
+  // With the Moderator or the Dean a proposal is not the office's yet: the
+  // office cannot decide it, so the demo's list does not offer it. (The live
+  // list stays as the server scopes it.)
+  testWidgets('the demo list holds what is with the office, not the '
+      'Moderator or the Dean', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1600));
+    final app = AppState()..enterDemo(role: UserRole.sdsStaff);
+    String title(String id) =>
+        app.events.firstWhere((e) => e.remoteId == id).title;
+
+    await tester.pumpWidget(host(app, const SdsProposalsScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text(title('demo-ev-1')), findsNothing, reason: 'Moderator');
+    expect(find.text(title('demo-ev-7')), findsNothing, reason: 'Dean');
+    expect(find.text(title('demo-ev-6')), findsOneWidget);
+    // Approved, rejected, completed and the one with the office.
+    expect(find.text('4 submitted across the school.'), findsOneWidget);
+  });
+
+  // Part 4 is answered for the demo's office proposal, so the one thing the
+  // screen asks for before signing is there: the pad is live, and signing
+  // goes as far as the missing server.
+  testWidgets('the demo office can draw a signature on the proposal it has', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 3000));
+    final app = AppState()..enterDemo(role: UserRole.sdsStaff);
+    final event = app.events.firstWhere((e) => e.remoteId == 'demo-ev-6');
+
+    await tester.pumpWidget(host(app, const SdsProposalsScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(event.title));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Review and decide'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Confirm Part 4'), findsNothing);
+    expect(
+      tester.widget<SapSignaturePad>(find.byType(SapSignaturePad)).enabled,
+      isTrue,
+    );
+
+    await tester.dragFrom(
+      tester.getTopLeft(find.byType(SapSignaturePad)) + const Offset(40, 60),
+      const Offset(50, 30),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(BrutButton, 'Approve and sign'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Sign'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('This proposal has not been saved to the server yet.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('and the summary opens where the event has got to', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(420, 1600));
 
     // No server in the demo, so the event's status is the proposal's whole
-    // timeline. A draft is not listed at all.
+    // timeline. A draft is not listed at all, nor is one with the Moderator
+    // or the Dean: it is not the office's to decide yet.
     for (final (status, state) in [
-      (EventApprovalStatus.pendingAdviser, SapState.pendingDepartmentReview),
-      (EventApprovalStatus.pendingAdmin, SapState.pendingDepartmentReview),
       (EventApprovalStatus.pendingInstitutional, SapState.pendingReview),
       (EventApprovalStatus.rejected, SapState.rejected),
       (EventApprovalStatus.approved, SapState.approved),

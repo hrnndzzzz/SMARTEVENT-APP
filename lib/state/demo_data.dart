@@ -215,6 +215,22 @@ abstract final class DemoData {
       eventScope: EventScope.organizational,
       proposedBy: 'demo-account-treasurer',
     ),
+    // Last again. With the Dean, and proposed by the officer: the demo's
+    // admin is not its proposer, or nobody-decides-their-own would hide the
+    // decision from the one role it is here for.
+    EventItem(
+      remoteId: 'demo-ev-7',
+      title: 'CITE Research Colloquium',
+      org: 'CITE',
+      date: '10 Dec 2026',
+      on: DateTime(2026, 12, 10),
+      budget: '6000',
+      status: EventApprovalStatus.pendingAdmin,
+      schoolYear: '2026-2027',
+      semester: Semester.first,
+      eventScope: EventScope.departmental,
+      proposedBy: 'demo-account-officer',
+    ),
   ];
 
   /// A consolidated financial report, so the Reports screen has one.
@@ -567,6 +583,46 @@ abstract final class DemoProposals {
             'activity cannot be approved as proposed.'
       : null;
 
+  /// Part 4, for the events the SDS Office has been through or has now.
+  /// Null for the rest: a proposal still with the Moderator or the Dean has
+  /// not reached the office, and the review screen waits on it to sign.
+  static SapClearance? clearanceFor(EventItem event) =>
+      _clearances[event.remoteId];
+
+  static const _clearances = <String, SapClearance>{
+    'demo-ev-2': SapClearance(
+      parentsConsent: SapClearanceAnswer.notApplicable,
+      parentsConsentReason: 'On campus, within school hours.',
+      attachments: 'Program of activities, budget and endorsement letter',
+      classInterruption: SapClearanceAnswer.none,
+      medicalExam: SapClearanceAnswer.notApplicable,
+      medicalExamReason: 'No strenuous activity.',
+      reportOfCompliance: SapClearanceAnswer.yes,
+      studentPersonnelRatio: '400:8',
+    ),
+    'demo-ev-5': SapClearance(
+      parentsConsent: SapClearanceAnswer.notApplicable,
+      parentsConsentReason: 'On campus, within school hours.',
+      attachments: 'Program of activities and budget',
+      classInterruption: SapClearanceAnswer.none,
+      medicalExam: SapClearanceAnswer.notApplicable,
+      medicalExamReason: 'No strenuous activity.',
+      reportOfCompliance: SapClearanceAnswer.yes,
+      studentPersonnelRatio: '300:6',
+    ),
+    // With the office to sign, so the pad opens on it.
+    'demo-ev-6': SapClearance(
+      parentsConsent: SapClearanceAnswer.notApplicable,
+      parentsConsentReason: 'On campus, within school hours.',
+      attachments: 'Program of activities, budget and speaker profile',
+      classInterruption: SapClearanceAnswer.none,
+      medicalExam: SapClearanceAnswer.notApplicable,
+      medicalExamReason: 'No strenuous activity.',
+      reportOfCompliance: SapClearanceAnswer.yes,
+      studentPersonnelRatio: '80:2',
+    ),
+  };
+
   /// Everything the summary reads, for one seeded event. Null for an
   /// event this demo has written nothing for.
   static SapDetails? detailsFor(EventItem event) {
@@ -761,6 +817,54 @@ abstract final class DemoProposals {
           type: SapSupportType.projector,
           quantity: 1,
           specify: 'With HDMI',
+        ),
+      ],
+    ),
+    // With the Dean, so the demo's admin has a whole proposal to read and
+    // decide. The three items add up to what the event asks for.
+    'demo-ev-7': _Seeded(
+      start: SapTime(9, 0),
+      end: SapTime(16, 0),
+      venue: 'St. Augustine Building, AVR',
+      inCharge: 'Engr. Aileen M. Habaradas',
+      students: 100,
+      rationale:
+          'Capstone teams face a panel without having seen how research in '
+          'the department is framed and reported. A day of short talks from '
+          'faculty and graduate students gives them something to write to '
+          'before the proposal defenses.',
+      objectives:
+          'Hear how faculty research is framed and reported.\n'
+          'Ask what a defensible methodology looks like.\n'
+          'Take away a template for a research abstract.',
+      budget: [
+        SapBudgetItem(
+          particulars: 'Invited speaker honorarium',
+          amount: '3000.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Snacks',
+          quantity: 100,
+          unitCost: '20.00',
+          amount: '2000.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Programs and certificates',
+          quantity: 100,
+          unitCost: '10.00',
+          amount: '1000.00',
+        ),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.room,
+          quantity: 1,
+          specify: 'St. Augustine Bldg. AVR, 9:00 AM to 4:00 PM',
+        ),
+        SapSupportRequest(
+          type: SapSupportType.sound,
+          quantity: 1,
+          specify: 'Two microphones',
         ),
       ],
     ),

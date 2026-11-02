@@ -6,6 +6,7 @@ import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/reachability.dart';
+import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
 
@@ -87,5 +88,59 @@ void main() {
     expect(banner.text, contains('Rejected by the SDS Office'));
     expect(banner.text, contains(reasons.first));
     expect(banner.text, isNot(contains('send it back')));
+  });
+
+  // Part 4 is the SDS Office's, and answered once a proposal is past it. The
+  // demo's approved and completed events and the one with the office carry
+  // those answers; a proposal still with the Moderator has none yet.
+  testWidgets('Part 4 has answers where the office has been', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(700, 2400);
+    addTearDown(tester.view.reset);
+
+    for (final (id, answered) in [
+      ('demo-ev-1', false),
+      ('demo-ev-2', true),
+      ('demo-ev-5', true),
+      ('demo-ev-6', true),
+    ]) {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final event = app.events.firstWhere((e) => e.remoteId == id);
+
+      await tester.pumpWidget(host(app, event));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Proposal form'));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+
+      final form = tester
+          .widget<SapFormScreen>(find.byType(SapFormScreen))
+          .form;
+      expect(form.clearance != null, answered, reason: id);
+      expect(form.proposal?.clearance != null, answered, reason: id);
+      expect(form.statusOf(SapPart.four) == SapPartStatus.complete, answered);
+
+      // A fresh route each time: the last one has the form on top.
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  // The Dean decides at pending_admin, and the demo had nothing there.
+  testWidgets('the demo Dean is offered a decision on a proposal', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 2400);
+    addTearDown(tester.view.reset);
+
+    final app = AppState()..enterDemo(role: UserRole.admin);
+    final event = app.events.firstWhere((e) => e.remoteId == 'demo-ev-7');
+
+    await tester.pumpWidget(host(app, event));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Return for revision'), findsOneWidget);
+    expect(find.text('Approve'), findsOneWidget);
   });
 }

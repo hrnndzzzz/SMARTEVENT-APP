@@ -905,6 +905,8 @@ class SapForm extends ChangeNotifier {
   ///
   /// [sdsRemarks] is the SDS Office's overall remark, which is where a
   /// rejection's reason lives; [returnRemarks] is only a return's.
+  /// [clearance] is Part 4, on the proposal and on the form: the review
+  /// screen waits for it before it lets anyone sign.
   void seedLocally({
     SapState? state,
     SapDetails? details,
@@ -912,7 +914,9 @@ class SapForm extends ChangeNotifier {
     SapReturnedBy? returnedBy,
     int revisionNo = 0,
     String? sdsRemarks,
+    SapClearance? clearance,
   }) {
+    if (clearance != null) _clearance = clearance;
     _proposal = SapProposal(
       id: 'test',
       eventId: _eventId ?? '',

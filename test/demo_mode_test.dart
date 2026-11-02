@@ -3,6 +3,7 @@ import 'package:smartevent/api/compliance_service.dart';
 import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/api/models/academic.dart';
 import 'package:smartevent/state/app_state.dart';
+import 'package:smartevent/state/demo_data.dart';
 import 'package:smartevent/state/user_role.dart';
 
 /// Exploring has to fill the app, not fake a login against a server it
@@ -50,6 +51,8 @@ void main() {
     for (final wanted in [
       EventApprovalStatus.draft,
       EventApprovalStatus.pendingAdviser,
+      // With the Dean, who needs one to decide on as much as the Moderator.
+      EventApprovalStatus.pendingAdmin,
       // With the SDS Office, which is the one the demo's SDS role reviews.
       EventApprovalStatus.pendingInstitutional,
       EventApprovalStatus.approved,
@@ -58,6 +61,28 @@ void main() {
     ]) {
       expect(states, contains(wanted), reason: '$wanted has no demo event');
     }
+  });
+
+  // The Dean's step, appended last so the numbering above it holds. The
+  // demo's admin is not its proposer, or nobody-decides-their-own would hide
+  // the decision from the one role it was added for.
+  test('the Dean has a proposal to decide on, and its lines add up', () {
+    final app = AppState()..enterDemo(role: UserRole.admin);
+    final event = app.events.last;
+
+    expect(event.remoteId, 'demo-ev-7');
+    expect(event.status, EventApprovalStatus.pendingAdmin);
+    expect(event.proposedBy, 'demo-account-officer');
+    expect(event.proposedBy, isNot(app.currentAccount?.id));
+
+    final lines = DemoProposals.budgetFor(event);
+    expect(lines, isNotEmpty);
+    expect(
+      lines.fold<double>(0, (sum, line) => sum + double.parse(line.amount)),
+      double.parse(event.budget),
+    );
+    expect(DemoProposals.detailsFor(event), isNotNull);
+    expect(DemoProposals.supportFor(event), isNotEmpty);
   });
 
   // A rejection is final and the SDS Office's alone. The demo's used to name

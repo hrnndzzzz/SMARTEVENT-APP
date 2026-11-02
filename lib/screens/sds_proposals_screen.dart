@@ -41,10 +41,16 @@ class SdsProposalsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
 
-    // A draft has not been sent anywhere, so it is nobody's to review.
+    // A draft has not been sent anywhere, so it is nobody's to review. The
+    // demo has no server to scope the list, so it leaves out what is still
+    // with the Moderator or the Dean: the office cannot decide those yet.
     final waiting = [
       for (final event in app.events)
-        if (event.status != EventApprovalStatus.draft) event,
+        if (event.status != EventApprovalStatus.draft &&
+            !(app.isDemoMode &&
+                (event.status == EventApprovalStatus.pendingAdviser ||
+                    event.status == EventApprovalStatus.pendingAdmin)))
+          event,
     ];
 
     return BrutScreen(
@@ -101,6 +107,7 @@ class _ProposalCard extends StatelessWidget {
             state: _sapStateFor(event.status),
             details: DemoProposals.detailsFor(event),
             sdsRemarks: DemoProposals.sdsRemarksFor(event),
+            clearance: DemoProposals.clearanceFor(event),
           );
           form.setBudgetItems(DemoProposals.budgetFor(event));
           form.setSupportRequests(DemoProposals.supportFor(event));

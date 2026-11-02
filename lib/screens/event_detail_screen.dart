@@ -299,6 +299,7 @@ class EventDetailScreen extends StatelessWidget {
                         state: _demoSapState(event.status),
                         details: DemoProposals.detailsFor(event),
                         sdsRemarks: DemoProposals.sdsRemarksFor(event),
+                        clearance: DemoProposals.clearanceFor(event),
                       );
                       form.setBudgetItems(DemoProposals.budgetFor(event));
                       form.setSupportRequests(DemoProposals.supportFor(event));
