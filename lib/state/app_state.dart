@@ -2430,6 +2430,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// The version of the event's SAP proposal as the server holds it now,
+  /// which a decision has to send back; null when the event has no proposal
+  /// (the plain workflow) or no backend record.
+  ///
+  /// Read when the reviewer opens the event, not when they decide: the
+  /// version they are shown is the one they judged, and a proposal that has
+  /// changed since is refused rather than approved unseen. Any other
+  /// failure is the caller's to show.
+  Future<int?> proposalVersionFor(EventItem event) async {
+    final id = event.remoteId;
+    if (id == null) return null;
+    try {
+      return (await sapService.fetch(id)).version;
+    } on SapUnavailable {
+      return null;
+    }
+  }
+
   Future<String?> resubmitEvent(
     EventItem event, {
     required String title,
@@ -2509,21 +2527,34 @@ class AppState extends ChangeNotifier {
       .toList();
 
   /// Returns null on success, or an error message.
+  ///
+  /// [expectedVersion] is the proposal version the Moderator read. With it,
+  /// not approving is a return for revision: the proposal goes back to
+  /// the organization as a draft, and nobody rejected it.
   Future<String?> adviserDecision(
     EventItem event, {
     required bool approved,
     String? note,
+    int? expectedVersion,
   }) async {
     if (event.remoteId == null)
       return 'This event has no real backend record yet.';
     try {
       final RemoteEvent updated = approved
-          ? await _eventService.approve(event.remoteId!, remarks: note)
-          : await _eventService.reject(event.remoteId!, remarks: note);
+          ? await _eventService.approve(
+              event.remoteId!,
+              remarks: note,
+              expectedVersion: expectedVersion,
+            )
+          : await _eventService.reject(
+              event.remoteId!,
+              remarks: note,
+              expectedVersion: expectedVersion,
+            );
 
       event.status = _eventStatusFromString(updated.status);
       event.adviserApprovalNote = note;
-      if (!approved) event.rejectedBy = 'Adviser';
+      if (!approved && expectedVersion == null) event.rejectedBy = 'Adviser';
 
       notifyListeners();
       return null;
@@ -2532,22 +2563,32 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Returns null on success, or an error message.
+  /// Returns null on success, or an error message. [expectedVersion] is as
+  /// for [adviserDecision].
   Future<String?> adminDecision(
     EventItem event, {
     required bool approved,
     String? note,
+    int? expectedVersion,
   }) async {
     if (event.remoteId == null)
       return 'This event has no real backend record yet.';
     try {
       final RemoteEvent updated = approved
-          ? await _eventService.approve(event.remoteId!, remarks: note)
-          : await _eventService.reject(event.remoteId!, remarks: note);
+          ? await _eventService.approve(
+              event.remoteId!,
+              remarks: note,
+              expectedVersion: expectedVersion,
+            )
+          : await _eventService.reject(
+              event.remoteId!,
+              remarks: note,
+              expectedVersion: expectedVersion,
+            );
 
       event.status = _eventStatusFromString(updated.status);
       event.adminApprovalNote = note;
-      if (!approved) event.rejectedBy = 'Admin';
+      if (!approved && expectedVersion == null) event.rejectedBy = 'Admin';
 
       notifyListeners();
       return null;

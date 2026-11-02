@@ -171,18 +171,31 @@ class EventService {
     return RemoteEvent.fromJson(response as Map<String, dynamic>);
   }
 
-  Future<RemoteEvent> approve(String eventId, {String? remarks}) async {
+  /// [expectedVersion] is the proposal version the reviewer last read. The
+  /// server applies it to an event with a SAP proposal only, and refuses a
+  /// proposal that has changed since; other events ignore it.
+  Future<RemoteEvent> approve(
+    String eventId, {
+    String? remarks,
+    int? expectedVersion,
+  }) async {
     final response = await _client.post(
       '/events/$eventId/approve',
-      body: {if (remarks != null) 'remarks': remarks},
+      body: {'remarks': ?remarks, 'expected_version': ?expectedVersion},
     );
     return RemoteEvent.fromJson(response as Map<String, dynamic>);
   }
 
-  Future<RemoteEvent> reject(String eventId, {String? remarks}) async {
+  /// On an event with a SAP proposal this sends it back for revision rather
+  /// than rejecting it, and the server requires [remarks] then.
+  Future<RemoteEvent> reject(
+    String eventId, {
+    String? remarks,
+    int? expectedVersion,
+  }) async {
     final response = await _client.post(
       '/events/$eventId/reject',
-      body: {if (remarks != null) 'remarks': remarks},
+      body: {'remarks': ?remarks, 'expected_version': ?expectedVersion},
     );
     return RemoteEvent.fromJson(response as Map<String, dynamic>);
   }
