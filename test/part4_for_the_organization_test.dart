@@ -53,12 +53,28 @@ void main() {
     headers: {'content-type': 'application/json'},
   );
 
-  /// A proposal the server holds in [state], loaded. [readOnly] is the
-  /// session losing the right to write after that, as when it goes offline:
-  /// a client that cannot write cannot fetch the proposal in the first place.
+  /// What the SDS Office recorded in Part 4. None of it is what the screen
+  /// seeds when nothing is recorded, or the hint under an empty field, so
+  /// each can be told apart by the text it puts on screen.
+  const recorded = <String, dynamic>{
+    'parents_consent': 'yes',
+    'attachments': 'Letter of invitation and budget',
+    'class_interruption': 'none',
+    'medical_exam': 'not_applicable',
+    'medical_exam_reason': 'No medical exam is needed',
+    'report_of_compliance': 'not_applicable',
+    'report_of_compliance_reason': 'Stays on campus',
+    'student_personnel_ratio': '120:4',
+  };
+
+  /// A proposal the server holds in [state], loaded; with Part 4 [confirmed]
+  /// when the office has recorded its clearance. [readOnly] is the session
+  /// losing the right to write after that, as when it goes offline: a client
+  /// that cannot write cannot fetch the proposal in the first place.
   Future<SapForm> loaded(
     String state, {
     Map<String, dynamic> extra = const {},
+    bool confirmed = false,
     bool readOnly = false,
   }) async {
     final client = ApiClient(
@@ -71,6 +87,7 @@ void main() {
           'revision_no': 1,
           'details': {'title': 'Hack the Future'},
           'collections': <String, dynamic>{},
+          if (confirmed) 'clearance': recorded,
           ...extra,
         }),
       ),
@@ -118,11 +135,70 @@ void main() {
     testWidgets('is read, with the SDS Office\'s card above the answers', (
       tester,
     ) async {
-      final form = await loaded('pending_sap_review');
+      final form = await loaded('pending_sap_review', confirmed: true);
       await open(tester, SapPart4Screen(form: form), role: UserRole.treasurer);
 
       expectRead(tester);
       expect(card(tester, 'With the SDS Office').tone, BrutTone.sun);
+    });
+
+    testWidgets('shows what the office recorded, not what it seeds', (
+      tester,
+    ) async {
+      final form = await loaded('pending_sap_review', confirmed: true);
+      await open(tester, SapPart4Screen(form: form), role: UserRole.treasurer);
+
+      expect(
+        tester
+            .widgetList<SapSingleChoice<SapClearanceAnswer>>(
+              find.byType(SapSingleChoice<SapClearanceAnswer>),
+            )
+            .map((choice) => choice.value),
+        [
+          SapClearanceAnswer.yes,
+          SapClearanceAnswer.none,
+          SapClearanceAnswer.notApplicable,
+          SapClearanceAnswer.notApplicable,
+        ],
+      );
+      for (final said in [
+        'Letter of invitation and budget',
+        'No medical exam is needed',
+        'Stays on campus',
+        '120:4',
+      ]) {
+        expect(find.text(said), findsOneWidget);
+      }
+      expectRead(tester);
+    });
+
+    testWidgets('leaves the answers out when none has been recorded', (
+      tester,
+    ) async {
+      // The screen seeds "Not applicable" with no reason, which the server
+      // would refuse and which reads as the office's own answer once the card
+      // says it has acted. Nobody who cannot fill it in is shown that.
+      for (final role in [UserRole.treasurer, UserRole.sdsStaff]) {
+        for (final state in SapState.values) {
+          // Theirs to fill in, and the seeds are where they start.
+          if (role == UserRole.sdsStaff && state == SapState.pendingReview) {
+            continue;
+          }
+          final form = await loaded(state.wireName);
+          await open(tester, SapPart4Screen(form: form), role: role);
+
+          final reason = '${role.name} at ${state.wireName}';
+          expect(find.byType(BrutTextField), findsNothing, reason: reason);
+          expect(
+            find.byType(SapSingleChoice<SapClearanceAnswer>),
+            findsNothing,
+            reason: reason,
+          );
+          // What is left still says where it stands.
+          expect(find.byType(BrutCard), findsOneWidget, reason: reason);
+          expect(confirm(tester).onPressed, isNull, reason: reason);
+        }
+      }
     });
 
     testWidgets('is read by every account that is not the SDS Office', (
@@ -130,7 +206,7 @@ void main() {
     ) async {
       for (final role in UserRole.values) {
         if (role == UserRole.sdsStaff) continue;
-        final form = await loaded('pending_sap_review');
+        final form = await loaded('pending_sap_review', confirmed: true);
         await open(tester, SapPart4Screen(form: form), role: role);
         expectRead(tester, reason: role.name);
       }
@@ -138,7 +214,7 @@ void main() {
 
     testWidgets('is read when there is no account to ask', (tester) async {
       // Nobody is taken for the office on a hunch.
-      final form = await loaded('pending_sap_review');
+      final form = await loaded('pending_sap_review', confirmed: true);
       await open(tester, SapPart4Screen(form: form));
 
       expectRead(tester);
@@ -215,8 +291,10 @@ void main() {
     testWidgets('lists what the SDS Office said, with its section labels', (
       tester,
     ) async {
+      // A signed proposal always has its clearance.
       final form = await loaded(
         'sds_signed',
+        confirmed: true,
         extra: {
           'sds_review': {
             'overall_remarks': 'Fine, with a note on the food budget.',
@@ -258,6 +336,7 @@ void main() {
     testWidgets('is theirs to fill in while the proposal is with them', (
       tester,
     ) async {
+      // Nothing recorded yet: the seeds are where they start.
       final form = await loaded('pending_sap_review');
       await open(tester, SapPart4Screen(form: form), role: UserRole.sdsStaff);
 
@@ -273,14 +352,18 @@ void main() {
     ) async {
       for (final state in SapState.values) {
         if (state == SapState.pendingReview) continue;
-        final form = await loaded(state.wireName);
+        final form = await loaded(state.wireName, confirmed: true);
         await open(tester, SapPart4Screen(form: form), role: UserRole.sdsStaff);
         expectRead(tester, reason: state.wireName);
       }
     });
 
     testWidgets('is only read on a session that cannot write', (tester) async {
-      final form = await loaded('pending_sap_review', readOnly: true);
+      final form = await loaded(
+        'pending_sap_review',
+        confirmed: true,
+        readOnly: true,
+      );
       await open(tester, SapPart4Screen(form: form), role: UserRole.sdsStaff);
 
       expect(form.isReadOnly, isTrue);

@@ -166,6 +166,10 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
             !_form.isReadOnly;
         // Nothing to put right for someone who cannot change it.
         final problem = editable ? _problem : null;
+        // With nothing recorded the answers are only what initState seeds, a
+        // starting point for the office to fill in. To anyone else they would
+        // read as the office saying "Not applicable" with no reason.
+        final showAnswers = editable || _form.clearance != null;
 
         return BrutScreen(
           header: BrutHeader(
@@ -192,149 +196,150 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
                 _Outcome(form: _form),
                 const SizedBox(height: 20),
               ],
-
-              SapSingleChoice<SapClearanceAnswer>(
-                enabled: editable,
-                label: 'Parent\'s consent form',
-                options: const [
-                  SapClearanceAnswer.yes,
-                  SapClearanceAnswer.notApplicable,
-                ],
-                labelOf: (a) => a.label,
-                value: _consent,
-                onChanged: (a) => setState(
-                  () => _consent = a ?? SapClearanceAnswer.notApplicable,
+              if (showAnswers) ...[
+                SapSingleChoice<SapClearanceAnswer>(
+                  enabled: editable,
+                  label: 'Parent\'s consent form',
+                  options: const [
+                    SapClearanceAnswer.yes,
+                    SapClearanceAnswer.notApplicable,
+                  ],
+                  labelOf: (a) => a.label,
+                  value: _consent,
+                  onChanged: (a) => setState(
+                    () => _consent = a ?? SapClearanceAnswer.notApplicable,
+                  ),
                 ),
-              ),
-              if (_consent == SapClearanceAnswer.notApplicable) ...[
-                const SizedBox(height: 10),
+                if (_consent == SapClearanceAnswer.notApplicable) ...[
+                  const SizedBox(height: 10),
+                  BrutTextField(
+                    enabled: editable,
+                    controller: _consentReason,
+                    label: 'Why not',
+                    maxLength: 5000,
+                    hint: 'Online activity',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+                const SizedBox(height: 20),
+
                 BrutTextField(
                   enabled: editable,
-                  controller: _consentReason,
-                  label: 'Why not',
+                  controller: _attachments,
+                  label: 'Attachments',
                   maxLength: 5000,
-                  hint: 'Online activity',
+                  hint: 'Program flow and budget',
+                  maxLines: 2,
                   onChanged: (_) => setState(() {}),
                 ),
-              ],
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              BrutTextField(
-                enabled: editable,
-                controller: _attachments,
-                label: 'Attachments',
-                maxLength: 5000,
-                hint: 'Program flow and budget',
-                maxLines: 2,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 20),
-
-              SapSingleChoice<SapClearanceAnswer>(
-                enabled: editable,
-                label: 'Academic class interruption',
-                options: const [
-                  SapClearanceAnswer.yes,
-                  SapClearanceAnswer.none,
-                ],
-                labelOf: (a) => a.label,
-                value: _interruption,
-                onChanged: (a) => setState(
-                  () => _interruption = a ?? SapClearanceAnswer.none,
+                SapSingleChoice<SapClearanceAnswer>(
+                  enabled: editable,
+                  label: 'Academic class interruption',
+                  options: const [
+                    SapClearanceAnswer.yes,
+                    SapClearanceAnswer.none,
+                  ],
+                  labelOf: (a) => a.label,
+                  value: _interruption,
+                  onChanged: (a) => setState(
+                    () => _interruption = a ?? SapClearanceAnswer.none,
+                  ),
                 ),
-              ),
-              if (_interruption == SapClearanceAnswer.yes) ...[
-                const SizedBox(height: 10),
+                if (_interruption == SapClearanceAnswer.yes) ...[
+                  const SizedBox(height: 10),
+                  BrutTextField(
+                    enabled: editable,
+                    controller: _interruptionRemarks,
+                    label: 'Remarks',
+                    maxLength: 5000,
+                    hint: 'Excuse letters required',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 8),
+                  BrutInlineMessage(
+                    tone: _form.affectedClasses.isEmpty
+                        ? BrutTone.coral
+                        : BrutTone.neutral,
+                    icon: Icons.school_outlined,
+                    text: _form.affectedClasses.isEmpty
+                        ? 'Part 3 lists no affected classes. It has to list at '
+                              'least one for this answer.'
+                        : '${_form.affectedClasses.length} class(es) listed in '
+                              'Part 3.',
+                  ),
+                ],
+                const SizedBox(height: 20),
+
+                SapSingleChoice<SapClearanceAnswer>(
+                  enabled: editable,
+                  label: 'Medical exam request',
+                  options: const [
+                    SapClearanceAnswer.yes,
+                    SapClearanceAnswer.notApplicable,
+                  ],
+                  labelOf: (a) => a.label,
+                  value: _medical,
+                  onChanged: (a) => setState(
+                    () => _medical = a ?? SapClearanceAnswer.notApplicable,
+                  ),
+                ),
+                if (_medical == SapClearanceAnswer.notApplicable) ...[
+                  const SizedBox(height: 10),
+                  BrutTextField(
+                    enabled: editable,
+                    controller: _medicalReason,
+                    label: 'Why not',
+                    maxLength: 5000,
+                    hint: 'Online activity',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+                const SizedBox(height: 20),
+
+                SapSingleChoice<SapClearanceAnswer>(
+                  enabled: editable,
+                  label: 'Report of Compliance (CMO 63 s.2017)',
+                  options: const [
+                    SapClearanceAnswer.yes,
+                    SapClearanceAnswer.notApplicable,
+                  ],
+                  labelOf: (a) => a.label,
+                  value: _compliance,
+                  onChanged: (a) => setState(
+                    () => _compliance = a ?? SapClearanceAnswer.notApplicable,
+                  ),
+                ),
+                if (_compliance == SapClearanceAnswer.notApplicable) ...[
+                  const SizedBox(height: 10),
+                  BrutTextField(
+                    enabled: editable,
+                    controller: _complianceReason,
+                    label: 'Why not',
+                    maxLength: 5000,
+                    hint: 'No off-campus travel',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+                const SizedBox(height: 20),
+
                 BrutTextField(
                   enabled: editable,
-                  controller: _interruptionRemarks,
-                  label: 'Remarks',
+                  controller: _ratio,
+                  label: 'Student-personnel ratio',
                   maxLength: 5000,
-                  hint: 'Excuse letters required',
+                  hint: '145:3',
                   onChanged: (_) => setState(() {}),
                 ),
-                const SizedBox(height: 8),
-                BrutInlineMessage(
-                  tone: _form.affectedClasses.isEmpty
-                      ? BrutTone.coral
-                      : BrutTone.neutral,
-                  icon: Icons.school_outlined,
-                  text: _form.affectedClasses.isEmpty
-                      ? 'Part 3 lists no affected classes. It has to list at '
-                            'least one for this answer.'
-                      : '${_form.affectedClasses.length} class(es) listed in '
-                            'Part 3.',
-                ),
-              ],
-              const SizedBox(height: 20),
-
-              SapSingleChoice<SapClearanceAnswer>(
-                enabled: editable,
-                label: 'Medical exam request',
-                options: const [
-                  SapClearanceAnswer.yes,
-                  SapClearanceAnswer.notApplicable,
+                if (problem case final message?) ...[
+                  const SizedBox(height: 16),
+                  BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.error_outline,
+                    text: message,
+                  ),
                 ],
-                labelOf: (a) => a.label,
-                value: _medical,
-                onChanged: (a) => setState(
-                  () => _medical = a ?? SapClearanceAnswer.notApplicable,
-                ),
-              ),
-              if (_medical == SapClearanceAnswer.notApplicable) ...[
-                const SizedBox(height: 10),
-                BrutTextField(
-                  enabled: editable,
-                  controller: _medicalReason,
-                  label: 'Why not',
-                  maxLength: 5000,
-                  hint: 'Online activity',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ],
-              const SizedBox(height: 20),
-
-              SapSingleChoice<SapClearanceAnswer>(
-                enabled: editable,
-                label: 'Report of Compliance (CMO 63 s.2017)',
-                options: const [
-                  SapClearanceAnswer.yes,
-                  SapClearanceAnswer.notApplicable,
-                ],
-                labelOf: (a) => a.label,
-                value: _compliance,
-                onChanged: (a) => setState(
-                  () => _compliance = a ?? SapClearanceAnswer.notApplicable,
-                ),
-              ),
-              if (_compliance == SapClearanceAnswer.notApplicable) ...[
-                const SizedBox(height: 10),
-                BrutTextField(
-                  enabled: editable,
-                  controller: _complianceReason,
-                  label: 'Why not',
-                  maxLength: 5000,
-                  hint: 'No off-campus travel',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ],
-              const SizedBox(height: 20),
-
-              BrutTextField(
-                enabled: editable,
-                controller: _ratio,
-                label: 'Student-personnel ratio',
-                maxLength: 5000,
-                hint: '145:3',
-                onChanged: (_) => setState(() {}),
-              ),
-              if (problem case final message?) ...[
-                const SizedBox(height: 16),
-                BrutInlineMessage(
-                  tone: BrutTone.coral,
-                  icon: Icons.error_outline,
-                  text: message,
-                ),
               ],
             ],
           ),
