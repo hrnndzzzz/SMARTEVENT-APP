@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
+import 'sap_proposal_flow.dart';
 
 /// Part 4 — SDS Office Clearance.
+///
+/// The SDS Office's own section: the server takes it from SDS staff alone,
+/// and only while the proposal is with them. Anyone else, and the office at
+/// any other time, reads what was recorded under a card that says where the
+/// proposal is.
 ///
 /// Every "not applicable" owes a reason, which the server enforces. The
 /// form asks for it inline rather than letting someone discover at
@@ -151,6 +158,15 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
     return AnimatedBuilder(
       animation: _form,
       builder: (context, _) {
+        // `isReadOnly` is the session being offline or signed out, which
+        // says nothing about whose account this is.
+        final editable =
+            SapProposalFlow.isSdsStaff(context) &&
+            _form.state == SapState.pendingReview &&
+            !_form.isReadOnly;
+        // Nothing to put right for someone who cannot change it.
+        final problem = editable ? _problem : null;
+
         return BrutScreen(
           header: BrutHeader(
             title: 'SDS Office Clearance',
@@ -164,7 +180,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               label: 'Confirm clearance',
               busy: _form.saving,
               busyLabel: 'Saving',
-              onPressed: _form.isReadOnly ? null : _save,
+              onPressed: editable ? _save : null,
             ),
           ),
           child: Column(
@@ -172,9 +188,13 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
             children: [
               const SapSdsOnlyNotice(),
               const SizedBox(height: 16),
+              if (!editable) ...[
+                _Outcome(form: _form),
+                const SizedBox(height: 20),
+              ],
 
               SapSingleChoice<SapClearanceAnswer>(
-                enabled: !_form.isReadOnly,
+                enabled: editable,
                 label: 'Parent\'s consent form',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -189,7 +209,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_consent == SapClearanceAnswer.notApplicable) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
-                  enabled: !_form.isReadOnly,
+                  enabled: editable,
                   controller: _consentReason,
                   label: 'Why not',
                   maxLength: 5000,
@@ -200,7 +220,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               BrutTextField(
-                enabled: !_form.isReadOnly,
+                enabled: editable,
                 controller: _attachments,
                 label: 'Attachments',
                 maxLength: 5000,
@@ -211,7 +231,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               SapSingleChoice<SapClearanceAnswer>(
-                enabled: !_form.isReadOnly,
+                enabled: editable,
                 label: 'Academic class interruption',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -226,7 +246,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_interruption == SapClearanceAnswer.yes) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
-                  enabled: !_form.isReadOnly,
+                  enabled: editable,
                   controller: _interruptionRemarks,
                   label: 'Remarks',
                   maxLength: 5000,
@@ -249,7 +269,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               SapSingleChoice<SapClearanceAnswer>(
-                enabled: !_form.isReadOnly,
+                enabled: editable,
                 label: 'Medical exam request',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -264,7 +284,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_medical == SapClearanceAnswer.notApplicable) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
-                  enabled: !_form.isReadOnly,
+                  enabled: editable,
                   controller: _medicalReason,
                   label: 'Why not',
                   maxLength: 5000,
@@ -275,7 +295,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               SapSingleChoice<SapClearanceAnswer>(
-                enabled: !_form.isReadOnly,
+                enabled: editable,
                 label: 'Report of Compliance (CMO 63 s.2017)',
                 options: const [
                   SapClearanceAnswer.yes,
@@ -290,7 +310,7 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               if (_compliance == SapClearanceAnswer.notApplicable) ...[
                 const SizedBox(height: 10),
                 BrutTextField(
-                  enabled: !_form.isReadOnly,
+                  enabled: editable,
                   controller: _complianceReason,
                   label: 'Why not',
                   maxLength: 5000,
@@ -301,14 +321,14 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
               const SizedBox(height: 20),
 
               BrutTextField(
-                enabled: !_form.isReadOnly,
+                enabled: editable,
                 controller: _ratio,
                 label: 'Student-personnel ratio',
                 maxLength: 5000,
                 hint: '145:3',
                 onChanged: (_) => setState(() {}),
               ),
-              if (_problem case final message?) ...[
+              if (problem case final message?) ...[
                 const SizedBox(height: 16),
                 BrutInlineMessage(
                   tone: BrutTone.coral,
@@ -320,6 +340,92 @@ class _SapPart4ScreenState extends State<SapPart4Screen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Where Part 4 stands, for anyone who cannot change it: who has the
+/// proposal, or what the SDS Office decided, and what it said.
+class _Outcome extends StatelessWidget {
+  const _Outcome({required this.form});
+
+  final SapForm form;
+
+  /// Only a return by the office is its outcome: the Moderator or Dean
+  /// sending it back says nothing about this part. An older server does not
+  /// say who, and then it was always the office. Read only for a returned
+  /// proposal, the only time [SapForm.returnedBy] means anything.
+  bool get _returnedByOffice =>
+      form.returnedBy == null || form.returnedBy == SapReturnedBy.sds;
+
+  @override
+  Widget build(BuildContext context) {
+    final (line, detail, tone) = switch (form.state) {
+      SapState.pendingDepartmentReview => (
+        'With the Moderator and Dean',
+        'The SDS Office checks this part after both have approved the '
+            'proposal.',
+        BrutTone.sun,
+      ),
+      SapState.pendingReview => (
+        'With the SDS Office',
+        'The SDS Office is checking this part. Its answers are recorded '
+            'here once it confirms them.',
+        BrutTone.sun,
+      ),
+      SapState.revisionRequested when _returnedByOffice => (
+        'Needs revision',
+        'The SDS Office sent the proposal back. It checks this part again '
+            'when the proposal is sent again.',
+        BrutTone.coral,
+      ),
+      SapState.sdsSigned || SapState.approved || SapState.completed => (
+        'Approved',
+        'The SDS Office has confirmed this part.',
+        BrutTone.mint,
+      ),
+      SapState.rejected => (
+        'Rejected',
+        'The SDS Office rejected this proposal. It is final.',
+        BrutTone.coral,
+      ),
+      // A draft, or one the Moderator or Dean returned: the office has not
+      // had this round of it.
+      _ => (
+        'Not with the SDS Office yet',
+        'It goes to the Moderator and Dean first, then the SDS Office.',
+        BrutTone.neutral,
+      ),
+    };
+    final remarks = form.sdsRemarkLines(overall: true);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BrutCard(
+          tone: tone,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const MonoLabel('Where it is'),
+              const SizedBox(height: 6),
+              Text(line, style: AppText.display.copyWith(fontSize: 26)),
+              const SizedBox(height: 10),
+              Text(detail, style: AppText.caption),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        const BrutSectionTitle('SDS Office remarks'),
+        const SizedBox(height: 8),
+        BrutInlineMessage(
+          tone: BrutTone.neutral,
+          icon: Icons.chat_bubble_outline,
+          text: remarks.isEmpty
+              ? 'No remarks from the SDS Office yet.'
+              : remarks.join('\n'),
+        ),
+      ],
     );
   }
 }

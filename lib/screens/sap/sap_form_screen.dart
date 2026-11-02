@@ -289,7 +289,10 @@ class _SapFormScreenState extends State<SapFormScreen> {
                             'hand.',
                     },
                   ),
-                  if (form.state == SapState.pendingReview) ...[
+                  // The office's own actions: the server takes them from
+                  // SDS staff alone, so nobody else is offered them.
+                  if (form.state == SapState.pendingReview &&
+                      SapProposalFlow.isSdsStaff(context)) ...[
                     const SizedBox(height: 18),
                     const BrutSectionTitle('SDS Office'),
                     const SizedBox(height: 8),

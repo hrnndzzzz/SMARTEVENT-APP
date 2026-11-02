@@ -1,10 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/screens/sap/sds_sign_screen.dart';
 import 'package:smartevent/screens/sap/signature_pad.dart';
+import 'package:smartevent/state/app_state.dart' show AppState, UserRole;
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
@@ -16,6 +18,13 @@ import 'package:smartevent/theme/brut.dart';
 /// which cannot be undone — asks first.
 Widget host(Widget child) =>
     MaterialApp(theme: AppTheme.light(), home: child);
+
+/// The way into review and signing is the SDS Office's alone, so the hub is
+/// hosted as an SDS Office account.
+Widget hostAsSds(Widget child) => ChangeNotifierProvider.value(
+  value: AppState()..enterDemo(role: UserRole.sdsStaff),
+  child: host(child),
+);
 
 void main() {
   group('the pad', () {
@@ -169,15 +178,16 @@ void main() {
       final form = SapForm(eventId: 'e1')
         ..seedLocally(state: SapState.pendingReview);
 
-      await tester.pumpWidget(host(SapFormScreen(form: form)));
+      await tester.pumpWidget(hostAsSds(SapFormScreen(form: form)));
       await tester.pumpAndSettle();
 
       expect(find.text('Review and sign'), findsOneWidget);
     });
 
     testWidgets('and does not while it is still a draft', (tester) async {
+      // As the SDS Office, or the absence would only be the missing role.
       await tester.pumpWidget(
-        host(SapFormScreen(form: SapForm(eventId: 'e1'))),
+        hostAsSds(SapFormScreen(form: SapForm(eventId: 'e1'))),
       );
       await tester.pumpAndSettle();
 

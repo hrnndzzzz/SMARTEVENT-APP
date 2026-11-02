@@ -195,6 +195,13 @@ abstract final class SapProposalFlow {
     }
   }
 
+  /// Whether the signed-in account is the SDS Office, whose Part 4 and
+  /// review actions those are. False with no [AppState] to ask: nobody is
+  /// taken for the office on a hunch, and the server refuses anyone else
+  /// whatever the screen offers.
+  static bool isSdsStaff(BuildContext context) =>
+      _appOf(context)?.currentRole == UserRole.sdsStaff;
+
   /// Puts the account's own organization and department on the form.
   ///
   /// Which organization an event belongs to is a fact about the account,
