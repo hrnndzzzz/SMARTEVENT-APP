@@ -232,6 +232,11 @@ class EventDetailScreen extends StatelessWidget {
               // is the API's call to make, not a button's. An event that
               // has never reached the server has nothing to hang a
               // proposal on.
+              //
+              // The only way into a proposal, a rejected one included: it
+              // opens on the rejection and the SDS Office's reasons, and
+              // nothing on it can be edited. A second button for rejected
+              // events opened a blank, editable form in the demo.
               if (event.remoteId case final eventId?) ...[
                 const SizedBox(height: 14),
                 BrutButton(
@@ -294,29 +299,6 @@ class EventDetailScreen extends StatelessWidget {
                       builder: (_) => EventReportScreen(event: event),
                     ),
                   ),
-                ),
-              ],
-              // A rejection is the SDS Office's final word: nothing about
-              // it can be edited or sent again, so this only opens the
-              // proposal to read it.
-              if (app.mayProposeEvents &&
-                  event.status == EventApprovalStatus.rejected) ...[
-                const SizedBox(height: 14),
-                BrutButton(
-                  label: 'Open proposal',
-                  icon: Icons.description_outlined,
-                  tone: BrutTone.neutral,
-                  onPressed: () {
-                    final app = context.read<AppState>();
-                    // Outside the builder, for the same reason as above.
-                    final form = SapForm(
-                      eventId: event.remoteId,
-                      service: app.isDemoMode ? null : app.sapService,
-                    );
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => SapFormScreen(form: form)),
-                    );
-                  },
                 ),
               ],
             ],

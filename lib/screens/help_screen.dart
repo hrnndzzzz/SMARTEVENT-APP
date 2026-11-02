@@ -46,9 +46,11 @@ class HelpScreen extends StatelessWidget {
           const _FaqTile(
             question: 'It was rejected. Can I fix it?',
             answer:
-                'Yes. Open the event and tap Edit proposal, '
-                'which appears only on a rejected one. Resubmitting '
-                'restarts the review at the Adviser stage.',
+                'No. A rejection by the SDS Office is final: '
+                'nothing on it can be edited or sent again. Open '
+                'the event and tap Proposal form to read the '
+                'reasons the SDS Office gave, then start a new '
+                'proposal.',
           ),
           const SizedBox(height: 10),
           const _FaqTile(
