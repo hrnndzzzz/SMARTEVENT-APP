@@ -27,13 +27,13 @@ class SdsProposalsScreen extends StatelessWidget {
           'With the moderator',
           BrutTone.sun,
         ),
-        EventApprovalStatus.pendingAdmin => ('With the SDS Office', BrutTone.sun),
+        EventApprovalStatus.pendingAdmin => ('With the Dean', BrutTone.sun),
         EventApprovalStatus.pendingInstitutional => (
-          'With the signatories',
+          'With the SDS Office',
           BrutTone.sun,
         ),
         EventApprovalStatus.approved => ('Approved', BrutTone.mint),
-        EventApprovalStatus.rejected => ('Returned', BrutTone.coral),
+        EventApprovalStatus.rejected => ('Rejected', BrutTone.coral),
         EventApprovalStatus.completed => ('Completed', BrutTone.mint),
       };
 
@@ -143,9 +143,9 @@ class _ProposalCard extends StatelessWidget {
   SapState _sapStateFor(EventApprovalStatus status) => switch (status) {
     EventApprovalStatus.draft => SapState.draft,
     EventApprovalStatus.pendingAdviser ||
-    EventApprovalStatus.pendingAdmin ||
+    EventApprovalStatus.pendingAdmin => SapState.pendingDepartmentReview,
     EventApprovalStatus.pendingInstitutional => SapState.pendingReview,
-    EventApprovalStatus.rejected => SapState.revisionRequested,
+    EventApprovalStatus.rejected => SapState.rejected,
     EventApprovalStatus.approved => SapState.approved,
     EventApprovalStatus.completed => SapState.completed,
   };

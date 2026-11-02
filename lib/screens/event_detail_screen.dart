@@ -226,10 +226,6 @@ class EventDetailScreen extends StatelessWidget {
               ],
               const SizedBox(height: 14),
               _ApprovalTimelineCard(event: event),
-              // Editing a proposal belongs to whoever may
-              // propose one, and only while it is still draft or
-              // rejected. Officers are read-only and no longer
-              // get this button.
               // The SAS-SDS-FO-020 form. Offered on any event the backend
               // knows about: the proposer fills Parts 1 to 3 and the SDS
               // Office the rest, and which of those a given person may do
@@ -300,12 +296,15 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                 ),
               ],
+              // A rejection is the SDS Office's final word: nothing about
+              // it can be edited or sent again, so this only opens the
+              // proposal to read it.
               if (app.mayProposeEvents &&
                   event.status == EventApprovalStatus.rejected) ...[
                 const SizedBox(height: 14),
                 BrutButton(
-                  label: 'Edit proposal',
-                  icon: Icons.edit_outlined,
+                  label: 'Open proposal',
+                  icon: Icons.description_outlined,
                   tone: BrutTone.neutral,
                   onPressed: () {
                     final app = context.read<AppState>();
@@ -845,9 +844,9 @@ Future<void> _cancelProposal(BuildContext context, EventItem event) async {
 SapState _demoSapState(EventApprovalStatus status) => switch (status) {
   EventApprovalStatus.draft => SapState.draft,
   EventApprovalStatus.pendingAdviser ||
-  EventApprovalStatus.pendingAdmin ||
+  EventApprovalStatus.pendingAdmin => SapState.pendingDepartmentReview,
   EventApprovalStatus.pendingInstitutional => SapState.pendingReview,
-  EventApprovalStatus.rejected => SapState.revisionRequested,
+  EventApprovalStatus.rejected => SapState.rejected,
   EventApprovalStatus.approved => SapState.approved,
   EventApprovalStatus.completed => SapState.completed,
 };

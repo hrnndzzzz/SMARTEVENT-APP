@@ -11,16 +11,16 @@ import '../theme/palette.dart';
 /// The question anyone with an event in the system actually has is "has
 /// it moved?", and the answer is a position in a queue rather than a
 /// number. So: four segments, filled up to where it is, coloured by
-/// whether it is waiting on someone, waiting on you, or done.
+/// whether it is waiting on someone, turned down, or done.
 ///
-/// Red means it is back with you and nothing happens until you act.
-/// Amber means someone else has it. Green means it is through.
+/// Red means it was rejected, and a rejection is final. Amber means
+/// someone else has it. Green means it is through.
 enum EventStage {
   drafting('Drafting', 0),
-  returned('Back with you', 1),
+  rejected('Rejected', 1),
   withModerator('With the moderator', 2),
-  withSds('With the SDS Office', 3),
-  withSignatories('With the signatories', 4),
+  withDean('With the Dean', 3),
+  withSds('With the SDS Office', 4),
   approved('Approved', 5),
   completed('Completed', 5);
 
@@ -36,20 +36,20 @@ enum EventStage {
 
   BrutTone get tone => switch (this) {
     EventStage.drafting => BrutTone.neutral,
-    EventStage.returned => BrutTone.coral,
+    EventStage.rejected => BrutTone.coral,
     EventStage.withModerator ||
-    EventStage.withSds ||
-    EventStage.withSignatories => BrutTone.sun,
+    EventStage.withDean ||
+    EventStage.withSds => BrutTone.sun,
     EventStage.approved || EventStage.completed => BrutTone.mint,
   };
 
   /// What the person looking at it should do, if anything.
   String get note => switch (this) {
     EventStage.drafting => 'Not submitted yet',
-    EventStage.returned => 'Needs a change from you',
+    EventStage.rejected => 'Final. Start a new proposal',
     EventStage.withModerator => 'Waiting on your moderator',
+    EventStage.withDean => 'Waiting on the Dean',
     EventStage.withSds => 'Waiting on the SDS Office',
-    EventStage.withSignatories => 'Out for the nine signatures',
     EventStage.approved => 'Ready to run',
     EventStage.completed => 'Closed out',
   };
@@ -63,9 +63,9 @@ enum EventStage {
   static EventStage of(EventApprovalStatus status) => switch (status) {
     EventApprovalStatus.draft => EventStage.drafting,
     EventApprovalStatus.pendingAdviser => EventStage.withModerator,
-    EventApprovalStatus.pendingAdmin => EventStage.withSds,
-    EventApprovalStatus.pendingInstitutional => EventStage.withSignatories,
-    EventApprovalStatus.rejected => EventStage.returned,
+    EventApprovalStatus.pendingAdmin => EventStage.withDean,
+    EventApprovalStatus.pendingInstitutional => EventStage.withSds,
+    EventApprovalStatus.rejected => EventStage.rejected,
     EventApprovalStatus.approved => EventStage.approved,
     EventApprovalStatus.completed => EventStage.completed,
   };

@@ -142,10 +142,7 @@ class _CreateBand extends StatelessWidget {
         'With the signatories',
         event.title,
       ),
-      EventApprovalStatus.rejected => (
-        'Came back — needs changes',
-        event.title,
-      ),
+      EventApprovalStatus.rejected => ('Rejected', event.title),
       EventApprovalStatus.approved ||
       EventApprovalStatus.completed => ('Approved', event.title),
     };

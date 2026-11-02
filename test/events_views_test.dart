@@ -142,6 +142,40 @@ void main() {
     expect(find.textContaining('1 this month'), findsNothing);
   });
 
+  // `rejected` is the SDS Office's final decision, not a return: a return
+  // puts the event back to a draft, which the Drafts chip already finds.
+  testWidgets('the rejected chip is called rejected and finds rejections', (
+    tester,
+  ) async {
+    final app = _seeded();
+    await _open(tester, app);
+
+    expect(find.text('Rejected'), findsOneWidget);
+    expect(find.text('Returned'), findsNothing);
+
+    // The chip bar scrolls sideways, and this one starts off the edge.
+    await tester.ensureVisible(find.text('Rejected'));
+    await tester.pump();
+    await tester.tap(find.text('Rejected'));
+    await tester.pump();
+    expect(find.text('Nothing rejected'), findsOneWidget);
+
+    app.events.add(
+      EventItem(
+        title: 'Industry Immersion Talk',
+        org: 'ACPES',
+        date: '',
+        budget: '₱8,000.00',
+        status: EventApprovalStatus.rejected,
+      ),
+    );
+    app.updateEvent();
+    await tester.pump();
+
+    expect(find.text('Industry Immersion Talk'), findsOneWidget);
+    expect(find.text('Hackathon 2026'), findsNothing);
+  });
+
   testWidgets('a single school year offers no year chip', (tester) async {
     await _open(tester, _seeded());
     // One year in the data is a chip that cannot change anything.

@@ -67,6 +67,17 @@ void main() {
     expect(find.text('Continue\ndraft'), findsOneWidget);
   });
 
+  // The SDS Office's rejection is final. The band used to say it "came
+  // back — needs changes", which promises a way forward there is not.
+  testWidgets('and a rejected proposal reads as rejected', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    await pumpHub(tester, EventApprovalStatus.rejected);
+
+    // The band sets its headline in capitals.
+    expect(find.text('REJECTED'), findsOneWidget);
+    expect(find.textContaining('NEEDS CHANGES'), findsNothing);
+  });
+
   testWidgets('in every other settled state it starts a new proposal', (
     tester,
   ) async {
