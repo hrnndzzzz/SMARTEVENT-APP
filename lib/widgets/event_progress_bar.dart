@@ -49,7 +49,10 @@ enum EventStage {
     EventStage.rejected => 'Final. Start a new proposal',
     EventStage.withModerator => 'Waiting on your moderator',
     EventStage.withDean => 'Waiting on the Dean',
-    EventStage.withSds => 'Waiting on the SDS Office',
+    // True of all of it: the event stays here after the office has signed,
+    // while the paper goes round, until the final scan. Kept short because
+    // it is set on one line.
+    EventStage.withSds => 'Review, signing, then nine signatures',
     EventStage.approved => 'Ready to run',
     EventStage.completed => 'Closed out',
   };

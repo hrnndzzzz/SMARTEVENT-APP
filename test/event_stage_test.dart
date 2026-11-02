@@ -71,7 +71,27 @@ void main() {
   test('each desk says who is actually holding it up', () {
     expect(EventStage.withModerator.note, contains('moderator'));
     expect(EventStage.withDean.note, contains('Dean'));
-    expect(EventStage.withSds.note, contains('SDS'));
+    expect(EventStage.withSds.label, contains('SDS Office'));
+  });
+
+  // The SDS Office signing does not move the event: it stays at
+  // pending_institutional_review while the paper goes round for the nine
+  // signatures, until the final scan. "Waiting on the SDS Office" stopped
+  // being true halfway through that stage.
+  test('the SDS Office stage holds while the paper goes round, too', () {
+    final note = EventStage.withSds.note;
+
+    expect(note, contains('signing'));
+    expect(note, contains('nine signatures'));
+    expect(note, isNot(contains('Waiting')));
+  });
+
+  // Set on one line and cut off with an ellipsis, so a longer one is lost on
+  // a narrow phone: a 360px card holds about 41 characters of it.
+  test('every note fits the one line it is set on', () {
+    for (final stage in EventStage.values) {
+      expect(stage.note.length, lessThanOrEqualTo(40), reason: stage.name);
+    }
   });
 
   // The SDS Office's rejection is its final word. The bar used to call
