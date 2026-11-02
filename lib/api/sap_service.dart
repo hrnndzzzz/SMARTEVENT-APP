@@ -231,18 +231,58 @@ class SapService {
     });
   }
 
-  /// `POST /return` — sends it back for revision. The comment is required
-  /// and must not be blank; resubmission creates a new revision, and old
-  /// signatures are never carried across.
+  /// `POST /return` — the SDS Office sends it back for revision. The
+  /// remarks are required and must not be blank; resubmission creates a new
+  /// revision, and old signatures are never carried across.
+  ///
+  /// [sectionRemarks] left out keeps the ones already saved; a map, even an
+  /// empty one, replaces them.
   Future<SapProposal> returnForRevision(
     String eventId, {
     required int expectedVersion,
     required String remarks,
+    Map<SapRemarkSection, String>? sectionRemarks,
+  }) => _decide(
+    eventId,
+    'return',
+    expectedVersion: expectedVersion,
+    remarks: remarks,
+    sectionRemarks: sectionRemarks,
+  );
+
+  /// `POST /sds-reject` — the SDS Office's final no. The event becomes
+  /// rejected and the proposal cannot be sent again; the remarks are what
+  /// the organization reads and what prints on the form. Same body as
+  /// [returnForRevision].
+  Future<SapProposal> sdsReject(
+    String eventId, {
+    required int expectedVersion,
+    required String remarks,
+    Map<SapRemarkSection, String>? sectionRemarks,
+  }) => _decide(
+    eventId,
+    'sds-reject',
+    expectedVersion: expectedVersion,
+    remarks: remarks,
+    sectionRemarks: sectionRemarks,
+  );
+
+  Future<SapProposal> _decide(
+    String eventId,
+    String route, {
+    required int expectedVersion,
+    required String remarks,
+    required Map<SapRemarkSection, String>? sectionRemarks,
   }) {
     return _guard(() async {
       final response = await _client.post(
-        '${_base(eventId)}/return',
-        body: {'expected_version': expectedVersion, 'remarks': remarks},
+        '${_base(eventId)}/$route',
+        body: {
+          'expected_version': expectedVersion,
+          'remarks': remarks.trim(),
+          if (sectionRemarks != null)
+            'section_remarks': _sections(sectionRemarks),
+        },
       );
       return _proposal(response);
     });

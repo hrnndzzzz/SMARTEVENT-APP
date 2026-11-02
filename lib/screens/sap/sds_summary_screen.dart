@@ -53,7 +53,7 @@ class _SdsSummaryScreenState extends State<SdsSummaryScreen> {
           ),
           footer: BrutFooter(
             child: BrutButton(
-              label: waiting ? 'Review and sign' : 'Open the full form',
+              label: waiting ? 'Review and decide' : 'Open the full form',
               icon: waiting ? Icons.draw_outlined : Icons.description_outlined,
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(

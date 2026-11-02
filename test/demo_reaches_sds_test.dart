@@ -14,7 +14,7 @@ import 'package:smartevent/theme/app_theme.dart';
 /// showed four parts and two closed rows, and three screens could not be
 /// looked at on a phone at all.
 Widget host(Widget child) => ChangeNotifierProvider.value(
-  // Review and signing are the SDS Office's, so the demo role that is
+  // Reviewing and deciding are the SDS Office's, so the demo role that is
   // offered them is the one hosting the hub.
   value: AppState()..enterDemo(role: UserRole.sdsStaff),
   child: MaterialApp(theme: AppTheme.light(), home: child),
@@ -62,7 +62,7 @@ void main() {
     await tester.pumpWidget(host(SapFormScreen(form: form)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review and sign'), findsOneWidget);
+    expect(find.text('Review and decide'), findsOneWidget);
   });
 
   testWidgets('a draft still keeps the SDS parts shut', (tester) async {
@@ -72,6 +72,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Not yet'), findsWidgets);
-    expect(find.text('Review and sign'), findsNothing);
+    expect(find.text('Review and decide'), findsNothing);
   });
 }

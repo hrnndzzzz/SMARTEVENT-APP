@@ -181,7 +181,7 @@ void main() {
       await tester.pumpWidget(hostAsSds(SapFormScreen(form: form)));
       await tester.pumpAndSettle();
 
-      expect(find.text('Review and sign'), findsOneWidget);
+      expect(find.text('Review and decide'), findsOneWidget);
     });
 
     testWidgets('and does not while it is still a draft', (tester) async {
@@ -191,7 +191,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Review and sign'), findsNothing);
+      expect(find.text('Review and decide'), findsNothing);
     });
   });
 
@@ -280,7 +280,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = tester.widget<BrutButton>(
-        find.widgetWithText(BrutButton, 'Sign the proposal'),
+        find.widgetWithText(BrutButton, 'Approve and sign'),
       );
       expect(button.onPressed, isNull);
       expect(find.textContaining('Confirm Part 4'), findsNothing);

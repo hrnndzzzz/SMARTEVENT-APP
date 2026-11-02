@@ -749,11 +749,62 @@ class SapForm extends ChangeNotifier {
     }
   }
 
-  /// Sends the proposal back for revision. The comment is required.
-  Future<bool> returnForRevision(String remarks) => _write(
-    (s, v) =>
-        s.returnForRevision(_eventId!, expectedVersion: v, remarks: remarks),
+  /// `POST /return` — the SDS Office sends the pending revision back, with
+  /// [overallRemarks] as the reason and [sectionRemarks] against the parts
+  /// it concerns. Returns the reason it failed, or null.
+  Future<String?> sdsReturn() => _sdsDecide(
+    (service, remarks) => service.returnForRevision(
+      _eventId!,
+      expectedVersion: version,
+      remarks: remarks,
+      sectionRemarks: sectionRemarks,
+    ),
   );
+
+  /// `POST /sds-reject` — the SDS Office's final no, worded as
+  /// [sdsReturn]. The proposal cannot be sent again afterwards.
+  Future<String?> sdsReject() => _sdsDecide(
+    (service, remarks) => service.sdsReject(
+      _eventId!,
+      expectedVersion: version,
+      remarks: remarks,
+      sectionRemarks: sectionRemarks,
+    ),
+  );
+
+  /// Both decisions owe the organization a reason, and the server refuses a
+  /// blank one, so it is refused here without a request.
+  Future<String?> _sdsDecide(
+    Future<SapProposal> Function(SapService service, String remarks) call,
+  ) async {
+    final service = _service;
+    if (service == null || _eventId == null) {
+      return 'This proposal has not been saved to the server yet.';
+    }
+    final remarks = overallRemarks.trim();
+    if (remarks.isEmpty) {
+      return 'Write the overall remark first: it is the reason the '
+          'organization reads.';
+    }
+
+    _saving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _adopt(await call(service, remarks));
+      return null;
+    } on SapVersionConflict catch (conflict) {
+      _stale = true;
+      _error = conflict.message;
+      return conflict.message;
+    } catch (e) {
+      _error = e is ApiException ? e.message : e.toString();
+      return _error;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
 
   Future<bool> evaluate({
     required SapEvaluationOutcome outcome,

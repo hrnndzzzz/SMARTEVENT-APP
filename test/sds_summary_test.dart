@@ -84,12 +84,12 @@ void main() {
     expect(find.textContaining('is not the total'), findsOneWidget);
   });
 
-  testWidgets('a waiting proposal offers to sign', (tester) async {
+  testWidgets('a waiting proposal offers the review', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1600));
     await tester.pumpWidget(host(filled()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review and sign'), findsOneWidget);
+    expect(find.text('Review and decide'), findsOneWidget);
   });
 
   /// The list hands over a form nobody has loaded yet.
@@ -125,7 +125,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('HACK THE FUTURE'), findsOneWidget);
-    expect(find.text('Review and sign'), findsOneWidget);
+    expect(find.text('Review and decide'), findsOneWidget);
   });
 
   testWidgets('remarks saved earlier are there to carry on with', (
@@ -134,7 +134,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(420, 1600));
     await tester.pumpWidget(host(fromServer()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Review and sign'));
+    await tester.tap(find.text('Review and decide'));
     await tester.pumpAndSettle();
 
     expect(find.text('Please revise the food budget.'), findsOneWidget);
@@ -146,7 +146,7 @@ void main() {
     await tester.pumpWidget(host(filled(state: SapState.sdsSigned)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review and sign'), findsNothing);
+    expect(find.text('Review and decide'), findsNothing);
     expect(find.text('Open the full form'), findsOneWidget);
   });
 }

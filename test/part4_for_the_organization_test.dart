@@ -21,7 +21,7 @@ import 'package:smartevent/theme/brut.dart';
 ///
 /// The screens asked nothing but whether the session could write, which is
 /// an offline flag and not a role: any account could open Part 4 and press
-/// "Confirm clearance", and any account saw "Review and sign" on a proposal
+/// "Confirm clearance", and any account saw "Review and decide" on a proposal
 /// waiting on the office. The organization now reads Part 4 instead, with
 /// where the proposal is and what the office said.
 void main() {
@@ -397,7 +397,7 @@ void main() {
     SapForm waiting() =>
         SapForm(eventId: 'e1')..seedLocally(state: SapState.pendingReview);
 
-    testWidgets('offers the SDS Office its review and its return', (
+    testWidgets('offers the SDS Office its review, and only that', (
       tester,
     ) async {
       await open(
@@ -407,8 +407,9 @@ void main() {
       );
 
       expect(find.text('SDS Office'), findsOneWidget);
-      expect(find.text('Review and sign'), findsOneWidget);
-      expect(find.text('Return for revision'), findsOneWidget);
+      expect(find.text('Review and decide'), findsOneWidget);
+      // Returning and rejecting are decided on the review screen.
+      expect(find.text('Return for revision'), findsNothing);
     });
 
     testWidgets('offers nobody else either', (tester) async {
@@ -417,7 +418,7 @@ void main() {
         await open(tester, SapFormScreen(form: waiting()), role: role);
 
         expect(find.text('SDS Office'), findsNothing, reason: role.name);
-        expect(find.text('Review and sign'), findsNothing, reason: role.name);
+        expect(find.text('Review and decide'), findsNothing, reason: role.name);
         expect(
           find.text('Return for revision'),
           findsNothing,
@@ -431,7 +432,7 @@ void main() {
     ) async {
       await open(tester, SapFormScreen(form: waiting()));
 
-      expect(find.text('Review and sign'), findsNothing);
+      expect(find.text('Review and decide'), findsNothing);
       expect(find.text('Return for revision'), findsNothing);
     });
   });

@@ -117,7 +117,7 @@ void main() {
     await tester.tap(find.text(event.title));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review and sign'), findsOneWidget);
+    expect(find.text('Review and decide'), findsOneWidget);
   });
 
   testWidgets('and the summary opens where the event has got to', (

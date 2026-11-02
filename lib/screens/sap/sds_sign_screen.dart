@@ -7,11 +7,12 @@ import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
 import 'signature_pad.dart';
 
-/// The SDS Office's review of a pending revision: remarks, then either
-/// send it back or sign it.
+/// The SDS Office's review of a pending revision: remarks, then one of
+/// three decisions — return it, reject it, or sign it.
 ///
-/// Remarks can be saved as often as the office likes. Signing cannot be
-/// undone — it locks the revision and stores the signed PDF — so it
+/// Remarks can be saved as often as the office likes. The decisions cannot
+/// be undone — signing locks the revision and stores the signed PDF, a
+/// rejection is final, and a return starts a new revision — so each
 /// confirms first, and says plainly what it is about to do.
 class SdsSignScreen extends StatefulWidget {
   const SdsSignScreen({super.key, required this.form});
@@ -57,6 +58,12 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
   /// for it too. Remarks do not: the office may send it back instead.
   bool get _cleared => _form.proposal?.clearance != null;
 
+  /// Returning and rejecting both owe the organization a reason, and the
+  /// server refuses a blank one. They do not need Part 4: the office may
+  /// send a proposal back before filling it in.
+  bool get _hasReason => _overall.text.trim().isNotEmpty;
+  bool get _canDecide => _open && _hasReason && !_form.saving;
+
   void _collect() {
     _form.overallRemarks = _overall.text.trim();
     _form.sectionRemarks = {
@@ -85,15 +92,33 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign this proposal?'),
-        content: const Text(
+    await _decide(
+      title: 'Sign this proposal?',
+      body:
           'This locks the revision and stores the signed form. It cannot '
           'be undone: a proposal that needs changing afterwards has to be '
           'returned and signed again as a new revision.',
-        ),
+      action: 'Sign',
+      send: () => _form.sdsSign(_signature),
+      done: 'Signed. The form is locked.',
+    );
+  }
+
+  /// Asks first, then sends the remarks as they stand and says how it went.
+  /// A decision that went through leaves the screen; one that did not stays,
+  /// with what was typed.
+  Future<void> _decide({
+    required String title,
+    required String body,
+    required String action,
+    required Future<String?> Function() send,
+    required String done,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -101,7 +126,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Sign'),
+            child: Text(action),
           ),
         ],
       ),
@@ -109,14 +134,36 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
     if (confirmed != true || !mounted) return;
 
     _collect();
-    final failure = await _form.sdsSign(_signature);
+    final failure = await send();
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(failure ?? 'Signed. The form is locked.')),
+      SnackBar(content: Text(failure ?? done)),
     );
     if (failure == null) Navigator.of(context).maybePop();
   }
+
+  Future<void> _return() => _decide(
+    title: 'Return for revision?',
+    body:
+        'It goes back to the organization to change and send again, through '
+        'the Moderator and Dean. The signatures already collected stay with '
+        'this revision.',
+    action: 'Return',
+    send: _form.sdsReturn,
+    done: 'Returned for revision.',
+  );
+
+  Future<void> _reject() => _decide(
+    title: 'Reject this proposal?',
+    body:
+        'This is final. The organization is told it was rejected and cannot '
+        'send this proposal again; they would start a new one. Your remarks '
+        'print on the form.',
+    action: 'Reject',
+    send: _form.sdsReject,
+    done: 'Rejected. The organization has been told.',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -125,14 +172,14 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
       builder: (context, _) {
         return BrutScreen(
           header: BrutHeader(
-            title: 'Review and sign',
+            title: 'Review and decide',
             eyebrow: 'SDS Office',
             onBack: () => Navigator.of(context).maybePop(),
           ),
           // One back button, in the header, as on the three steps.
           footer: BrutFooter(
             child: BrutButton(
-              label: 'Sign the proposal',
+              label: 'Approve and sign',
               icon: Icons.draw_outlined,
               busy: _form.saving,
               busyLabel: 'Signing',
@@ -166,6 +213,8 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 hint: 'What the proposer should know',
                 enabled: _open,
                 maxLines: 4,
+                maxLength: 3000,
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 16),
 
@@ -180,6 +229,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                   label: section.label,
                   enabled: _open,
                   maxLines: 2,
+                  maxLength: 1000,
                 ),
                 const SizedBox(height: 10),
               ],
@@ -191,6 +241,33 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 busy: _form.saving,
                 busyLabel: 'Saving',
                 onPressed: _open ? _saveNotes : null,
+              ),
+
+              const SizedBox(height: 24),
+              const BrutSectionTitle('Return or reject'),
+              const SizedBox(height: 10),
+              if (_open && !_hasReason) ...[
+                const BrutInlineMessage(
+                  tone: BrutTone.neutral,
+                  icon: Icons.info_outline,
+                  text:
+                      'Returning or rejecting needs an overall remark. It is '
+                      'what the organization reads, and it prints on the form.',
+                ),
+                const SizedBox(height: 10),
+              ],
+              BrutButton(
+                label: 'Return for revision',
+                icon: Icons.undo,
+                tone: BrutTone.coral,
+                onPressed: _canDecide ? _return : null,
+              ),
+              const SizedBox(height: 10),
+              BrutButton(
+                label: 'Reject',
+                icon: Icons.block,
+                tone: BrutTone.coral,
+                onPressed: _canDecide ? _reject : null,
               ),
 
               const SizedBox(height: 24),
