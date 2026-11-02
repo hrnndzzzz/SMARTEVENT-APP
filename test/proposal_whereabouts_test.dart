@@ -9,6 +9,7 @@ import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/api/sap_service.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
+import 'package:smartevent/screens/sap/sap_part1_screen.dart';
 import 'package:smartevent/screens/sap/sap_part3_screen.dart';
 import 'package:smartevent/screens/sap/sap_proposal_flow.dart';
 import 'package:smartevent/state/app_settings.dart';
@@ -466,6 +467,49 @@ void main() {
 
       expect(find.text('With the SDS Office'), findsOneWidget);
       expect(find.textContaining('the SDS Office returns it'), findsOneWidget);
+    });
+  });
+
+  // Parts 1 to 3 are read-only after a rejection too, but "until it is
+  // returned for revision" is false of it: nothing is returned after one.
+  group('Part 1, when it is read-only', () {
+    Future<void> openAt(WidgetTester tester, SapState state) async {
+      // A fresh tree each time: a screen of the same type keeps the form it
+      // first opened on.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        host(
+          SapPart1Screen(
+            form: SapForm(eventId: 'e1')..seedLocally(state: state),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('reads a rejection as final, not as waiting for a return', (
+      tester,
+    ) async {
+      await openAt(tester, SapState.rejected);
+
+      expect(find.textContaining('final'), findsOneWidget);
+      final notice = banner(tester, 'final');
+      expect(notice.text, contains('Rejected by the SDS Office'));
+      expect(notice.tone, BrutTone.coral);
+      expect(notice.icon, Icons.block);
+      expect(find.textContaining('under review'), findsNothing);
+      expect(find.textContaining('returned for revision'), findsNothing);
+    });
+
+    testWidgets('still says a proposal with the department is under review', (
+      tester,
+    ) async {
+      await openAt(tester, SapState.pendingDepartmentReview);
+
+      final notice = banner(tester, 'under review');
+      expect(notice.text, contains('returned for revision'));
+      expect(notice.tone, BrutTone.sun);
+      expect(find.textContaining('final'), findsNothing);
     });
   });
 

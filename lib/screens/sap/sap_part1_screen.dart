@@ -378,13 +378,24 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (!_editable)
-                const BrutInlineMessage(
-                  tone: BrutTone.sun,
-                  icon: Icons.lock_outline,
-                  text:
-                      'This proposal is under review, so Parts 1 to 3 are '
-                      'read-only until it is returned for revision.',
-                ),
+                // Nothing is returned after a rejection, so "until it is
+                // returned" would promise what cannot happen.
+                if (_form.state == SapState.rejected)
+                  const BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.block,
+                    text:
+                        'Rejected by the SDS Office. This proposal is final, '
+                        'so Parts 1 to 3 stay as they were sent.',
+                  )
+                else
+                  const BrutInlineMessage(
+                    tone: BrutTone.sun,
+                    icon: Icons.lock_outline,
+                    text:
+                        'This proposal is under review, so Parts 1 to 3 are '
+                        'read-only until it is returned for revision.',
+                  ),
               const SizedBox(height: 12),
 
               // The activity is what the proposer came to write about, so
