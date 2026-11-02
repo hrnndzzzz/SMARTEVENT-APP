@@ -80,6 +80,26 @@ void main() {
     );
   });
 
+  // A notice reads as the proposal it names. The first said the SDS Office had
+  // approved HACK THE FUTURE and to collect the nine signatures, while that
+  // proposal was still with the Moderator.
+  test('a notice does not say more than its pending proposal has got', () {
+    final app = AppState()..enterDemo();
+    final pending = {
+      for (final event in app.events)
+        if (event.status.isPending) event.remoteId,
+    };
+    final notices = app.notices.where((n) => pending.contains(n.eventId));
+
+    expect(notices, isNotEmpty, reason: 'the demo has a notice about one');
+    for (final notice in notices) {
+      final said = '${notice.title} ${notice.body}'.toLowerCase();
+      for (final claim in ['approved', 'cleared', 'nine signatures']) {
+        expect(said, isNot(contains(claim)), reason: '${notice.id}: $claim');
+      }
+    }
+  });
+
   test('no module is left looking like it is still loading', () {
     final app = AppState()..enterDemo();
     expect(app.eventsLoad.status, LoadStatus.ready);

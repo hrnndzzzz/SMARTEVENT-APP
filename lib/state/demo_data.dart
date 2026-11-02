@@ -507,19 +507,20 @@ abstract final class DemoData {
   ];
 
   static List<AppNotice> notices() => [
+    // True of demo-ev-1, which is sent and with the Moderator.
     AppNotice(
       id: 'demo-n-1',
-      kind: 'sap_cleared',
+      kind: 'sap_submitted',
       emailStatus: 'sent',
-      title: 'SDS Office approved your proposal',
+      title: 'SAP proposal submitted',
       body:
-          'HACK THE FUTURE has cleared Part 4. Print the form and collect '
-          'the nine signatures.',
+          'Sent for department review. HACK THE FUTURE is with your '
+          'Moderator.',
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       readAt: null,
       // Named, so tapping it opens the event the way a real workflow
       // notice does. Without this the demo cannot show that at all.
-      payload: const {'event_id': 'demo-ev-1', 'action': 'sap_cleared'},
+      payload: const {'event_id': 'demo-ev-1', 'action': 'sap_submitted'},
     ),
     // As the server words a rejection. The reasons are on the proposal, not
     // in the notice.
@@ -552,8 +553,6 @@ abstract final class DemoData {
 /// These fill the parts a reader needs to decide: what it is, when and
 /// where, what it costs and what it needs.
 abstract final class DemoProposals {
-  /// Everything the summary reads, for one seeded event. Null for an
-  /// event this demo has written nothing for.
   /// Why the SDS Office rejected a proposal, for the one seeded event it
   /// turned down. Without it the demo shows a rejected proposal with no
   /// reason attached, which is the thing that was wrong before.
@@ -568,6 +567,8 @@ abstract final class DemoProposals {
             'activity cannot be approved as proposed.'
       : null;
 
+  /// Everything the summary reads, for one seeded event. Null for an
+  /// event this demo has written nothing for.
   static SapDetails? detailsFor(EventItem event) {
     final seeded = _byEvent[event.remoteId];
     if (seeded == null) return null;
