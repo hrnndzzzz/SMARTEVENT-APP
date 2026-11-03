@@ -2450,6 +2450,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Reads [event]'s status from the server again, for a screen whose
+  /// decision was refused because the event has moved on (it is no longer
+  /// this reviewer's turn). The proposal's version cannot say so; only the
+  /// status can, and every screen decides what to offer from it. Failures are
+  /// the caller's to show.
+  Future<void> refreshEventStatus(EventItem event) async {
+    final id = event.remoteId;
+    if (id == null) return;
+    event.status = _eventStatusFromString((await _eventService.get(id)).status);
+    notifyListeners();
+  }
+
   Future<String?> resubmitEvent(
     EventItem event, {
     required String title,

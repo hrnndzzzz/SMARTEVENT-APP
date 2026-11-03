@@ -45,9 +45,15 @@ class EventDetailScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: Text(
           approved
+              // A proposal goes on to the next step; only a plain event ends
+              // with this approval.
               ? (isAdviserStage
-                    ? 'Approve and forward to admin'
-                    : 'Grant final approval')
+                    ? (isProposal
+                          ? 'Approve and send to the Dean'
+                          : 'Approve and forward to admin')
+                    : (isProposal
+                          ? 'Approve and send to the SDS Office'
+                          : 'Grant final approval'))
               : isReturn
               ? 'Return for revision?'
               : 'Reject proposal',
@@ -412,9 +418,14 @@ class _DecisionRowState extends State<_DecisionRow> {
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool refreshEvent = false}) async {
     final app = context.read<AppState>();
     try {
+      // A decision refused because the event moved on is not cured by the
+      // proposal's version: the status is what decides whether this row is
+      // still offered, so a reload reads that too, and the row goes if it is
+      // no longer this reviewer's turn.
+      if (refreshEvent) await app.refreshEventStatus(widget.event);
       final version = await app.proposalVersionFor(widget.event);
       if (!mounted) return;
       setState(() {
@@ -437,7 +448,7 @@ class _DecisionRowState extends State<_DecisionRow> {
       _loading = true;
       _error = null;
     });
-    _load();
+    _load(refreshEvent: true);
   }
 
   Future<void> _decide(bool approved) async {

@@ -58,12 +58,19 @@ void main() {
   List<Map<String, dynamic>> approvals = [];
   http.Response? proposalFailure;
 
+  /// What `GET /events/e1` answers with: where the event has got to by now,
+  /// or [eventFailure] when it cannot be read.
+  var eventStatus = 'pending_adviser';
+  http.Response? eventFailure;
+
   setUp(() {
     sent.clear();
     version = 4;
     hold = null;
     approvals = [];
     proposalFailure = null;
+    eventStatus = 'pending_adviser';
+    eventFailure = null;
     decision = (request) => json(
       eventJson(
         request.url.path.endsWith('/approve') ? 'pending_admin' : 'draft',
@@ -91,6 +98,9 @@ void main() {
     if (path.endsWith('/approvals')) return json(approvals);
     if (path.endsWith('/approve') || path.endsWith('/reject')) {
       return decision(request);
+    }
+    if (request.method == 'GET' && path.endsWith('/events/e1')) {
+      return eventFailure ?? json(eventJson(eventStatus));
     }
     return json({'detail': 'Not Found'}, 404);
   }
@@ -294,9 +304,24 @@ void main() {
       );
 
       await tapRow(tester, 'Approve');
+      expect(find.text('Approve and forward to admin'), findsOneWidget);
       await tapInDialog(tester, 'Approve');
 
       expect(jsonDecode(posted('approve').single.body), <String, dynamic>{});
+    });
+
+    testWidgets('and so does the Dean\'s final approval of it', (tester) async {
+      version = null;
+      await open(
+        tester,
+        liveAs(UserRole.admin),
+        eventAt(EventApprovalStatus.pendingAdmin),
+      );
+
+      await tapRow(tester, 'Approve');
+
+      expect(find.text('Grant final approval'), findsOneWidget);
+      expect(find.text('Approve and send to the SDS Office'), findsNothing);
     });
   });
 
@@ -375,6 +400,9 @@ void main() {
     );
 
     await tapRow(tester, 'Approve');
+    // A proposal goes on to the SDS Office, not to final approval.
+    expect(find.text('Approve and send to the SDS Office'), findsOneWidget);
+    expect(find.text('Grant final approval'), findsNothing);
     // Optional here, as it always was.
     await typeRemarks(tester, 'Feedback (optional)', 'Looks good.');
     await tapInDialog(tester, 'Approve');
@@ -383,6 +411,21 @@ void main() {
       'remarks': 'Looks good.',
       'expected_version': 4,
     });
+  });
+
+  testWidgets('the Moderator\'s approval of a proposal goes to the Dean', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      liveAs(UserRole.adviser),
+      eventAt(EventApprovalStatus.pendingAdviser),
+    );
+
+    await tapRow(tester, 'Approve');
+
+    expect(find.text('Approve and send to the Dean'), findsOneWidget);
+    expect(find.text('Approve and forward to admin'), findsNothing);
   });
 
   group('a changed proposal', () {
@@ -534,6 +577,62 @@ void main() {
       await tapInDialog(tester, 'Approve');
 
       expect(find.textContaining('Part 4 is missing'), findsOneWidget);
+      expect(staleBanner, findsNothing);
+      expect(pressable(tester, 'Approve'), isTrue);
+    });
+
+    testWidgets('that is no longer this reviewer\'s turn drops the row', (
+      tester,
+    ) async {
+      // The server checks the version, then whose turn it is, and answers the
+      // second with a plain 409 too. Reading the proposal again cannot clear
+      // it: only the event's own status can, so a reload reads that as well.
+      decision = (_) => json({
+        'detail': 'This proposal is not waiting on department review',
+      }, 409);
+      final event = eventAt(EventApprovalStatus.pendingAdviser);
+      await open(tester, liveAs(UserRole.adviser), event);
+
+      await tapRow(tester, 'Approve');
+      await tapInDialog(tester, 'Approve');
+      expect(staleBanner, findsOneWidget);
+
+      eventStatus = 'pending_institutional_review';
+      await tapRow(tester, 'Reload the proposal');
+
+      expect(find.text('Approve'), findsNothing);
+      expect(find.text('Return for revision'), findsNothing);
+      expect(staleBanner, findsNothing);
+      expect(posted('approve'), hasLength(1));
+      expect(event.status, EventApprovalStatus.pendingInstitutional);
+      expect(
+        find.widgetWithText(BrutBadge, 'With the signatories'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('and an event that cannot be read says why, and can be '
+        'tried again', (tester) async {
+      decision = (_) => json({'detail': changed}, 409);
+      await open(
+        tester,
+        liveAs(UserRole.adviser),
+        eventAt(EventApprovalStatus.pendingAdviser),
+      );
+      await tapRow(tester, 'Approve');
+      await tapInDialog(tester, 'Approve');
+
+      eventFailure = json({'detail': 'The event service is down'}, 503);
+      await tapRow(tester, 'Reload the proposal');
+
+      expect(find.textContaining('The event service is down'), findsWidgets);
+      expect(find.text('Approve'), findsNothing);
+
+      eventFailure = null;
+      proposalMovesOn();
+      await tapRow(tester, 'Try again');
+
+      expect(find.text('Try again'), findsNothing);
       expect(staleBanner, findsNothing);
       expect(pressable(tester, 'Approve'), isTrue);
     });
