@@ -407,6 +407,18 @@ def test_a_copy_stored_with_remarks_under_the_signature_is_served_clean(sap_syst
     assert review.signed_pdf == stored and review.signed_pdf_sha256 == digest
 
 
+def test_an_old_stored_copy_is_served_as_is_while_word_is_down(sap_system, monkeypatch):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = store_old_copy(db, db.query(SAPReview).one())
+    def down(*args, **kwargs):
+        raise RuntimeError('Word is busy')
+    monkeypatch.setattr('app.routers.sap.render_proposal', down)
+    served = client.get(base + '/pdf')
+    assert served.status_code == 200 and served.content == stored
+
+
 def test_an_old_stored_copy_is_served_as_is_once_its_part_4_is_gone(sap_system):
     client, db, users, event, login, base = sap_system
     review_pending(sap_system)
@@ -431,6 +443,9 @@ def test_the_final_scan_is_checked_against_the_copy_that_was_served(sap_system, 
     store_old_copy(db, review, pages=len(PdfReader(BytesIO(clean)).pages) + 1)  # one page longer than the clean render
     monkeypatch.setattr('app.routers.sap.storage.upload_proposal_letter', lambda *args: 'https://private.invalid/scan.pdf')
     login('sds_staff')
+    longer = review.signed_pdf
+    response = client.post(base + '/final-signed-copy', data={'expected_version': version(client, base)}, files={'file': ('scan.pdf', longer, 'application/pdf')})
+    assert response.status_code == 422 and 'every page' in response.json()['detail']  # the old copy's page count is not the copy the organization was served
     response = client.post(base + '/final-signed-copy', data={'expected_version': version(client, base)}, files={'file': ('scan.pdf', clean, 'application/pdf')})
     assert response.status_code == 201, response.text
 

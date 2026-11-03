@@ -386,6 +386,8 @@ def _stored_copy_has_remarks(review):
     """Whether the copy stored at signing still prints the SDS remarks under the signature, as forms signed before they moved to comments do."""
     lines = [('SDS: ' + review.overall_remarks) if (review.overall_remarks or '').strip() else None]
     lines += [f'{_OLD_REMARK_LABELS.get(key, key)}: {value}' for key, value in (review.section_remarks or {}).items() if (value or '').strip()]
+    if not any(lines):
+        return False
     from pypdf import PdfReader
     try:
         text = ' '.join(' '.join(page.extract_text() or '' for page in PdfReader(BytesIO(review.signed_pdf)).pages).split())
@@ -408,7 +410,10 @@ def _signed_copy(db, proposal, rev, review):
     """The signed form as the organization is served it: the stored copy, or a clean one drawn again when the stored one
     carries remarks under the signature and Part 4 (which only the proposal holds) is still there to draw it with."""
     if rev.revision_no == proposal.revision_no and proposal.clearance and _stored_copy_has_remarks(review):
-        return _review_copy(db, proposal, rev, review, False)
+        try:
+            return _review_copy(db, proposal, rev, review, False)
+        except RuntimeError:  # Word is busy or down: the plain download and the scan check still use the stored copy
+            logger.warning('Clean signed copy unavailable; serving the stored copy', exc_info=True)
     return review.signed_pdf
 
 
