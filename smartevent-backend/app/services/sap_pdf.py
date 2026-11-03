@@ -3,6 +3,7 @@ import re
 import subprocess
 from copy import deepcopy
 import tempfile
+import textwrap
 import threading
 from io import BytesIO
 from pathlib import Path
@@ -361,7 +362,12 @@ def _add_comments(doc, paragraphs, review):
     """One Word comment per saved remark, on its part's label; a missing label falls back to the Part 4 heading."""
     find = lambda label: next((p for p in paragraphs if p.text.strip().startswith(label) and p.runs), None)
     for label, text in _remarks(review):  # no remarks: no comments part, so the printed page keeps its normal width
-        doc.add_comment((find(label) or find(_PART_4)).runs, text=_clean(text), author='SDS Office', initials='SDS')
+        # Word clips a margin comment at about 870 characters, so a long remark is several comments on the same part.
+        # 690 + the " (n/m)" label (6 characters up to 9 parts) stays within 700.
+        parts = textwrap.wrap(_clean(text), 690, replace_whitespace=False)
+        for number, part in enumerate(parts, 1):
+            doc.add_comment((find(label) or find(_PART_4)).runs, text=part + (f' ({number}/{len(parts)})' if len(parts) > 1 else ''),
+                            author='SDS Office', initials='SDS')
 
 
 _WORD_LOCK = threading.Lock()

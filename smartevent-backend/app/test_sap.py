@@ -374,6 +374,33 @@ def test_a_signed_revision_serves_its_stored_copy_and_a_commented_copy(sap_syste
     assert review.signed_pdf == stored and review.signed_pdf_sha256 == digest
 
 
+GONE = 'The commented copy of this signed revision is no longer available. Download it without comments for the signed form.'
+
+
+def test_a_signed_revision_after_a_correction_request_has_no_commented_copy(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = db.query(SAPReview).one().signed_pdf
+    assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 200
+    gone = client.get(base + '/pdf?comments=true')
+    assert gone.status_code == 409 and gone.json()['detail'] == GONE
+    assert client.get(base + '/pdf').content == stored
+
+
+def test_an_older_signed_revision_has_no_commented_copy_once_a_newer_one_exists(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = db.query(SAPReview).one().signed_pdf
+    assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 200
+    populate(sap_system)
+    assert client.get(base).json()['revision_no'] == 2
+    gone = client.get(base + '/pdf?revision_no=1&comments=true')
+    assert gone.status_code == 409 and gone.json()['detail'] == GONE
+    assert client.get(base + '/pdf?revision_no=1').content == stored
+
+
 @pytest.mark.parametrize('route,body', [('/return', {'remarks': 'Revise the food budget'}), ('/sds-reject', {'remarks': 'Revise the food budget'})])
 def test_a_returned_or_rejected_revision_serves_both_versions(sap_system, route, body):
     client, db, users, event, login, base = sap_system

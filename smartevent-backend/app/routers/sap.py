@@ -389,6 +389,8 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
         if signed and not comments:
             data = review.signed_pdf
         else:  # a signed revision with comments is drawn again from its stored review; the stored copy is not touched
+            if signed and not (rev.revision_no == proposal.revision_no and proposal.clearance):  # Part 4 lives only on the proposal
+                raise HTTPException(409, 'The commented copy of this signed revision is no longer available. Download it without comments for the signed form.')
             signer = signed and db.get(User, review.signed_by)
             data = _printout(proposal, rev.revision_no, comments, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None,
                 review={'overall_remarks': review.overall_remarks, 'section_remarks': review.section_remarks} if review else None,

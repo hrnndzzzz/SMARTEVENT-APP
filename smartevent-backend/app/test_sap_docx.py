@@ -150,6 +150,20 @@ def test_each_remark_becomes_a_comment_beside_its_part():
         ('Bring the letter.', 'Part 4')]
 
 
+def test_a_long_remark_is_split_into_consecutive_comments_on_one_anchor():
+    long = ' '.join(f'w{i:03d}' for i in range(500))  # 2499 characters
+    review = {'overall_remarks': long, 'section_remarks': {'budget': ' '.join(['abc'] * 300)}}  # 1199 characters
+    found = comments_by_anchor(fill_form(fixture_data(), review=review, comments=True))
+    overall = [t for _, t, p in found if p.startswith('Part 4')]
+    budget = [t for _, t, p in found if p.startswith('Budget')]
+    assert len(overall) == 4 and len(budget) == 2
+    assert all(len(t) <= 700 for t in overall + budget)
+    assert [t[-6:] for t in overall] == [' (1/4)', ' (2/4)', ' (3/4)', ' (4/4)'] and [t[-6:] for t in budget] == [' (1/2)', ' (2/2)']
+    assert overall[0].startswith('Overall: w000') and not any(t.startswith('Overall') for t in overall[1:])
+    assert ' '.join(t[:-6] for t in overall).replace('Overall: ', '') == long  # in order, cut between words, nothing lost
+    assert ' '.join(t[:-6] for t in budget) == ' '.join(['abc'] * 300)
+
+
 def test_a_remark_without_its_anchor_falls_back_to_the_part_4_heading(monkeypatch):
     monkeypatch.setitem(sap_pdf._ANCHORS, 'budget', 'No such label:')
     found = comments_by_anchor(fill_form(fixture_data(), review=REMARKS, comments=True))
