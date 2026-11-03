@@ -102,4 +102,81 @@ void main() {
     expect(event.status, EventApprovalStatus.draft);
     expect(event.rejectedBy, isNull);
   });
+
+  group('the review history the demo can account for', () {
+    Future<List<ApprovalRecord>> historyOf(AppState app, EventItem event) async
+        => (await app.loadApprovals(event)).records!;
+
+    test('a proposal awaiting the Moderator shows that step as open', () async {
+      final app = AppState()..enterDemo(role: UserRole.adviser);
+
+      final history = await historyOf(app, pending(app));
+
+      expect(history, hasLength(1));
+      expect(history.single.stepOrder, 1);
+      expect(history.single.decision, 'pending');
+      expect(history.single.decidedAt, isNull, reason: 'it has not been');
+    });
+
+    test('an approved event accounts for every stage', () async {
+      final app = AppState()..enterDemo(role: UserRole.adviser);
+      final event = app.events.firstWhere(
+        (e) => e.status == EventApprovalStatus.approved,
+      );
+
+      final history = await historyOf(app, event);
+
+      expect(history.map((r) => r.decision), everyElement('approved'));
+      expect(history.map((r) => r.stepOrder), [1, 2, 3]);
+    });
+
+    test('a rejection names the step it stopped at and goes no further',
+        () async {
+      final app = AppState()..enterDemo(role: UserRole.adviser);
+      final event = pending(app);
+      await app.adviserDecision(
+        event,
+        approved: false,
+        note: 'The budget does not add up.',
+        expectedVersion: null, // no version: a rejection, not a return
+      );
+
+      final history = await historyOf(app, event);
+
+      expect(history, hasLength(1));
+      expect(history.single.decision, 'rejected');
+      expect(history.single.remarks, contains('budget'));
+    });
+
+    test('a return reads as returned, not rejected', () async {
+      final app = AppState()..enterDemo(role: UserRole.adviser);
+      final event = pending(app);
+      await app.adviserDecision(
+        event,
+        approved: false,
+        note: 'Part 3 needs the venue permit.',
+        expectedVersion: await app.proposalVersionFor(event),
+      );
+
+      final history = await historyOf(app, event);
+
+      expect(history.single.decision, 'returned');
+      expect(history.single.remarks, contains('venue permit'));
+    });
+
+    test('a draft nobody has reviewed still records nothing', () async {
+      final app = AppState()..enterDemo(role: UserRole.adviser);
+      final draft = app.events.firstWhere(
+        (e) =>
+            e.status == EventApprovalStatus.draft &&
+            (e.adviserApprovalNote ?? '').isEmpty,
+      );
+
+      expect(
+        await historyOf(app, draft),
+        isEmpty,
+        reason: 'inventing a step for an unsubmitted draft would be a lie',
+      );
+    });
+  });
 }

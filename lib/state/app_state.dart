@@ -1918,6 +1918,95 @@ class AppState extends ChangeNotifier {
       ..addAll(remoteEvents.map(_mapRemoteEvent));
   });
 
+  /// The review timeline the demo can account for, read off the event
+  /// rather than invented: which stages its status has passed, what the
+  /// reviewers wrote, and who turned it down. A decision taken during the
+  /// demo appears here too, because [_demoDecision] writes those same
+  /// fields.
+  ///
+  /// Reviewer is left null. The row prints "Reviewer <id>", and the demo
+  /// has roles rather than account ids — "Reviewer Demo Adviser" reads
+  /// worse than the decision and its remark alone.
+  List<ApprovalRecord> _demoApprovals(EventItem event) {
+    final status = event.status;
+    final pastAdviser = switch (status) {
+      EventApprovalStatus.pendingAdmin ||
+      EventApprovalStatus.pendingInstitutional ||
+      EventApprovalStatus.approved ||
+      EventApprovalStatus.completed => true,
+      _ => false,
+    };
+    final pastAdmin = switch (status) {
+      EventApprovalStatus.pendingInstitutional ||
+      EventApprovalStatus.approved ||
+      EventApprovalStatus.completed => true,
+      _ => false,
+    };
+
+    // Stable rather than truthful: the demo holds no decision times, and
+    // DateTime.now() would move every row on each reload. Counting back
+    // from the activity's own date keeps the order and reads plausibly.
+    final base = event.on ?? DateTime.now();
+    DateTime when(int step) => base.subtract(Duration(days: 4 - step));
+
+    ApprovalRecord record(int step, String decision, String? remarks) =>
+        ApprovalRecord(
+          id: 'demo-approval-${event.remoteId ?? event.title}-$step',
+          entityType: 'event',
+          entityId: event.remoteId ?? '',
+          stepOrder: step,
+          reviewerId: null,
+          decision: decision,
+          remarks: remarks,
+          decidedAt: decision == 'pending' ? null : when(step),
+        );
+
+    /// One stage's row, or none when the proposal never reached it.
+    ApprovalRecord? stage(int step, {
+      required bool past,
+      required bool awaiting,
+      required String rejectedByName,
+      required String? note,
+    }) {
+      if (past) return record(step, 'approved', note);
+      if (awaiting) return record(step, 'pending', null);
+      if (status == EventApprovalStatus.rejected &&
+          event.rejectedBy == rejectedByName) {
+        return record(step, 'rejected', note);
+      }
+      // Back with the organization, and this stage is the one that sent
+      // it back: a return, which is not a rejection.
+      if (status == EventApprovalStatus.draft && (note?.isNotEmpty ?? false)) {
+        return record(step, 'returned', note);
+      }
+      return null;
+    }
+
+    return [
+      ?stage(
+        1,
+        past: pastAdviser,
+        awaiting: status == EventApprovalStatus.pendingAdviser,
+        rejectedByName: 'Adviser',
+        note: event.adviserApprovalNote,
+      ),
+      ?stage(
+        2,
+        past: pastAdmin,
+        awaiting: status == EventApprovalStatus.pendingAdmin,
+        rejectedByName: 'Admin',
+        note: event.adminApprovalNote,
+      ),
+      // The signatories sign in sequence after the admin; the demo knows
+      // only whether that stage is open or done.
+      if (status == EventApprovalStatus.pendingInstitutional)
+        record(3, 'pending', null)
+      else if (status == EventApprovalStatus.approved ||
+          status == EventApprovalStatus.completed)
+        record(3, 'approved', null),
+    ];
+  }
+
   /// Review timeline for one event: who decided what, when, and why.
   ///
   /// The backend returns reviewer IDs, not display names, and fetching
@@ -1928,7 +2017,10 @@ class AppState extends ChangeNotifier {
   ) async {
     // Exploring has no server to ask. This one is called straight from
     // the card rather than through _runLoad, so it needs saying twice.
-    if (_demoMode) return (records: const <ApprovalRecord>[], error: null);
+    // An empty list here read as "No review decisions recorded yet." under
+    // a proposal whose own badge said "Approved", so the demo builds the
+    // timeline from what the event already records.
+    if (_demoMode) return (records: _demoApprovals(event), error: null);
 
     final remoteId = event.remoteId;
     if (remoteId == null) {
