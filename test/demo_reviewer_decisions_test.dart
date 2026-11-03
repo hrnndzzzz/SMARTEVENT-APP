@@ -164,6 +164,28 @@ void main() {
       expect(history.single.remarks, contains('venue permit'));
     });
 
+    // Caught on a phone: the seeded rejection is the SDS Office's, and
+    // matching the reviewer against "Adviser" and "Admin" alone left the
+    // card reading "No review decisions recorded yet." under a badge that
+    // said "Rejected by the SDS Office" — the contradiction this set out
+    // to remove, in the one case most likely to be on screen.
+    test('a rejection by the SDS Office stops at the stage after the admin',
+        () async {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final event = app.events.firstWhere(
+        (e) => e.status == EventApprovalStatus.rejected,
+      );
+      expect(event.rejectedBy, isNot(anyOf('Adviser', 'Admin')),
+          reason: 'the case the name-matching missed');
+
+      final history = await historyOf(app, event);
+
+      expect(history.map((r) => r.decision), ['approved', 'approved', 'rejected']);
+      expect(history.last.stepOrder, 3);
+      expect(history.last.remarks, contains('morning classes'),
+          reason: "the office's reason is on the proposal, and is read from it");
+    });
+
     test('a draft nobody has reviewed still records nothing', () async {
       final app = AppState()..enterDemo(role: UserRole.adviser);
       final draft = app.events.firstWhere(

@@ -1920,7 +1920,7 @@ class AppState extends ChangeNotifier {
 
   /// The review timeline the demo can account for, read off the event
   /// rather than invented: which stages its status has passed, what the
-  /// reviewers wrote, and who turned it down. A decision taken during the
+  /// reviewers wrote, and where it stopped. A decision taken during the
   /// demo appears here too, because [_demoDecision] writes those same
   /// fields.
   ///
@@ -1929,6 +1929,64 @@ class AppState extends ChangeNotifier {
   /// worse than the decision and its remark alone.
   List<ApprovalRecord> _demoApprovals(EventItem event) {
     final status = event.status;
+
+    // Stable rather than truthful: the demo holds no decision times, and
+    // DateTime.now() would move every row on each reload. Counting back
+    // from the activity's own date keeps the order and reads plausibly.
+    // The hour is set rather than inherited, because every row landing on
+    // 00:00 reads as placeholder data on a card someone is meant to
+    // believe — and because an event with a start time would otherwise
+    // have its decisions taken at exactly that time.
+    final base = event.on ?? DateTime.now();
+    DateTime decidedOn(int step) {
+      final day = base.subtract(Duration(days: 4 - step));
+      return DateTime(day.year, day.month, day.day, 8 + step * 2, 15);
+    }
+
+    ApprovalRecord record(int step, String decision, String? remarks) =>
+        ApprovalRecord(
+          id: 'demo-approval-${event.remoteId ?? event.title}-$step',
+          entityType: 'event',
+          entityId: event.remoteId ?? '',
+          stepOrder: step,
+          reviewerId: null,
+          decision: decision,
+          remarks: remarks,
+          decidedAt: decision == 'pending' ? null : decidedOn(step),
+        );
+
+    // What each desk wrote. The SDS Office's reason is on the proposal,
+    // not the event, so it is read from the same seed the form shows.
+    String? noteFor(int step) => switch (step) {
+      1 => event.adviserApprovalNote,
+      2 => event.adminApprovalNote,
+      _ => DemoProposals.sdsRemarksFor(event),
+    };
+
+    if (status == EventApprovalStatus.rejected) {
+      // Which desk turned it down, and so how far it had got. The adviser
+      // and the admin name themselves; the SDS Office and the signatories
+      // both sit after the admin, so they stop it at the last stage. A
+      // rejection that names nobody says only that it was rejected —
+      // ticking the earlier desks off on a guess would be worse.
+      final stoppedAt = switch (event.rejectedBy) {
+        'Adviser' => 1,
+        'Admin' => 2,
+        null => null,
+        _ => 3,
+      };
+      if (stoppedAt == null) {
+        return [
+          record(1, 'rejected', event.adviserApprovalNote ?? event.adminApprovalNote),
+        ];
+      }
+      return [
+        for (var step = 1; step < stoppedAt; step++)
+          record(step, 'approved', noteFor(step)),
+        record(stoppedAt, 'rejected', noteFor(stoppedAt)),
+      ];
+    }
+
     final pastAdviser = switch (status) {
       EventApprovalStatus.pendingAdmin ||
       EventApprovalStatus.pendingInstitutional ||
@@ -1943,39 +2001,13 @@ class AppState extends ChangeNotifier {
       _ => false,
     };
 
-    // Stable rather than truthful: the demo holds no decision times, and
-    // DateTime.now() would move every row on each reload. Counting back
-    // from the activity's own date keeps the order and reads plausibly.
-    final base = event.on ?? DateTime.now();
-    DateTime when(int step) => base.subtract(Duration(days: 4 - step));
-
-    ApprovalRecord record(int step, String decision, String? remarks) =>
-        ApprovalRecord(
-          id: 'demo-approval-${event.remoteId ?? event.title}-$step',
-          entityType: 'event',
-          entityId: event.remoteId ?? '',
-          stepOrder: step,
-          reviewerId: null,
-          decision: decision,
-          remarks: remarks,
-          decidedAt: decision == 'pending' ? null : when(step),
-        );
-
     /// One stage's row, or none when the proposal never reached it.
-    ApprovalRecord? stage(int step, {
-      required bool past,
-      required bool awaiting,
-      required String rejectedByName,
-      required String? note,
-    }) {
-      if (past) return record(step, 'approved', note);
+    ApprovalRecord? stage(int step, {required bool past, required bool awaiting}) {
+      if (past) return record(step, 'approved', noteFor(step));
       if (awaiting) return record(step, 'pending', null);
-      if (status == EventApprovalStatus.rejected &&
-          event.rejectedBy == rejectedByName) {
-        return record(step, 'rejected', note);
-      }
       // Back with the organization, and this stage is the one that sent
       // it back: a return, which is not a rejection.
+      final note = noteFor(step);
       if (status == EventApprovalStatus.draft && (note?.isNotEmpty ?? false)) {
         return record(step, 'returned', note);
       }
@@ -1983,20 +2015,11 @@ class AppState extends ChangeNotifier {
     }
 
     return [
-      ?stage(
-        1,
-        past: pastAdviser,
-        awaiting: status == EventApprovalStatus.pendingAdviser,
-        rejectedByName: 'Adviser',
-        note: event.adviserApprovalNote,
-      ),
-      ?stage(
-        2,
-        past: pastAdmin,
-        awaiting: status == EventApprovalStatus.pendingAdmin,
-        rejectedByName: 'Admin',
-        note: event.adminApprovalNote,
-      ),
+      ?stage(1,
+          past: pastAdviser,
+          awaiting: status == EventApprovalStatus.pendingAdviser),
+      ?stage(2,
+          past: pastAdmin, awaiting: status == EventApprovalStatus.pendingAdmin),
       // The signatories sign in sequence after the admin; the demo knows
       // only whether that stage is open or done.
       if (status == EventApprovalStatus.pendingInstitutional)
