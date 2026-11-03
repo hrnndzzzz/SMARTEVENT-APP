@@ -11,6 +11,8 @@ from unittest.mock import Mock
 
 import pytest
 from docx import Document
+from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph as DocxParagraph
 from pypdf import PdfReader
 from reportlab.pdfgen.canvas import Canvas
 
@@ -114,8 +116,85 @@ def test_signed_form_names_the_signer_and_holds_the_signature():
                                      signature_strokes=[[{'x': 0, 'y': 0}, {'x': 1, 'y': 1}]])))
     cell = cell_with(doc, 'SDS Coordinator')
     assert 'Ana Cruz' in cell.text and 'Le-Mairre' not in cell.text
-    assert 'SDS: Looks complete' in cell.text
+    assert 'Looks complete' not in cell.text
     assert len(cell._tc.xpath('.//pic:pic')) == 1
+
+
+REMARKS = {'overall_remarks': 'Approved with notes.', 'section_remarks': {
+    'activity_details': 'Move the start.', 'budget': 'Attach a quotation.', 'support_requests': 'Book the sound system.',
+    'additional_information': 'Name the guests.', 'clearance': 'No medical exam.', 'other': 'Bring the letter.'}}
+
+
+def comments_by_anchor(docx):
+    """(author, text, text of the paragraph the comment is anchored in) for every comment on the form."""
+    doc = Document(BytesIO(docx))
+    anchors = {int(el.get(qn('w:id'))): DocxParagraph(el.getparent(), doc._body).text
+               for el in doc.element.body.iter(qn('w:commentRangeStart'))}
+    return [(c.author, c.text, anchors[c.comment_id]) for c in doc.comments]
+
+
+@pytest.mark.parametrize('signed', [False, True])
+def test_remarks_never_sit_under_the_signature(signed):
+    docx = fill_form(fixture_data(), review=REMARKS, signed=signed, signer_name='Ana Cruz')
+    text = cell_with(Document(BytesIO(docx)), 'SDS Coordinator').text
+    assert not any(r in text for r in ['Approved', 'Move the start', 'Bring the letter'])
+    assert 'word/comments.xml' not in zipfile.ZipFile(BytesIO(docx)).namelist()
+
+
+def test_each_remark_becomes_a_comment_beside_its_part():
+    found = comments_by_anchor(fill_form(fixture_data(), review=REMARKS, comments=True))
+    assert {a for a, _, _ in found} == {'SDS Office'}
+    assert [(t, p.split(':')[0] if p.startswith('Part') else p) for _, t, p in found] == [
+        ('Overall: Approved with notes.', 'Part 4'), ('Move the start.', 'Activity Title:'), ('Attach a quotation.', 'Budget:'),
+        ('Book the sound system.', 'Part 2'), ('Name the guests.', 'Part 3'), ('No medical exam.', 'Part 4'),
+        ('Bring the letter.', 'Part 4')]
+
+
+def test_a_long_remark_is_split_into_consecutive_comments_on_one_anchor():
+    long = ' '.join(f'w{i:03d}' for i in range(500))  # 2499 characters
+    review = {'overall_remarks': long, 'section_remarks': {'budget': ' '.join(['abc'] * 300)}}  # 1199 characters
+    found = comments_by_anchor(fill_form(fixture_data(), review=review, comments=True))
+    overall = [t for _, t, p in found if p.startswith('Part 4')]
+    budget = [t for _, t, p in found if p.startswith('Budget')]
+    assert len(overall) == 4 and len(budget) == 2
+    assert all(len(t) <= 700 for t in overall + budget)
+    assert [t[-6:] for t in overall] == [' (1/4)', ' (2/4)', ' (3/4)', ' (4/4)'] and [t[-6:] for t in budget] == [' (1/2)', ' (2/2)']
+    assert overall[0].startswith('Overall: w000') and not any(t.startswith('Overall') for t in overall[1:])
+    assert ' '.join(t[:-6] for t in overall).replace('Overall: ', '') == long  # in order, cut between words, nothing lost
+    assert ' '.join(t[:-6] for t in budget) == ' '.join(['abc'] * 300)
+
+
+def test_a_remark_without_its_anchor_falls_back_to_the_part_4_heading(monkeypatch):
+    monkeypatch.setitem(sap_pdf._ANCHORS, 'budget', 'No such label:')
+    found = comments_by_anchor(fill_form(fixture_data(), review=REMARKS, comments=True))
+    assert next(p for _, t, p in found if t == 'Attach a quotation.').startswith('Part 4')
+
+
+def test_no_remarks_means_no_comments():
+    for review in (None, {'overall_remarks': '', 'section_remarks': {}}):
+        docx = fill_form(fixture_data(), review=review, comments=True)
+        assert 'word/comments.xml' not in zipfile.ZipFile(BytesIO(docx)).namelist()
+
+
+def test_markup_export_asks_word_for_comments(monkeypatch):
+    run = Mock(side_effect=lambda cmd, **kw: Path(re.search(r"ExportAsFixedFormat\('([^']+)'", cmd[-1]).group(1)).write_bytes(b'%PDF'))
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', run)
+    sap_pdf.docx_to_pdf(b'..', markup=True)
+    script = run.call_args.args[0][-1]
+    assert ", 17, $false, 0, 0, 1, 1, 7)" in script and 'ShowComments = $true' in script and 'Markup = 2' in script
+    sap_pdf.docx_to_pdf(b'..')
+    assert 'ExportAsFixedFormat' in run.call_args.args[0][-1] and ', 7)' not in run.call_args.args[0][-1]
+
+
+@pytest.mark.parametrize('review,comments,markup', [(None, True, False), ({'overall_remarks': '', 'section_remarks': {}}, True, False),
+                                                    ({'overall_remarks': 'Fine', 'section_remarks': {}}, True, True),
+                                                    ({'overall_remarks': 'Fine', 'section_remarks': {}}, False, False)])
+def test_the_markup_export_is_for_commented_forms_with_remarks_only(monkeypatch, review, comments, markup):
+    seen = []
+    monkeypatch.setattr(sap_pdf, 'docx_to_pdf', lambda docx, *, markup=False: seen.append(markup) or b'')
+    monkeypatch.setattr(sap_pdf, '_stamp', lambda *args, **kwargs: b'')
+    sap_pdf.render_proposal(fixture_data(), 1, review=review, comments=comments)
+    assert seen == [markup]
 
 
 def test_unsigned_form_keeps_the_printed_coordinator():

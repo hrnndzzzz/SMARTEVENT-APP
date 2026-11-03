@@ -81,8 +81,9 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
   (`POST /sds-reject`, remarks required) is final: the proposal and its event become
   `rejected` and whoever sent the proposal is told. A return takes optional
   `section_remarks` too, and keeps the saved ones when it sends none.
-- SDS remarks print on the form for a returned, signed or rejected revision, and a
-  rejected one carries a "REJECTED BY THE SDS OFFICE" mark.
+- SDS remarks never print in the SDS Coordinator's cell. For a returned, signed or
+  rejected revision they come as margin comments in `GET /pdf?comments=true`; the
+  plain form has none. A rejected one carries a "REJECTED BY THE SDS OFFICE" mark.
 - Paper slots 5 to 9 are recorded only after the SDS Office signs, and Part 4 is
   filled in only while it reviews the proposal.
 - Every SAP notice also reaches whoever sent the revision. The Moderator's and the

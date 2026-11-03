@@ -534,9 +534,13 @@ class SapForm extends ChangeNotifier {
     }
   }
 
-  /// Fetches the printable form. Returns null when there is nothing to
-  /// print yet or the backend has no SAP routes.
-  Future<DownloadedFile?> printableForm({int? revisionNo}) async {
+  /// Fetches the printable form, with the SDS Office's remarks as comments
+  /// when [withComments]. Returns null when there is nothing to print yet or
+  /// the backend has no SAP routes.
+  Future<DownloadedFile?> printableForm({
+    int? revisionNo,
+    bool withComments = false,
+  }) async {
     final service = _service;
     if (service == null) {
       _localOnly = true;
@@ -545,9 +549,16 @@ class SapForm extends ChangeNotifier {
     }
     _error = null;
     try {
-      return await service.pdf(_eventId!, revisionNo: revisionNo);
+      return await service.pdf(
+        _eventId!,
+        revisionNo: revisionNo,
+        withComments: withComments,
+      );
     } on SapUnavailable {
       _localOnly = true;
+    } on SapVersionConflict catch (conflict) {
+      // The 409 for a commented copy that no longer exists.
+      _error = conflict.message;
     } catch (e) {
       _error = e is ApiException ? e.message : e.toString();
     }
@@ -641,6 +652,10 @@ class SapForm extends ChangeNotifier {
       if (sectionRemarks[section]?.trim() case final said? when said.isNotEmpty)
         '${section.label}: $said',
   ];
+
+  /// Whether there is anything of the SDS Office's to print as a comment.
+  /// The overall remark counts: it becomes a comment on Part 4.
+  bool get hasSdsRemarks => sdsRemarkLines(overall: true).isNotEmpty;
 
   /// `PUT /sds-review` — saves remarks without signing. Returns the
   /// reason it failed, or null.

@@ -121,7 +121,7 @@ Base: `/events/{event_id}/sap-proposal`. UUID path identifiers.
 | POST `/workflow/{step_id}/record` | Checkpoint body below | Updated workflow |
 | POST `/return` | `{expected_version, remarks, section_remarks?}` | Return with nonblank remarks of up to 3000 characters (`/revise` keeps 1000); sets `returned_by: sds`. Omitted or `null` `section_remarks` keeps the saved ones; an object replaces them (keys and limits as in the implementation handoff) |
 | POST `/sds-reject` | Same as `/return` | Reject a pending proposal for good; aggregate in `rejected` |
-| GET `/pdf` | Optional `revision_no` >= 1 | Authenticated PDF attachment |
+| GET `/pdf` | Optional `revision_no` >= 1, `comments` (default false) | Authenticated PDF attachment; `comments=true` adds the SDS remarks as margin comments (file name ends `-comments`); 409 for a signed revision whose Part 4 is gone (see PDF section) |
 | POST `/final-signed-copy` | Multipart `expected_version`, `file` | 201 approved aggregate |
 | GET `/final-signed-copy` | None; SDS only | Short-lived private URL + SHA-256 |
 | POST `/evaluation` | `{expected_version, outcome, remarks}` | Completed aggregate |
@@ -267,21 +267,26 @@ physical signature slots, and never includes the scanned sample as a background.
 Part 6 remains blank on the immutable pre-event print; evaluation is a separate
 backend record. Draft previews have no verification QR; submitted copies do.
 
-Whichever way the SDS Office decides, its remarks print in the SDS Coordinator's
-cell of that revision's form: the overall remarks after `SDS:`, then each section
-remark by name. That holds for a returned, a signed and a rejected revision. A
+The SDS Office's remarks never print in the SDS Coordinator's cell. `GET /pdf?comments=true`
+instead returns the form with each saved remark as a Word comment ("SDS Office") in the
+margin beside its part: the Activity Title and Budget labels, the Part 2, 3 and 4
+headings, and the overall remark (prefixed `Overall:`) on Part 4; a remark whose label is
+missing sits on the Part 4 heading. That holds for a returned, a signed and a rejected
+revision. A proposal with no remarks prints the same either way. Word clips a long comment, so a remark longer than about 690 characters prints as consecutive comments on the same part, each ending `(1/2)`, `(2/2)` and so on; the commented copy shows the remarks as Word prints them, and the app holds their full text. A
 rejected one, while it is the proposal's current revision, also carries the red
 watermark `REJECTED BY THE SDS OFFICE` and the footer `SAP revision N | Rejected by
 SDS`; earlier revisions print as they were. `GET /sap/verify/{token}` reports the
 rejected current revision as `approval_state: rejected` with `approved: false`.
 
-A revision the SDS Office has signed prints as the copy stored at signing: the
+A revision the SDS Office has signed prints as the copy stored at signing, without comments (`comments=true` draws a separate commented copy from the stored review and signature, and only while that revision is the proposal's current one and still holds its Part 4, i.e. `sds_signed`, approved or completed; after `/revise`, or once a newer revision exists, it answers 409 `The commented copy of this signed revision is no longer available. Download it without comments for the signed form.`; the stored copy and its SHA-256 never change): the
 signer's name and drawn signature in the SDS Coordinator's cell, the red watermark
 `SIGNED AND APPROVED BY SDS OFFICE` on every page and the footer `SAP revision N |
 SDS signed`. It still does after approval. A revision that is neither signed nor the
 rejected current one prints with the footer `SAP revision N | Unsigned` and no
 watermark. On every copy the other signature slots print empty, and none of these
 marks is a physical signature: download the private final scan for that evidence.
+
+A copy stored before the remarks moved to comments still prints them under the signature. `GET /pdf` without comments serves such a copy re-rendered without them (same signer, drawn signature and watermark) while the revision is current and holds its Part 4, and as stored otherwise; the stored bytes and SHA-256 are unchanged. The final scan's page count is checked against the copy served.
 
 Final upload accepts at most 10 MB, an unencrypted PDF of at least three pages and the
 same page count as the SDS-signed copy (the form and its addenda; otherwise 422), no

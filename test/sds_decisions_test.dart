@@ -196,6 +196,8 @@ void main() {
         expect(pressable(tester, label), isFalse, reason: label);
       }
       expect(find.textContaining('needs an overall remark'), findsOneWidget);
+      expect(find.textContaining('copy with comments'), findsOneWidget);
+      expect(find.textContaining('prints on the form'), findsNothing);
 
       await write(tester, 'OVERALL', 'Move it to the afternoon.');
 
@@ -274,6 +276,8 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.textContaining('copy with comments'), findsOneWidget);
+      expect(find.textContaining('print on the form'), findsNothing);
       expect(requests, isEmpty, reason: 'nothing goes before it is confirmed');
 
       await tester.tap(find.widgetWithText(TextButton, 'Reject'));
