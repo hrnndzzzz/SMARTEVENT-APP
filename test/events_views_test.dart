@@ -142,6 +142,69 @@ void main() {
     expect(find.textContaining('1 this month'), findsNothing);
   });
 
+  // `rejected` is the SDS Office's final decision, not a return: a return
+  // puts the event back to a draft, which the Drafts chip already finds.
+  testWidgets('the rejected chip is called rejected and finds rejections', (
+    tester,
+  ) async {
+    final app = _seeded();
+    await _open(tester, app);
+
+    expect(find.text('Rejected'), findsOneWidget);
+    expect(find.text('Returned'), findsNothing);
+
+    // The chip bar scrolls sideways, and this one starts off the edge.
+    await tester.ensureVisible(find.text('Rejected'));
+    await tester.pump();
+    await tester.tap(find.text('Rejected'));
+    await tester.pump();
+    expect(find.text('Nothing rejected'), findsOneWidget);
+
+    app.events.add(
+      EventItem(
+        title: 'Industry Immersion Talk',
+        org: 'ACPES',
+        date: '',
+        budget: '₱8,000.00',
+        status: EventApprovalStatus.rejected,
+      ),
+    );
+    app.updateEvent();
+    await tester.pump();
+
+    expect(find.text('Industry Immersion Talk'), findsOneWidget);
+    expect(find.text('Hackathon 2026'), findsNothing);
+  });
+
+  // No flow sends a rejected event back for changes any more, so the month's
+  // agenda calling it "Returned" is false of every one.
+  testWidgets('the calendar calls a rejection rejected, not returned', (
+    tester,
+  ) async {
+    final app = _seeded();
+    final now = DateTime.now();
+    app.events.add(
+      EventItem(
+        title: 'Industry Immersion Talk',
+        org: 'ACPES',
+        date: '',
+        on: DateTime(now.year, now.month, now.day),
+        budget: '₱8,000.00',
+        status: EventApprovalStatus.rejected,
+      ),
+    );
+    await _open(tester, app);
+    await _toCalendar(tester);
+
+    // The agenda opens on today, and its meta line is set in capitals.
+    Finder reading(String word) => find.byWidgetPredicate(
+      (w) => w is Text && (w.data ?? '').toLowerCase().contains(word),
+    );
+    expect(find.text('Industry Immersion Talk'), findsOneWidget);
+    expect(reading('rejected · acpes'), findsOneWidget);
+    expect(reading('returned'), findsNothing);
+  });
+
   testWidgets('a single school year offers no year chip', (tester) async {
     await _open(tester, _seeded());
     // One year in the data is a chip that cannot change anything.

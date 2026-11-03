@@ -1,10 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/screens/sap/sds_sign_screen.dart';
 import 'package:smartevent/screens/sap/signature_pad.dart';
+import 'package:smartevent/state/app_state.dart' show AppState, UserRole;
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
@@ -16,6 +18,13 @@ import 'package:smartevent/theme/brut.dart';
 /// which cannot be undone — asks first.
 Widget host(Widget child) =>
     MaterialApp(theme: AppTheme.light(), home: child);
+
+/// The way into review and signing is the SDS Office's alone, so the hub is
+/// hosted as an SDS Office account.
+Widget hostAsSds(Widget child) => ChangeNotifierProvider.value(
+  value: AppState()..enterDemo(role: UserRole.sdsStaff),
+  child: host(child),
+);
 
 void main() {
   group('the pad', () {
@@ -169,19 +178,20 @@ void main() {
       final form = SapForm(eventId: 'e1')
         ..seedLocally(state: SapState.pendingReview);
 
-      await tester.pumpWidget(host(SapFormScreen(form: form)));
+      await tester.pumpWidget(hostAsSds(SapFormScreen(form: form)));
       await tester.pumpAndSettle();
 
-      expect(find.text('Review and sign'), findsOneWidget);
+      expect(find.text('Review and decide'), findsOneWidget);
     });
 
     testWidgets('and does not while it is still a draft', (tester) async {
+      // As the SDS Office, or the absence would only be the missing role.
       await tester.pumpWidget(
-        host(SapFormScreen(form: SapForm(eventId: 'e1'))),
+        hostAsSds(SapFormScreen(form: SapForm(eventId: 'e1'))),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Review and sign'), findsNothing);
+      expect(find.text('Review and decide'), findsNothing);
     });
   });
 
@@ -247,8 +257,20 @@ void main() {
   });
 
   group('the screen', () {
-    SapForm pending() {
+    SapForm pending({bool cleared = true}) {
       final form = SapForm(eventId: 'e1');
+      if (cleared) {
+        form.setClearance(
+          const SapClearance(
+            parentsConsent: SapClearanceAnswer.yes,
+            attachments: 'Program and budget',
+            classInterruption: SapClearanceAnswer.none,
+            medicalExam: SapClearanceAnswer.yes,
+            reportOfCompliance: SapClearanceAnswer.yes,
+            studentPersonnelRatio: '145:3',
+          ),
+        );
+      }
       form.seedLocally(state: SapState.pendingReview);
       return form;
     }
@@ -258,9 +280,25 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = tester.widget<BrutButton>(
-        find.widgetWithText(BrutButton, 'Sign the proposal'),
+        find.widgetWithText(BrutButton, 'Approve and sign'),
       );
       expect(button.onPressed, isNull);
+      expect(find.textContaining('Confirm Part 4'), findsNothing);
+    });
+
+    testWidgets('will not sign until Part 4 is confirmed', (tester) async {
+      await tester.pumpWidget(
+        host(SdsSignScreen(form: pending(cleared: false))),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Confirm Part 4'), findsOneWidget);
+      expect(
+        tester
+            .widget<SapSignaturePad>(find.byType(SapSignaturePad))
+            .enabled,
+        isFalse,
+      );
     });
 
     testWidgets('offers a remark against every section the server takes', (

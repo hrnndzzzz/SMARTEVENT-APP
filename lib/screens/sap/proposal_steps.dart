@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/brut.dart';
+import '../../widgets/report_tiles.dart';
+
 /// Filling in the proposal, as its three parts.
 ///
 /// They are the form's own parts and nothing else. An earlier version
@@ -39,24 +42,62 @@ abstract final class LeaveProposal {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Leave this proposal?'),
-        content: const Text(
-          'Nothing has been sent to the SDS Office yet. You can keep what '
-          'you have written as a draft and come back to it.',
+        // The three choices are squared boxes, the same shape the
+        // reports screen uses for a set of actions, rather than the
+        // stacked text links an AlertDialog gives by default — which
+        // looked nothing like the rest of the app and read as a list
+        // of links rather than a choice between three things.
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Nothing has been sent yet. You can keep what you have '
+              'written as a draft and come back to it.',
+            ),
+            const SizedBox(height: 16),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ReportActionTile(
+                      label: 'Cancel',
+                      icon: Icons.close,
+                      dense: true,
+                      onTap: () =>
+                          Navigator.of(dialogContext).pop(_Leaving.stay),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ReportActionTile(
+                      label: 'Go back',
+                      icon: Icons.arrow_back,
+                      dense: true,
+                      // It leaves without keeping anything, which is the
+                      // one choice here that loses work.
+                      tone: BrutTone.coral,
+                      onTap: () =>
+                          Navigator.of(dialogContext).pop(_Leaving.discard),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ReportActionTile(
+                      label: 'Save as draft',
+                      icon: Icons.bookmark_outline,
+                      dense: true,
+                      tone: BrutTone.brand,
+                      onTap: () =>
+                          Navigator.of(dialogContext).pop(_Leaving.save),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(_Leaving.stay),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(_Leaving.discard),
-            child: const Text('Go back'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(_Leaving.save),
-            child: const Text('Save as draft'),
-          ),
-        ],
       ),
     );
 

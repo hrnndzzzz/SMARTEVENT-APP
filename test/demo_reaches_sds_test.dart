@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
+import 'package:smartevent/state/app_state.dart' show AppState, UserRole;
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 
@@ -11,8 +13,12 @@ import 'package:smartevent/theme/app_theme.dart';
 /// which locks Parts 5 and 6 and hides review and signing — so the role
 /// showed four parts and two closed rows, and three screens could not be
 /// looked at on a phone at all.
-Widget host(Widget child) =>
-    MaterialApp(theme: AppTheme.light(), home: child);
+Widget host(Widget child) => ChangeNotifierProvider.value(
+  // Reviewing and deciding are the SDS Office's, so the demo role that is
+  // offered them is the one hosting the hub.
+  value: AppState()..enterDemo(role: UserRole.sdsStaff),
+  child: MaterialApp(theme: AppTheme.light(), home: child),
+);
 
 void main() {
   test('a form with no server still starts where it is put', () {
@@ -56,7 +62,7 @@ void main() {
     await tester.pumpWidget(host(SapFormScreen(form: form)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review and sign'), findsOneWidget);
+    expect(find.text('Review and decide'), findsOneWidget);
   });
 
   testWidgets('a draft still keeps the SDS parts shut', (tester) async {
@@ -66,6 +72,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Not yet'), findsWidgets);
-    expect(find.text('Review and sign'), findsNothing);
+    expect(find.text('Review and decide'), findsNothing);
   });
 }

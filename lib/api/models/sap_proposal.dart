@@ -16,10 +16,18 @@ library;
 ///
 /// This is deliberately separate from the event's status: the backend
 /// projects these onto the existing `EventStatus` for lists and dashboards
-/// (`draft`/returned read as draft, review as pending institutional
-/// review), and does not add SAP stages to that enum.
+/// (`draft`/returned read as draft, department review as pending adviser
+/// or admin, SDS review as pending institutional review), and does not add
+/// SAP stages to that enum.
 enum SapState {
   draft('draft', 'Draft'),
+
+  /// Sent, and with the department: the Moderator first, then the Dean.
+  /// The Dean's approval is what passes it to the SDS Office, and either
+  /// can return it instead.
+  pendingDepartmentReview('pending_department_review', 'With the department'),
+
+  /// With the SDS Office.
   pendingReview('pending_sap_review', 'Under review'),
   revisionRequested('revision_requested', 'Returned'),
 
@@ -30,8 +38,9 @@ enum SapState {
   approved('approved', 'Approved'),
   completed('completed', 'Completed'),
 
-  /// Reserved in persistence; this slice exposes no terminal-rejection
-  /// endpoint, so the app should never originate it.
+  /// The SDS Office's final decision (`POST /sds-reject`). Unlike a return,
+  /// nothing follows it: the proposer cannot edit or resubmit, and the
+  /// reason is the office's remarks.
   rejected('rejected', 'Rejected');
 
   const SapState(this.wireName, this.label);
@@ -49,6 +58,30 @@ enum SapState {
   /// Parts 1–3 are the proposer's to edit only in these two states.
   bool get isProposerEditable =>
       this == SapState.draft || this == SapState.revisionRequested;
+}
+
+/// Who sent a proposal back to its proposer.
+///
+/// The server records this beside the return remarks, so the proposer
+/// knows whose words they are reading.
+enum SapReturnedBy {
+  moderator('moderator', 'the Moderator'),
+  dean('dean', 'the Dean'),
+  sds('sds', 'the SDS Office');
+
+  const SapReturnedBy(this.wireName, this.label);
+
+  final String wireName;
+
+  /// Worded to follow "Returned by", so it carries its own article.
+  final String label;
+
+  static SapReturnedBy? fromWire(String? value) {
+    for (final who in SapReturnedBy.values) {
+      if (who.wireName == value) return who;
+    }
+    return null;
+  }
 }
 
 enum SapModality {
@@ -885,6 +918,9 @@ class SapProposal {
     this.clearance,
     this.evaluation,
     this.returnRemarks,
+    this.returnedBy,
+    this.sdsRemarks = '',
+    this.sdsSectionRemarks = const {},
   });
 
   final String id;
@@ -914,6 +950,16 @@ class SapProposal {
 
   final SapEvaluation? evaluation;
   final String? returnRemarks;
+
+  /// Who returned it, alongside [returnRemarks]. Null unless the proposal
+  /// is currently returned: the server clears it when the proposal is sent
+  /// again, and a rejection is not a return.
+  final SapReturnedBy? returnedBy;
+
+  /// What the SDS Office last saved against the current revision, signed
+  /// or not. Empty until it saves something.
+  final String sdsRemarks;
+  final Map<SapRemarkSection, String> sdsSectionRemarks;
 
   bool get isProposerEditable => state?.isProposerEditable ?? false;
 
@@ -962,7 +1008,18 @@ class SapProposal {
             Map<String, dynamic>.from(json['evaluation'] as Map),
           ),
     returnRemarks: json['return_remarks'] as String?,
+    returnedBy: SapReturnedBy.fromWire(json['returned_by'] as String?),
+    sdsRemarks: (_review(json)['overall_remarks'] as String?) ?? '',
+    sdsSectionRemarks: {
+      for (final MapEntry(:key, :value)
+          in ((_review(json)['section_remarks'] as Map?) ?? const {}).entries)
+        ?SapRemarkSection.fromWire(key as String): value as String,
+    },
   );
+
+  /// The server's `sds_review`, empty until the office has saved one.
+  static Map _review(Map<String, dynamic> json) =>
+      json['sds_review'] is Map ? json['sds_review'] as Map : const {};
 
   /// One collection out of the nested `collections` object.
   static List<Map<String, dynamic>> _rows(Map<String, dynamic> json, String key) {

@@ -1944,6 +1944,11 @@ class _ChoiceRow<T> extends StatelessWidget {
 /// A filter chip. Selected takes the area accent with ink on it;
 /// unselected is a plain outline with no shadow, so a row of chips reads
 /// as one chosen and the rest available.
+///
+/// A chip with no [onTap] is disabled: flat and muted, silent, and read as
+/// disabled by a screen reader. Pass a callback only when a tap does something.
+/// A disabled chip that is selected is still the chosen answer, so it keeps
+/// its ink outline and full weight beside the lighter, muted rest.
 class BrutChip extends StatelessWidget {
   const BrutChip({
     super.key,
@@ -1955,7 +1960,7 @@ class BrutChip extends StatelessWidget {
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   /// Defaults to the area accent.
   final BrutTone? tone;
@@ -1966,10 +1971,14 @@ class BrutChip extends StatelessWidget {
         ? (tone ?? BrutTone.brand).fill(context)
         : context.palette.surface;
 
-    return BrutSurface(
+    final locked = onTap == null;
+    final chip = BrutSurface(
       onTap: onTap,
+      enabled: !locked,
       fill: fill,
       radius: AppRadius.controlAll,
+      // BrutSurface mutes a disabled outline; the chosen answer keeps ink.
+      side: locked && selected ? context.side : null,
       shadow: selected ? AppShadows.sm : AppShadows.none,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       alignment: Alignment.center,
@@ -1977,10 +1986,20 @@ class BrutChip extends StatelessWidget {
         label,
         style: AppText.buttonLabel.copyWith(
           fontSize: 12,
+          // Every chip is bold, so the rest of a locked row steps down to
+          // regular for the chosen one to stand out by more than ink.
+          fontWeight: locked && !selected ? FontWeight.w400 : null,
           color: selected ? context.palette.ink : context.palette.subtle,
         ),
       ),
     );
+
+    // BrutSurface draws a disabled control but says nothing about it, so a
+    // screen reader would offer this as a live chip and not say which answer
+    // is chosen.
+    return locked
+        ? Semantics(enabled: false, selected: selected, child: chip)
+        : chip;
   }
 }
 

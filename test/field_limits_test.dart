@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/screens/sap/sap_part3_screen.dart';
+import 'package:smartevent/screens/sap/sap_part4_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
@@ -44,5 +46,42 @@ void main() {
       400,
       reason: 'excuse_arrangement is max_length=400 on the server',
     );
+  });
+
+  testWidgets('Part 4 stops where the server stops', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 2600);
+    addTearDown(tester.view.reset);
+
+    // Answers that open every text box Part 4 has.
+    final form = SapForm(eventId: 'e1')
+      ..setClearance(
+        const SapClearance(
+          parentsConsent: SapClearanceAnswer.notApplicable,
+          attachments: 'Program and budget',
+          classInterruption: SapClearanceAnswer.yes,
+          medicalExam: SapClearanceAnswer.notApplicable,
+          reportOfCompliance: SapClearanceAnswer.notApplicable,
+          studentPersonnelRatio: '145:3',
+        ),
+      );
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => AppSettings(),
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: SapPart4Screen(form: form),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final fields = tester.widgetList<BrutTextField>(
+      find.byType(BrutTextField),
+    );
+    expect(fields, hasLength(6));
+    for (final field in fields) {
+      expect(field.maxLength, 5000, reason: field.label);
+    }
   });
 }

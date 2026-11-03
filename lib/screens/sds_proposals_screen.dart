@@ -24,16 +24,16 @@ class SdsProposalsScreen extends StatelessWidget {
       switch (status) {
         EventApprovalStatus.draft => ('Still being written', BrutTone.neutral),
         EventApprovalStatus.pendingAdviser => (
-          'With the moderator',
+          'With the Moderator',
           BrutTone.sun,
         ),
-        EventApprovalStatus.pendingAdmin => ('With the SDS Office', BrutTone.sun),
+        EventApprovalStatus.pendingAdmin => ('With the Dean', BrutTone.sun),
         EventApprovalStatus.pendingInstitutional => (
-          'With the signatories',
+          'With the SDS Office',
           BrutTone.sun,
         ),
         EventApprovalStatus.approved => ('Approved', BrutTone.mint),
-        EventApprovalStatus.rejected => ('Returned', BrutTone.coral),
+        EventApprovalStatus.rejected => ('Rejected', BrutTone.coral),
         EventApprovalStatus.completed => ('Completed', BrutTone.mint),
       };
 
@@ -41,10 +41,16 @@ class SdsProposalsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
 
-    // A draft has not been sent anywhere, so it is nobody's to review.
+    // A draft has not been sent anywhere, so it is nobody's to review. The
+    // demo has no server to scope the list, so it leaves out what is still
+    // with the Moderator or the Dean: the office cannot decide those yet.
     final waiting = [
       for (final event in app.events)
-        if (event.status != EventApprovalStatus.draft) event,
+        if (event.status != EventApprovalStatus.draft &&
+            !(app.isDemoMode &&
+                (event.status == EventApprovalStatus.pendingAdviser ||
+                    event.status == EventApprovalStatus.pendingAdmin)))
+          event,
     ];
 
     return BrutScreen(
@@ -100,6 +106,8 @@ class _ProposalCard extends StatelessWidget {
           form.seedLocally(
             state: _sapStateFor(event.status),
             details: DemoProposals.detailsFor(event),
+            sdsRemarks: DemoProposals.sdsRemarksFor(event),
+            clearance: DemoProposals.clearanceFor(event),
           );
           form.setBudgetItems(DemoProposals.budgetFor(event));
           form.setSupportRequests(DemoProposals.supportFor(event));
@@ -142,9 +150,9 @@ class _ProposalCard extends StatelessWidget {
   SapState _sapStateFor(EventApprovalStatus status) => switch (status) {
     EventApprovalStatus.draft => SapState.draft,
     EventApprovalStatus.pendingAdviser ||
-    EventApprovalStatus.pendingAdmin ||
+    EventApprovalStatus.pendingAdmin => SapState.pendingDepartmentReview,
     EventApprovalStatus.pendingInstitutional => SapState.pendingReview,
-    EventApprovalStatus.rejected => SapState.revisionRequested,
+    EventApprovalStatus.rejected => SapState.rejected,
     EventApprovalStatus.approved => SapState.approved,
     EventApprovalStatus.completed => SapState.completed,
   };

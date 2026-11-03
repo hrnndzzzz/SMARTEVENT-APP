@@ -60,28 +60,6 @@ class _SapFormScreenState extends State<SapFormScreen> {
     await ExportSaver.share(file, subject: 'SAS-SDS-FO-020 proposal form');
   }
 
-  Future<void> _return(SapForm form) async {
-    final remarks = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const _ReturnSheet(),
-    );
-    if (remarks == null) return;
-
-    final ok = await form.returnForRevision(remarks);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Returned. Resubmitting creates a new revision; the '
-                    'signatures already collected do not carry over.'
-              : form.error ?? 'Could not return it.',
-        ),
-      ),
-    );
-  }
-
   Future<void> _open(SapPart part) async {
     final form = widget.form;
     // Opened while offline, say: load it now rather than open a part on a
@@ -110,10 +88,16 @@ class _SapFormScreenState extends State<SapFormScreen> {
       value: widget.form,
       child: Consumer<SapForm>(
         builder: (context, form, _) {
+          final isSds = SapProposalFlow.isSdsStaff(context);
           return BrutScreen(
             header: BrutHeader(
               title: 'Proposal form',
-              eyebrow: 'SAS-SDS-FO-020 (001)',
+              // The revision belongs beside the form's own number: a
+              // second submission is a different piece of paper to the
+              // office, and nothing said which one this was.
+              eyebrow: form.isResubmission
+                  ? 'SAS-SDS-FO-020 (001) · REVISION ${form.revisionNo}'
+                  : 'SAS-SDS-FO-020 (001)',
               onBack: () => Navigator.of(context).maybePop(),
             ),
             footer: BrutFooter(
@@ -136,6 +120,59 @@ class _SapFormScreenState extends State<SapFormScreen> {
                   const Center(child: BrutSpinner()),
                   const SizedBox(height: 40),
                 ] else ...[
+                  // Who has the proposal, before the six parts. Sending it
+                  // goes to the Moderator and the Dean first, and the
+                  // proposal used to read as nothing in particular while
+                  // they had it.
+                  if (form.state == SapState.pendingDepartmentReview)
+                    const BrutInlineMessage(
+                      tone: BrutTone.sun,
+                      icon: Icons.hourglass_top,
+                      text:
+                          'With the Moderator and Dean. They approve it '
+                          'before it goes to the SDS Office.',
+                    ),
+                  // What to change, before the six parts it applies to.
+                  // A returned proposal used to come back with the state
+                  // alone and no reason, so the proposer had to guess —
+                  // the server has carried these words all along.
+                  if (form.wasReturned)
+                    BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.assignment_return_outlined,
+                      text: _returnedText(form),
+                    ),
+                  // Final: nothing follows it and nothing can be sent
+                  // again, so it says so rather than reading as a return.
+                  // The office made the decision, so it is not advised to
+                  // start a new proposal.
+                  if (form.state == SapState.rejected)
+                    BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.block,
+                      text: [
+                        isSds
+                            ? 'Rejected by the SDS Office. This proposal is '
+                                  'final.'
+                            : 'Rejected by the SDS Office. This proposal is '
+                                  'final; start a new one to try again.',
+                        ...form.sdsRemarkLines(overall: true),
+                      ].join('\n'),
+                    ),
+                  // The activity has run and Part 6 is the office's to
+                  // fill in. Without this the form simply ended, locked,
+                  // with nothing saying who was being waited on.
+                  if (form.awaitingEvaluation)
+                    BrutInlineMessage(
+                      tone: BrutTone.sun,
+                      icon: Icons.hourglass_top,
+                      text: isSds
+                          ? 'The activity has run. Record how it went in '
+                                'Part 6.'
+                          : 'Waiting on the SDS Office to record how this '
+                                'went. Part 6 is theirs to fill in; nothing '
+                                'more is needed from you.',
+                    ),
                   if (form.isLocalOnly)
                     BrutInlineMessage(
                       tone: BrutTone.sun,
@@ -219,25 +256,33 @@ class _SapFormScreenState extends State<SapFormScreen> {
                     // copy while it is still being filled in, and the
                     // stored signed form once the SDS Office has signed
                     // it. The nine on paper print empty either way.
-                    text:
-                        form.state == SapState.sdsSigned ||
-                            form.state == SapState.approved ||
-                            form.state == SapState.completed
-                        ? 'This is the signed form the SDS Office stored, '
-                              'watermarked by the server. The nine signature '
-                              'slots print empty, to be signed by hand.'
-                        : 'The printed copy uses the university\'s own '
-                              'six-page layout, produced by the server so the '
-                              'paper always matches the record. The nine '
-                              'signature slots print empty, to be signed by '
-                              'hand.',
+                    text: switch (form.state) {
+                      SapState.sdsSigned ||
+                      SapState.approved ||
+                      SapState.completed =>
+                        'This is the signed form the SDS Office stored, '
+                            'watermarked by the server. The nine signature '
+                            'slots print empty, to be signed by hand.',
+                      // The server marks it, as it marks the signed one.
+                      SapState.rejected =>
+                        'This copy prints with the SDS Office\'s rejection '
+                            'mark, added by the server.',
+                      _ =>
+                        'The printed copy uses the university\'s own '
+                            'six-page layout, produced by the server so the '
+                            'paper always matches the record. The nine '
+                            'signature slots print empty, to be signed by '
+                            'hand.',
+                    },
                   ),
-                  if (form.state == SapState.pendingReview) ...[
+                  // The office's own actions: the server takes them from
+                  // SDS staff alone, so nobody else is offered them.
+                  if (form.state == SapState.pendingReview && isSds) ...[
                     const SizedBox(height: 18),
                     const BrutSectionTitle('SDS Office'),
                     const SizedBox(height: 8),
                     BrutButton(
-                      label: 'Review and sign',
+                      label: 'Review and decide',
                       icon: Icons.draw_outlined,
                       onPressed: form.isReadOnly
                           ? null
@@ -246,13 +291,6 @@ class _SapFormScreenState extends State<SapFormScreen> {
                                 builder: (_) => SdsSignScreen(form: form),
                               ),
                             ),
-                    ),
-                    const SizedBox(height: 10),
-                    BrutButton(
-                      label: 'Return for revision',
-                      icon: Icons.undo,
-                      tone: BrutTone.coral,
-                      onPressed: form.isReadOnly ? null : () => _return(form),
                     ),
                   ],
                 ],
@@ -271,11 +309,34 @@ class _SapFormScreenState extends State<SapFormScreen> {
       SnackBar(
         content: Text(
           ok
-              ? 'Submitted. Print it and collect the nine signatures.'
+              ? 'Sent for department review.'
               : form.error ?? 'Could not submit.',
         ),
       ),
     );
+  }
+
+  /// Whose words these are. An older server and the demo do not say who
+  /// returned it, and before the department could send a proposal back
+  /// only the SDS Office did, so that is what the old wording stays for.
+  String _returnedText(SapForm form) {
+    final who = form.returnedBy;
+    final said = form.returnRemarks;
+    if (who == null) {
+      return said == null
+          ? 'The SDS Office sent this back for changes. '
+                'Edit the parts below and submit it again.'
+          : 'The SDS Office sent this back: $said';
+    }
+    return [
+      said == null
+          ? 'Returned by ${who.label}. '
+                'Edit the parts below and submit it again.'
+          : 'Returned by ${who.label}: $said',
+      // Pinned to a section of the form, so they are the office's own and
+      // not something to put under the Moderator's or the Dean's name.
+      if (who == SapReturnedBy.sds) ...form.sdsRemarkLines(),
+    ].join('\n');
   }
 }
 
@@ -313,70 +374,6 @@ class _PartRow extends StatelessWidget {
       ),
       trailing: BrutBadge(label: label, tone: tone),
       onTap: status == SapPartStatus.locked ? null : onTap,
-    );
-  }
-}
-
-/// Why the proposal is going back. The server requires a comment, and a
-/// blank one helps nobody reading it later.
-class _ReturnSheet extends StatefulWidget {
-  const _ReturnSheet();
-
-  @override
-  State<_ReturnSheet> createState() => _ReturnSheetState();
-}
-
-class _ReturnSheetState extends State<_ReturnSheet> {
-  final _remarks = TextEditingController();
-
-  @override
-  void dispose() {
-    _remarks.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        MediaQuery.viewInsetsOf(context).bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const BrutSectionTitle('Return for revision'),
-          const SizedBox(height: 8),
-          const BrutInlineMessage(
-            tone: BrutTone.sun,
-            icon: Icons.warning_amber_outlined,
-            text:
-                'Resubmitting makes a new revision. The signatures already '
-                'collected stay with the old one and have to be gathered '
-                'again on the reprinted form.',
-          ),
-          const SizedBox(height: 12),
-          BrutTextField(
-            controller: _remarks,
-            label: 'What needs changing',
-            hint: 'Move the activity to the afternoon; morning classes clash.',
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 16),
-          BrutButton(
-            label: 'Send it back',
-            tone: BrutTone.coral,
-            onPressed: _remarks.text.trim().isEmpty
-                ? null
-                : () => Navigator.of(context).pop(_remarks.text.trim()),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -219,7 +219,7 @@ String _shortStatus(EventApprovalStatus s) => switch (s) {
   EventApprovalStatus.pendingAdmin => 'With admin',
   EventApprovalStatus.pendingInstitutional => 'With signatories',
   EventApprovalStatus.approved => 'Approved',
-  EventApprovalStatus.rejected => 'Returned',
+  EventApprovalStatus.rejected => 'Rejected',
   EventApprovalStatus.completed => 'Completed',
 };
 

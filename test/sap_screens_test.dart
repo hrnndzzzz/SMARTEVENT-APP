@@ -16,6 +16,7 @@ import 'package:smartevent/screens/sap/sap_part4_screen.dart';
 import 'package:smartevent/screens/sap/sap_part5_screen.dart';
 import 'package:smartevent/screens/sap/sap_part6_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
+import 'package:smartevent/state/app_state.dart' show AppState, UserRole;
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
@@ -23,6 +24,11 @@ import 'package:smartevent/theme/brut.dart';
 /// With no service the form is local-only, which is exactly the state the
 /// screens have to work in until the backend slice lands.
 SapForm blankForm() => SapForm(eventId: 'e1');
+
+/// A proposal waiting on the SDS Office: the one time Part 4 can be filled
+/// in, and then only by the SDS Office.
+SapForm waitingOnSds() =>
+    blankForm()..seedLocally(state: SapState.pendingReview);
 
 /// A form wired to a backend that answers 404 for this event's proposal.
 ///
@@ -47,6 +53,13 @@ Future<SapForm> formWithAbsentProposal() async {
 
 Widget host(Widget child) =>
     MaterialApp(theme: AppTheme.light(), home: child);
+
+/// Part 4 and the SDS actions are the SDS Office's alone, so what fills
+/// them in is hosted as an SDS Office account.
+Widget hostAsSds(Widget child) => ChangeNotifierProvider.value(
+  value: AppState()..enterDemo(role: UserRole.sdsStaff),
+  child: host(child),
+);
 
 void main() {
   testWidgets('the hub lists all six parts', (tester) async {
@@ -464,7 +477,7 @@ void main() {
   testWidgets('Part 4 demands a reason for every not-applicable', (
     tester,
   ) async {
-    await tester.pumpWidget(host(SapPart4Screen(form: blankForm())));
+    await tester.pumpWidget(hostAsSds(SapPart4Screen(form: waitingOnSds())));
     await tester.pumpAndSettle();
 
     // Consent, medical and compliance all default to not applicable, so
@@ -475,7 +488,7 @@ void main() {
   testWidgets('Part 4 will not claim no interruption when Part 3 lists one', (
     tester,
   ) async {
-    final form = blankForm();
+    final form = waitingOnSds();
     form.setAffectedClasses([
       SapAffectedClass(
         yearLevel: 'BSCpE 3',
@@ -487,7 +500,7 @@ void main() {
       ),
     ]);
 
-    await tester.pumpWidget(host(SapPart4Screen(form: form)));
+    await tester.pumpWidget(hostAsSds(SapPart4Screen(form: form)));
     await tester.pumpAndSettle();
 
     // Order on screen: consent reason, attachments, medical reason,
@@ -576,6 +589,85 @@ void main() {
       expect(SapPart.four.isSdsOnly, isTrue);
       expect(SapPart.five.isSdsOnly, isTrue);
       expect(SapPart.six.isSdsOnly, isTrue);
+    });
+  });
+
+  /// The three choices on the way out, which are squared boxes in the
+  /// dialog's body rather than the text links an AlertDialog puts in its
+  /// actions row. Moving them is why these two exist: only the save path
+  /// had a test, so Cancel and Go back were wired without cover.
+  group('leaving a part-filled proposal', () {
+    ({SapForm form, List<String> patches}) partOne() {
+      final day = DateTime.now().add(const Duration(days: 60));
+      final aggregate = {
+        'id': 'p1',
+        'event_id': 'e1',
+        'state': 'draft',
+        'version': 3,
+        'revision_no': 0,
+        'details': {
+          'title': 'Hack the Future',
+          'activity_date': day.toIso8601String().substring(0, 10),
+          'start_time': '08:00:00',
+          'end_time': '11:00:00',
+          'setting': 'on_campus',
+        },
+        'collections': <String, dynamic>{},
+      };
+      final patches = <String>[];
+      final client = MockClient((request) async {
+        if (request.method == 'PATCH') patches.add(request.body);
+        return http.Response(
+          jsonEncode(aggregate),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      return (
+        form: SapForm(
+          eventId: 'e1',
+          service: SapService(ApiClient(httpClient: client)),
+        ),
+        patches: patches,
+      );
+    }
+
+    testWidgets('Cancel stays, and saves nothing', (tester) async {
+      final one = partOne();
+      await one.form.load();
+
+      await tester.pumpWidget(host(SapPart1Screen(form: one.form)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave this proposal?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave this proposal?'), findsNothing);
+      expect(find.text('ACTIVITY TITLE'), findsOneWidget, reason: 'still here');
+      expect(one.patches, isEmpty, reason: 'Cancel is not a save');
+    });
+
+    testWidgets('Go back saves nothing either', (tester) async {
+      final one = partOne();
+      await one.form.load();
+
+      await tester.pumpWidget(host(SapPart1Screen(form: one.form)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Go back'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Leave this proposal?'), findsNothing);
+      expect(
+        one.patches,
+        isEmpty,
+        reason: 'going back is the choice that keeps nothing',
+      );
     });
   });
 }

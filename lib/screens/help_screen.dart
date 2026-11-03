@@ -36,9 +36,12 @@ class HelpScreen extends StatelessWidget {
           const _FaqTile(
             question: 'Who approves it, and in what order?',
             answer:
-                'Two stages. The Adviser reviews it first; if '
-                'approved it moves to an Admin for final sign-off. '
-                'Either can reject it with a remark. Nobody can '
+                'Three stages. Your Moderator (the organization\'s '
+                'adviser) reviews it first, then the Dean (the '
+                'department\'s admin), then the SDS Office. The '
+                'Moderator or Dean can return it with remarks for '
+                'you to change and send again; only the SDS Office '
+                'can reject it, and that is final. Nobody can '
                 'approve a proposal they wrote themselves — the '
                 'button does not appear, and the API refuses it.',
           ),
@@ -46,9 +49,11 @@ class HelpScreen extends StatelessWidget {
           const _FaqTile(
             question: 'It was rejected. Can I fix it?',
             answer:
-                'Yes. Open the event and tap Edit proposal, '
-                'which appears only on a rejected one. Resubmitting '
-                'restarts the review at the Adviser stage.',
+                'No. A rejection by the SDS Office is final: '
+                'nothing on it can be edited or sent again. Open '
+                'the event and tap Proposal form to read the '
+                'reasons the SDS Office gave, then start a new '
+                'proposal.',
           ),
           const SizedBox(height: 10),
           const _FaqTile(

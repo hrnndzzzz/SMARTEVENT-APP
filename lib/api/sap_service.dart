@@ -231,18 +231,58 @@ class SapService {
     });
   }
 
-  /// `POST /return` — sends it back for revision. The comment is required
-  /// and must not be blank; resubmission creates a new revision, and old
-  /// signatures are never carried across.
+  /// `POST /return` — the SDS Office sends it back for revision. The
+  /// remarks are required and must not be blank; resubmission creates a new
+  /// revision, and old signatures are never carried across.
+  ///
+  /// [sectionRemarks] left out keeps the ones already saved; a map, even an
+  /// empty one, replaces them.
   Future<SapProposal> returnForRevision(
     String eventId, {
     required int expectedVersion,
     required String remarks,
+    Map<SapRemarkSection, String>? sectionRemarks,
+  }) => _decide(
+    eventId,
+    'return',
+    expectedVersion: expectedVersion,
+    remarks: remarks,
+    sectionRemarks: sectionRemarks,
+  );
+
+  /// `POST /sds-reject` — the SDS Office's final no. The event becomes
+  /// rejected and the proposal cannot be sent again; the remarks are what
+  /// the organization reads and what prints on the form. Same body as
+  /// [returnForRevision].
+  Future<SapProposal> sdsReject(
+    String eventId, {
+    required int expectedVersion,
+    required String remarks,
+    Map<SapRemarkSection, String>? sectionRemarks,
+  }) => _decide(
+    eventId,
+    'sds-reject',
+    expectedVersion: expectedVersion,
+    remarks: remarks,
+    sectionRemarks: sectionRemarks,
+  );
+
+  Future<SapProposal> _decide(
+    String eventId,
+    String route, {
+    required int expectedVersion,
+    required String remarks,
+    required Map<SapRemarkSection, String>? sectionRemarks,
   }) {
     return _guard(() async {
       final response = await _client.post(
-        '${_base(eventId)}/return',
-        body: {'expected_version': expectedVersion, 'remarks': remarks},
+        '${_base(eventId)}/$route',
+        body: {
+          'expected_version': expectedVersion,
+          'remarks': remarks.trim(),
+          if (sectionRemarks != null)
+            'section_remarks': _sections(sectionRemarks),
+        },
       );
       return _proposal(response);
     });
@@ -422,9 +462,13 @@ class SapService {
   /// stored bytes of the submitted revision. [revisionNo] fetches an
   /// earlier printed copy instead.
   ///
-  /// It stays an unsigned printable copy even after approval: the signed
-  /// scan is a separate download, and nothing stamps a signature or an
-  /// approval mark onto these bytes.
+  /// A revision the SDS Office has signed prints as the copy stored at
+  /// signing: the signer's name and drawn signature in the SDS Coordinator's
+  /// cell, the watermark "SIGNED AND APPROVED BY SDS OFFICE" and the footer
+  /// "SAP revision N | SDS signed". The rejected current revision prints with
+  /// the watermark "REJECTED BY THE SDS OFFICE"; any other prints "Unsigned".
+  /// The other signature slots always print empty, and the signed scan, a
+  /// separate download, is the evidence of the paper signatures.
   Future<DownloadedFile> pdf(String eventId, {int? revisionNo}) {
     return _guard(() async {
       return _client.download(
@@ -440,9 +484,12 @@ class SapService {
   /// `POST /final-signed-copy` — the scanned, signed paper.
   ///
   /// Write-once: there is deliberately no replacement after approval, so
-  /// the caller should be sure before sending. The server requires
-  /// exactly six unencrypted pages with no forms or annotations, which is
-  /// what flattening a scan produces.
+  /// the caller should be sure before sending. The server takes it only
+  /// while the proposal is `sds_signed` with all nine checkpoints recorded,
+  /// and only as an unencrypted PDF of at most 10 MB with at least three
+  /// pages and the same page count as the SDS-signed copy (the form and its
+  /// addenda), and no forms, actions, annotations or embedded files, which
+  /// is what flattening a scan produces.
   Future<SapProposal> uploadFinalScan(
     String eventId, {
     required int expectedVersion,
