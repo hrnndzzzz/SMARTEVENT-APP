@@ -41,10 +41,10 @@ def _with_clearance(rev, proposal):
 _PRINTOUTS = {}
 
 
-def _printout(proposal, number, render):
+def _printout(proposal, number, comments, render):
     """Word takes seconds per PDF. Every SAP change raises proposal.version,
-    so the version and the revision name exactly one printout."""
-    key = (proposal.id, proposal.version, number)
+    so the version, the revision and whether it carries the comments name exactly one printout."""
+    key = (proposal.id, proposal.version, number, comments)
     data = _PRINTOUTS.get(key)
     if data is None:
         if len(_PRINTOUTS) >= 32:
@@ -378,22 +378,31 @@ def reject_proposal(event_id: UUID, payload: DecisionWrite, db: Session = Depend
 
 
 @router.get('/pdf', response_class=Response, responses={200: {'content': {'application/pdf': {'schema': {'type': 'string', 'format': 'binary'}}}}})
-def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool = False, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool = False, comments: bool = False, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
     if draft and (revision_no or proposal.state not in {'draft', 'revision_requested'}):
         raise HTTPException(422, 'Draft preview requires an editable proposal and no revision number')
     if revision_no or (proposal.revision_no and not draft) or proposal.state not in {'draft', 'revision_requested'}:
         rev = sap.revision(db, proposal, revision_no)
-        signed_review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
-        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else _printout(proposal, rev.revision_no, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None, rejected=proposal.state == 'rejected' and rev.revision_no == proposal.revision_no))
+        review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
+        signed = bool(review and review.signed_pdf)
+        if signed and not comments:
+            data = review.signed_pdf
+        else:  # a signed revision with comments is drawn again from its stored review; the stored copy is not touched
+            signer = signed and db.get(User, review.signed_by)
+            data = _printout(proposal, rev.revision_no, comments, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None,
+                review={'overall_remarks': review.overall_remarks, 'section_remarks': review.section_remarks} if review else None,
+                signer_name=(signer.full_name.strip() or signer.email) if signer else None, signature_strokes=review.signature_strokes if signed else None,
+                signed=signed, rejected=proposal.state == 'rejected' and rev.revision_no == proposal.revision_no, comments=comments))
         number = rev.revision_no
     else:
+        comments = False  # a draft has no review, so nothing to comment
         try:
             Details.model_validate(proposal.details)
-            data, number = _printout(proposal, 'draft', lambda: render_proposal(sap.snapshot(db, proposal), 'DRAFT')), 'draft'
+            data, number = _printout(proposal, 'draft', False, lambda: render_proposal(sap.snapshot(db, proposal), 'DRAFT')), 'draft'
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
-    return Response(data, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="SAP-{event_id}-r{number}.pdf"', 'Cache-Control': 'private, no-store'})
+    return Response(data, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="SAP-{event_id}-r{number}{"-comments" if comments else ""}.pdf"', 'Cache-Control': 'private, no-store'})
 
 
 @router.post('/final-signed-copy', status_code=201, response_model=SAPProposalOut, response_model_exclude_unset=True)

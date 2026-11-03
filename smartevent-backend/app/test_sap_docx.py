@@ -172,6 +172,17 @@ def test_markup_export_asks_word_for_comments(monkeypatch):
     assert 'ExportAsFixedFormat' in run.call_args.args[0][-1] and ', 7)' not in run.call_args.args[0][-1]
 
 
+@pytest.mark.parametrize('review,comments,markup', [(None, True, False), ({'overall_remarks': '', 'section_remarks': {}}, True, False),
+                                                    ({'overall_remarks': 'Fine', 'section_remarks': {}}, True, True),
+                                                    ({'overall_remarks': 'Fine', 'section_remarks': {}}, False, False)])
+def test_the_markup_export_is_for_commented_forms_with_remarks_only(monkeypatch, review, comments, markup):
+    seen = []
+    monkeypatch.setattr(sap_pdf, 'docx_to_pdf', lambda docx, *, markup=False: seen.append(markup) or b'')
+    monkeypatch.setattr(sap_pdf, '_stamp', lambda *args, **kwargs: b'')
+    sap_pdf.render_proposal(fixture_data(), 1, review=review, comments=comments)
+    assert seen == [markup]
+
+
 def test_unsigned_form_keeps_the_printed_coordinator():
     cell = cell_with(Document(BytesIO(fill_form(fixture_data()))), 'SDS Coordinator')
     assert 'Le-Mairre' in cell.text and not cell._tc.xpath('.//pic:pic')

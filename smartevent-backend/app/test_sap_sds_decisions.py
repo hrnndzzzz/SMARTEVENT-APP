@@ -37,6 +37,10 @@ def test_a_return_or_rejection_keeps_section_remarks_off_the_plain_form(sap_syst
     assert 'Fix the budget' not in text
     for remark in kept.values():
         assert remark not in text
+    commented = pdf_text(client.get(base + '/pdf?comments=true').content)
+    assert 'Overall: Fix the budget' in commented
+    for remark in kept.values():
+        assert remark in commented
 
 
 @pytest.mark.parametrize('model,more', [(SDSReviewWrite, {'signature_strokes': [[{'x': 0.1, 'y': 0.2}]]}),
@@ -59,6 +63,7 @@ def test_the_sds_office_rejects_with_remarks_and_the_form_says_so(sap_system):
     assert response.json()['returned_by'] is None
     text = pdf_text(client.get(base + '/pdf').content)
     assert 'REJECTED BY THE SDS OFFICE' in text and 'Not an organizational activity' not in text  # remarks come as comments
+    assert 'Overall: Not an organizational activity' in pdf_text(client.get(base + '/pdf?comments=true').content)
     assert 'SAP revision 1 | Rejected by SDS' in text
     token = db.query(SAPRevision).one().verification_token
     assert client.get('/sap/verify/' + token).json()['approval_state'] == 'rejected'

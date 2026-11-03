@@ -309,6 +309,79 @@ def test_returned_pdf_keeps_no_remark_text_on_the_plain_form(sap_system):
     text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(pdf.content)).pages)
     assert 'Revise the food budget' not in text  # the remark travels as a comment, not on the plain form
     assert 'SIGNED AND APPROVED BY SDS OFFICE' not in text
+    assert 'Revise the food budget' in pdf_words(client.get(base + '/pdf?comments=true').content)
+
+
+def pdf_words(content):
+    """The printed text on one line: Word wraps a comment inside its narrow margin."""
+    return ' '.join(' '.join(page.extract_text() for page in PdfReader(BytesIO(content)).pages).split())
+
+
+def review_pending(ctx, remark='Please recheck the speaker fee'):
+    """A reviewed proposal still with the SDS Office: a section remark and an overall one are saved."""
+    client, db, users, event, login, base = ctx
+    populate(ctx)
+    login('sds_staff')
+    saved = client.put(base + '/sds-review', json={'expected_version': version(client, base), 'overall_remarks': 'Overall looks fine',
+                                                   'section_remarks': {'budget': remark}})
+    assert saved.status_code == 200, saved.text
+
+
+def test_the_pdf_comes_with_or_without_the_sds_comments(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    plain, commented = client.get(base + '/pdf'), client.get(base + '/pdf?comments=true')
+    assert plain.status_code == commented.status_code == 200
+    assert 'please recheck the speaker fee' not in pdf_words(plain.content).lower()
+    assert 'Please recheck the speaker fee' in pdf_words(commented.content) and 'Overall: Overall looks fine' in pdf_words(commented.content)
+    assert plain.content != commented.content
+    assert plain.headers['content-disposition'].endswith(f'-r1.pdf"')
+    assert commented.headers['content-disposition'].endswith('-r1-comments.pdf"')
+    assert client.get(base + '/pdf').content == plain.content  # the cache keeps the two versions apart
+
+
+def test_a_proposal_without_remarks_prints_the_same_either_way(sap_system):
+    client, db, users, event, login, base = sap_system
+    populate(sap_system)
+    login('sds_staff')
+    same, plain = (PdfReader(BytesIO(client.get(base + '/pdf' + flag).content)) for flag in ('?comments=true', ''))  # Word stamps each render, so not byte for byte
+    assert [p.extract_text() for p in same.pages] == [p.extract_text() for p in plain.pages]
+    assert [p.mediabox.width for p in same.pages] == [p.mediabox.width for p in plain.pages]
+
+
+def test_the_draft_preview_accepts_the_flag(sap_system):
+    client, db, users, event, login, base = sap_system
+    draft = client.patch(base, json={'expected_version': version(client, base), 'details': fixture_data()['details']})
+    assert draft.status_code == 200, draft.text
+    plain, flagged = client.get(base + '/pdf?draft=true'), client.get(base + '/pdf?draft=true&comments=true')
+    assert flagged.status_code == 200 and flagged.content == plain.content
+    assert 'comments' not in flagged.headers['content-disposition']
+
+
+def test_a_signed_revision_serves_its_stored_copy_and_a_commented_copy(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    review = db.query(SAPReview).one()
+    stored, digest = review.signed_pdf, review.signed_pdf_sha256
+    assert client.get(base + '/pdf').content == stored
+    commented = client.get(base + '/pdf?comments=true')
+    assert commented.status_code == 200 and commented.content != stored
+    text = pdf_words(commented.content)
+    assert 'Please recheck the speaker fee' in text and 'SIGNED AND APPROVED BY SDS OFFICE' in text
+    assert users['sds_staff'].full_name in text and 'recheck the speaker fee' not in pdf_words(stored)
+    db.refresh(review)
+    assert review.signed_pdf == stored and review.signed_pdf_sha256 == digest
+
+
+@pytest.mark.parametrize('route,body', [('/return', {'remarks': 'Revise the food budget'}), ('/sds-reject', {'remarks': 'Revise the food budget'})])
+def test_a_returned_or_rejected_revision_serves_both_versions(sap_system, route, body):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    assert client.post(base + route, json={'expected_version': version(client, base), **body}).status_code == 200
+    plain, commented = pdf_words(client.get(base + '/pdf').content), pdf_words(client.get(base + '/pdf?comments=true').content)
+    assert 'Revise the food budget' not in plain and 'Revise the food budget' in commented
+    assert ('REJECTED BY THE SDS OFFICE' in plain) == ('REJECTED BY THE SDS OFFICE' in commented) == (route == '/sds-reject')
 
 
 @pytest.mark.parametrize('data,mime', [(b'%PDF-not-a-document', 'application/pdf'), (b'\x89PNG\r\n\x1a\ninvalid', 'image/png')])
