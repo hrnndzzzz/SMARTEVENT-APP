@@ -2443,6 +2443,14 @@ class AppState extends ChangeNotifier {
   Future<int?> proposalVersionFor(EventItem event) async {
     final id = event.remoteId;
     if (id == null) return null;
+    if (_demoMode) {
+      // The screen reads a return for revision off this: with a version
+      // it is a return, without one it is a rejection. Fetching it needs
+      // the server, so in the demo every return came out as a rejection
+      // — the badge said "Rejected by Adviser" while the message said
+      // returned. A seeded proposal reports a version of its own.
+      return DemoProposals.detailsFor(event) == null ? null : 1;
+    }
     try {
       return (await sapService.fetch(id)).version;
     } on SapUnavailable {
@@ -2458,6 +2466,9 @@ class AppState extends ChangeNotifier {
   Future<void> refreshEventStatus(EventItem event) async {
     final id = event.remoteId;
     if (id == null) return;
+    // Nothing else is editing the demo's events, so what is held in memory
+    // is already the current status; there is no server to ask.
+    if (_demoMode) return;
     event.status = _eventStatusFromString((await _eventService.get(id)).status);
     notifyListeners();
   }
@@ -2553,12 +2564,62 @@ class AppState extends ChangeNotifier {
   /// [expectedVersion] is the proposal version the Moderator read. With it,
   /// not approving is a return for revision: the proposal goes back to
   /// the organization as a draft, and nobody rejected it.
+  /// The demo's stand-in for a reviewer's decision.
+  ///
+  /// The review half of the workflow is what the moderator's feedback is
+  /// about, and without this the demo showed the buttons and refused the
+  /// press — the client stops every request before it is sent. So the
+  /// decision is applied locally, to the same states the server would
+  /// move the event to.
+  ({String? error, bool changed}) _demoDecision(
+    EventItem event, {
+    required bool approved,
+    required bool isAdviser,
+    String? note,
+    int? expectedVersion,
+  }) {
+    if (approved) {
+      event.status = isAdviser
+          ? EventApprovalStatus.pendingAdmin
+          : EventApprovalStatus.approved;
+      event.rejectedBy = null;
+    } else if (expectedVersion != null) {
+      // A version means a SAP proposal — the detail screen reads its own
+      // `isProposal` off the very same answer — and not approving a
+      // proposal is a return for revision rather than a rejection. It
+      // goes back to the organization as a draft, rejected by nobody.
+      event.status = EventApprovalStatus.draft;
+      event.rejectedBy = null;
+    } else {
+      event.status = EventApprovalStatus.rejected;
+      event.rejectedBy = isAdviser ? 'Adviser' : 'Admin';
+    }
+
+    if (isAdviser) {
+      event.adviserApprovalNote = note;
+    } else {
+      event.adminApprovalNote = note;
+    }
+
+    notifyListeners();
+    return (error: null, changed: false);
+  }
+
   Future<({String? error, bool changed})> adviserDecision(
     EventItem event, {
     required bool approved,
     String? note,
     int? expectedVersion,
   }) async {
+    if (_demoMode) {
+      return _demoDecision(
+        event,
+        approved: approved,
+        isAdviser: true,
+        note: note,
+        expectedVersion: expectedVersion,
+      );
+    }
     if (event.remoteId == null) {
       return (
         error: 'This event has no real backend record yet.',
@@ -2599,6 +2660,15 @@ class AppState extends ChangeNotifier {
     String? note,
     int? expectedVersion,
   }) async {
+    if (_demoMode) {
+      return _demoDecision(
+        event,
+        approved: approved,
+        isAdviser: false,
+        note: note,
+        expectedVersion: expectedVersion,
+      );
+    }
     if (event.remoteId == null) {
       return (
         error: 'This event has no real backend record yet.',

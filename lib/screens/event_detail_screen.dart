@@ -408,14 +408,12 @@ class _DecisionRowState extends State<_DecisionRow> {
   @override
   void initState() {
     super.initState();
-    if (context.read<AppState>().isDemoMode) {
-      // Every event in the demo has a seeded proposal, and there is no
-      // server to give it a version.
-      _loading = false;
-      _isProposal = true;
-    } else {
-      _load();
-    }
+    // The demo takes the same path: `proposalVersionFor` answers it from
+    // the seed rather than the server, so a seeded proposal reports a
+    // version and an event without one reports nothing. Short-circuiting
+    // it here used to claim every demo event had a proposal while leaving
+    // the version null, which turned every return into a rejection.
+    _load();
   }
 
   Future<void> _load({bool refreshEvent = false}) async {
