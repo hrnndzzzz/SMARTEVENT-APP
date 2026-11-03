@@ -273,15 +273,11 @@ def test_long_text_stays_in_its_cell():
     data = fixture_data()
     data['details']['rationale'] = '\n'.join(['Long line'] * 150)
     data['collections']['budget-items'] = [{'particulars': f'Budget line {i}', 'amount': '1.00'} for i in range(16)]
-    notes = {'overall_remarks': 'Detailed SDS remark. ' * 140, 'section_remarks': {}}
-    pages = [page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1, review=notes))).pages]
+    pages = [page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1))).pages]
     text = '\n'.join(pages)
     assert text.count('Long line') == 150
     assert 'See addendum' not in text
     assert 'Long line' in next(page for page in pages if 'Rationale:' in page)
-    # The remark fills the SDS signatory cell across a page break, where extraction interleaves the
-    # neighbouring signatories and the footer, so count its words rather than whole sentences.
-    assert text.count('Detailed') == 140 and text.count('remark.') == 140
     assert 'Budget line 15' in text
 
 
@@ -303,7 +299,7 @@ def test_signed_revision_correction_preserves_pdf(sap_system):
     assert review.signed_pdf == original_pdf and review.signed_pdf_sha256 == original_hash
 
 
-def test_returned_pdf_keeps_remarks(sap_system):
+def test_returned_pdf_keeps_no_remark_text_on_the_plain_form(sap_system):
     client, db, users, event, login, base = sap_system
     populate(sap_system)
     login('sds_staff')
@@ -311,7 +307,7 @@ def test_returned_pdf_keeps_remarks(sap_system):
     assert response.status_code == 200
     pdf = client.get(base + '/pdf')
     text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(pdf.content)).pages)
-    assert 'Revise the food budget' in text
+    assert 'Revise the food budget' not in text  # the remark travels as a comment, not on the plain form
     assert 'SIGNED AND APPROVED BY SDS OFFICE' not in text
 
 

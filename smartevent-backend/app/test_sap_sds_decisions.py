@@ -20,7 +20,7 @@ def pdf_text(content):
 @pytest.mark.parametrize('route', ['/return', '/sds-reject'])
 @pytest.mark.parametrize('sent,kept', [(None, {'budget': 'Meals over the allowance'}),
                                        ({'other': 'Attach the venue letter'}, {'other': 'Attach the venue letter'})])
-def test_a_return_or_rejection_keeps_section_remarks_and_prints_them(sap_system, route, sent, kept):
+def test_a_return_or_rejection_keeps_section_remarks_off_the_plain_form(sap_system, route, sent, kept):
     populate(sap_system)
     client, db, users, event, login, base = sap_system
     login('sds_staff')
@@ -34,9 +34,9 @@ def test_a_return_or_rejection_keeps_section_remarks_and_prints_them(sap_system,
     assert decided.json()['sds_review']['overall_remarks'] == 'Fix the budget'
     assert decided.json()['sds_review']['section_remarks'] == kept
     text = pdf_text(client.get(base + '/pdf').content)
-    assert 'SDS: Fix the budget' in text
+    assert 'Fix the budget' not in text
     for remark in kept.values():
-        assert remark in text
+        assert remark not in text
 
 
 @pytest.mark.parametrize('model,more', [(SDSReviewWrite, {'signature_strokes': [[{'x': 0.1, 'y': 0.2}]]}),
@@ -58,7 +58,7 @@ def test_the_sds_office_rejects_with_remarks_and_the_form_says_so(sap_system):
     assert response.json()['sds_review']['overall_remarks'] == 'Not an organizational activity'
     assert response.json()['returned_by'] is None
     text = pdf_text(client.get(base + '/pdf').content)
-    assert 'REJECTED BY THE SDS OFFICE' in text and 'SDS: Not an organizational activity' in text
+    assert 'REJECTED BY THE SDS OFFICE' in text and 'Not an organizational activity' not in text  # remarks come as comments
     assert 'SAP revision 1 | Rejected by SDS' in text
     token = db.query(SAPRevision).one().verification_token
     assert client.get('/sap/verify/' + token).json()['approval_state'] == 'rejected'
