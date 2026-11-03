@@ -1,5 +1,6 @@
 """Isolated SAP workflow, security, paper evidence and generic routing regression."""
 from copy import deepcopy
+import hashlib
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -372,6 +373,66 @@ def test_a_signed_revision_serves_its_stored_copy_and_a_commented_copy(sap_syste
     assert users['sds_staff'].full_name in text and 'recheck the speaker fee' not in pdf_words(stored)
     db.refresh(review)
     assert review.signed_pdf == stored and review.signed_pdf_sha256 == digest
+
+
+def store_old_copy(db, review, pages=1):
+    """A signed copy as the code before ea911cd stored it: the remarks printed under the signature."""
+    from reportlab.pdfgen import canvas
+    buffer = BytesIO()
+    page = canvas.Canvas(buffer)
+    page.drawString(50, 800, 'SDS: Overall looks fine')
+    page.drawString(50, 780, 'Budget: Please recheck the speaker fee')
+    for _ in range(pages):
+        page.showPage()
+    page.save()
+    review.signed_pdf = buffer.getvalue()
+    review.signed_pdf_sha256 = hashlib.sha256(review.signed_pdf).hexdigest()
+    db.commit()
+    return review.signed_pdf
+
+
+def test_a_copy_stored_with_remarks_under_the_signature_is_served_clean(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    review = db.query(SAPReview).one()
+    stored = store_old_copy(db, review)
+    digest = review.signed_pdf_sha256
+    served = client.get(base + '/pdf')
+    assert served.status_code == 200 and served.content != stored
+    text = pdf_words(served.content)
+    assert 'Overall looks fine' not in text and 'recheck the speaker fee' not in text
+    assert 'SIGNED AND APPROVED BY SDS OFFICE' in text and users['sds_staff'].full_name in text
+    db.refresh(review)
+    assert review.signed_pdf == stored and review.signed_pdf_sha256 == digest
+
+
+def test_an_old_stored_copy_is_served_as_is_once_its_part_4_is_gone(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = store_old_copy(db, db.query(SAPReview).one())
+    assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 200
+    served = client.get(base + '/pdf')
+    assert served.status_code == 200 and served.content == stored
+
+
+def test_the_final_scan_is_checked_against_the_copy_that_was_served(sap_system, monkeypatch):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    for slot in range(1, 5):
+        assert checkpoint(sap_system, slot).status_code == 200
+    sign_current(sap_system)
+    for slot in range(5, 10):
+        assert checkpoint(sap_system, slot).status_code == 200
+    review = db.query(SAPReview).one()
+    store_old_copy(db, review)
+    clean = client.get(base + '/pdf').content
+    store_old_copy(db, review, pages=len(PdfReader(BytesIO(clean)).pages) + 1)  # one page longer than the clean render
+    monkeypatch.setattr('app.routers.sap.storage.upload_proposal_letter', lambda *args: 'https://private.invalid/scan.pdf')
+    login('sds_staff')
+    response = client.post(base + '/final-signed-copy', data={'expected_version': version(client, base)}, files={'file': ('scan.pdf', clean, 'application/pdf')})
+    assert response.status_code == 201, response.text
 
 
 GONE = 'The commented copy of this signed revision is no longer available. Download it without comments for the signed form.'

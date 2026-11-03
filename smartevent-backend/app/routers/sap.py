@@ -377,6 +377,41 @@ def reject_proposal(event_id: UUID, payload: DecisionWrite, db: Session = Depend
     return sap.save(db, event, proposal, user, 'sap_rejected', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
 
 
+# The labels the form printed its remarks with under the signature, before they moved to margin comments.
+_OLD_REMARK_LABELS = {'activity_details': 'Activity details', 'budget': 'Budget', 'support_requests': 'Support requests',
+                      'additional_information': 'Other details', 'clearance': 'SDS clearance', 'other': 'Other'}
+
+
+def _stored_copy_has_remarks(review):
+    """Whether the copy stored at signing still prints the SDS remarks under the signature, as forms signed before they moved to comments do."""
+    lines = [('SDS: ' + review.overall_remarks) if (review.overall_remarks or '').strip() else None]
+    lines += [f'{_OLD_REMARK_LABELS.get(key, key)}: {value}' for key, value in (review.section_remarks or {}).items() if (value or '').strip()]
+    from pypdf import PdfReader
+    try:
+        text = ' '.join(' '.join(page.extract_text() or '' for page in PdfReader(BytesIO(review.signed_pdf)).pages).split())
+    except Exception:  # an unreadable stored copy is still served as it is
+        return False
+    return any(' '.join(line.split())[:30] in text for line in lines if line)
+
+
+def _review_copy(db, proposal, rev, review, comments):
+    """The revision drawn again from its stored review (and signature, when signed); the stored copy is not touched."""
+    signed = bool(review and review.signed_pdf)
+    signer = signed and db.get(User, review.signed_by)
+    return _printout(proposal, rev.revision_no, comments, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None,
+        review={'overall_remarks': review.overall_remarks, 'section_remarks': review.section_remarks} if review else None,
+        signer_name=(signer.full_name.strip() or signer.email) if signer else None, signature_strokes=review.signature_strokes if signed else None,
+        signed=signed, rejected=proposal.state == 'rejected' and rev.revision_no == proposal.revision_no, comments=comments))
+
+
+def _signed_copy(db, proposal, rev, review):
+    """The signed form as the organization is served it: the stored copy, or a clean one drawn again when the stored one
+    carries remarks under the signature and Part 4 (which only the proposal holds) is still there to draw it with."""
+    if rev.revision_no == proposal.revision_no and proposal.clearance and _stored_copy_has_remarks(review):
+        return _review_copy(db, proposal, rev, review, False)
+    return review.signed_pdf
+
+
 @router.get('/pdf', response_class=Response, responses={200: {'content': {'application/pdf': {'schema': {'type': 'string', 'format': 'binary'}}}}})
 def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool = False, comments: bool = False, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     _, proposal = sap.load(db, event_id, user)
@@ -387,15 +422,11 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
         review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
         signed = bool(review and review.signed_pdf)
         if signed and not comments:
-            data = review.signed_pdf
+            data = _signed_copy(db, proposal, rev, review)
         else:  # a signed revision with comments is drawn again from its stored review; the stored copy is not touched
             if signed and not (rev.revision_no == proposal.revision_no and proposal.clearance):  # Part 4 lives only on the proposal
                 raise HTTPException(409, 'The commented copy of this signed revision is no longer available. Download it without comments for the signed form.')
-            signer = signed and db.get(User, review.signed_by)
-            data = _printout(proposal, rev.revision_no, comments, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None,
-                review={'overall_remarks': review.overall_remarks, 'section_remarks': review.section_remarks} if review else None,
-                signer_name=(signer.full_name.strip() or signer.email) if signer else None, signature_strokes=review.signature_strokes if signed else None,
-                signed=signed, rejected=proposal.state == 'rejected' and rev.revision_no == proposal.revision_no, comments=comments))
+            data = _review_copy(db, proposal, rev, review, comments)
         number = rev.revision_no
     else:
         comments = False  # a draft has no review, so nothing to comment
@@ -434,7 +465,7 @@ def final_copy(event_id: UUID, expected_version: int = Form(..., ge=1), file: Up
     if len(rows) != 9 or any(not row.evidence for row in rows):
         raise HTTPException(409, 'Record all nine physical signature checkpoints first')
     review = db.get(SAPReview, rev.id)
-    if not review or not review.signed_pdf or len(reader.pages) != len(PdfReader(BytesIO(review.signed_pdf)).pages):
+    if not review or not review.signed_pdf or len(reader.pages) != len(PdfReader(BytesIO(_signed_copy(db, proposal, rev, review))).pages):
         raise HTTPException(422, 'Include every page of the SDS-signed form and its addenda in the scan')
     require_pre_activity_clearance(db, event)
     owner_id, organization_id = user.id, event.organization_id

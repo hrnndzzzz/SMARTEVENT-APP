@@ -286,6 +286,8 @@ rejected current one prints with the footer `SAP revision N | Unsigned` and no
 watermark. On every copy the other signature slots print empty, and none of these
 marks is a physical signature: download the private final scan for that evidence.
 
+A copy stored before the remarks moved to comments still prints them under the signature. `GET /pdf` without comments serves such a copy re-rendered without them (same signer, drawn signature and watermark) while the revision is current and holds its Part 4, and as stored otherwise; the stored bytes and SHA-256 are unchanged. The final scan's page count is checked against the copy served.
+
 Final upload accepts at most 10 MB, an unencrypted PDF of at least three pages and the
 same page count as the SDS-signed copy (the form and its addenda; otherwise 422), no
 active forms/actions/annotations/embedded attachments. Scan paper to a flattened PDF.
