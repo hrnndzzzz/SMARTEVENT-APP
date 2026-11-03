@@ -139,7 +139,8 @@ class SapForm extends ChangeNotifier {
 
   SapState? get state => _proposal?.state;
 
-  /// Why the SDS Office sent it back, in their words.
+  /// Why it was sent back, in the words of whoever returned it
+  /// ([returnedBy]).
   ///
   /// The server has carried this since the return route existed and
   /// nothing showed it, so a returned proposal arrived back with no
@@ -148,6 +149,13 @@ class SapForm extends ChangeNotifier {
     final said = _proposal?.returnRemarks?.trim();
     return (said == null || said.isEmpty) ? null : said;
   }
+
+  /// The Moderator, the Dean or the SDS Office, whichever returned it.
+  ///
+  /// Null unless the proposal is currently returned: the server clears it
+  /// when the proposal is sent again, and a rejection is not a return. So
+  /// read it only while [wasReturned].
+  SapReturnedBy? get returnedBy => _proposal?.returnedBy;
 
   /// Sent back for changes, and the proposer's again.
   bool get wasReturned => state == SapState.revisionRequested;
@@ -176,9 +184,15 @@ class SapForm extends ChangeNotifier {
   /// Parts 1 to 3 are the proposer's, and only while the proposal is a
   /// draft or has been returned. A form bound to an event whose proposal
   /// never loaded holds none of it, so it is not editable either.
+  ///
+  /// A form with no server follows its state too, once it has one: the demo
+  /// seeds the state it wants shown, and a rejected or department-review
+  /// proposal is not the proposer's to send again for being local. Only a
+  /// form with no proposal at all — a new one, or one the server has none
+  /// for — is editable because it is local.
   bool get canEditProposerParts =>
       !isReadOnly &&
-      (isLocalOnly || (_proposal?.isProposerEditable ?? _eventId == null));
+      (_proposal?.isProposerEditable ?? (isLocalOnly || _eventId == null));
 
   bool get isReadOnly => _service?.isReadOnly ?? false;
 
@@ -251,6 +265,10 @@ class SapForm extends ChangeNotifier {
   void _adopt(SapProposal p, {bool keepEdits = false}) {
     _proposal = p;
     _clearance = p.clearance;
+    // Every screen opens a fresh form, so these come from the server or
+    // the review screen starts blank and signing sends the blanks.
+    overallRemarks = p.sdsRemarks;
+    sectionRemarks = {...p.sdsSectionRemarks};
     _stale = false;
     if (keepEdits) return;
     _details = p.details;
@@ -613,6 +631,17 @@ class SapForm extends ChangeNotifier {
   Map<SapRemarkSection, String> sectionRemarks = {};
   String overallRemarks = '';
 
+  /// What the SDS Office wrote against the form, as lines to list under a
+  /// message: its overall remark when [overall], then one line for each
+  /// section it pinned something to, in the form's order ("Budget: …").
+  /// Blank ones are left out.
+  List<String> sdsRemarkLines({bool overall = false}) => [
+    if (overall && overallRemarks.trim().isNotEmpty) overallRemarks.trim(),
+    for (final section in SapRemarkSection.values)
+      if (sectionRemarks[section]?.trim() case final said? when said.isNotEmpty)
+        '${section.label}: $said',
+  ];
+
   /// `PUT /sds-review` — saves remarks without signing. Returns the
   /// reason it failed, or null.
   Future<String?> saveReviewNotes() async {
@@ -720,11 +749,62 @@ class SapForm extends ChangeNotifier {
     }
   }
 
-  /// Sends the proposal back for revision. The comment is required.
-  Future<bool> returnForRevision(String remarks) => _write(
-    (s, v) =>
-        s.returnForRevision(_eventId!, expectedVersion: v, remarks: remarks),
+  /// `POST /return` — the SDS Office sends the pending revision back, with
+  /// [overallRemarks] as the reason and [sectionRemarks] against the parts
+  /// it concerns. Returns the reason it failed, or null.
+  Future<String?> sdsReturn() => _sdsDecide(
+    (service, remarks) => service.returnForRevision(
+      _eventId!,
+      expectedVersion: version,
+      remarks: remarks,
+      sectionRemarks: sectionRemarks,
+    ),
   );
+
+  /// `POST /sds-reject` — the SDS Office's final no, worded as
+  /// [sdsReturn]. The proposal cannot be sent again afterwards.
+  Future<String?> sdsReject() => _sdsDecide(
+    (service, remarks) => service.sdsReject(
+      _eventId!,
+      expectedVersion: version,
+      remarks: remarks,
+      sectionRemarks: sectionRemarks,
+    ),
+  );
+
+  /// Both decisions owe the organization a reason, and the server refuses a
+  /// blank one, so it is refused here without a request.
+  Future<String?> _sdsDecide(
+    Future<SapProposal> Function(SapService service, String remarks) call,
+  ) async {
+    final service = _service;
+    if (service == null || _eventId == null) {
+      return 'This proposal has not been saved to the server yet.';
+    }
+    final remarks = overallRemarks.trim();
+    if (remarks.isEmpty) {
+      return 'Write the overall remark first: it is the reason the '
+          'organization reads.';
+    }
+
+    _saving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _adopt(await call(service, remarks));
+      return null;
+    } on SapVersionConflict catch (conflict) {
+      _stale = true;
+      _error = conflict.message;
+      return conflict.message;
+    } catch (e) {
+      _error = e is ApiException ? e.message : e.toString();
+      return _error;
+    } finally {
+      _saving = false;
+      notifyListeners();
+    }
+  }
 
   Future<bool> evaluate({
     required SapEvaluationOutcome outcome,
@@ -771,9 +851,20 @@ class SapForm extends ChangeNotifier {
             ? SapPartStatus.empty
             : SapPartStatus.complete;
       case SapPart.five:
-        // Nothing exists until the proposal has been submitted once.
+        // Nothing exists until the proposal has been submitted once, and
+        // nothing in it can be recorded while the Moderator and Dean still
+        // have it: the paper only goes round once the SDS Office does. A
+        // return from either of them puts it back before that point; the
+        // office's own return keeps what it had started.
         final s = state;
-        if (s == null || s == SapState.draft) return SapPartStatus.locked;
+        if (s == null ||
+            s == SapState.draft ||
+            s == SapState.pendingDepartmentReview ||
+            (s == SapState.revisionRequested &&
+                (returnedBy == SapReturnedBy.moderator ||
+                    returnedBy == SapReturnedBy.dean))) {
+          return SapPartStatus.locked;
+        }
         return SapPartStatus.partial;
       case SapPart.six:
         if (_proposal?.evaluation != null) return SapPartStatus.complete;
@@ -811,17 +902,27 @@ class SapForm extends ChangeNotifier {
   /// locks Parts 5 and 6 and hides the review and signing screen — so
   /// the role offered as "all six parts of the proposal form" showed
   /// four and two closed rows.
+  ///
+  /// [sdsRemarks] is the SDS Office's overall remark, which is where a
+  /// rejection's reason lives; [returnRemarks] is only a return's.
+  /// [clearance] is Part 4, on the proposal and on the form: the review
+  /// screen waits for it before it lets anyone sign.
   void seedLocally({
     SapState? state,
     SapDetails? details,
     String? returnRemarks,
+    SapReturnedBy? returnedBy,
+    int revisionNo = 0,
+    String? sdsRemarks,
+    SapClearance? clearance,
   }) {
+    if (clearance != null) _clearance = clearance;
     _proposal = SapProposal(
       id: 'test',
       eventId: _eventId ?? '',
       state: state ?? SapState.draft,
       version: 1,
-      revisionNo: 0,
+      revisionNo: revisionNo,
       formCode: 'SAS-SDS-FO-020',
       formVersion: '001',
       details: details ?? _details,
@@ -831,8 +932,10 @@ class SapForm extends ChangeNotifier {
       affectedClasses: _affectedClasses,
       clearance: _clearance,
       returnRemarks: returnRemarks,
+      returnedBy: returnedBy,
     );
     if (details != null) _details = details;
+    if (sdsRemarks != null) overallRemarks = sdsRemarks;
     notifyListeners();
   }
 

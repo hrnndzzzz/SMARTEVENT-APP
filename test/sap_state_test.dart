@@ -9,6 +9,7 @@ void main() {
   test('every state the server can store is understood', () {
     const stored = [
       'draft',
+      'pending_department_review',
       'pending_sap_review',
       'revision_requested',
       'sds_signed',
@@ -24,6 +25,17 @@ void main() {
         reason: 'the server can store $wire, so the app must read it',
       );
     }
+  });
+
+  test('department review is not the SDS Office\'s review', () {
+    // A sent proposal goes to the Moderator and the Dean first; only after
+    // them is it pending_sap_review, which stays the SDS Office's.
+    expect(
+      SapState.fromWire('pending_department_review'),
+      SapState.pendingDepartmentReview,
+    );
+    expect(SapState.fromWire('pending_sap_review'), SapState.pendingReview);
+    expect(SapState.pendingDepartmentReview.label, 'With the department');
   });
 
   test('a signed revision is out of the proposer\'s hands', () {

@@ -41,6 +41,20 @@ void main() {
           findsOneWidget);
     });
 
+    testWidgets('the office\'s rejection mark once it has rejected it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(SapFormScreen(form: at(SapState.rejected))));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('SDS Office\'s rejection mark'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('six-page layout'), findsNothing);
+      expect(find.textContaining('signed form'), findsNothing);
+    });
+
     testWidgets('and never claims it stays unsigned', (tester) async {
       for (final state in SapState.values) {
         await tester.pumpWidget(host(SapFormScreen(form: at(state))));

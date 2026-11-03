@@ -7,6 +7,7 @@ import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
+import 'sap_proposal_flow.dart';
 
 /// Part 5 — University Clearance.
 ///
@@ -105,9 +106,9 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
 
   /// Picks the scan and sends it.
   ///
-  /// The server is strict here — six unencrypted pages, flattened, under
-  /// 10 MB — and it is write-once, so this confirms first rather than
-  /// letting a stray tap settle an approval.
+  /// The server is strict here — a flattened, unencrypted PDF under 10 MB
+  /// with the page count of the SDS-signed copy — and it is write-once, so
+  /// this confirms first rather than letting a stray tap settle an approval.
   Future<void> _uploadScan() async {
     final picked = await FilePicker.pickFiles(
       dialogTitle: 'Choose the signed scan',
@@ -162,6 +163,19 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
       builder: (context, _) {
         final workflow = _form.workflow;
         final live = workflow?.hasStarted ?? false;
+        // `isReadOnly` is the session being offline or signed out, which says
+        // nothing about whose account this is: the server takes the
+        // checkpoints and the scan from the SDS Office alone.
+        final isSds = SapProposalFlow.isSdsStaff(context);
+        final canWrite = isSds && !_form.isReadOnly;
+        final allRecorded =
+            workflow != null && workflow.completedCount == workflow.totalCount;
+        // Once the office has decided there is nothing left to record: a
+        // rejection is final, and an approval means the scan is in.
+        final rejected = _form.state == SapState.rejected;
+        final scanStored =
+            _form.state == SapState.approved ||
+            _form.state == SapState.completed;
 
         return BrutScreen(
           header: BrutHeader(
@@ -220,13 +234,22 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
               const SizedBox(height: 16),
 
               if (!live) ...[
-                const BrutInlineMessage(
-                  tone: BrutTone.sun,
-                  icon: Icons.lock_clock,
-                  text:
-                      'The nine slots open once the proposal is submitted. '
-                      'Until then this is how the printed page will look.',
-                ),
+                if (rejected)
+                  const BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.block,
+                    text:
+                        'Rejected by the SDS Office. Nothing more is recorded '
+                        'or uploaded on this proposal.',
+                  )
+                else
+                  const BrutInlineMessage(
+                    tone: BrutTone.sun,
+                    icon: Icons.lock_clock,
+                    text:
+                        'The nine slots open once the proposal is submitted. '
+                        'Until then this is how the printed page will look.',
+                  ),
                 const SizedBox(height: 14),
                 for (final (slot, position, label)
                     in SapPart5Screen.blankSlots) ...[
@@ -253,36 +276,54 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                     displayLabel: step.displayLabel,
                     recorded: step.isRecorded,
                     signerName: step.evidence?.signerName,
-                    onRecord: !_form.isReadOnly && step.actionable
+                    onRecord: canWrite && step.actionable
                         ? () => _record(step)
                         : null,
                   ),
                   const SizedBox(height: 8),
                 ],
-                const SizedBox(height: 6),
-                const BrutInlineMessage(
-                  tone: BrutTone.neutral,
-                  icon: Icons.info_outline,
-                  text:
-                      'Slots 2 and 3 can be recorded in either order. The '
-                      'rest follow the page, each after the one above it. A '
-                      'checkpoint recorded wrongly is not overwritten: return '
-                      'the proposal and start a fresh revision.',
-                ),
+                if (!rejected) ...[
+                  const SizedBox(height: 6),
+                  const BrutInlineMessage(
+                    tone: BrutTone.neutral,
+                    icon: Icons.info_outline,
+                    text:
+                        'Slots 2 and 3 can be recorded in either order. The '
+                        'rest follow the page, each after the one above it. '
+                        'Slots 5 to 9 open once the SDS Office has signed. A '
+                        'checkpoint recorded wrongly is not overwritten: '
+                        'return the proposal and start a fresh revision.',
+                  ),
+                ],
                 const SizedBox(height: 22),
 
                 const BrutSectionTitle('Signed scan'),
                 const SizedBox(height: 8),
                 BrutInlineMessage(
-                  tone: workflow.completedCount == workflow.totalCount
-                      ? BrutTone.neutral
-                      : BrutTone.sun,
+                  tone: rejected
+                      ? BrutTone.coral
+                      : scanStored
+                      ? BrutTone.mint
+                      : isSds && !allRecorded
+                      ? BrutTone.sun
+                      : BrutTone.neutral,
                   icon: Icons.upload_file,
-                  text: workflow.completedCount == workflow.totalCount
+                  text: rejected
+                      ? 'Rejected by the SDS Office, so no signed scan '
+                            'follows.'
+                      : scanStored
+                      ? 'The signed scan is stored as the evidence of '
+                            'approval. It cannot be replaced.'
+                      : !isSds
+                      ? 'The SDS Office uploads the signed scan once all nine '
+                            'are recorded.'
+                      : allRecorded
                       ? 'Upload the scanned, signed form. It must be a '
-                            'flattened PDF of exactly six pages, no larger '
-                            'than 10 MB. This is the evidence of approval, '
-                            'and it cannot be replaced once sent.'
+                            'flattened PDF with at least three pages and the '
+                            'same page count as the SDS-signed copy (the form '
+                            'and its addenda), no larger than 10 MB. This is '
+                            'the evidence of approval, and it cannot be '
+                            'replaced once sent.'
                       : 'All nine checkpoints have to be recorded before the '
                             'signed scan can be uploaded.',
                 ),
@@ -292,10 +333,12 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                   icon: Icons.picture_as_pdf_outlined,
                   busy: _form.saving,
                   busyLabel: 'Uploading',
+                  // The server takes the scan only once the office has
+                  // signed; `pending_sap_review` is before slots 5 to 9 open.
                   onPressed:
-                      !_form.isReadOnly &&
-                          workflow.completedCount == workflow.totalCount &&
-                          _form.state == SapState.pendingReview
+                      canWrite &&
+                          allRecorded &&
+                          _form.state == SapState.sdsSigned
                       ? _uploadScan
                       : null,
                 ),

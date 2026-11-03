@@ -136,16 +136,18 @@ class _CreateBand extends StatelessWidget {
     }
     return switch (event.status) {
       EventApprovalStatus.draft => ('Draft — not submitted', event.title),
-      EventApprovalStatus.pendingAdviser => ('With the adviser', event.title),
-      EventApprovalStatus.pendingAdmin => ('With the admin', event.title),
+      // In the wizard's own words. The band starts a proposal, and the
+      // wizard says the Moderator, the Dean and the SDS Office.
+      EventApprovalStatus.pendingAdviser => (
+        'With the Moderator',
+        event.title,
+      ),
+      EventApprovalStatus.pendingAdmin => ('With the Dean', event.title),
       EventApprovalStatus.pendingInstitutional => (
-        'With the signatories',
+        'With the SDS Office',
         event.title,
       ),
-      EventApprovalStatus.rejected => (
-        'Came back — needs changes',
-        event.title,
-      ),
+      EventApprovalStatus.rejected => ('Rejected', event.title),
       EventApprovalStatus.approved ||
       EventApprovalStatus.completed => ('Approved', event.title),
     };

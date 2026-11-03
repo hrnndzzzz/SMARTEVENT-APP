@@ -38,8 +38,10 @@ void main() {
 
     await open(tester, app, event);
 
+    // Every event in the demo is a proposal, and a Moderator returns one
+    // for revision; rejecting is the SDS Office's.
     expect(find.text('Approve'), findsOneWidget);
-    expect(find.text('Reject'), findsOneWidget);
+    expect(find.text('Return for revision'), findsOneWidget);
   });
 
   testWidgets('and is not offered the proposer\'s withdrawal', (tester) async {
@@ -77,7 +79,7 @@ void main() {
     await open(tester, app, event);
 
     expect(find.text('Approve'), findsNothing);
-    expect(find.text('Reject'), findsNothing);
+    expect(find.text('Return for revision'), findsNothing);
   });
 
   testWidgets('an admin does not decide the adviser stage', (tester) async {

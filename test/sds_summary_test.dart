@@ -1,7 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/api/models/sap_proposal.dart';
+import 'package:provider/provider.dart';
+import 'package:smartevent/api/sap_service.dart';
 import 'package:smartevent/screens/sap/sds_summary_screen.dart';
+import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 
@@ -11,8 +19,13 @@ import 'package:smartevent/theme/app_theme.dart';
 /// is already written. What they have to do is read it, decide, and
 /// sign.
 void main() {
-  Widget host(SapForm form) =>
-      MaterialApp(theme: AppTheme.light(), home: SdsSummaryScreen(form: form));
+  Widget host(SapForm form) => ChangeNotifierProvider(
+    create: (_) => AppSettings(),
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      home: SdsSummaryScreen(form: form),
+    ),
+  );
 
   SapForm filled({SapState state = SapState.pendingReview}) {
     final form = SapForm(eventId: 'e1')..seedLocally(state: state);
@@ -71,12 +84,61 @@ void main() {
     expect(find.textContaining('is not the total'), findsOneWidget);
   });
 
-  testWidgets('a waiting proposal offers to sign', (tester) async {
+  testWidgets('a waiting proposal offers the review', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1600));
     await tester.pumpWidget(host(filled()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review and sign'), findsOneWidget);
+    expect(find.text('Review and decide'), findsOneWidget);
+  });
+
+  /// The list hands over a form nobody has loaded yet.
+  SapForm fromServer() => SapForm(
+    eventId: 'e1',
+    service: SapService(
+      ApiClient(
+        httpClient: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'id': 'p1',
+              'event_id': 'e1',
+              'state': 'pending_sap_review',
+              'version': 4,
+              'revision_no': 1,
+              'details': {'title': 'HACK THE FUTURE'},
+              'sds_review': {
+                'overall_remarks': 'Please revise the food budget.',
+                'section_remarks': {'budget': 'Meals are over the allowance.'},
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      ),
+    ),
+  );
+
+  testWidgets('it loads the proposal itself on opening', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1600));
+    await tester.pumpWidget(host(fromServer()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('HACK THE FUTURE'), findsOneWidget);
+    expect(find.text('Review and decide'), findsOneWidget);
+  });
+
+  testWidgets('remarks saved earlier are there to carry on with', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1600));
+    await tester.pumpWidget(host(fromServer()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Review and decide'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Please revise the food budget.'), findsOneWidget);
+    expect(find.text('Meals are over the allowance.'), findsOneWidget);
   });
 
   testWidgets('and one already signed does not', (tester) async {
@@ -84,7 +146,7 @@ void main() {
     await tester.pumpWidget(host(filled(state: SapState.sdsSigned)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Review and sign'), findsNothing);
+    expect(find.text('Review and decide'), findsNothing);
     expect(find.text('Open the full form'), findsOneWidget);
   });
 }

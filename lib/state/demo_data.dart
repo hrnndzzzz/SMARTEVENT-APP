@@ -165,7 +165,9 @@ abstract final class DemoData {
       on: DateTime(2026, 11, 5),
       budget: '8000',
       status: EventApprovalStatus.rejected,
-      rejectedBy: 'Engr. Aileen M. Habaradas',
+      // The SDS Office's alone to give: the Moderator and the Dean return a
+      // proposal, they do not reject it.
+      rejectedBy: 'the SDS Office',
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.organizational,
@@ -196,6 +198,38 @@ abstract final class DemoData {
       semester: Semester.first,
       eventScope: EventScope.departmental,
       proposedBy: 'demo-account-treasurer',
+    ),
+    // Last, so the numbering above holds. Past the Moderator and the Dean
+    // and with the SDS Office: the one the demo's SDS role has to review
+    // and sign, which nothing else here is.
+    EventItem(
+      remoteId: 'demo-ev-6',
+      title: 'Cloud Computing Workshop for Capstone Teams',
+      org: 'ACPES',
+      date: '19 Nov 2026',
+      on: DateTime(2026, 11, 19),
+      budget: '4500',
+      status: EventApprovalStatus.pendingInstitutional,
+      schoolYear: '2026-2027',
+      semester: Semester.first,
+      eventScope: EventScope.organizational,
+      proposedBy: 'demo-account-treasurer',
+    ),
+    // Last again. With the Dean, and proposed by the officer: the demo's
+    // admin is not its proposer, or nobody-decides-their-own would hide the
+    // decision from the one role it is here for.
+    EventItem(
+      remoteId: 'demo-ev-7',
+      title: 'CITE Research Colloquium',
+      org: 'CITE',
+      date: '10 Dec 2026',
+      on: DateTime(2026, 12, 10),
+      budget: '6000',
+      status: EventApprovalStatus.pendingAdmin,
+      schoolYear: '2026-2027',
+      semester: Semester.first,
+      eventScope: EventScope.departmental,
+      proposedBy: 'demo-account-officer',
     ),
   ];
 
@@ -489,31 +523,32 @@ abstract final class DemoData {
   ];
 
   static List<AppNotice> notices() => [
+    // True of demo-ev-1, which is sent and with the Moderator.
     AppNotice(
       id: 'demo-n-1',
-      kind: 'sap_cleared',
+      kind: 'sap_submitted',
       emailStatus: 'sent',
-      title: 'SDS Office approved your proposal',
+      title: 'SAP proposal submitted',
       body:
-          'HACK THE FUTURE has cleared Part 4. Print the form and collect '
-          'the nine signatures.',
+          'Sent for department review. HACK THE FUTURE is with your '
+          'Moderator.',
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       readAt: null,
       // Named, so tapping it opens the event the way a real workflow
       // notice does. Without this the demo cannot show that at all.
-      payload: const {'event_id': 'demo-ev-1', 'action': 'sap_cleared'},
+      payload: const {'event_id': 'demo-ev-1', 'action': 'sap_submitted'},
     ),
+    // As the server words a rejection. The reasons are on the proposal, not
+    // in the notice.
     AppNotice(
       id: 'demo-n-2',
-      kind: 'event_returned',
+      kind: 'sap_rejected',
       emailStatus: 'sent',
-      title: 'Returned for revision',
-      body:
-          'Industry Immersion Talk: move it to the afternoon if there are '
-          'affected classes in the morning.',
+      title: 'SAP proposal rejected',
+      body: 'The SDS Office rejected Industry Immersion Talk.',
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
       readAt: null,
-      payload: const {'event_id': 'demo-ev-3', 'action': 'sap_returned'},
+      payload: const {'event_id': 'demo-ev-3', 'action': 'sap_rejected'},
     ),
     AppNotice(
       id: 'demo-n-3',
@@ -534,21 +569,62 @@ abstract final class DemoData {
 /// These fill the parts a reader needs to decide: what it is, when and
 /// where, what it costs and what it needs.
 abstract final class DemoProposals {
-  /// Everything the summary reads, for one seeded event. Null for an
-  /// event this demo has written nothing for.
-  /// Why the SDS Office sent a proposal back, for the one seeded event
-  /// that came back. Without it the demo shows a returned proposal with
-  /// no reason attached, which is the thing that was wrong before.
-  static String? returnRemarksFor(EventItem event) =>
-      event.remoteId == 'demo-ev-3'
+  /// Why the SDS Office rejected a proposal, for the one seeded event it
+  /// turned down. Without it the demo shows a rejected proposal with no
+  /// reason attached, which is the thing that was wrong before.
+  ///
+  /// A rejection is final, so this asks for nothing to be sent back.
+  static String? sdsRemarksFor(EventItem event) => event.remoteId == 'demo-ev-3'
       // True of what is actually seeded: a 9:00 start, and Part 3's
       // excuse arrangement left blank. A reason that describes rows the
       // form does not have is worse than no reason.
-      ? 'A 9:00 start takes these students out of morning classes. Move '
-            'it to the afternoon, or set out the excuse letter '
-            'arrangement in Part 3 and send it back to us.'
+      ? 'A 9:00 start takes these students out of morning classes, and '
+            'Part 3 sets out no excuse letter arrangement for them. The '
+            'activity cannot be approved as proposed.'
       : null;
 
+  /// Part 4, for the events the SDS Office has been through or has now.
+  /// Null for the rest: a proposal still with the Moderator or the Dean has
+  /// not reached the office, and the review screen waits on it to sign.
+  static SapClearance? clearanceFor(EventItem event) =>
+      _clearances[event.remoteId];
+
+  static const _clearances = <String, SapClearance>{
+    'demo-ev-2': SapClearance(
+      parentsConsent: SapClearanceAnswer.notApplicable,
+      parentsConsentReason: 'On campus, within school hours.',
+      attachments: 'Program of activities, budget and endorsement letter',
+      classInterruption: SapClearanceAnswer.none,
+      medicalExam: SapClearanceAnswer.notApplicable,
+      medicalExamReason: 'No strenuous activity.',
+      reportOfCompliance: SapClearanceAnswer.yes,
+      studentPersonnelRatio: '400:8',
+    ),
+    'demo-ev-5': SapClearance(
+      parentsConsent: SapClearanceAnswer.notApplicable,
+      parentsConsentReason: 'On campus, within school hours.',
+      attachments: 'Program of activities and budget',
+      classInterruption: SapClearanceAnswer.none,
+      medicalExam: SapClearanceAnswer.notApplicable,
+      medicalExamReason: 'No strenuous activity.',
+      reportOfCompliance: SapClearanceAnswer.yes,
+      studentPersonnelRatio: '300:6',
+    ),
+    // With the office to sign, so the pad opens on it.
+    'demo-ev-6': SapClearance(
+      parentsConsent: SapClearanceAnswer.notApplicable,
+      parentsConsentReason: 'On campus, within school hours.',
+      attachments: 'Program of activities, budget and speaker profile',
+      classInterruption: SapClearanceAnswer.none,
+      medicalExam: SapClearanceAnswer.notApplicable,
+      medicalExamReason: 'No strenuous activity.',
+      reportOfCompliance: SapClearanceAnswer.yes,
+      studentPersonnelRatio: '80:2',
+    ),
+  };
+
+  /// Everything the summary reads, for one seeded event. Null for an
+  /// event this demo has written nothing for.
   static SapDetails? detailsFor(EventItem event) {
     final seeded = _byEvent[event.remoteId];
     if (seeded == null) return null;
@@ -663,10 +739,9 @@ abstract final class DemoProposals {
         ),
       ],
     ),
-    // The one that comes back. It is seeded because the SDS Office's
-    // reason for returning it names Part 3 — a reason pointing at an
-    // empty part is worse than no reason, and this is the flow the
-    // demonstration walks.
+    // The one the SDS Office turns down. It is seeded because its reason
+    // names Part 3 — a reason pointing at an empty part is worse than no
+    // reason, and this is the flow the demonstration walks.
     'demo-ev-3': _Seeded(
       start: SapTime(9, 0),
       end: SapTime(11, 30),
@@ -694,6 +769,102 @@ abstract final class DemoProposals {
           type: SapSupportType.projector,
           quantity: 1,
           specify: 'With HDMI',
+        ),
+      ],
+    ),
+    // With the SDS Office, so the office has a whole proposal to read and
+    // sign. The three items add up to what the event asks for.
+    'demo-ev-6': _Seeded(
+      start: SapTime(13, 0),
+      end: SapTime(17, 0),
+      venue: 'St. Augustine Building, Room 301',
+      inCharge: 'Engr. Glazen M. Perez',
+      students: 80,
+      rationale:
+          'Capstone teams build on a laptop and meet a real host for the '
+          'first time at the panel. A half-day workshop on putting a '
+          'project online, before the defenses, gives every team the same '
+          'starting point.',
+      objectives:
+          'Put a small web application online.\n'
+          'Read a hosting bill before it arrives.\n'
+          'Know what to show the panel about where it runs.',
+      budget: [
+        SapBudgetItem(
+          particulars: 'Resource speaker honorarium',
+          amount: '2500.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Snacks',
+          quantity: 80,
+          unitCost: '15.00',
+          amount: '1200.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Certificates and handouts',
+          quantity: 80,
+          unitCost: '10.00',
+          amount: '800.00',
+        ),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.room,
+          quantity: 1,
+          specify: 'St. Augustine Bldg. Room 301, 1:00 to 5:00 PM',
+        ),
+        SapSupportRequest(
+          type: SapSupportType.projector,
+          quantity: 1,
+          specify: 'With HDMI',
+        ),
+      ],
+    ),
+    // With the Dean, so the demo's admin has a whole proposal to read and
+    // decide. The three items add up to what the event asks for.
+    'demo-ev-7': _Seeded(
+      start: SapTime(9, 0),
+      end: SapTime(16, 0),
+      venue: 'St. Augustine Building, AVR',
+      inCharge: 'Engr. Aileen M. Habaradas',
+      students: 100,
+      rationale:
+          'Capstone teams face a panel without having seen how research in '
+          'the department is framed and reported. A day of short talks from '
+          'faculty and graduate students gives them something to write to '
+          'before the proposal defenses.',
+      objectives:
+          'Hear how faculty research is framed and reported.\n'
+          'Ask what a defensible methodology looks like.\n'
+          'Take away a template for a research abstract.',
+      budget: [
+        SapBudgetItem(
+          particulars: 'Invited speaker honorarium',
+          amount: '3000.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Snacks',
+          quantity: 100,
+          unitCost: '20.00',
+          amount: '2000.00',
+        ),
+        SapBudgetItem(
+          particulars: 'Programs and certificates',
+          quantity: 100,
+          unitCost: '10.00',
+          amount: '1000.00',
+        ),
+      ],
+      support: [
+        SapSupportRequest(
+          type: SapSupportType.room,
+          quantity: 1,
+          specify: 'St. Augustine Bldg. AVR, 9:00 AM to 4:00 PM',
+        ),
+        SapSupportRequest(
+          type: SapSupportType.sound,
+          quantity: 1,
+          specify: 'Two microphones',
         ),
       ],
     ),

@@ -41,7 +41,7 @@ void main() {
                 for (final (title, stage) in const [
                   ('Programming Bootcamp for Freshmen', EventStage.drafting),
                   ('Hackathon 2026: Code for Campus', EventStage.withSds),
-                  ('Industry Immersion Talk', EventStage.returned),
+                  ('Industry Immersion Talk', EventStage.rejected),
                   ('CITE Week: Opening Ceremony', EventStage.approved),
                 ]) ...[
                   EventProgressBar(title: title, stage: stage, onTap: () {}),

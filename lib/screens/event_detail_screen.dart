@@ -20,20 +20,42 @@ class EventDetailScreen extends StatelessWidget {
 
   const EventDetailScreen({super.key, required this.event});
 
-  Future<void> _decide(
+  /// [isProposal] is whether the event carries a SAP proposal, where not
+  /// approving is a return for revision that must say what to change; on
+  /// any other event it is a rejection with an optional note.
+  /// [expectedVersion] is the proposal version the reviewer read, sent back
+  /// so a proposal that changed meanwhile is refused.
+  ///
+  /// [note] opens the dialog already written. The answer says whether the
+  /// proposal had changed, and what to open the dialog with next time: what
+  /// was typed if the decision did not go through, so that a long reason is
+  /// not lost to a refusal, and nothing otherwise.
+  Future<({bool changed, String kept})> _decide(
     BuildContext context, {
     required bool approved,
     required bool isAdviserStage,
+    required bool isProposal,
+    int? expectedVersion,
+    String note = '',
   }) async {
-    final controller = TextEditingController();
+    final isReturn = isProposal && !approved;
+    final controller = TextEditingController(text: note);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           approved
+              // A proposal goes on to the next step; only a plain event ends
+              // with this approval.
               ? (isAdviserStage
-                    ? 'Approve and forward to admin'
-                    : 'Grant final approval')
+                    ? (isProposal
+                          ? 'Approve and send to the Dean'
+                          : 'Approve and forward to admin')
+                    : (isProposal
+                          ? 'Approve and send to the SDS Office'
+                          : 'Grant final approval'))
+              : isReturn
+              ? 'Return for revision?'
               : 'Reject proposal',
           style: AppText.cardTitle,
         ),
@@ -56,10 +78,15 @@ class EventDetailScreen extends StatelessWidget {
             ],
             const SizedBox(height: 14),
             BrutTextField(
-              label: 'Feedback (optional)',
+              label: isReturn ? 'What needs changing' : 'Feedback (optional)',
               controller: controller,
               maxLines: 3,
-              hint: approved ? 'Any notes…' : 'Reason for rejection…',
+              maxLength: 2000,
+              hint: approved
+                  ? 'Any notes…'
+                  : isReturn
+                  ? 'What the organization should fix…'
+                  : 'Reason for rejection…',
             ),
           ],
         ),
@@ -68,40 +95,58 @@ class EventDetailScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          BrutButton(
-            label: approved ? 'Approve' : 'Reject',
-            expand: false,
-            size: BrutSize.small,
-            tone: approved ? BrutTone.mint : BrutTone.coral,
-            onPressed: () => Navigator.pop(context, true),
+          // A return without a reason would leave the organization guessing
+          // (the server refuses it too), so it waits for one.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => BrutButton(
+              label: approved
+                  ? 'Approve'
+                  : isReturn
+                  ? 'Return'
+                  : 'Reject',
+              expand: false,
+              size: BrutSize.small,
+              tone: approved ? BrutTone.mint : BrutTone.coral,
+              onPressed: isReturn && value.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(context, true),
+            ),
           ),
         ],
       ),
     );
 
-    if (confirmed == true) {
-      final app = context.read<AppState>();
-      final String? error = isAdviserStage
-          ? await app.adviserDecision(
-              event,
-              approved: approved,
-              note: controller.text.trim(),
-            )
-          : await app.adminDecision(
-              event,
-              approved: approved,
-              note: controller.text.trim(),
-            );
+    if (confirmed != true) return (changed: false, kept: '');
 
-      if (!context.mounted) return;
+    final app = context.read<AppState>();
+    // A blank note is no note: nothing is sent for it.
+    final text = controller.text.trim();
+    final result = isAdviserStage
+        ? await app.adviserDecision(
+            event,
+            approved: approved,
+            note: text.isEmpty ? null : text,
+            expectedVersion: expectedVersion,
+          )
+        : await app.adminDecision(
+            event,
+            approved: approved,
+            note: text.isEmpty ? null : text,
+            expectedVersion: expectedVersion,
+          );
+
+    if (context.mounted) {
+      final outcome = approved
+          ? 'Approved'
+          : isReturn
+          ? 'Returned for revision'
+          : 'Rejected';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error ?? '${event.title} — ${approved ? 'Approved' : 'Rejected'}',
-          ),
-        ),
+        SnackBar(content: Text(result.error ?? '${event.title} — $outcome')),
       );
     }
+    return (changed: result.changed, kept: result.error == null ? '' : text);
   }
 
   @override
@@ -149,32 +194,22 @@ class EventDetailScreen extends StatelessWidget {
               _ApprovalStatusCard(event: event),
               if (canAdviserDecide || canAdminDecide) ...[
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: BrutButton(
-                        label: 'Reject',
-                        tone: BrutTone.coral,
-                        onPressed: () => _decide(
-                          context,
-                          approved: false,
-                          isAdviserStage: canAdviserDecide,
-                        ),
+                _DecisionRow(
+                  event: event,
+                  onDecide:
+                      ({
+                        required bool approved,
+                        required bool isProposal,
+                        int? expectedVersion,
+                        required String note,
+                      }) => _decide(
+                        context,
+                        approved: approved,
+                        isAdviserStage: canAdviserDecide,
+                        isProposal: isProposal,
+                        expectedVersion: expectedVersion,
+                        note: note,
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: BrutButton(
-                        label: 'Approve',
-                        tone: BrutTone.mint,
-                        onPressed: () => _decide(
-                          context,
-                          approved: true,
-                          isAdviserStage: canAdviserDecide,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
               const SizedBox(height: 14),
@@ -226,16 +261,17 @@ class EventDetailScreen extends StatelessWidget {
               ],
               const SizedBox(height: 14),
               _ApprovalTimelineCard(event: event),
-              // Editing a proposal belongs to whoever may
-              // propose one, and only while it is still draft or
-              // rejected. Officers are read-only and no longer
-              // get this button.
               // The SAS-SDS-FO-020 form. Offered on any event the backend
               // knows about: the proposer fills Parts 1 to 3 and the SDS
               // Office the rest, and which of those a given person may do
               // is the API's call to make, not a button's. An event that
               // has never reached the server has nothing to hang a
               // proposal on.
+              //
+              // The only way into a proposal, a rejected one included: it
+              // opens on the rejection and the SDS Office's reasons, and
+              // nothing on it can be edited. A second button for rejected
+              // events opened a blank, editable form in the demo.
               if (event.remoteId case final eventId?) ...[
                 const SizedBox(height: 14),
                 BrutButton(
@@ -268,7 +304,8 @@ class EventDetailScreen extends StatelessWidget {
                       form.seedLocally(
                         state: _demoSapState(event.status),
                         details: DemoProposals.detailsFor(event),
-                        returnRemarks: DemoProposals.returnRemarksFor(event),
+                        sdsRemarks: DemoProposals.sdsRemarksFor(event),
+                        clearance: DemoProposals.clearanceFor(event),
                       );
                       form.setBudgetItems(DemoProposals.budgetFor(event));
                       form.setSupportRequests(DemoProposals.supportFor(event));
@@ -300,26 +337,6 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                 ),
               ],
-              if (app.mayProposeEvents &&
-                  event.status == EventApprovalStatus.rejected) ...[
-                const SizedBox(height: 14),
-                BrutButton(
-                  label: 'Edit proposal',
-                  icon: Icons.edit_outlined,
-                  tone: BrutTone.neutral,
-                  onPressed: () {
-                    final app = context.read<AppState>();
-                    // Outside the builder, for the same reason as above.
-                    final form = SapForm(
-                      eventId: event.remoteId,
-                      service: app.isDemoMode ? null : app.sapService,
-                    );
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => SapFormScreen(form: form)),
-                    );
-                  },
-                ),
-              ],
             ],
           ),
         );
@@ -341,6 +358,172 @@ class EventDetailScreen extends StatelessWidget {
                 ? AppText.number
                 : AppText.body.copyWith(fontWeight: FontWeight.w700),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// What the Moderator or the Dean can do with the event: approve it, or
+/// turn it down.
+///
+/// Turning down depends on what the event is. A SAP proposal is sent back
+/// for revision, with a reason, and the Moderator and the Dean never reject
+/// one; any other event is rejected, as it always was. So the proposal is
+/// read here: it says which of the two to offer, and its version is what the
+/// decision sends back, so that a proposal someone changed since is refused
+/// instead of decided blind.
+///
+/// A refusal for that reason leaves the row stale: the version it holds is
+/// out of date, so sending again would only be refused again, or worse
+/// accepted over changes nobody has looked at. It offers to read the
+/// proposal again and waits for that, as the SDS review screen does.
+class _DecisionRow extends StatefulWidget {
+  const _DecisionRow({required this.event, required this.onDecide});
+
+  final EventItem event;
+  final Future<({bool changed, String kept})> Function({
+    required bool approved,
+    required bool isProposal,
+    int? expectedVersion,
+    required String note,
+  })
+  onDecide;
+
+  @override
+  State<_DecisionRow> createState() => _DecisionRowState();
+}
+
+class _DecisionRowState extends State<_DecisionRow> {
+  bool _loading = true;
+  bool _isProposal = false;
+  int? _version;
+  String? _error;
+  bool _stale = false;
+
+  /// What was typed for each decision (keyed by whether it approves) and not
+  /// sent, offered again the next time that dialog opens.
+  final Map<bool, String> _kept = {};
+
+  @override
+  void initState() {
+    super.initState();
+    if (context.read<AppState>().isDemoMode) {
+      // Every event in the demo has a seeded proposal, and there is no
+      // server to give it a version.
+      _loading = false;
+      _isProposal = true;
+    } else {
+      _load();
+    }
+  }
+
+  Future<void> _load({bool refreshEvent = false}) async {
+    final app = context.read<AppState>();
+    try {
+      // A decision refused because the event moved on is not cured by the
+      // proposal's version: the status is what decides whether this row is
+      // still offered, so a reload reads that too, and the row goes if it is
+      // no longer this reviewer's turn.
+      if (refreshEvent) await app.refreshEventStatus(widget.event);
+      final version = await app.proposalVersionFor(widget.event);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _stale = false;
+        _isProposal = version != null;
+        _version = version;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = app.describeFailure(error);
+      });
+    }
+  }
+
+  void _reload() {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    _load(refreshEvent: true);
+  }
+
+  Future<void> _decide(bool approved) async {
+    final result = await widget.onDecide(
+      approved: approved,
+      isProposal: _isProposal,
+      expectedVersion: _version,
+      note: _kept[approved] ?? '',
+    );
+    if (!mounted) return;
+    setState(() {
+      _kept[approved] = result.kept;
+      if (result.changed) _stale = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          const SizedBox(height: 10),
+          BrutButton(
+            label: 'Try again',
+            tone: BrutTone.neutral,
+            onPressed: _reload,
+          ),
+        ],
+      );
+    }
+
+    VoidCallback? decide(bool approved) =>
+        _loading || _stale ? null : () => _decide(approved);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_stale) ...[
+          const BrutInlineMessage(
+            tone: BrutTone.coral,
+            icon: Icons.sync_problem,
+            text:
+                'Someone else changed this proposal. Reload it to see their '
+                'version before deciding.',
+          ),
+          const SizedBox(height: 10),
+          BrutButton(
+            label: 'Reload the proposal',
+            tone: BrutTone.neutral,
+            busy: _loading,
+            busyLabel: 'Reloading',
+            onPressed: _reload,
+          ),
+          const SizedBox(height: 14),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: BrutButton(
+                label: _isProposal ? 'Return for revision' : 'Reject',
+                tone: BrutTone.coral,
+                onPressed: decide(false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: BrutButton(
+                label: 'Approve',
+                tone: BrutTone.mint,
+                onPressed: decide(true),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -404,7 +587,11 @@ class _ApprovalStatusCard extends StatelessWidget {
                 Expanded(
                   child: _StageChip(
                     label: 'Admin approval',
+                    // Institutional review follows the admin's approval, in
+                    // both flows.
                     done:
+                        event.status ==
+                            EventApprovalStatus.pendingInstitutional ||
                         event.status == EventApprovalStatus.approved ||
                         event.status == EventApprovalStatus.completed,
                     current: event.status == EventApprovalStatus.pendingAdmin,
@@ -598,13 +785,14 @@ class _ApprovalRow extends StatelessWidget {
 
   BrutTone get _tone => switch (record.decision) {
     'approved' => BrutTone.mint,
-    'rejected' => BrutTone.coral,
+    'rejected' || 'returned' => BrutTone.coral,
     _ => BrutTone.sun,
   };
 
   String get _decisionLabel => switch (record.decision) {
     'approved' => 'Approved',
     'rejected' => 'Rejected',
+    'returned' => 'Returned for revision',
     'pending' => 'Awaiting decision',
     final other => other,
   };
@@ -644,11 +832,15 @@ class _ApprovalRow extends StatelessWidget {
                 children: [
                   MonoLabel('Step ${record.stepOrder}'),
                   const SizedBox(width: 8),
-                  Text(
-                    _decisionLabel,
-                    style: AppText.body.copyWith(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
+                  // Flexible: "Returned for revision" is longer than the
+                  // other labels and ran off the end of a narrow card.
+                  Flexible(
+                    child: Text(
+                      _decisionLabel,
+                      style: AppText.body.copyWith(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
@@ -845,9 +1037,9 @@ Future<void> _cancelProposal(BuildContext context, EventItem event) async {
 SapState _demoSapState(EventApprovalStatus status) => switch (status) {
   EventApprovalStatus.draft => SapState.draft,
   EventApprovalStatus.pendingAdviser ||
-  EventApprovalStatus.pendingAdmin ||
+  EventApprovalStatus.pendingAdmin => SapState.pendingDepartmentReview,
   EventApprovalStatus.pendingInstitutional => SapState.pendingReview,
-  EventApprovalStatus.rejected => SapState.revisionRequested,
+  EventApprovalStatus.rejected => SapState.rejected,
   EventApprovalStatus.approved => SapState.approved,
   EventApprovalStatus.completed => SapState.completed,
 };

@@ -376,7 +376,7 @@ enum _StatusFilter {
   all('All', null),
   pending('Waiting', BrutTone.sun),
   approved('Approved', BrutTone.mint),
-  rejected('Returned', BrutTone.coral),
+  rejected('Rejected', BrutTone.coral),
   draft('Drafts', BrutTone.neutral);
 
   const _StatusFilter(this.label, this.tone);

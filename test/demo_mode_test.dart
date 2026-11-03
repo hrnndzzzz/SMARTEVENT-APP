@@ -3,6 +3,7 @@ import 'package:smartevent/api/compliance_service.dart';
 import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/api/models/academic.dart';
 import 'package:smartevent/state/app_state.dart';
+import 'package:smartevent/state/demo_data.dart';
 import 'package:smartevent/state/user_role.dart';
 
 /// Exploring has to fill the app, not fake a login against a server it
@@ -50,11 +51,77 @@ void main() {
     for (final wanted in [
       EventApprovalStatus.draft,
       EventApprovalStatus.pendingAdviser,
+      // With the Dean, who needs one to decide on as much as the Moderator.
+      EventApprovalStatus.pendingAdmin,
+      // With the SDS Office, which is the one the demo's SDS role reviews.
+      EventApprovalStatus.pendingInstitutional,
       EventApprovalStatus.approved,
       EventApprovalStatus.rejected,
       EventApprovalStatus.completed,
     ]) {
       expect(states, contains(wanted), reason: '$wanted has no demo event');
+    }
+  });
+
+  // The Dean's step, appended last so the numbering above it holds. The
+  // demo's admin is not its proposer, or nobody-decides-their-own would hide
+  // the decision from the one role it was added for.
+  test('the Dean has a proposal to decide on, and its lines add up', () {
+    final app = AppState()..enterDemo(role: UserRole.admin);
+    final event = app.events.last;
+
+    expect(event.remoteId, 'demo-ev-7');
+    expect(event.status, EventApprovalStatus.pendingAdmin);
+    expect(event.proposedBy, 'demo-account-officer');
+    expect(event.proposedBy, isNot(app.currentAccount?.id));
+
+    final lines = DemoProposals.budgetFor(event);
+    expect(lines, isNotEmpty);
+    expect(
+      lines.fold<double>(0, (sum, line) => sum + double.parse(line.amount)),
+      double.parse(event.budget),
+    );
+    expect(DemoProposals.detailsFor(event), isNotNull);
+    expect(DemoProposals.supportFor(event), isNotEmpty);
+  });
+
+  // A rejection is final and the SDS Office's alone. The demo's used to name
+  // a person and carry a notice about being returned for revision.
+  test('the rejected event is the SDS Office\'s, in its status and notice', () {
+    final app = AppState()..enterDemo();
+    final event = app.events.firstWhere(
+      (e) => e.status == EventApprovalStatus.rejected,
+    );
+    final notice = app.notices.firstWhere(
+      (n) => n.payload['event_id'] == event.remoteId,
+    );
+
+    expect(event.statusLabel, 'Rejected by the SDS Office');
+    expect(notice.title.toLowerCase(), contains('rejected'));
+    expect(notice.body, contains('SDS Office'));
+    expect(
+      '${notice.title} ${notice.body}'.toLowerCase(),
+      isNot(contains('return')),
+    );
+  });
+
+  // A notice reads as the proposal it names. The first said the SDS Office had
+  // approved HACK THE FUTURE and to collect the nine signatures, while that
+  // proposal was still with the Moderator.
+  test('a notice does not say more than its pending proposal has got', () {
+    final app = AppState()..enterDemo();
+    final pending = {
+      for (final event in app.events)
+        if (event.status.isPending) event.remoteId,
+    };
+    final notices = app.notices.where((n) => pending.contains(n.eventId));
+
+    expect(notices, isNotEmpty, reason: 'the demo has a notice about one');
+    for (final notice in notices) {
+      final said = '${notice.title} ${notice.body}'.toLowerCase();
+      for (final claim in ['approved', 'cleared', 'nine signatures']) {
+        expect(said, isNot(contains(claim)), reason: '${notice.id}: $claim');
+      }
     }
   });
 

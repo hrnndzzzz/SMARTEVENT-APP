@@ -56,8 +56,8 @@ abstract final class SapProposalFlow {
 
     fillFromAccount(context, form);
 
-    // Already with the SDS Office: there is nothing to fill in, so say
-    // where it has got to instead of opening a form nobody may edit.
+    // Already sent, or decided: there is nothing to fill in, so say where
+    // it has got to instead of opening a form nobody may edit.
     if (!form.canEditProposerParts) {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => SapProposalStatus(form: form)),
@@ -117,7 +117,7 @@ abstract final class SapProposalFlow {
             Navigator.of(partContext).popUntil((route) => route.isFirst);
             if (partContext.mounted) {
               ScaffoldMessenger.of(partContext).showSnackBar(
-                const SnackBar(content: Text('Sent to the SDS Office.')),
+                const SnackBar(content: Text('Sent for department review.')),
               );
             }
           },
@@ -195,6 +195,13 @@ abstract final class SapProposalFlow {
     }
   }
 
+  /// Whether the signed-in account is the SDS Office, whose Part 4 and
+  /// review actions those are. False with no [AppState] to ask: nobody is
+  /// taken for the office on a hunch, and the server refuses anyone else
+  /// whatever the screen offers.
+  static bool isSdsStaff(BuildContext context) =>
+      _appOf(context)?.currentRole == UserRole.sdsStaff;
+
   /// Puts the account's own organization and department on the form.
   ///
   /// Which organization an event belongs to is a fact about the account,
@@ -250,9 +257,27 @@ class SapProposalStatus extends StatelessWidget {
 
   final SapForm form;
 
+  /// Whose words the remark is, when the server says; an older one does
+  /// not. Read only for a returned proposal, which is the only time
+  /// [SapForm.returnedBy] means anything.
+  String get _returned {
+    final who = form.returnedBy;
+    final said = form.returnRemarks ?? 'Edit the parts and send it again.';
+    return who == null ? said : 'Returned by ${who.label}: $said';
+  }
+
   @override
   Widget build(BuildContext context) {
     final (line, detail, tone) = switch (form.state) {
+      // The Moderator and Dean come before the SDS Office. Without this
+      // it fell through to "Waiting on the SDS Office", which is not yet
+      // true of it.
+      SapState.pendingDepartmentReview => (
+        'With the Moderator and Dean',
+        'They approve it before it goes to the SDS Office. If one of them '
+            'returns it, it opens for you again with their remarks.',
+        BrutTone.sun,
+      ),
       SapState.pendingReview => (
         'With the SDS Office',
         'They check Part 4, then it is printed for the nine signatures. '
@@ -276,7 +301,44 @@ class SapProposalStatus extends StatelessWidget {
         'Evaluated and closed.',
         BrutTone.mint,
       ),
+      SapState.revisionRequested => ('Returned', _returned, BrutTone.coral),
+      SapState.rejected => (
+        'Rejected',
+        [
+          'The SDS Office rejected this proposal. It is final; start a new '
+              'one to try again.',
+          ...form.sdsRemarkLines(overall: true),
+        ].join('\n'),
+        BrutTone.coral,
+      ),
+      // A load that failed, or has not finished, leaves no state to read.
+      // That is not a proposal the office has, so it must not say so.
+      null => (
+        'Not loaded',
+        form.error ??
+            'The proposal could not be loaded. Open it again to retry.',
+        BrutTone.neutral,
+      ),
       _ => ('Sent', 'Waiting on the SDS Office.', BrutTone.sun),
+    };
+
+    // Open to the proposer again, or closed for good: "read-only while it
+    // is under review" is neither, so it says nothing then. Nor does it
+    // for a proposal that never loaded, which is not under review at all.
+    final lock = switch (form.state) {
+      null || SapState.revisionRequested || SapState.rejected => null,
+      SapState.pendingDepartmentReview =>
+        'Parts 1 to 3 are read-only while it is under review. If '
+            'something has to change, the Moderator or Dean returns it and '
+            'they open again.',
+      // Signed, the revision stays as it is; "under review" and a return
+      // are no longer what happens to it.
+      SapState.sdsSigned || SapState.approved || SapState.completed =>
+        'Parts 1 to 3 are locked: the SDS Office has signed this revision.',
+      _ =>
+        'Parts 1 to 3 are read-only while it is under review. If '
+            'something has to change, the SDS Office returns it and '
+            'they open again.',
     };
 
     return BrutScreen(
@@ -303,14 +365,12 @@ class SapProposalStatus extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppLayout.section),
-          const BrutInlineMessage(
-            tone: BrutTone.neutral,
-            icon: Icons.lock_outline,
-            text:
-                'Parts 1 to 3 are read-only while it is under review. If '
-                'something has to change, the SDS Office returns it and '
-                'they open again.',
-          ),
+          if (lock != null)
+            BrutInlineMessage(
+              tone: BrutTone.neutral,
+              icon: Icons.lock_outline,
+              text: lock,
+            ),
         ],
       ),
     );

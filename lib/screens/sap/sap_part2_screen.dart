@@ -269,7 +269,7 @@ class _SupportTileState extends State<_SupportTile> {
           BrutChip(
             label: widget.type.label,
             selected: _ticked,
-            onTap: widget.enabled ? widget.onToggle : () {},
+            onTap: widget.enabled ? widget.onToggle : null,
           ),
           if (_ticked && widget.takesQuantity) ...[
             const SizedBox(height: 10),
