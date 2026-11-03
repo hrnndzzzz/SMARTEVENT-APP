@@ -19,6 +19,19 @@ String peso(num value, {int decimals = 2}) {
   return '$sign₱${grouped(value.abs(), decimals: decimals)}';
 }
 
+/// An amount held as text, shown as money.
+///
+/// `EventItem.budget` is a string whose shape depends on who wrote it:
+/// the backend path stores it already formatted, while a locally created
+/// or seeded event stores bare digits, and the SAP form parses those
+/// digits back out of it. So the formatting happens where it is read.
+/// Anything that parses as a number is formatted; anything else came in
+/// formatted already and is left alone.
+String pesoText(String value) {
+  final amount = num.tryParse(value.trim());
+  return amount == null ? value : peso(amount);
+}
+
 /// The digits alone, grouped in threes.
 String grouped(num value, {int decimals = 2}) {
   final text = value.toStringAsFixed(decimals);

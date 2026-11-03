@@ -6,8 +6,8 @@ import 'event_report_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import '../theme/peso.dart';
 import 'sap/sap_form_screen.dart';
-import 'sap/sap_proposal_flow.dart';
 import '../state/sap_form.dart';
 import '../widgets/event_status.dart';
 import '../api/compliance_service.dart';
@@ -219,7 +219,11 @@ class EventDetailScreen extends StatelessWidget {
                   children: [
                     const BrutSectionTitle('Event details'),
                     const SizedBox(height: 12),
-                    _detailRow('Requested budget', event.budget, mono: true),
+                    _detailRow(
+                      'Requested budget',
+                      pesoText(event.budget),
+                      mono: true,
+                    ),
                     const SizedBox(height: 8),
                     _detailRow('School year', event.academicLabel),
                   ],
