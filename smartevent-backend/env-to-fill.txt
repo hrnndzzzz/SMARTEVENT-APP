@@ -1,0 +1,89 @@
+# SMARTEVENT backend — environment to fill in
+#
+# Jasper: fill in the blanks below, then save the file as `.env` inside
+# `smartevent-backend/` (the leading dot matters — that name is already
+# in .gitignore). Don't commit the filled copy, and don't paste it into
+# a pull request, issue or chat thread: send it privately.
+#
+# Only DATABASE_URL and JWT_SECRET_KEY are required — the backend
+# refuses to start without them. Everything else has a working default
+# or simply turns a feature off when it is blank, so leave anything you
+# don't have for now.
+#
+# Keep `APP_ENV=development` while we are demonstrating. Setting it to
+# `production` turns on stricter checks (a 32-byte secret, HTTPS-only
+# origins, and sslmode=verify-full on the database).
+
+
+# ── Required ────────────────────────────────────────────────────────
+
+# Supabase → Project Settings → Database → Connection string → URI.
+# Replace [YOUR-PASSWORD] with the database password, and keep the
+# `?sslmode=require` on the end.
+# Shape: postgresql://postgres.<ref>:<password>@<host>:5432/postgres?sslmode=require
+DATABASE_URL=
+
+# Any random string of 32+ bytes. Generate one with:
+#   python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+# This is ours alone — it is not issued by Supabase or anyone else.
+JWT_SECRET_KEY=
+
+
+# ── Supabase storage ────────────────────────────────────────────────
+# Needed for receipt images and uploaded proposal letters. Without
+# these two the API runs, but every upload and download is refused.
+
+# Supabase → Project Settings → API → Project URL.
+# Shape: https://<project-ref>.supabase.co
+SUPABASE_URL=
+
+# Supabase → Project Settings → API → service_role key (the secret one,
+# NOT anon/publishable). It bypasses row-level security, so it belongs
+# only in this file on the machine running the API.
+SUPABASE_SERVICE_KEY=
+
+# The bucket names, already created in the project. Leave as they are
+# unless they were named differently.
+SUPABASE_RECEIPTS_BUCKET=receipts
+SUPABASE_PROPOSAL_LETTERS_BUCKET=proposal-letters
+
+
+# ── Email, for registration and password-reset codes ────────────────
+# Without these the OTP emails are not sent; everything else works.
+
+# resend.com → API Keys.
+RESEND_API_KEY=
+
+# The verified sender address the codes come from.
+RESEND_FROM_EMAIL=
+
+# Optional: while Resend is unverified it will only deliver to one
+# address. Put yours here to test against it.
+RESEND_TEST_EMAIL=
+
+# How long a code stays valid. 1–30.
+OTP_EXPIRY_MINUTES=15
+
+
+# ── Optional extras ─────────────────────────────────────────────────
+
+# Only used by the AI-assisted features. Blank is fine.
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
+
+# Printed into the QR code on the signed SAP form, so a scanned form
+# can be checked against the server. It must be a public HTTPS address
+# ending in /sap/verify, and it only works once the API is reachable
+# from outside. Leave the placeholder until we have one.
+SAP_VERIFICATION_BASE_URL=https://smartevent.invalid/sap/verify
+
+
+# ── Local settings — fine as they are ───────────────────────────────
+
+APP_ENV=development
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=60
+
+# Where a browser-based client is served from. The phone app does not
+# need to be listed here; CORS only applies to browsers.
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
