@@ -54,7 +54,8 @@ def version(client, base):
     return response.json()['version']
 
 
-def populate(ctx, data=None, proposer='treasurer'):
+def send(ctx, data=None, proposer='treasurer'):
+    """Parts 1-3 filled and sent, which leaves the proposal with the Moderator and the Dean."""
     client, db, users, event, login, base = ctx
     data = data or fixture_data()
     login(proposer)
@@ -63,13 +64,31 @@ def populate(ctx, data=None, proposer='treasurer'):
     for key, items in data['collections'].items():
         result = client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items})
         assert result.status_code == 200, result.text
-    login('sds_staff')
-    result = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
-    assert result.status_code == 200, result.text
-    login(proposer)
     result = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert result.status_code == 200, result.text
     return result.json()
+
+
+def department_approves(ctx):
+    """The Moderator, when it is their turn, and then the Dean approve the sent proposal."""
+    client, db, users, event, login, base = ctx
+    reviewers = ['adviser', 'admin'] if event.status == 'pending_adviser' else ['admin']
+    for role in reviewers:
+        login(role)
+        result = client.post(f'/events/{event.id}/approve', json={})
+        assert result.status_code == 200, result.text
+
+
+def populate(ctx, data=None, proposer='treasurer'):
+    client, db, users, event, login, base = ctx
+    data = data or fixture_data()
+    send(ctx, data, proposer)
+    department_approves(ctx)
+    login('sds_staff')  # Part 4 is the SDS Office's, filled once the proposal reaches it.
+    result = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
+    assert result.status_code == 200, result.text
+    login(proposer)
+    return client.get(base).json()
 
 
 def checkpoint(ctx, slot):
@@ -199,13 +218,16 @@ def test_hack_future_return_sign_scan_evaluate(sap_system, monkeypatch, outcome)
     assert old.printable_pdf == old_bytes and old.snapshot == old_snapshot
     assert client.get(base + '/workflow').json()['completed_count'] == 0
     assert client.get('/sap/verify/' + old.verification_token).json()['approval_state'] == 'superseded'
-    for slot in [1, 3, 2, 4, 5, 6, 7, 8, 9]:
+    for slot in [1, 3, 2, 4]:
+        result = checkpoint(sap_system, slot)
+        assert result.status_code == 200, result.text
+    sign_current(sap_system)
+    for slot in [5, 6, 7, 8, 9]:
         result = checkpoint(sap_system, slot)
         assert result.status_code == 200, result.text
     assert db.query(DocumentRouting).filter_by(event_id=event.id).count() == 0
     rev = db.query(SAPRevision).filter_by(revision_no=2).one()
     assert client.get('/sap/verify/' + rev.verification_token).json()['approved'] is False
-    sign_current(sap_system)
     uploads = []
     def upload(data, mime, extension, user_id, org_id):
         uploads.append((data, mime, extension, org_id))
@@ -338,9 +360,6 @@ def test_pre_activity_readiness_blocks_submission(sap_system, monkeypatch):
     client.patch(base, json={'expected_version': version(client, base), 'details': data['details']})
     for key, items in data['collections'].items():
         client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items})
-    login('sds_staff')
-    client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
-    login('treasurer')
     response = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert response.status_code == 409
     assert db.query(SAPRevision).count() == 0 and event.status == 'draft'
@@ -362,9 +381,11 @@ def test_only_sds_may_record_or_evaluate(sap_system, role):
 def test_private_storage_failure_does_not_approve(sap_system, monkeypatch):
     client, db, users, event, login, base = sap_system
     populate(sap_system)
-    for slot in range(1, 10):
+    for slot in range(1, 5):
         assert checkpoint(sap_system, slot).status_code == 200
     sign_current(sap_system)
+    for slot in range(5, 10):
+        assert checkpoint(sap_system, slot).status_code == 200
     from app.services.storage import StorageError
     def unavailable(*args):
         raise StorageError('unavailable')
@@ -408,13 +429,14 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
         assert client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items}).status_code == 200
     sent = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert sent.status_code == 200, sent.text
-    assert sent.json()['state'] == 'pending_sap_review'
+    assert sent.json()['state'] == 'pending_department_review'
+    department_approves(sap_system)
 
     login('sds_staff')
     assert [row['id'] for row in client.get('/events').json()] == [str(event.id)]
     strokes = [[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]]
     unsigned = client.post(base + '/sds-sign', json={'expected_version': version(client, base), 'signature_strokes': strokes})
-    assert unsigned.status_code == 422 and 'Part 4' in unsigned.json()['detail']
+    assert unsigned.status_code == 422 and unsigned.json()['detail'] == 'Complete Part 4 before signing'
 
     filled = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert filled.status_code == 200, filled.text
@@ -427,6 +449,26 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
     assert '145:3' in text and 'SIGNED AND APPROVED BY SDS OFFICE' in text
     late = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
     assert late.status_code == 409
+
+
+PART_4_TEXT = ('parents_consent_reason', 'attachments', 'class_interruption_remarks',
+               'medical_exam_reason', 'report_of_compliance_reason', 'student_personnel_ratio')
+
+
+def test_part_4_text_boxes_hold_5000_characters_and_print_them(sap_system):
+    client, db, users, event, login, base = sap_system
+    populate(sap_system)  # The SDS Office only sees a proposal once it is sent.
+    login('sds_staff')
+    for key in PART_4_TEXT:
+        over = fixture_data()['clearance'] | {key: 'x' * 5001}
+        response = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': over})
+        assert response.status_code == 422, key
+    data = fixture_data()
+    data['clearance'] |= {key: ('word ' * 1000)[:4995] + f'END{i}' for i, key in enumerate(PART_4_TEXT)}
+    response = client.put(base + '/sds-clearance', json={'expected_version': version(client, base), 'clearance': data['clearance']})
+    assert response.status_code == 200, response.text
+    text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1))).pages)
+    assert all(f'END{i}' in text for i in range(len(PART_4_TEXT)))
 
 
 def test_unchanged_proposal_pdf_renders_once(sap_system, monkeypatch):

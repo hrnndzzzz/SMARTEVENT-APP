@@ -1,6 +1,6 @@
 # SAP backend: progress and remaining work
 
-Updated: 23 October 2026 (Asia/Manila)
+Updated: 31 October 2026 (Asia/Manila)
 
 Tracking: [GitHub issue #9](https://github.com/hrnndzzzz/SMARTEVENT-APP/issues/9)
 
@@ -44,8 +44,10 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
 ### Release 2
 
 - Added `POST /events/{event_id}/sap-proposal/withdraw` with `expected_version`.
-- Restricted withdrawal to the original authorized proposer, before any current
-  SDS review record, signature, or recorded checkpoint.
+- Restricted withdrawal to the proposer, or a colleague who may also propose in the
+  event's organization (an admin only their own), while the proposal waits on the
+  Moderator, the Dean or the SDS Office and before any current SDS review record,
+  signature, or recorded checkpoint.
 - Withdrawal restores the proposal/event to draft, clears SDS clearance, and
   preserves submitted revisions, PDFs, verification tokens, and checkpoints.
 - Attachment metadata carries forward to the next draft while reusing private
@@ -57,6 +59,38 @@ Commits: `eb11587` (information limit), `243048a` (budget fields),
 - Prepared the additive migration
   `supabase/migrations/20261023134616_sap_notification_payload.sql`.
 - Added opt-in PostgreSQL migration and concurrent review/withdrawal checks.
+
+### Department review (Moderator and Dean)
+
+- A sent proposal goes to the event's Moderator, then its Dean, before the SDS
+  Office sees it; one an adviser sent or created starts with the Dean. Either may
+  return it to the draft with remarks. They use the existing
+  `POST /events/{event_id}/approve` and `/reject`, and the proposal waits in the
+  new `pending_department_review` state.
+- A returned proposal says who returned it (`returned_by`: `moderator`, `dean` or
+  `sds`). The SDS Office sees a proposal only from the Dean's approval on, or after
+  it returned the proposal itself. The Dean's approval checks pre-activity
+  readiness again.
+- Backend work only; Flutter changes are a separate handoff. See the
+  [contract](docs/sap-fo-020-frontend-contract.md#state-and-concurrency) and
+  `supabase/migrations/20261030000100_sap_department_review.sql`.
+
+### SDS Office decisions
+
+- The SDS Office can sign, return or reject a proposal it is reviewing. Rejecting
+  (`POST /sds-reject`, remarks required) is final: the proposal and its event become
+  `rejected` and whoever sent the proposal is told. A return takes optional
+  `section_remarks` too, and keeps the saved ones when it sends none.
+- SDS remarks print on the form for a returned, signed or rejected revision, and a
+  rejected one carries a "REJECTED BY THE SDS OFFICE" mark.
+- Paper slots 5 to 9 are recorded only after the SDS Office signs, and Part 4 is
+  filled in only while it reviews the proposal.
+- Every SAP notice also reaches whoever sent the revision. The Moderator's and the
+  Dean's approve and reject accept an optional `expected_version`, so an outdated
+  screen is refused only when it sends one.
+- Backend work only, with no migration (the database already allows `rejected`);
+  Flutter changes are a separate handoff. See the
+  [contract](docs/sap-fo-020-frontend-contract.md#state-and-concurrency).
 
 ## Verification completed
 
@@ -97,6 +131,12 @@ the working checkout. They are verification artifacts, not committed user data.
   connected application project has `sap_reviews` and `sap_attachments`, but its
   migration ledger does not list the later review/signature/attachment migration.
   Do not blindly rerun that migration.
+- [ ] Apply the department-review migration
+  `supabase/migrations/20261030000100_sap_department_review.sql` to staging
+  **before** deploying the backend that reads `returned_by`; without the column
+  every approve, reject and SAP route fails. After that backend is live, run the
+  migration's `UPDATE` once more to label any SDS return made in between (it
+  only fills rows with no `returned_by`, so repeating it is safe).
 - [ ] Apply the notification-payload migration to staging **before** deploying
   Release 2 backend models. Existing notifications should have null payloads;
   existing grants and row access rules must remain unchanged.
@@ -116,12 +156,20 @@ Flutter changes are a separate handoff:
 4. Add withdrawal with 403/409 handling and reload after stale-version errors.
 5. Use notification payloads to open the relevant proposal; support null payloads
    on older notifications.
+6. Offer the SDS Office Reject and treat `rejected` as final, send `section_remarks`
+   with a return, and send `expected_version` with the Moderator's and the Dean's
+   approve and reject.
+7. Enable the final-scan upload only in `sds_signed` (the app checks
+   `pending_sap_review`, so the button never enables) and the Part 4 "Confirm
+   clearance" action only in `pending_sap_review`.
+8. Show a rejected SAP event read-only, including its compliance and letter screens
+   (the backend still lets those side records change; they cannot reopen the
+   proposal).
 
 ## Explicitly deferred
 
 | Item | What must happen first |
 | --- | --- |
-| Moderator/Dean approval stage | Confirm approvers, assignments, review order, self-approval rules, and how SDS clearance fits before submission |
 | Independent organizations / null departments | Design registration, organization ownership, access rules, and PDF signatory behavior together |
 | Field-level annotations | Define anchors, authorship, permissions, resolution history, and revision handling |
 | Multiple evaluators | Confirm the requirement; keep one evaluator per proposal for now |

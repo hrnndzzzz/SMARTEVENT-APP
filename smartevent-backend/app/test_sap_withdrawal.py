@@ -36,7 +36,7 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
     assert copies[0].storage_ref == copies[1].storage_ref
     assert copies[0].uploaded_by == copies[1].uploaded_by
     assert copies[0].uploaded_at == copies[1].uploaded_at
-    assert db.query(Notification).filter_by(kind='sap_workflow').count() == 4
+    assert db.query(Notification).filter_by(kind='sap_workflow').count() == 5
     # The old Part 4 does not carry over: the SDS Office fills a fresh one
     # while reviewing the resubmission, before it can sign (see test_sap).
     resubmitted = client.post(base + '/submit', json={'expected_version': version(client, base)})
@@ -109,8 +109,9 @@ def test_stale_withdrawal_and_review_after_withdrawal_are_rejected(sap_system):
     assert client.post(base + '/withdraw', json={'expected_version': submitted['version'] - 1}).status_code == 409
     assert client.post(base + '/withdraw', json={'expected_version': submitted['version']}).status_code == 200
     login('sds_staff')
-    for expected in (submitted['version'], version(client, base)):
-        assert client.put(base + '/sds-review', json={'expected_version': expected, 'overall_remarks': 'Late review'}).status_code == 409
+    # Taken back, it is the proposer's draft again: the SDS Office can neither read nor review it.
+    assert client.get(base).status_code == 403
+    assert client.put(base + '/sds-review', json={'expected_version': submitted['version'], 'overall_remarks': 'Late review'}).status_code == 403
     assert db.query(SAPReview).count() == 0
 
 

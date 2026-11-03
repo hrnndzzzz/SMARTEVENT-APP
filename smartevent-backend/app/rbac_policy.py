@@ -64,9 +64,9 @@ ROLE_POLICY = {
         "permissions": ["Read operational records, reports, and analytics"],
     },
     "sds_staff": {
-        "scope": "school proposal letters and sent activity proposals",
-        "responsibility": "Review sent activity proposals and view submitted proposal letters for school oversight.",
-        "permissions": ["Read proposal letters", "Read events with a sent activity proposal"],
+        "scope": "school proposal letters and activity proposals the Dean has approved",
+        "responsibility": "Review activity proposals once the Dean has approved them, and view submitted proposal letters for school oversight.",
+        "permissions": ["Read proposal letters", "Read events with an activity proposal the Dean has approved"],
     },
     "signatory": {
         "scope": "assigned events pending institutional review",

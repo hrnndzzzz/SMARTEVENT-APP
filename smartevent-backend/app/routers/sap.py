@@ -14,7 +14,7 @@ from app.database import get_db
 from app.dependencies import require_active_account
 from app.models import User, DocumentRouting, Approval
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation, SAPAttachment, SAPReview
-from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance
+from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, DecisionWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance
 from app.schemas_sap import (SAPProposalOut, SAPWorkflowOut, SAPAttachmentOut,
                              SAPDownloadOut, SAPVerificationOut)
 from app.services import sap, storage
@@ -51,6 +51,21 @@ def _printout(proposal, number, render):
             _PRINTOUTS.clear()
         data = _PRINTOUTS[key] = render()
     return data
+
+
+def _record_remarks(db, rev, payload):
+    """A decision's remarks go on the revision's review. The section remarks the SDS Office saved
+    while reading stay unless the decision sends its own; a signed review cannot change."""
+    review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
+    if review is None:
+        review = SAPReview(revision_id=rev.id, section_remarks={})
+        db.add(review)
+    elif review.signed_at:
+        raise HTTPException(409, 'Signed review is immutable; create a new revision')
+    review.overall_remarks = payload.remarks
+    if payload.section_remarks is not None:
+        review.section_remarks = payload.section_remarks
+    return review
 
 
 def _cleanup_upload(db, ref):
@@ -225,6 +240,8 @@ def sign_revision(event_id: UUID, payload: SDSReviewWrite, db: Session = Depends
     if row and row.signed_at:
         raise HTTPException(409, 'This revision is already signed')
     snapshot = _with_clearance(rev, proposal)
+    if not snapshot['clearance']:
+        raise HTTPException(422, 'Complete Part 4 before signing')
     try:
         validate_clearance(snapshot['clearance'], snapshot['collections'])
     except ValueError as exc:
@@ -251,7 +268,7 @@ def revise_signed(event_id: UUID, payload: ReturnWrite, db: Session = Depends(ge
     sap.check_version(proposal, payload.expected_version)
     if proposal.state != 'sds_signed':
         raise HTTPException(409, 'Only an SDS-signed proposal awaiting paper approval can start a correction')
-    proposal.state, proposal.return_remarks, proposal.clearance = 'revision_requested', payload.remarks, None
+    proposal.state, proposal.return_remarks, proposal.returned_by, proposal.clearance = 'revision_requested', payload.remarks, 'sds', None
     event.status = 'draft'
     return sap.save(db, event, proposal, user, 'sap_signed_revision_correction_requested', notify=True)
 
@@ -260,9 +277,9 @@ def revise_signed(event_id: UUID, payload: ReturnWrite, db: Session = Depends(ge
 def clearance(event_id: UUID, payload: ClearanceWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
-    # Part 4 is filled in while reviewing what was sent, up until signing.
-    if proposal.state not in {'draft', 'revision_requested', 'pending_sap_review'}:
-        raise HTTPException(409, 'Part 4 can no longer change once the revision is signed')
+    # Part 4 is the SDS Office's to fill in while it reviews what was sent; a return clears it, so it waits for the next revision.
+    if proposal.state != 'pending_sap_review':
+        raise HTTPException(409, 'Part 4 is filled in while the SDS Office reviews the proposal')
     proposal.clearance = payload.clearance.model_dump(mode='json')
     return sap.save(db, event, proposal, user, 'sap_clearance_updated')
 
@@ -300,6 +317,8 @@ def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session 
     row = next((r for r in rows if r.id == step_id), None)
     if row is None:
         raise HTTPException(404, 'Checkpoint not found in the current revision')
+    if row.slot >= 5 and proposal.state != 'sds_signed':
+        raise HTTPException(409, 'Slots 5 to 9 are signed after the SDS Office signs')
     signed = {r.slot: r for r in rows if r.evidence}
     if row.evidence or not set(sap.prerequisites(row.slot)) <= signed.keys():
         raise HTTPException(409, 'Checkpoint already recorded or required predecessors incomplete')
@@ -336,21 +355,26 @@ def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session 
 
 
 @router.post('/return', response_model=SAPProposalOut, response_model_exclude_unset=True)
-def return_proposal(event_id: UUID, payload: ReturnWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+def return_proposal(event_id: UUID, payload: DecisionWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
     event, proposal = sap.load(db, event_id, user, write=True, sds=True)
     sap.check_version(proposal, payload.expected_version)
     if proposal.state != 'pending_sap_review':
         raise HTTPException(409, 'Only an unsigned pending SAP revision can be returned')
-    rev = sap.revision(db, proposal)
-    review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
-    if review is None:
-        review = SAPReview(revision_id=rev.id, overall_remarks=payload.remarks, section_remarks={})
-        db.add(review)
-    elif not review.signed_at:
-        review.overall_remarks = payload.remarks
-    proposal.state, proposal.return_remarks, proposal.clearance = 'revision_requested', payload.remarks, None
+    _record_remarks(db, sap.revision(db, proposal), payload)
+    proposal.state, proposal.return_remarks, proposal.returned_by, proposal.clearance = 'revision_requested', payload.remarks, 'sds', None
     event.status = 'draft'
     return sap.save(db, event, proposal, user, 'sap_returned', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
+
+
+@router.post('/sds-reject', response_model=SAPProposalOut, response_model_exclude_unset=True)
+def reject_proposal(event_id: UUID, payload: DecisionWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
+    event, proposal = sap.load(db, event_id, user, write=True, sds=True)
+    sap.check_version(proposal, payload.expected_version)
+    if proposal.state != 'pending_sap_review':
+        raise HTTPException(409, 'Only a pending revision can be rejected')
+    _record_remarks(db, sap.revision(db, proposal), payload)
+    proposal.state, event.status = 'rejected', 'rejected'  # final; a rejection is not a return, so return_remarks and returned_by stay
+    return sap.save(db, event, proposal, user, 'sap_rejected', notify=True, details={'revision': proposal.revision_no, 'remarks': payload.remarks})
 
 
 @router.get('/pdf', response_class=Response, responses={200: {'content': {'application/pdf': {'schema': {'type': 'string', 'format': 'binary'}}}}})
@@ -361,7 +385,7 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
     if revision_no or (proposal.revision_no and not draft) or proposal.state not in {'draft', 'revision_requested'}:
         rev = sap.revision(db, proposal, revision_no)
         signed_review = db.query(SAPReview).filter_by(revision_id=rev.id).first()
-        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else _printout(proposal, rev.revision_no, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None))
+        data = signed_review.signed_pdf if signed_review and signed_review.signed_pdf else _printout(proposal, rev.revision_no, lambda: render_proposal(_with_clearance(rev, proposal), rev.revision_no, settings.sap_verification_base_url.rstrip('/') + '/' + rev.verification_token if settings.sap_verification_base_url else None, review={'overall_remarks': signed_review.overall_remarks, 'section_remarks': signed_review.section_remarks} if signed_review else None, rejected=proposal.state == 'rejected' and rev.revision_no == proposal.revision_no))
         number = rev.revision_no
     else:
         try:

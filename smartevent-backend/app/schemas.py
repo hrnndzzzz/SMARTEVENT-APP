@@ -338,6 +338,11 @@ class EventOut(BaseModel):
 class ApprovalDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     remarks: str | None = Field(default=None, max_length=2000)
+    expected_version: int | None = Field(
+        default=None,
+        ge=1,
+        description="SAP proposals only: the proposal version last read; a proposal that has changed since answers 409. Other events and expenses ignore it.",
+    )
 
 
 class DocumentRoutingUpdate(BaseModel):

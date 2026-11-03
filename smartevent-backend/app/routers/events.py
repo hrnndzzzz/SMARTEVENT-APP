@@ -19,6 +19,7 @@ from app.dependencies import (
 )
 from app.models import Approval, Category, DocumentRouting, Event, EventParticipant, EventRequirement, RequirementPreset, User
 from app.models_compliance import EventLogistics, EventPersonnel, EventVehicle, EventComplianceDocument
+from app.models_sap import SAPProposal
 from app.services.compliance import invalidate_clearance
 from app.schemas import (
     ApprovalDecision,
@@ -53,14 +54,14 @@ def _require_academic_metadata(event):
         raise HTTPException(409, f"Complete the event's academic metadata first: {exc}")
 
 
-def _get_event_or_404(db: Session, event_id: uuid.UUID, *, lock: bool = False) -> Event:
+def _get_event_or_404(db: Session, event_id: uuid.UUID, *, lock: bool = False, allow_sap: bool = False) -> Event:
     query = db.query(Event).filter(Event.id == event_id)
     if lock:
         query = query.with_for_update()
     event = query.first()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    if lock:
+    if lock and not allow_sap:
         from app.services.sap import assert_generic_workflow
         assert_generic_workflow(db, event)
     return event
@@ -372,10 +373,16 @@ def approve_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("adviser", "admin", "signatory")),
 ):
-    event = _get_event_or_404(db, event_id, lock=True)
+    event = _get_event_or_404(db, event_id, lock=True, allow_sap=True)
 
     assert_event_read(db, event, current_user)
     assert_not_self_review(event.proposed_by, current_user)
+    proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
+    if proposal is not None:
+        from app.services import sap
+        sap.department_review(db, event, proposal, current_user, "approved", payload.remarks, payload.expected_version)
+        db.refresh(event)
+        return event
     _require_academic_metadata(event)
 
     if current_user.role == "signatory":
@@ -410,10 +417,16 @@ def reject_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("adviser", "admin", "signatory")),
 ):
-    event = _get_event_or_404(db, event_id, lock=True)
+    event = _get_event_or_404(db, event_id, lock=True, allow_sap=True)
 
     assert_event_read(db, event, current_user)
     assert_not_self_review(event.proposed_by, current_user)
+    proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
+    if proposal is not None:
+        from app.services import sap
+        sap.department_review(db, event, proposal, current_user, "returned", payload.remarks, payload.expected_version)
+        db.refresh(event)
+        return event
 
     if current_user.role == "adviser" and event.status not in ADVISER_PENDING_STATUSES:
         raise HTTPException(

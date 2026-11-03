@@ -53,7 +53,7 @@ The backend contains 89 functional API operations organized across 19 API areas,
 | **Adviser** | Independent review and event oversight | Creates own event drafts, reviews events and expenses submitted by others, records inventory movements, reads reports and uploads proposal letters. |
 | **Treasurer** | Financial and stock recording | Creates own event drafts, records income and expenses, manages own pending expenses and receipts, completes own approved asset purchases, records inventory movements and uploads proposal letters. |
 | **Officer** | Operational monitoring | Read-only access to the assigned organization’s operational records, reports and analytics. May change their own password and read/mark their own notifications. |
-| **SDS Staff** | School-wide proposal-letter oversight | Reads proposal letters across the school and manages their own account and notifications. Has no operational event, finance, inventory or report access. |
+| **SDS Staff** | School-wide proposal-letter oversight | Reads proposal letters across the school and manages their own account and notifications. Reads an event only once its activity proposal has reached the SDS Office (the Dean approved it, or the SDS Office returned it itself). Has no finance, inventory or report access. |
 
 ### Important access rules
 
@@ -68,7 +68,8 @@ The backend contains 89 functional API operations organized across 19 API areas,
    submitted an event, expense or receipt cannot approve or reject that same
    record.
 5. **SDS Staff is separate from operational roles.** SDS Staff can see proposal
-   letters but cannot approve events or read financial or inventory records.
+   letters, and an event once its activity proposal has reached them, but cannot
+   approve events or read financial or inventory records.
 
 ## 3. Account and registration workflow
 

@@ -23,8 +23,10 @@ Officer access remains limited to their own organization. Selected organizations
 must belong to the Admin's department. Missing assignments fail closed.
 
 Super Admin is the only role with global operational access. SDS Staff can read
-proposal letters across the school, but cannot read events, finances, inventory,
-reports, user accounts, rosters, or administrative audit history.
+proposal letters across the school, and an event once its activity proposal has
+reached them (the Dean approved it, or the SDS Office returned it itself), but
+cannot read other events, finances, inventory, reports, user accounts, rosters, or
+administrative audit history.
 
 ## Operational and SDS duties
 
@@ -35,7 +37,7 @@ reports, user accounts, rosters, or administrative audit history.
 | Manage unclaimed member roster | All | Own department | No | No | No | No |
 | List/manage registered member access | All | Own department's Adviser/Treasurer/Officer accounts | No | No | No | No |
 | Transfer accounts to another organization | Yes | No | No | No | No | No |
-| Read operational data, reports, analytics | All | Own department | Own organization | Own organization | Own organization | No |
+| Read operational data, reports, analytics | All | Own department | Own organization | Own organization | Own organization | Only an event whose activity proposal has reached them |
 | Create/update/delete budget categories | All | Own department | No | No | No | No |
 | Create event proposals | All | Own department | Own organization | Own organization | President, Vice President, Secretary only | No |
 | Edit/submit/delete eligible events | All | Own department | Own proposals | Own proposals | Those three positions, own proposals only | No |

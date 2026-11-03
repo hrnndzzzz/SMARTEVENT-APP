@@ -323,13 +323,10 @@ def test_lead_officers_can_prepare_and_submit_owned_sap_without_sds_powers(syste
         response = client.put(base + "/" + collection, json={"expected_version": version(), "items": items})
         assert response.status_code == 200, response.text
     assert client.put(base + "/sds-clearance", json={"expected_version": version(), "clearance": data["clearance"]}).status_code == 403
-    login("sds_staff")
-    response = client.put(base + "/sds-clearance", json={"expected_version": version(), "clearance": data["clearance"]})
-    assert response.status_code == 200, response.text
     login("officer")
     response = client.post(base + "/submit", json={"expected_version": version()})
     assert response.status_code == 200, response.text
-    assert response.json()["state"] == "pending_sap_review"
+    assert response.json()["state"] == "pending_department_review"
     assert client.patch(base, json={"expected_version": version(), "details": data["details"]}).status_code == 409
 
 

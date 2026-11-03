@@ -16,9 +16,10 @@ require_event_reader = require_role("admin", "adviser", "treasurer", "officer", 
 
 
 def _sent_proposal_events(db):
-    """Events whose SAP proposal has left its proposer: the SDS Office's work.
-    A draft, including one taken back, is still the proposer's own."""
-    return db.query(SAPProposal.event_id).filter(SAPProposal.state != "draft")
+    """Events whose SAP proposal has reached the SDS Office: its work. Until then it is the
+    proposer's (a draft, including one taken back or returned by the Moderator or the Dean)
+    or still with the department."""
+    return db.query(SAPProposal.event_id).filter(SAPProposal.seen_by_sds)
 
 
 def scope_event_query(query, db, user):
@@ -38,7 +39,7 @@ def assert_event_read(db, event, user):
     if user.role == "sds_staff":
         if db.query(_sent_proposal_events(db).filter(SAPProposal.event_id == event.id).exists()).scalar():
             return
-        raise HTTPException(403, "The SDS Office reads events once their proposal has been sent")
+        raise HTTPException(403, "The SDS Office reads events once the Dean has approved their proposal")
     if user.role != "signatory":
         assert_record_scope(user, event, allow_officer_read=True)
         return

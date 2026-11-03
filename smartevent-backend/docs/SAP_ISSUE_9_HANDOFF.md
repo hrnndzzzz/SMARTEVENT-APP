@@ -1,3 +1,5 @@
+> This note's withdraw and notification-recipient rules are superseded by [the frontend contract](sap-fo-020-frontend-contract.md).
+
 # Issue #9: backend release contract
 
 ## Release 1: form data and responses
