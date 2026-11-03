@@ -272,7 +272,7 @@ instead returns the form with each saved remark as a Word comment ("SDS Office")
 margin beside its part: the Activity Title and Budget labels, the Part 2, 3 and 4
 headings, and the overall remark (prefixed `Overall:`) on Part 4; a remark whose label is
 missing sits on the Part 4 heading. That holds for a returned, a signed and a rejected
-revision. A proposal with no remarks prints the same either way. Word clips a long comment, so a remark over 700 characters prints as consecutive comments on the same part, each ending `(1/2)`, `(2/2)` and so on; the commented copy shows the remarks as Word prints them, and the app holds their full text. A
+revision. A proposal with no remarks prints the same either way. Word clips a long comment, so a remark longer than about 690 characters prints as consecutive comments on the same part, each ending `(1/2)`, `(2/2)` and so on; the commented copy shows the remarks as Word prints them, and the app holds their full text. A
 rejected one, while it is the proposal's current revision, also carries the red
 watermark `REJECTED BY THE SDS OFFICE` and the footer `SAP revision N | Rejected by
 SDS`; earlier revisions print as they were. `GET /sap/verify/{token}` reports the

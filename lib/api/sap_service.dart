@@ -252,7 +252,8 @@ class SapService {
 
   /// `POST /sds-reject` — the SDS Office's final no. The event becomes
   /// rejected and the proposal cannot be sent again; the remarks are what
-  /// the organization reads and what prints on the form. Same body as
+  /// the organization reads and what prints as comments beside the form on
+  /// the copy with comments. Same body as
   /// [returnForRevision].
   Future<SapProposal> sdsReject(
     String eventId, {

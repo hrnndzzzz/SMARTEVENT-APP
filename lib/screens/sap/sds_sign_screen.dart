@@ -178,7 +178,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
     body:
         'This is final. The organization is told it was rejected and cannot '
         'send this proposal again; they would start a new one. Your remarks '
-        'print on the form.',
+        'print as comments beside the form on the copy with comments.',
     action: 'Reject',
     send: _form.sdsReject,
     done: 'Rejected. The organization has been told.',
@@ -299,7 +299,8 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                   icon: Icons.info_outline,
                   text:
                       'Returning or rejecting needs an overall remark. It is '
-                      'what the organization reads, and it prints on the form.',
+                      'what the organization reads, and it prints as a comment '
+                      'beside the form on the copy with comments.',
                 ),
                 const SizedBox(height: 10),
               ],
