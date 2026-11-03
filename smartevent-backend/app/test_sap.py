@@ -1,5 +1,6 @@
 """Isolated SAP workflow, security, paper evidence and generic routing regression."""
 from copy import deepcopy
+import hashlib
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -273,15 +274,11 @@ def test_long_text_stays_in_its_cell():
     data = fixture_data()
     data['details']['rationale'] = '\n'.join(['Long line'] * 150)
     data['collections']['budget-items'] = [{'particulars': f'Budget line {i}', 'amount': '1.00'} for i in range(16)]
-    notes = {'overall_remarks': 'Detailed SDS remark. ' * 140, 'section_remarks': {}}
-    pages = [page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1, review=notes))).pages]
+    pages = [page.extract_text() for page in PdfReader(BytesIO(render_proposal(data, 1))).pages]
     text = '\n'.join(pages)
     assert text.count('Long line') == 150
     assert 'See addendum' not in text
     assert 'Long line' in next(page for page in pages if 'Rationale:' in page)
-    # The remark fills the SDS signatory cell across a page break, where extraction interleaves the
-    # neighbouring signatories and the footer, so count its words rather than whole sentences.
-    assert text.count('Detailed') == 140 and text.count('remark.') == 140
     assert 'Budget line 15' in text
 
 
@@ -303,7 +300,7 @@ def test_signed_revision_correction_preserves_pdf(sap_system):
     assert review.signed_pdf == original_pdf and review.signed_pdf_sha256 == original_hash
 
 
-def test_returned_pdf_keeps_remarks(sap_system):
+def test_returned_pdf_keeps_no_remark_text_on_the_plain_form(sap_system):
     client, db, users, event, login, base = sap_system
     populate(sap_system)
     login('sds_staff')
@@ -311,8 +308,183 @@ def test_returned_pdf_keeps_remarks(sap_system):
     assert response.status_code == 200
     pdf = client.get(base + '/pdf')
     text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(pdf.content)).pages)
-    assert 'Revise the food budget' in text
+    assert 'Revise the food budget' not in text  # the remark travels as a comment, not on the plain form
     assert 'SIGNED AND APPROVED BY SDS OFFICE' not in text
+    assert 'Revise the food budget' in pdf_words(client.get(base + '/pdf?comments=true').content)
+
+
+def pdf_words(content):
+    """The printed text on one line: Word wraps a comment inside its narrow margin."""
+    return ' '.join(' '.join(page.extract_text() for page in PdfReader(BytesIO(content)).pages).split())
+
+
+def review_pending(ctx, remark='Please recheck the speaker fee'):
+    """A reviewed proposal still with the SDS Office: a section remark and an overall one are saved."""
+    client, db, users, event, login, base = ctx
+    populate(ctx)
+    login('sds_staff')
+    saved = client.put(base + '/sds-review', json={'expected_version': version(client, base), 'overall_remarks': 'Overall looks fine',
+                                                   'section_remarks': {'budget': remark}})
+    assert saved.status_code == 200, saved.text
+
+
+def test_the_pdf_comes_with_or_without_the_sds_comments(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    plain, commented = client.get(base + '/pdf'), client.get(base + '/pdf?comments=true')
+    assert plain.status_code == commented.status_code == 200
+    assert 'please recheck the speaker fee' not in pdf_words(plain.content).lower()
+    assert 'Please recheck the speaker fee' in pdf_words(commented.content) and 'Overall: Overall looks fine' in pdf_words(commented.content)
+    assert plain.content != commented.content
+    assert plain.headers['content-disposition'].endswith(f'-r1.pdf"')
+    assert commented.headers['content-disposition'].endswith('-r1-comments.pdf"')
+    assert client.get(base + '/pdf').content == plain.content  # the cache keeps the two versions apart
+
+
+def test_a_proposal_without_remarks_prints_the_same_either_way(sap_system):
+    client, db, users, event, login, base = sap_system
+    populate(sap_system)
+    login('sds_staff')
+    same, plain = (PdfReader(BytesIO(client.get(base + '/pdf' + flag).content)) for flag in ('?comments=true', ''))  # Word stamps each render, so not byte for byte
+    assert [p.extract_text() for p in same.pages] == [p.extract_text() for p in plain.pages]
+    assert [p.mediabox.width for p in same.pages] == [p.mediabox.width for p in plain.pages]
+
+
+def test_the_draft_preview_accepts_the_flag(sap_system):
+    client, db, users, event, login, base = sap_system
+    draft = client.patch(base, json={'expected_version': version(client, base), 'details': fixture_data()['details']})
+    assert draft.status_code == 200, draft.text
+    plain, flagged = client.get(base + '/pdf?draft=true'), client.get(base + '/pdf?draft=true&comments=true')
+    assert flagged.status_code == 200 and flagged.content == plain.content
+    assert 'comments' not in flagged.headers['content-disposition']
+
+
+def test_a_signed_revision_serves_its_stored_copy_and_a_commented_copy(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    review = db.query(SAPReview).one()
+    stored, digest = review.signed_pdf, review.signed_pdf_sha256
+    assert client.get(base + '/pdf').content == stored
+    commented = client.get(base + '/pdf?comments=true')
+    assert commented.status_code == 200 and commented.content != stored
+    text = pdf_words(commented.content)
+    assert 'Please recheck the speaker fee' in text and 'SIGNED AND APPROVED BY SDS OFFICE' in text
+    assert users['sds_staff'].full_name in text and 'recheck the speaker fee' not in pdf_words(stored)
+    db.refresh(review)
+    assert review.signed_pdf == stored and review.signed_pdf_sha256 == digest
+
+
+def store_old_copy(db, review, pages=1):
+    """A signed copy as the code before ea911cd stored it: the remarks printed under the signature."""
+    from reportlab.pdfgen import canvas
+    buffer = BytesIO()
+    page = canvas.Canvas(buffer)
+    page.drawString(50, 800, 'SDS: Overall looks fine')
+    page.drawString(50, 780, 'Budget: Please recheck the speaker fee')
+    for _ in range(pages):
+        page.showPage()
+    page.save()
+    review.signed_pdf = buffer.getvalue()
+    review.signed_pdf_sha256 = hashlib.sha256(review.signed_pdf).hexdigest()
+    db.commit()
+    return review.signed_pdf
+
+
+def test_a_copy_stored_with_remarks_under_the_signature_is_served_clean(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    review = db.query(SAPReview).one()
+    stored = store_old_copy(db, review)
+    digest = review.signed_pdf_sha256
+    served = client.get(base + '/pdf')
+    assert served.status_code == 200 and served.content != stored
+    text = pdf_words(served.content)
+    assert 'Overall looks fine' not in text and 'recheck the speaker fee' not in text
+    assert 'SIGNED AND APPROVED BY SDS OFFICE' in text and users['sds_staff'].full_name in text
+    db.refresh(review)
+    assert review.signed_pdf == stored and review.signed_pdf_sha256 == digest
+
+
+def test_an_old_stored_copy_is_served_as_is_while_word_is_down(sap_system, monkeypatch):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = store_old_copy(db, db.query(SAPReview).one())
+    def down(*args, **kwargs):
+        raise RuntimeError('Word is busy')
+    monkeypatch.setattr('app.routers.sap.render_proposal', down)
+    served = client.get(base + '/pdf')
+    assert served.status_code == 200 and served.content == stored
+
+
+def test_an_old_stored_copy_is_served_as_is_once_its_part_4_is_gone(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = store_old_copy(db, db.query(SAPReview).one())
+    assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 200
+    served = client.get(base + '/pdf')
+    assert served.status_code == 200 and served.content == stored
+
+
+def test_the_final_scan_is_checked_against_the_copy_that_was_served(sap_system, monkeypatch):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    for slot in range(1, 5):
+        assert checkpoint(sap_system, slot).status_code == 200
+    sign_current(sap_system)
+    for slot in range(5, 10):
+        assert checkpoint(sap_system, slot).status_code == 200
+    review = db.query(SAPReview).one()
+    store_old_copy(db, review)
+    clean = client.get(base + '/pdf').content
+    store_old_copy(db, review, pages=len(PdfReader(BytesIO(clean)).pages) + 1)  # one page longer than the clean render
+    monkeypatch.setattr('app.routers.sap.storage.upload_proposal_letter', lambda *args: 'https://private.invalid/scan.pdf')
+    login('sds_staff')
+    longer = review.signed_pdf
+    response = client.post(base + '/final-signed-copy', data={'expected_version': version(client, base)}, files={'file': ('scan.pdf', longer, 'application/pdf')})
+    assert response.status_code == 422 and 'every page' in response.json()['detail']  # the old copy's page count is not the copy the organization was served
+    response = client.post(base + '/final-signed-copy', data={'expected_version': version(client, base)}, files={'file': ('scan.pdf', clean, 'application/pdf')})
+    assert response.status_code == 201, response.text
+
+
+GONE = 'The commented copy of this signed revision is no longer available. Download it without comments for the signed form.'
+
+
+def test_a_signed_revision_after_a_correction_request_has_no_commented_copy(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = db.query(SAPReview).one().signed_pdf
+    assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 200
+    gone = client.get(base + '/pdf?comments=true')
+    assert gone.status_code == 409 and gone.json()['detail'] == GONE
+    assert client.get(base + '/pdf').content == stored
+
+
+def test_an_older_signed_revision_has_no_commented_copy_once_a_newer_one_exists(sap_system):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    sign_current(sap_system)
+    stored = db.query(SAPReview).one().signed_pdf
+    assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 200
+    populate(sap_system)
+    assert client.get(base).json()['revision_no'] == 2
+    gone = client.get(base + '/pdf?revision_no=1&comments=true')
+    assert gone.status_code == 409 and gone.json()['detail'] == GONE
+    assert client.get(base + '/pdf?revision_no=1').content == stored
+
+
+@pytest.mark.parametrize('route,body', [('/return', {'remarks': 'Revise the food budget'}), ('/sds-reject', {'remarks': 'Revise the food budget'})])
+def test_a_returned_or_rejected_revision_serves_both_versions(sap_system, route, body):
+    client, db, users, event, login, base = sap_system
+    review_pending(sap_system)
+    assert client.post(base + route, json={'expected_version': version(client, base), **body}).status_code == 200
+    plain, commented = pdf_words(client.get(base + '/pdf').content), pdf_words(client.get(base + '/pdf?comments=true').content)
+    assert 'Revise the food budget' not in plain and 'Revise the food budget' in commented
+    assert ('REJECTED BY THE SDS OFFICE' in plain) == ('REJECTED BY THE SDS OFFICE' in commented) == (route == '/sds-reject')
 
 
 @pytest.mark.parametrize('data,mime', [(b'%PDF-not-a-document', 'application/pdf'), (b'\x89PNG\r\n\x1a\ninvalid', 'image/png')])

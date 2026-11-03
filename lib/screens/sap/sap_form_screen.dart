@@ -45,9 +45,41 @@ class _SapFormScreenState extends State<SapFormScreen> {
     widget.form.loadAttachments();
   }
 
+  /// The SDS Office's remarks print as comments only if the proposer says
+  /// so; with none saved there is nothing to ask. Null means cancelled.
+  Future<bool?> _askWithComments() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Print the form'),
+        content: const Text(
+          "With comments: the form with the SDS Office's remarks beside "
+          'each part.\n\n'
+          'Without comments: the clean form, as it goes to the signatories.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Print without comments'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Print with comments'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _print(SapForm form) async {
+    final withComments = form.hasSdsRemarks ? await _askWithComments() : false;
+    if (withComments == null || !mounted) return;
     setState(() => _printing = true);
-    final file = await form.printableForm();
+    final file = await form.printableForm(withComments: withComments);
     if (!mounted) return;
     setState(() => _printing = false);
 

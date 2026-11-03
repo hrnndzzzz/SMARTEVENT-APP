@@ -3,6 +3,7 @@ import re
 import subprocess
 from copy import deepcopy
 import tempfile
+import textwrap
 import threading
 from io import BytesIO
 from pathlib import Path
@@ -210,8 +211,9 @@ def _signature_png(strokes):
     return out
 
 
-def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None, signed=False):
-    """The official Word form with the proposal written into its cells, as .docx bytes."""
+def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None, signed=False, comments=False):
+    """The official Word form with the proposal written into its cells, as .docx bytes.
+    comments=True adds the SDS Office's remarks as Word comments, each on the part it is about."""
     doc = Document(str(DOCX_TEMPLATE))
     d, flow = snapshot['details'], (snapshot.get('collections') or {}).get('program-flow', [])
     every = [DocxParagraph(p, doc._body) for p in doc.element.body.iter(qn('w:p'))]  # text boxes too
@@ -269,8 +271,8 @@ def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None
         doc.paragraphs[details_at + 1].add_run(_clean(d['additional_information']))
 
     sds = _cell_with(doc.tables[5], 'SDS Coordinator')
-    if _remarks(review):
-        sds.add_paragraph(_clean('\n'.join(_remarks(review))))
+    if comments:
+        _add_comments(doc, every, review)
     if signed:
         runs = [r for p in sds.paragraphs for r in p.runs]
         name = runs[next(i for i, r in enumerate(runs) if r.text.startswith('SDS Coordinator')) - 1]
@@ -342,19 +344,30 @@ def _footer(canvas, revision, verification_url, signed, rejected=False):
     canvas.restoreState()
 
 
+_PART_4 = 'Part 4: SDS Office Clearance'
+_ANCHORS = {  # the paragraph each section remark's comment sits on; the overall remark sits on _PART_4
+    'activity_details': 'Activity Title:', 'budget': 'Budget:', 'support_requests': 'Part 2: School Support (Requests)',
+    'additional_information': 'Part 3: Additional Information', 'clearance': _PART_4, 'other': _PART_4,
+}
+
+
 def _remarks(review):
-    if not review:
-        return []
-    rows = []
-    if review.get('overall_remarks'):
-        rows.append('SDS: ' + review['overall_remarks'])
-    labels = {
-        'activity_details': 'Activity details', 'budget': 'Budget',
-        'support_requests': 'Support requests', 'additional_information': 'Other details',
-        'clearance': 'SDS clearance', 'other': 'Other',
-    }
-    rows.extend(f"{labels.get(key, key)}: {value}" for key, value in review.get('section_remarks', {}).items())
-    return rows
+    """(anchor label, comment text) for each saved remark: the overall one first, then the sections."""
+    review = review or {}
+    rows = [(_PART_4, 'Overall: ' + review['overall_remarks'])] if (review.get('overall_remarks') or '').strip() else []
+    return rows + [(_ANCHORS.get(key, _PART_4), text) for key, text in (review.get('section_remarks') or {}).items() if text.strip()]
+
+
+def _add_comments(doc, paragraphs, review):
+    """One Word comment per saved remark, on its part's label; a missing label falls back to the Part 4 heading."""
+    find = lambda label: next((p for p in paragraphs if p.text.strip().startswith(label) and p.runs), None)
+    for label, text in _remarks(review):  # no remarks: no comments part, so the printed page keeps its normal width
+        # Word clips a margin comment at about 870 characters, so a long remark is several comments on the same part.
+        # 690 + the " (n/m)" label (6 characters up to 9 parts) stays within 700.
+        parts = textwrap.wrap(_clean(text), 690, replace_whitespace=False)
+        for number, part in enumerate(parts, 1):
+            doc.add_comment((find(label) or find(_PART_4)).runs, text=part + (f' ({number}/{len(parts)})' if len(parts) > 1 else ''),
+                            author='SDS Office', initials='SDS')
 
 
 _WORD_LOCK = threading.Lock()
@@ -368,8 +381,15 @@ _WORD_SCRIPT = (
     "@(Get-Process WINWORD -ErrorAction SilentlyContinue).Id | Where-Object {{ $before -notcontains $_ }} "
     "| Set-Content '{pid}'; "
     "$w.Visible = $false; $w.DisplayAlerts = 0; "
-    "try {{ $d = $w.Documents.Open('{src}', $false, $true); $d.ExportAsFixedFormat('{dst}', 17); $d.Close(0) }} "
+    "try {{ $d = $w.Documents.Open('{src}', $false, $true); {export}; $d.Close(0) }} "
     "finally {{ $w.Quit([ref]0) }}"  # 0: close without saving; Word's Quit takes it by reference
+)
+_PLAIN_EXPORT = "$d.ExportAsFixedFormat('{dst}', 17)"
+# Print view with the comments in the margin ("with markup"); the last argument, 7, is wdExportDocumentWithMarkup.
+_MARKUP_EXPORT = (
+    "$d.ActiveWindow.View.Type = 3; $d.ActiveWindow.View.ShowComments = $true; "
+    "$d.ActiveWindow.View.RevisionsFilter.Markup = 2; $d.ActiveWindow.View.MarkupMode = 0; "
+    "$d.ExportAsFixedFormat('{dst}', 17, $false, 0, 0, 1, 1, 7)"
 )
 
 
@@ -382,8 +402,8 @@ def _kill_word(pid_file):
         pass  # the conversion has already failed; that is the error to report
 
 
-def docx_to_pdf(docx):
-    """Word turns the filled form into a PDF, one document at a time."""
+def docx_to_pdf(docx, *, markup=False):
+    """Word turns the filled form into a PDF, one document at a time; markup=True prints its comments in the margin."""
     # Bounded, because a waiting request holds a database connection and, for submit and sign, the event row.
     if not _WORD_LOCK.acquire(timeout=_WORD_WAIT):
         raise RuntimeError('SAP printing is busy with another form; try again in a minute.')
@@ -395,7 +415,8 @@ def docx_to_pdf(docx):
             quoted = lambda path: str(path).replace("'", "''")  # PowerShell single-quoted string
             try:
                 subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command',
-                                _WORD_SCRIPT.format(src=quoted(src), dst=quoted(dst), pid=quoted(pid))],
+                                _WORD_SCRIPT.format(src=quoted(src), pid=quoted(pid),
+                                                    export=(_MARKUP_EXPORT if markup else _PLAIN_EXPORT).format(dst=quoted(dst)))],
                                timeout=_WORD_TIMEOUT, check=True, capture_output=True)
                 return dst.read_bytes()
             except (OSError, subprocess.SubprocessError) as exc:
@@ -424,6 +445,8 @@ def _stamp(pdf, revision, verification_url, signed, rejected=False):
     return out.getvalue()
 
 
-def render_proposal(snapshot, revision, verification_url=None, *, review=None, signer_name=None, signature_strokes=None, signed=False, rejected=False):
-    docx = fill_form(snapshot, review=review, signer_name=signer_name, signature_strokes=signature_strokes, signed=signed)
-    return _stamp(docx_to_pdf(docx), revision, verification_url, signed, rejected)
+def render_proposal(snapshot, revision, verification_url=None, *, review=None, signer_name=None, signature_strokes=None, signed=False, rejected=False, comments=False):
+    docx = fill_form(snapshot, review=review, signer_name=signer_name, signature_strokes=signature_strokes, signed=signed,
+                     comments=comments)
+    # Markup only when there are comments to show: without any, the page stays full width.
+    return _stamp(docx_to_pdf(docx, markup=comments and bool(_remarks(review))), revision, verification_url, signed, rejected)
