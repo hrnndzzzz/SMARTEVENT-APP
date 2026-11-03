@@ -469,11 +469,23 @@ class SapService {
   /// the watermark "REJECTED BY THE SDS OFFICE"; any other prints "Unsigned".
   /// The other signature slots always print empty, and the signed scan, a
   /// separate download, is the evidence of the paper signatures.
-  Future<DownloadedFile> pdf(String eventId, {int? revisionNo}) {
+  ///
+  /// [withComments] asks for the copy with the SDS Office's remarks as
+  /// margin comments; the flag is sent only when set. For a signed revision
+  /// whose Part 4 is gone the server answers 409, raised as a
+  /// [SapVersionConflict] carrying its message.
+  Future<DownloadedFile> pdf(
+    String eventId, {
+    int? revisionNo,
+    bool withComments = false,
+  }) {
     return _guard(() async {
       return _client.download(
         '${_base(eventId)}/pdf',
-        query: revisionNo == null ? null : {'revision_no': '$revisionNo'},
+        query: {
+          if (revisionNo != null) 'revision_no': '$revisionNo',
+          if (withComments) 'comments': 'true',
+        },
         expectedContentType: 'application/pdf',
         fallbackFilename: 'SAS-SDS-FO-020.pdf',
         patience: _printing,
