@@ -23,8 +23,17 @@ class SdsSignScreen extends StatefulWidget {
   State<SdsSignScreen> createState() => _SdsSignScreenState();
 }
 
+/// What the screen asked the form to do, so that only that button says so.
+enum _Doing { save, sign, giveBack, reject }
+
 class _SdsSignScreenState extends State<SdsSignScreen> {
   SapForm get _form => widget.form;
+
+  _Doing? _doing;
+
+  /// The form is busy for one request at a time; this is whether it is for
+  /// [what]. Every other button waits, without claiming to be the one working.
+  bool _busyWith(_Doing what) => _form.saving && _doing == what;
 
   late final _overall = TextEditingController(text: _form.overallRemarks);
   final Map<SapRemarkSection, TextEditingController> _sections = {
@@ -79,6 +88,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
 
   Future<void> _saveNotes() async {
     _collect();
+    _doing = _Doing.save;
     final problem = await _form.saveReviewNotes();
     if (!mounted) return;
 
@@ -97,6 +107,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
     }
 
     await _decide(
+      doing: _Doing.sign,
       title: 'Sign this proposal?',
       body:
           'This locks the revision and stores the signed form. It cannot '
@@ -112,6 +123,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
   /// A decision that went through leaves the screen; one that did not stays,
   /// with what was typed.
   Future<void> _decide({
+    required _Doing doing,
     required String title,
     required String body,
     required String action,
@@ -138,6 +150,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
     if (confirmed != true || !mounted) return;
 
     _collect();
+    _doing = doing;
     final failure = await send();
     if (!mounted) return;
 
@@ -148,6 +161,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
   }
 
   Future<void> _return() => _decide(
+    doing: _Doing.giveBack,
     title: 'Return for revision?',
     body:
         'It goes back to the organization to change and send again, through '
@@ -159,6 +173,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
   );
 
   Future<void> _reject() => _decide(
+    doing: _Doing.reject,
     title: 'Reject this proposal?',
     body:
         'This is final. The organization is told it was rejected and cannot '
@@ -185,10 +200,14 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
             child: BrutButton(
               label: 'Approve and sign',
               icon: Icons.draw_outlined,
-              busy: _form.saving,
+              busy: _busyWith(_Doing.sign),
               busyLabel: 'Signing',
               onPressed:
-                  _open && _cleared && _signature.isSendable && !_form.isStale
+                  _open &&
+                      _cleared &&
+                      _signature.isSendable &&
+                      !_form.isStale &&
+                      !_form.saving
                   ? _sign
                   : null,
             ),
@@ -204,7 +223,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                   tone: BrutTone.neutral,
                   icon: Icons.lock_outline,
                   text: _form.state == SapState.sdsSigned
-                      ? 'This revision is signed. Return it to make changes.'
+                      ? 'This revision is signed and locked.'
                       : 'Only a proposal waiting on the SDS Office can be '
                             'reviewed here.',
                 ),
@@ -264,9 +283,11 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
               BrutButton(
                 label: 'Save remarks',
                 tone: BrutTone.neutral,
-                busy: _form.saving,
+                busy: _busyWith(_Doing.save),
                 busyLabel: 'Saving',
-                onPressed: _open && !_form.isStale ? _saveNotes : null,
+                onPressed: _open && !_form.isStale && !_form.saving
+                    ? _saveNotes
+                    : null,
               ),
 
               const SizedBox(height: 24),
@@ -286,6 +307,8 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 label: 'Return for revision',
                 icon: Icons.undo,
                 tone: BrutTone.coral,
+                busy: _busyWith(_Doing.giveBack),
+                busyLabel: 'Returning',
                 onPressed: _canDecide ? _return : null,
               ),
               const SizedBox(height: 10),
@@ -293,6 +316,8 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 label: 'Reject',
                 icon: Icons.block,
                 tone: BrutTone.coral,
+                busy: _busyWith(_Doing.reject),
+                busyLabel: 'Rejecting',
                 onPressed: _canDecide ? _reject : null,
               ),
 

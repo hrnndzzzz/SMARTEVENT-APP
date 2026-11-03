@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:smartevent/api/sap_service.dart';
 import 'package:smartevent/screens/sap/sap_form_screen.dart';
 import 'package:smartevent/screens/sap/sds_sign_screen.dart';
 import 'package:smartevent/screens/sap/signature_pad.dart';
+import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
@@ -30,8 +32,13 @@ void main() {
   var served = 3;
   var servedState = 'pending_sap_review';
 
+  /// Holds every request that is not a read until it completes, so a test can
+  /// look at the screen while one is in flight.
+  Completer<void>? hold;
+
   setUp(() {
     requests = [];
+    hold = null;
     conflict = false;
     served = 3;
     servedState = 'pending_sap_review';
@@ -82,6 +89,7 @@ void main() {
             proposal(servedState, version: served, cleared: cleared),
           );
         }
+        await hold?.future;
         if (conflict) {
           return json({'detail': 'Someone else changed this proposal.'}, 409);
         }
@@ -104,7 +112,11 @@ void main() {
   }
 
   Widget host(Widget home, {UserRole? role}) {
-    final app = MaterialApp(theme: AppTheme.light(), home: home);
+    // The spinner a busy button shows reads the settings.
+    final app = ChangeNotifierProvider(
+      create: (_) => AppSettings(),
+      child: MaterialApp(theme: AppTheme.light(), home: home),
+    );
     return role == null
         ? app
         : ChangeNotifierProvider.value(
@@ -396,10 +408,58 @@ void main() {
 
       expect(form.isStale, isFalse);
       expect(find.textContaining('Reload it'), findsNothing);
-      expect(find.textContaining('This revision is signed'), findsOneWidget);
+      expect(find.text('This revision is signed and locked.'), findsOneWidget);
+      expect(find.textContaining('Return it'), findsNothing);
       expect(pressable(tester, 'Return for revision'), isFalse);
       expect(pressable(tester, 'Reject'), isFalse);
       expect(find.text('Move it to the afternoon.'), findsOneWidget);
+    });
+
+    testWidgets('only the button that was pressed shows busy', (tester) async {
+      hold = Completer<void>();
+      await open(tester, await loaded());
+      await write(tester, 'OVERALL', 'Move it to the afternoon.');
+      await draw(tester);
+
+      await tester.tap(find.widgetWithText(BrutButton, 'Return for revision'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Return'));
+      // The spinner never settles, so step by hand.
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(requests, hasLength(1));
+      expect(find.text('Returning'), findsOneWidget);
+      expect(find.text('Signing'), findsNothing);
+      expect(find.text('Rejecting'), findsNothing);
+      expect(find.text('Saving'), findsNothing);
+      // Not busy, but not to be pressed either while the request is out.
+      for (final label in ['Approve and sign', 'Reject', 'Save remarks']) {
+        expect(pressable(tester, label), isFalse, reason: label);
+      }
+
+      hold!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(SdsSignScreen), findsNothing);
+    });
+
+    testWidgets('and signing is the one that says Signing', (tester) async {
+      hold = Completer<void>();
+      await open(tester, await loaded());
+      await write(tester, 'OVERALL', 'Move it to the afternoon.');
+      await draw(tester);
+
+      await tester.tap(find.widgetWithText(BrutButton, 'Approve and sign'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Sign'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(requests.single.url.path, endsWith('/sds-sign'));
+      expect(find.text('Signing'), findsOneWidget);
+      expect(find.text('Returning'), findsNothing);
+      expect(find.text('Rejecting'), findsNothing);
+
+      hold!.complete();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('returning does not wait for Part 4', (tester) async {
