@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/state/app_state.dart';
+import 'package:smartevent/state/demo_data.dart';
 
 /// The review half of the workflow, in the demo.
 ///
@@ -200,5 +201,48 @@ void main() {
         reason: 'inventing a step for an unsubmitted draft would be a lie',
       );
     });
+  });
+
+  group('the inventory filters in the demo', () {
+    // These are the server's filters, so in the demo choosing one
+    // highlighted the chip and left every item on screen — including
+    // the ones it was meant to exclude.
+    test('unconfirmed drafts narrows to the drafted item', () async {
+      final app = AppState()..enterDemo(role: UserRole.admin);
+      await app.applyCatalogFilter(isDraft: true);
+
+      expect(app.catalog, isNotEmpty);
+      expect(app.catalog.every((i) => i.isDraft), isTrue);
+      expect(app.catalog.length, lessThan(DemoData.catalog().length));
+    });
+
+    test('needs event link narrows to items with no event', () async {
+      final app = AppState()..enterDemo(role: UserRole.admin);
+      await app.applyCatalogFilter(missingEventOnly: true);
+
+      expect(app.catalog, isNotEmpty);
+      expect(app.catalog.every((i) => i.eventId == null), isTrue);
+    });
+
+    test('clearing it brings the whole catalog back', () async {
+      final app = AppState()..enterDemo(role: UserRole.admin);
+      await app.applyCatalogFilter(isDraft: true);
+      await app.applyCatalogFilter();
+
+      expect(app.catalog.length, DemoData.catalog().length);
+    });
+  });
+
+  // C7, the moderator's "it is not clear how an inventory item is
+  // created". The answer is that a purchase writes it as a draft for an
+  // administrator to confirm — and the badge, the filter and the notice
+  // that say so could never appear, because every seeded item was
+  // already confirmed.
+  test('the demo holds an item a purchase drafted', () {
+    final drafts = DemoData.catalog().where((i) => i.isDraft).toList();
+
+    expect(drafts, hasLength(1), reason: 'one is enough to show the state');
+    expect(drafts.single.eventId, isNotNull,
+        reason: 'a purchase is made against an event');
   });
 }

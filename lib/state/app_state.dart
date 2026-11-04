@@ -1225,13 +1225,34 @@ class AppState extends ChangeNotifier {
   String? catalogEventFilter;
   bool catalogMissingEventOnly = false;
 
-  Future<void> loadCatalog() => _runLoad(catalogLoad, () async {
-    catalog = await _inventoryService.list(
-      isDraft: catalogDraftFilter,
-      eventId: catalogEventFilter,
-      missingEvent: catalogMissingEventOnly,
-    );
-  });
+  /// The three filters are the server's, so in the demo choosing one
+  /// highlighted the chip and changed nothing on the list below it — an
+  /// administrator's work queue answering with every item it was meant
+  /// to exclude. The seed is filtered here instead.
+  ///
+  /// It happens before [_runLoad] rather than inside it: that returns
+  /// early while exploring, so nothing passed to it runs.
+  Future<void> loadCatalog() {
+    if (_demoMode) {
+      catalog = DemoData.catalog().where((item) {
+        if (catalogDraftFilter != null && item.isDraft != catalogDraftFilter) {
+          return false;
+        }
+        if (catalogEventFilter != null && item.eventId != catalogEventFilter) {
+          return false;
+        }
+        if (catalogMissingEventOnly && item.eventId != null) return false;
+        return true;
+      }).toList();
+    }
+    return _runLoad(catalogLoad, () async {
+      catalog = await _inventoryService.list(
+        isDraft: catalogDraftFilter,
+        eventId: catalogEventFilter,
+        missingEvent: catalogMissingEventOnly,
+      );
+    });
+  }
 
   Future<void> applyCatalogFilter({
     bool? isDraft,

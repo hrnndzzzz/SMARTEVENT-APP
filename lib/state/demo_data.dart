@@ -427,6 +427,7 @@ abstract final class DemoData {
       required int lowStock,
       required String location,
       String? eventId,
+      bool isDraft = false,
     }) => RemoteInventoryItem(
       id: id,
       itemName: name,
@@ -435,7 +436,7 @@ abstract final class DemoData {
       unit: unit,
       lowStockThreshold: lowStock,
       location: location,
-      isDraft: false,
+      isDraft: isDraft,
       eventId: eventId,
       departmentId: 'demo-dept-1',
       organizationId: 'demo-org-1',
@@ -481,6 +482,23 @@ abstract final class DemoData {
         unit: 'sheets',
         lowStock: 50,
         location: 'CITE stockroom',
+      ),
+      // Bought rather than entered: a purchase writes the row as a draft
+      // and an administrator confirms it. The badge, the "Unconfirmed
+      // drafts" filter and the notice on the item were all built for
+      // this and none of them could appear, because every seeded item
+      // was already confirmed — the one question the moderator asked
+      // about inventory was the one the demo could not answer.
+      item(
+        id: 'demo-inv-5',
+        name: 'Tarpaulin stand',
+        description: 'Adjustable, from the Hack the Future purchase.',
+        quantity: 2,
+        unit: 'pcs',
+        lowStock: 1,
+        location: 'CITE stockroom',
+        eventId: 'demo-ev-1',
+        isDraft: true,
       ),
     ];
   }
