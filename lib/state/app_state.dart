@@ -1234,7 +1234,7 @@ class AppState extends ChangeNotifier {
   /// early while exploring, so nothing passed to it runs.
   Future<void> loadCatalog() {
     if (_demoMode) {
-      catalog = DemoData.catalog().where((item) {
+      catalog = _demoCatalog.where((item) {
         if (catalogDraftFilter != null && item.isDraft != catalogDraftFilter) {
           return false;
         }
@@ -1283,7 +1283,7 @@ class AppState extends ChangeNotifier {
       // The ledger is the whole explanation of a stock figure, and in
       // the demo it said "nothing is sent to a server" instead — under
       // an item whose quantity it was supposed to account for.
-      final seeded = DemoData.movementsFor(item.id);
+      final seeded = _demoLedger(item.id);
       return (
         movements: eventId == null
             ? seeded
@@ -1411,6 +1411,29 @@ class AppState extends ChangeNotifier {
           '${item.quantity} ${item.unit} are in stock.';
     }
 
+    if (_demoMode) {
+      // Recording is the point of the screen, and refusing it left the
+      // ledger below explaining a figure nobody could change. The
+      // movement is kept for the session and the stock moves with it,
+      // so the ledger still accounts for what the card shows.
+      _demoLedger(item.id).insert(
+        0,
+        InventoryMovement(
+          id: 'demo-mv-${item.id}-${DateTime.now().microsecondsSinceEpoch}',
+          inventoryId: item.id,
+          eventId: eventId.isEmpty ? null : eventId,
+          changeQty: change,
+          type: type,
+          reason: reason.trim(),
+          performedBy: currentAccount?.name ?? 'Demo user',
+          expenseItemId: null,
+          createdAt: DateTime.now(),
+        ),
+      );
+      _replaceCatalogItem(_withQuantity(item, item.quantity + change));
+      return null;
+    }
+
     try {
       await _inventoryService.recordMovement(
         item.id,
@@ -1427,11 +1450,59 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// The demo's own catalog, seeded once and then held for the session.
+  /// Re-reading [DemoData] on each filter would undo a movement recorded
+  /// during a walkthrough: the stock would go back to what it was the
+  /// moment a chip was tapped.
+  List<RemoteInventoryItem>? _demoCatalogHeld;
+
+  List<RemoteInventoryItem> get _demoCatalog =>
+      _demoCatalogHeld ??= [...DemoData.catalog()];
+
+  /// The demo's ledger for one item, seeded from [DemoData] the first
+  /// time it is asked for and then held for the session, so a movement
+  /// recorded during a walkthrough stays on the list below it.
+  final Map<String, List<InventoryMovement>> _demoMovements = {};
+
+  List<InventoryMovement> _demoLedger(String inventoryId) =>
+      _demoMovements.putIfAbsent(
+        inventoryId,
+        () => [...DemoData.movementsFor(inventoryId)],
+      );
+
+  /// The model holds its quantity final — only a movement changes it —
+  /// so moving stock in the demo means rebuilding the row.
+  RemoteInventoryItem _withQuantity(RemoteInventoryItem item, int quantity) =>
+      RemoteInventoryItem(
+        id: item.id,
+        itemName: item.itemName,
+        description: item.description,
+        quantity: quantity,
+        unit: item.unit,
+        lowStockThreshold: item.lowStockThreshold,
+        location: item.location,
+        isDraft: item.isDraft,
+        eventId: item.eventId,
+        departmentId: item.departmentId,
+        organizationId: item.organizationId,
+        createdAt: item.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
   void _replaceCatalogItem(RemoteInventoryItem updated) {
     catalog = [
       for (final i in catalog)
         if (i.id == updated.id) updated else i,
     ];
+    if (_demoMode) {
+      // Through the getter, which seeds it: the held list is usually
+      // still null here, because nothing has filtered yet, and skipping
+      // it then let the next filter put the old stock back.
+      _demoCatalogHeld = [
+        for (final i in _demoCatalog)
+          if (i.id == updated.id) updated else i,
+      ];
+    }
     notifyListeners();
   }
 
@@ -3061,6 +3132,8 @@ class AppState extends ChangeNotifier {
     expenses
       ..clear()
       ..addAll(DemoData.expenses());
+    _demoCatalogHeld = null;
+    _demoMovements.clear();
     catalog = DemoData.catalog();
     letters = DemoData.letters();
     financialReport = DemoData.financialReport();

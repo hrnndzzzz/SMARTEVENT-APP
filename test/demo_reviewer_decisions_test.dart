@@ -252,6 +252,83 @@ void main() {
     });
   });
 
+  group('recording a movement in the demo', () {
+    RemoteInventoryItem tables(AppState app) =>
+        app.catalog.firstWhere((i) => i.id == 'demo-inv-1');
+
+    test('the stock moves and the ledger says why', () async {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final before = tables(app).quantity;
+
+      final error = await app.recordInventoryMovement(
+        tables(app),
+        type: InventoryMovementType.issue,
+        eventId: 'demo-ev-2',
+        count: '2',
+        reason: 'Taken for the opening ceremony',
+      );
+
+      expect(error, isNull, reason: 'the demo must not refuse this');
+      expect(tables(app).quantity, before - 2);
+
+      final ledger = (await app.loadMovements(tables(app))).movements!;
+      expect(ledger.first.changeQty, -2);
+      expect(ledger.first.reason, contains('opening ceremony'));
+    });
+
+    test('and the ledger still accounts for the stock afterwards',
+        () async {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      await app.recordInventoryMovement(
+        tables(app),
+        type: InventoryMovementType.acquisition,
+        eventId: 'demo-ev-2',
+        count: '5',
+        reason: 'Three more bought for registration',
+      );
+
+      final ledger = (await app.loadMovements(tables(app))).movements!;
+      expect(
+        ledger.fold<int>(0, (sum, m) => sum + m.changeQty),
+        tables(app).quantity,
+      );
+    });
+
+    // Filtering rebuilt the catalog from the seed, which put the stock
+    // back to what it was the moment a chip was tapped.
+    test('a filter does not undo it', () async {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      await app.recordInventoryMovement(
+        tables(app),
+        type: InventoryMovementType.issue,
+        eventId: 'demo-ev-2',
+        count: '4',
+        reason: 'Lent to the College of Education',
+      );
+      final after = tables(app).quantity;
+
+      await app.applyCatalogFilter(isDraft: false);
+      await app.applyCatalogFilter();
+
+      expect(tables(app).quantity, after);
+    });
+
+    test('it still refuses to take stock below zero', () async {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+
+      final error = await app.recordInventoryMovement(
+        tables(app),
+        type: InventoryMovementType.issue,
+        eventId: 'demo-ev-2',
+        count: '999',
+        reason: 'More than there are',
+      );
+
+      expect(error, contains('below zero'));
+      expect(tables(app).quantity, 12, reason: 'nothing moved');
+    });
+  });
+
   group('the inventory filters in the demo', () {
     // These are the server's filters, so in the demo choosing one
     // highlighted the chip and left every item on screen — including
