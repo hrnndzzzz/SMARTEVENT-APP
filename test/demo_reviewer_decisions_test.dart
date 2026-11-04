@@ -203,6 +203,55 @@ void main() {
     });
   });
 
+  group('the movement ledger in the demo', () {
+    // A movement is the only way stock changes, so the ledger has to
+    // account for the figure on the card above it. A ledger that
+    // disagreed would be worse than the error it replaced.
+    test('every item\'s movements sum to the stock it shows', () {
+      for (final item in DemoData.catalog()) {
+        final moves = DemoData.movementsFor(item.id);
+        expect(
+          moves.fold<int>(0, (sum, m) => sum + m.changeQty),
+          item.quantity,
+          reason: '${item.itemName} does not add up to its own quantity',
+        );
+      }
+    });
+
+    test('no movement is of nothing', () {
+      for (final item in DemoData.catalog()) {
+        for (final move in DemoData.movementsFor(item.id)) {
+          expect(move.changeQty, isNot(0), reason: item.itemName);
+        }
+      }
+    });
+
+    test('the ledger is answered rather than refused', () async {
+      final app = AppState()..enterDemo(role: UserRole.admin);
+      final item = DemoData.catalog().first;
+
+      final outcome = await app.loadMovements(item);
+
+      expect(outcome.error, isNull, reason: 'the demo must not refuse it');
+      expect(outcome.movements, isNotEmpty);
+    });
+
+    test('narrowing to an event leaves only that event\'s movements',
+        () async {
+      final app = AppState()..enterDemo(role: UserRole.admin);
+      final item = DemoData.catalog()
+          .firstWhere((i) => i.id == 'demo-inv-1');
+
+      final outcome = await app.loadMovements(item, eventId: 'demo-ev-2');
+
+      expect(outcome.movements, isNotEmpty);
+      expect(
+        outcome.movements!.every((m) => m.eventId == 'demo-ev-2'),
+        isTrue,
+      );
+    });
+  });
+
   group('the inventory filters in the demo', () {
     // These are the server's filters, so in the demo choosing one
     // highlighted the chip and left every item on screen — including

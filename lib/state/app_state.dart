@@ -1279,6 +1279,18 @@ class AppState extends ChangeNotifier {
     RemoteInventoryItem item, {
     String? eventId,
   }) async {
+    if (_demoMode) {
+      // The ledger is the whole explanation of a stock figure, and in
+      // the demo it said "nothing is sent to a server" instead — under
+      // an item whose quantity it was supposed to account for.
+      final seeded = DemoData.movementsFor(item.id);
+      return (
+        movements: eventId == null
+            ? seeded
+            : seeded.where((m) => m.eventId == eventId).toList(),
+        error: null,
+      );
+    }
     try {
       return (
         movements: await _inventoryService.movements(item.id, eventId: eventId),
