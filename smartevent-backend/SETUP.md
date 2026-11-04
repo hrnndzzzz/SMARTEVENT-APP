@@ -122,6 +122,13 @@ Quick check: **http://127.0.0.1:8000/health** should return `{"status": "ok"}`.
 
 ### 5.1 Register test accounts
 
+> **These accounts are throwaways, and `testpass123` is published here.**
+> Register them against a database you are willing to lose, and never
+> reuse this password on an account that outlives the walkthrough — above
+> all not on an admin or a super admin. Anyone holding the repository
+> holds this password, so an account that keeps it is an account anyone
+> can sign into. Delete these three when you are done with them.
+
 Expand `POST /auth/register` → **Try it out** → paste each body below →
 **Execute**. Do this three times, once per role:
 
