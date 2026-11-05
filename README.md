@@ -1,6 +1,24 @@
 # SMARTEVENT-APP
 A Capstone Project Presented to the Faculty of the College of Information Technology and Engineering at La Consolacion University Philippines City of Malolos, Bulacan
 
+## Hosted server (Render)
+
+The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
+(set up once from `render.yaml`: Render Dashboard → New → Blueprint).
+
+- **It sleeps after 15 minutes idle.** The first request after that takes about a
+  minute; open `https://<service>.onrender.com/health` before a demo to wake it.
+- **SAP PDFs are printed with LibreOffice there**, not Word, so check a printout
+  after each change to the SAP form.
+- **The app points at it** when built with
+  `flutter build apk --release --target-platform android-arm64 --dart-define=SMARTEVENT_API_BASE_URL=https://<service>.onrender.com`,
+  or by typing the address in the app's Settings → Backend.
+- `DATABASE_URL` must be Supabase's **Session pooler** address (Render has no
+  IPv6) ending in `?sslmode=verify-full&sslrootcert=/srv/certs/supabase-ca.crt`.
+  The certificate comes from Supabase → Project Settings → Database → SSL.
+
+The local guide below still works for development.
+
 ## Run SMARTEVENT: backend and phone app
 
 A step-by-step guide for running the backend on a Windows laptop and the app on

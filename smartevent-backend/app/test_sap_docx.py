@@ -214,6 +214,7 @@ def test_signatories_stay_on_one_page():
     assert 'University President' in signatories
 
 
+@pytest.mark.skipif(not sap_pdf._USE_WORD, reason='parses the Word PowerShell script')
 def test_a_timeout_kills_the_word_it_started(monkeypatch):
     # Word runs outside powershell's process tree, so killing powershell on a timeout leaves Word running.
     killed = []
@@ -231,6 +232,7 @@ def test_a_timeout_kills_the_word_it_started(monkeypatch):
     assert killed == ['4242']
 
 
+@pytest.mark.skipif(not sap_pdf._USE_WORD, reason='parses the Word PowerShell script')
 def test_a_held_temp_file_does_not_hide_the_conversion_error(monkeypatch):
     # A hung Word keeps form.docx open; failing to clean up the folder must not replace the real error.
     held = []
@@ -249,6 +251,24 @@ def test_a_held_temp_file_does_not_hide_the_conversion_error(monkeypatch):
         for handle in held:
             handle.close()
             shutil.rmtree(Path(handle.name).parent, ignore_errors=True)
+
+
+def test_off_windows_libreoffice_converts_into_the_temp_folder(monkeypatch):
+    def fake_run(args, **kwargs):
+        folder = Path(args[args.index('--outdir') + 1])
+        assert args[0] == 'soffice' and args[-1] == str(folder / 'form.docx') and 'pdf' in args
+        (folder / 'form.pdf').write_bytes(b'%PDF')
+
+    monkeypatch.setattr(sap_pdf, '_USE_WORD', False)
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', fake_run)
+    assert sap_pdf.docx_to_pdf(b'docx') == b'%PDF'
+
+
+def test_libreoffice_writing_nothing_is_a_conversion_error(monkeypatch):
+    monkeypatch.setattr(sap_pdf, '_USE_WORD', False)
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', Mock(return_value=Mock(returncode=0)))
+    with pytest.raises(RuntimeError, match='Could not convert'):
+        sap_pdf.docx_to_pdf(b'docx')
 
 
 def test_words_own_error_reaches_the_message(monkeypatch):

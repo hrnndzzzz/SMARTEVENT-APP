@@ -1,4 +1,5 @@
 """Render SAP data onto the controlled SAS-SDS-FO-020 form."""
+import os
 import re
 import subprocess
 from copy import deepcopy
@@ -360,7 +361,7 @@ def _remarks(review):
 _WORD_LOCK = threading.Lock()
 _WORD_WAIT = 30  # seconds a print waits for the one before it; a print takes about 5 s
 _WORD_TIMEOUT = 60  # wait + timeout stay under the app's 120 s patience, so its user sees this error
-# shortcut: needs Windows + Word; if the backend moves to Linux, swap in soffice --headless --convert-to pdf
+_USE_WORD = os.name == 'nt'  # Windows laptops print with Word; the Linux server (Dockerfile) uses LibreOffice
 # COM starts Word outside powershell's process tree, so the script notes Word's process id for a timeout.
 _WORD_SCRIPT = (
     "$before = @(Get-Process WINWORD -ErrorAction SilentlyContinue).Id; "
@@ -382,8 +383,18 @@ def _kill_word(pid_file):
         pass  # the conversion has already failed; that is the error to report
 
 
+def _convert_command(folder, src, dst, pid):
+    if _USE_WORD:
+        quoted = lambda path: str(path).replace("'", "''")  # PowerShell single-quoted string
+        return ['powershell', '-NoProfile', '-NonInteractive', '-Command',
+                _WORD_SCRIPT.format(src=quoted(src), dst=quoted(dst), pid=quoted(pid))]
+    # A profile per call, so a crashed earlier run cannot leave a lock that blocks this one.
+    return ['soffice', f'-env:UserInstallation={(folder / "profile").as_uri()}', '--headless',
+            '--convert-to', 'pdf', '--outdir', str(folder), str(src)]
+
+
 def docx_to_pdf(docx):
-    """Word turns the filled form into a PDF, one document at a time."""
+    """Word (or LibreOffice off Windows) turns the filled form into a PDF, one document at a time."""
     # Bounded, because a waiting request holds a database connection and, for submit and sign, the event row.
     if not _WORD_LOCK.acquire(timeout=_WORD_WAIT):
         raise RuntimeError('SAP printing is busy with another form; try again in a minute.')
@@ -392,12 +403,10 @@ def docx_to_pdf(docx):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             src, dst, pid = (Path(folder) / name for name in ('form.docx', 'form.pdf', 'word.pid'))
             src.write_bytes(docx)
-            quoted = lambda path: str(path).replace("'", "''")  # PowerShell single-quoted string
             try:
-                subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command',
-                                _WORD_SCRIPT.format(src=quoted(src), dst=quoted(dst), pid=quoted(pid))],
+                subprocess.run(_convert_command(Path(folder), src, dst, pid),
                                timeout=_WORD_TIMEOUT, check=True, capture_output=True)
-                return dst.read_bytes()
+                return dst.read_bytes()  # soffice can exit 0 without writing it; the OSError is caught below
             except (OSError, subprocess.SubprocessError) as exc:
                 if isinstance(exc, subprocess.TimeoutExpired):
                     _kill_word(pid)

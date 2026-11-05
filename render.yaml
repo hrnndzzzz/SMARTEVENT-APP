@@ -1,0 +1,31 @@
+# Render Blueprint: Dashboard > New > Blueprint, pick this repo. Secrets are typed in the dashboard, never committed.
+services:
+  - type: web
+    name: smartevent-backend
+    runtime: docker
+    plan: free
+    rootDir: smartevent-backend
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL  # Session pooler URL + ?sslmode=verify-full&sslrootcert=/srv/certs/supabase-ca.crt
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS  # https://<service>.onrender.com
+        sync: false
+      - key: SAP_VERIFICATION_BASE_URL  # https://<service>.onrender.com/sap/verify
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: RESEND_TEST_EMAIL  # only needed while RESEND_FROM_EMAIL is onboarding@resend.dev
+        sync: false
