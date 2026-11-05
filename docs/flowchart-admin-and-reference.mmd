@@ -1,0 +1,96 @@
+flowchart LR
+
+%% SMARTEVENT chart 5 of 5 — accounts, reference data and oversight.
+%% Paste the whole thing into mermaid.live.
+%% Sources: app/routers/auth.py, users.py, organizations.py, departments.py,
+%% categories.py, cite_members.py, analytics.py, reports.py, exports.py,
+%% audit_logs.py, notifications.py, files.py, proposal_letters.py
+
+%% GETTING AN ACCOUNT
+subgraph REG["Getting an account"]
+  direction TB
+  SELF["POST /register<br/>self-registration"] --> OTP["Account created unverified<br/>OTP code issued"]
+  OTP --> VER["POST /verify-otp"]
+  VER --> EXP{"Code valid and unexpired?"}
+  EXP -- no --> RESEND["POST /resend-otp<br/>rate-limited by can_issue_otp"]
+  RESEND --> VER
+  EXP -- yes --> ACTIVE(["verified account"])
+  ADMINREG["POST /register-admin<br/>/register-sds<br/>/register-signatory<br/>created by an administrator"] --> ACTIVE
+end
+
+%% SIGNING IN
+subgraph LOGIN["Signing in"]
+  direction TB
+  LI["POST /login"] --> OK{"Verified and active?"}
+  OK -- no --> DENY["401 — unverified or deactivated.<br/>Verify the OTP or contact an administrator."]
+  OK -- yes --> TOKEN["JWT issued<br/>carries must_change_password"]
+  TOKEN --> MUST{"must_change_password?"}
+  MUST -- yes --> FORCE["Every protected endpoint refuses<br/>until POST /change-password"]
+  FORCE --> SESSION
+  MUST -- no --> SESSION(["working session"])
+  FORGOT["POST /forgot-password<br/>POST /reset-password<br/>also clears must_change_password"] -.-> SESSION
+end
+ACTIVE --> LI
+
+%% ROLES
+subgraph ROLES["What the role decides"]
+  direction TB
+  PERM["GET /permissions<br/>the app asks what this account may do"]
+  RA["super_admin · admin<br/>ADMIN_ROLES"]
+  RB["adviser · treasurer<br/>SCOPED_OPERATIONAL_ROLES"]
+  RC["officer — read-only outside<br/>its own proposal writes"]
+  RD["sds_staff — institution-wide, no organization"]
+  RE["signatory — no new access"]
+  SCOPE{{"Scoped roles see only their own<br/>organization and department.<br/>super_admin is unscoped."}}
+end
+SESSION --> PERM
+
+%% REFERENCE DATA
+subgraph REF["Reference data an administrator maintains"]
+  direction TB
+  ORG["Organizations<br/>list · create"]
+  DEP["Departments<br/>create"]
+  CAT["Budget categories<br/>create · list · get · update · delete<br/>each carries remaining_budget"]
+  CITE["CITE members — eligibility roster<br/>import in bulk · add · list · update · remove"]
+  UACC["PATCH user access<br/>activate, deactivate, change role"]
+  SIGN["GET /signatories<br/>who can be named in the nine slots"]
+end
+RA --> REF
+
+%% OVERSIGHT
+subgraph WATCH["Oversight"]
+  direction TB
+  DASH["GET /dashboard"]
+  TREND["GET /spending-trends"]
+  FLAGD["GET /flagged-expenses<br/>receipts awaiting independent review"]
+  REPC["Category · event · consolidated<br/>financial reports"]
+  EXPO["CSV exports:<br/>dashboard · event · category · financial"]
+  AUD["GET /audit-logs<br/>record_access_change writes here<br/>on every access change"]
+  G16{{"Known gap: reports are not yet split<br/>by department or organisation —<br/>needs the backend filter"}}
+  REPC -.- G16
+end
+SESSION --> WATCH
+
+%% FILES AND NOTICES
+subgraph MISC["Files and notices"]
+  direction TB
+  FILE["GET /files/access<br/>issues a short-lived private URL;<br/>buckets are private, a bare URL is refused"]
+  PL["Proposal letters<br/>upload · list · get"]
+  NOTIF["Notifications<br/>list · unread count · mark read"]
+  RECO["POST /recommend-budget<br/>suggests an event budget"]
+end
+SESSION --> MISC
+
+%% CROSS-CUTTING
+NOTE["Every protected endpoint needs an active account,<br/>a completed password change, and a role that allows it.<br/>Organization and department scope is enforced on top."]
+NOTE -.-> SESSION
+
+classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+classDef warn fill:#fef3c7,stroke:#d97706,color:#78350f
+classDef state fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+
+class ACTIVE,SESSION state
+class TOKEN good
+class DENY,FORCE bad
+class SCOPE,G16,NOTE warn
