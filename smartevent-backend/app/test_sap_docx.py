@@ -145,9 +145,21 @@ def test_each_remark_becomes_a_comment_beside_its_part():
     found = comments_by_anchor(fill_form(fixture_data(), review=REMARKS, comments=True))
     assert {a for a, _, _ in found} == {'SDS Office'}
     assert [(t, p.split(':')[0] if p.startswith('Part') else p) for _, t, p in found] == [
-        ('Overall: Approved with notes.', 'Part 4'), ('Move the start.', 'Activity Title:'), ('Attach a quotation.', 'Budget:'),
-        ('Book the sound system.', 'Part 2'), ('Name the guests.', 'Part 3'), ('No medical exam.', 'Part 4'),
-        ('Bring the letter.', 'Part 4')]
+        ('Overall: Approved with notes.', 'Part 4'), ('Activity details: Move the start.', 'Activity Title:'),
+        ('Budget: Attach a quotation.', 'Budget:'), ('School support: Book the sound system.', 'Part 2'),
+        ('Additional information: Name the guests.', 'Part 3'), ('Clearance: No medical exam.', 'Part 4'),
+        ('Other: Bring the letter.', 'Part 4')]
+
+
+def test_a_comment_sits_just_before_its_label_not_over_it(monkeypatch):
+    # LibreOffice paints over the text a comment is attached to, which hid the labels.
+    monkeypatch.setattr(sap_pdf, '_USE_WORD', False)
+    doc = Document(BytesIO(fill_form(fixture_data(), review=REMARKS, comments=True)))
+    for start in doc.element.body.iter(qn('w:commentRangeStart')):
+        between = start.getnext()
+        while between.tag == qn('w:commentRangeStart'):  # the parts of a long remark share one point
+            between = between.getnext()
+        assert between.tag == qn('w:r') and not ''.join(between.itertext())
 
 
 def test_a_long_remark_is_split_into_consecutive_comments_on_one_anchor():
@@ -159,15 +171,31 @@ def test_a_long_remark_is_split_into_consecutive_comments_on_one_anchor():
     assert len(overall) == 4 and len(budget) == 2
     assert all(len(t) <= 700 for t in overall + budget)
     assert [t[-6:] for t in overall] == [' (1/4)', ' (2/4)', ' (3/4)', ' (4/4)'] and [t[-6:] for t in budget] == [' (1/2)', ' (2/2)']
-    assert overall[0].startswith('Overall: w000') and not any(t.startswith('Overall') for t in overall[1:])
+    assert overall[0].startswith('Overall: w000') and all(t.startswith('Overall: ') for t in overall)  # every part named
     assert ' '.join(t[:-6] for t in overall).replace('Overall: ', '') == long  # in order, cut between words, nothing lost
-    assert ' '.join(t[:-6] for t in budget) == ' '.join(['abc'] * 300)
+    assert ' '.join(t[:-6] for t in budget).replace('Budget: ', '') == ' '.join(['abc'] * 300)
 
 
 def test_a_remark_without_its_anchor_falls_back_to_the_part_4_heading(monkeypatch):
     monkeypatch.setitem(sap_pdf._ANCHORS, 'budget', 'No such label:')
     found = comments_by_anchor(fill_form(fixture_data(), review=REMARKS, comments=True))
-    assert next(p for _, t, p in found if t == 'Attach a quotation.').startswith('Part 4')
+    assert next(p for _, t, p in found if t == 'Budget: Attach a quotation.').startswith('Part 4')
+
+
+def test_each_comment_box_is_linked_to_its_part():
+    # Where LibreOffice puts them: the labels in the form, the boxes in the right margin.
+    page = BytesIO()
+    canvas = Canvas(page, pagesize=(612, 792))
+    for x, y, text in ((58, 539, 'Budget:'), (460, 542, 'Budget: Itemize the food.'),
+                       (54, 310, 'Part 4: SDS Office Clearance'), (460, 314, 'Overall: Revise.')):
+        canvas.drawString(x, y, text)
+    canvas.save()
+    review = {'overall_remarks': 'Revise.', 'section_remarks': {'budget': 'Itemize the food.'}}
+    links = sap_pdf._comment_links(PdfReader(BytesIO(page.getvalue())).pages[0], review)
+    assert [tuple(map(round, a + b)) for a, b in links] == [(54, 310, 460, 314), (58, 539, 460, 542)]
+    linked = PdfReader(BytesIO(sap_pdf._link_comments(page.getvalue(), review)))
+    assert len(linked.pages) == 1 and len(linked.pages[0].get_contents().get_data()) > len(
+        PdfReader(BytesIO(page.getvalue())).pages[0].get_contents().get_data())
 
 
 def test_no_remarks_means_no_comments():
@@ -194,6 +222,7 @@ def test_the_markup_export_is_for_commented_forms_with_remarks_only(monkeypatch,
     seen = []
     monkeypatch.setattr(sap_pdf, 'docx_to_pdf', lambda docx, *, markup=False: seen.append(markup) or b'')
     monkeypatch.setattr(sap_pdf, '_stamp', lambda *args, **kwargs: b'')
+    monkeypatch.setattr(sap_pdf, '_link_comments', lambda pdf, review: pdf)
     sap_pdf.render_proposal(fixture_data(), 1, review=review, comments=comments)
     assert seen == [markup]
 

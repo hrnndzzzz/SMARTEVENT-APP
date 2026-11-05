@@ -10,9 +10,11 @@ from io import BytesIO
 from pathlib import Path
 
 from docx import Document
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 from docx.text.paragraph import Paragraph as DocxParagraph
+from docx.text.run import Run
 from PIL import Image, ImageDraw
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib import colors
@@ -352,23 +354,85 @@ _ANCHORS = {  # the paragraph each section remark's comment sits on; the overall
 }
 
 
+_LABELS = {  # each section's name as the app shows it (SapRemarkSection), printed before its remark
+    'activity_details': 'Activity details', 'budget': 'Budget', 'support_requests': 'School support',
+    'additional_information': 'Additional information', 'clearance': 'Clearance', 'other': 'Other',
+}
+
+
 def _remarks(review):
-    """(anchor label, comment text) for each saved remark: the overall one first, then the sections."""
+    """(anchor label, section name, remark) for each saved remark: the overall one first, then the sections."""
     review = review or {}
-    rows = [(_PART_4, 'Overall: ' + review['overall_remarks'])] if (review.get('overall_remarks') or '').strip() else []
-    return rows + [(_ANCHORS.get(key, _PART_4), text) for key, text in (review.get('section_remarks') or {}).items() if text.strip()]
+    rows = [(_PART_4, 'Overall', review['overall_remarks'])] if (review.get('overall_remarks') or '').strip() else []
+    return rows + [(_ANCHORS.get(key, _PART_4), _LABELS.get(key, key), text)
+                   for key, text in (review.get('section_remarks') or {}).items() if text.strip()]
 
 
 def _add_comments(doc, paragraphs, review):
-    """One Word comment per saved remark, on its part's label; a missing label falls back to the Part 4 heading."""
+    """One Word comment per saved remark, named for its section, just before its part's label;
+    a missing label falls back to the Part 4 heading."""
     find = lambda label: next((p for p in paragraphs if p.text.strip().startswith(label) and p.runs), None)
-    for label, text in _remarks(review):  # no remarks: no comments part, so the printed page keeps its normal width
+    for anchor, name, text in _remarks(review):  # no remarks: no comments part, so the printed page keeps its normal width
+        paragraph = find(anchor) or find(_PART_4)
+        runs = paragraph.runs
+        if not _USE_WORD:
+            # LibreOffice paints over the text a comment is attached to, so it gets an empty run before the label.
+            # Not for Word: it keeps the labels readable and drops some comments attached to an empty run.
+            point = OxmlElement('w:r')
+            next((r for r in runs if r.text), runs[0])._r.addprevious(point)
+            runs = [Run(point, paragraph)]
         # Word clips a margin comment at about 870 characters, so a long remark is several comments on the same part.
-        # 690 + the " (n/m)" label (6 characters up to 9 parts) stays within 700.
-        parts = textwrap.wrap(_clean(text), 690, replace_whitespace=False)
+        # The name, 690 characters and the " (n/m)" label (6 characters up to 9 parts) stay within 700.
+        parts = textwrap.wrap(_clean(text), 690 - len(name) - 2, replace_whitespace=False)
         for number, part in enumerate(parts, 1):
-            doc.add_comment((find(label) or find(_PART_4)).runs, text=part + (f' ({number}/{len(parts)})' if len(parts) > 1 else ''),
+            doc.add_comment(runs, text=f'{name}: {part}' + (f' ({number}/{len(parts)})' if len(parts) > 1 else ''),
                             author='SDS Office', initials='SDS')
+
+
+def _comment_links(page, review):
+    """(label point, box point) for each comment LibreOffice printed in this page's margin, to the label it is about."""
+    width, pieces = float(page.mediabox.width), []
+    page.extract_text(visitor_text=lambda text, cm, tm, *_: text.strip() and pieces.append(
+        (text.strip(), tm[4] * cm[0] + cm[4], tm[5] * cm[3] + cm[5])))
+    links = []
+    for anchor, name, _ in _remarks(review):
+        boxes = [(x, y) for text, x, y in pieces if x > width * 0.7 and text.startswith(name + ':')]
+        labels = [sorted((x, y) for text, x, y in pieces if x <= width * 0.7 and text.startswith(label))
+                  for label in (anchor, _PART_4)]  # the Part 4 heading, as in _add_comments, when the label is missing
+        label = labels[0] or labels[1]
+        links += [(label[0], box) for box in boxes if label]
+    return links
+
+
+def _link_comments(pdf, review):
+    """A dashed line from each part's label to its comment box, which LibreOffice leaves unjoined (Word draws its own)."""
+    writer = PdfWriter(clone_from=PdfReader(BytesIO(pdf)))
+    for page in writer.pages:
+        try:
+            links = _comment_links(page, review)
+        except Exception:  # a line is a reading aid; a page it cannot be found on still prints
+            continue
+        if not links:
+            continue
+        layer = BytesIO()
+        canvas = Canvas(layer, pagesize=(float(page.mediabox.width), float(page.mediabox.height)))
+        canvas.setStrokeColor(colors.HexColor('#2F6FD0'))
+        canvas.setFillColor(colors.HexColor('#2F6FD0'))
+        canvas.setLineWidth(0.7)
+        canvas.setDash(2, 2)
+        for (label_x, label_y), (box_x, box_y) in links:
+            start = (label_x - 4, label_y - 2)  # just under the start of the label
+            canvas.circle(*start, 1.6, stroke=0, fill=1)
+            path = canvas.beginPath()
+            path.moveTo(*start)
+            path.lineTo(box_x - 10, start[1])  # along the row to the form's edge, then up or down to the box
+            path.lineTo(box_x - 2, box_y + 3)
+            canvas.drawPath(path, stroke=1, fill=0)
+        canvas.save()
+        page.merge_page(PdfReader(layer).pages[0])
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
 
 
 _WORD_LOCK = threading.Lock()
@@ -467,4 +531,8 @@ def render_proposal(snapshot, revision, verification_url=None, *, review=None, s
     docx = fill_form(snapshot, review=review, signer_name=signer_name, signature_strokes=signature_strokes, signed=signed,
                      comments=comments)
     # Markup only when there are comments to show: without any, the page stays full width.
-    return _stamp(docx_to_pdf(docx, markup=comments and bool(_remarks(review))), revision, verification_url, signed, rejected)
+    markup = comments and bool(_remarks(review))
+    pdf = docx_to_pdf(docx, markup=markup)
+    if markup and not _USE_WORD:
+        pdf = _link_comments(pdf, review)
+    return _stamp(pdf, revision, verification_url, signed, rejected)
