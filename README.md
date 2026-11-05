@@ -3,7 +3,9 @@ A Capstone Project Presented to the Faculty of the College of Information Techno
 
 ## Download the app
 
-**[SMARTEVENT-arm64-v8a.apk](SMARTEVENT-arm64-v8a.apk)**: Android 7.0 or newer, 64-bit phones (nearly all phones from the last few years).
+**[Download SMARTEVENT-arm64-v8a.apk](https://github.com/hrnndzzzz/SMARTEVENT-APP/releases/latest/download/SMARTEVENT-arm64-v8a.apk)**
+(the latest release; earlier versions are under [Releases](https://github.com/hrnndzzzz/SMARTEVENT-APP/releases)):
+Android 7.0 or newer, 64-bit phones (nearly all phones from the last few years).
 
 1. Download the APK on your phone and open it.
 2. Allow installing from this source when Android asks.
@@ -12,8 +14,7 @@ A Capstone Project Presented to the Faculty of the College of Information Techno
 
 - **The first sign-in of the day can take up to a minute.** The server sleeps when
   nobody has used it for a while and wakes on the first request.
-- **Updating from an older copy?** If Settings → Backend shows a saved address,
-  reset it so the app uses the hosted server.
+- **Updating?** Download the latest release and install it over the old app.
 
 ---
 
