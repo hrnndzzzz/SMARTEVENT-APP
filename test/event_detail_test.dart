@@ -40,6 +40,34 @@ void main() {
     adminApprovalNote: note,
   );
 
+  // The budget is stored as text, and its shape depends on who wrote it:
+  // the backend path stores it formatted, a locally created or seeded
+  // event stores bare digits. The screen used to print whichever it was
+  // handed, so the demo's proposals read "2500" where every other amount
+  // in the app reads "\u20b12,500.00".
+  testWidgets('a budget stored as bare digits is shown as money',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 1400);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      host(
+        EventItem(
+          title: 'Alumni Homecoming Night',
+          org: 'ICpEP.SE',
+          date: '11/21/2026',
+          budget: '2500',
+          status: EventApprovalStatus.draft,
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('\u20b12,500.00'), findsOneWidget);
+    expect(find.text('2500'), findsNothing);
+  });
+
   testWidgets('an unknown reviewer is not printed as null', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(400, 1400);

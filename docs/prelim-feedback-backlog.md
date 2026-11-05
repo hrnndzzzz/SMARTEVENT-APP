@@ -56,7 +56,7 @@ A4 and A5 are what stand between us and filming the flow end to end.
 | C4 | Pending is clickable → expenses | **done** | P2 |
 | C5 | Record an expense: drop the receipt and document features, full crosshair, faint grid lines | **done** | P2 |
 | C6 | Every category list needs a "create category" | **done** | P2 |
-| C7 | Inventory: it is not clear how an item is created — from a receipt, or by hand? Decide and make it obvious | **waiting on you** — not yet tested | P2 |
+| C7 | Inventory: it is not clear how an item is created — from a receipt, or by hand? Decide and make it obvious | **decided** *(4 Nov)* — both, and they differ: by hand is `POST /inventory` and immediate; from a purchase, `purchase_completion` writes the row `is_draft=True` and an admin confirms it. The deciding is done; whether the inventory screen *shows* that difference is not yet checked | P2 |
 
 ## D. Financial reports
 
@@ -118,7 +118,7 @@ Where they are not already covered above.
 | G3 | Organizational administrator hierarchy | **done** *(31 Oct)* — same page |
 | G4 | Confirm whether officers are view-only | **done** *(31 Oct)* — same page. Mostly yes; President, Vice President and Secretary may propose |
 | G5 | Validate the UI with end users and adviser | not ours |
-| G6 | Registration confirmation and automatic admission | todo |
+| G6 | Registration confirmation and automatic admission | **done** *(verified 4 Nov)* — two steps, ACCOUNT then VERIFY. `/auth/register` refuses an email that is not on the `cite_members` roster, takes the name, role, position, department and organization from that record rather than the form, allows one account per entry, and creates the account unverified with an OTP |
 | G7 | Printable and downloadable dashboard reports | **done** — D1–D3 are built |
 | G8 | A financial report per event | **done** *(31 Oct)* — `EventReportScreen`, opened from a finished event. Figures, income by source, withheld named separately, and PDF or CSV |
 | G9 | Consolidated reports weekly, monthly, by school year | **done** *(31 Oct)* — the period dropdown on Reports |
@@ -136,26 +136,30 @@ Where they are not already covered above.
 
 ## What this adds up to
 
-**Re-counted 27 Oct, one week from the deadline.**
+**Re-counted 4 Nov, with the backend running against the real database
+for the first time.**
 
-Everything in A, B and C is done except B7, and D and E are done except
-E1 and E2. What is genuinely left is F, the create-event rework our
-professor called cluttered, and the untouched half of the moderator's
-eighteen.
+A, B, C, D, E and F are done. The moderator's eighteen are done bar one
+backend filter and the items that were never code.
 
 Left, in the order worth doing it:
 
-Everything on both lists is built except four things, and none of them
-is Flutter work:
-
 1. **G16** — reports split by department and organisation. The reports
-   routes scope by the caller's own department and accept no filter,
-   so this is a backend ask before it is a screen.
-2. ~~G2, G3, G4~~ — **answered 31 Oct** in
-   [`roles-the-moderator-asked-about.md`](roles-the-moderator-asked-about.md).
-3. **G6** — registration confirmation and automatic admission.
-4. **G1, G5** — end-user consultation and validation. Not ours.
+   routes scope by the caller's own department and accept no filter, so
+   this is a backend ask before it is a screen. Jasper's.
+2. **C7, second half** — the deciding is done and written into the row
+   above; whether the inventory screen *shows* that a drafted item is
+   waiting on an admin has not been checked. The only client work left
+   on either list.
+3. **G1, G5** — end-user consultation and validation, documented. Not
+   code, and no amount of building produces them.
+4. **G17** — a school year on every event record. Part 1 asks for it;
+   older records predate the field.
 
-The honest read: the demonstration can be filmed today, the
-professor's "cluttered" is answered, and the moderator's eighteen are
-done bar one backend filter and some documentation.
+This section has now understated what was built five times. Each row is
+marked from the code or from the phone rather than from memory, and
+anything that says **done** without a date was done before the counting
+started.
+
+The honest read: the system is functionally complete. What is left is
+one backend filter, one unchecked screen, and paperwork.

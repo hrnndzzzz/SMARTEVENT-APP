@@ -427,6 +427,7 @@ abstract final class DemoData {
       required int lowStock,
       required String location,
       String? eventId,
+      bool isDraft = false,
     }) => RemoteInventoryItem(
       id: id,
       itemName: name,
@@ -435,7 +436,7 @@ abstract final class DemoData {
       unit: unit,
       lowStockThreshold: lowStock,
       location: location,
-      isDraft: false,
+      isDraft: isDraft,
       eventId: eventId,
       departmentId: 'demo-dept-1',
       organizationId: 'demo-org-1',
@@ -482,7 +483,102 @@ abstract final class DemoData {
         lowStock: 50,
         location: 'CITE stockroom',
       ),
+      // Bought rather than entered: a purchase writes the row as a draft
+      // and an administrator confirms it. The badge, the "Unconfirmed
+      // drafts" filter and the notice on the item were all built for
+      // this and none of them could appear, because every seeded item
+      // was already confirmed — the one question the moderator asked
+      // about inventory was the one the demo could not answer.
+      item(
+        id: 'demo-inv-5',
+        name: 'Tarpaulin stand',
+        description: 'Adjustable, from the Hack the Future purchase.',
+        quantity: 2,
+        unit: 'pcs',
+        lowStock: 1,
+        location: 'CITE stockroom',
+        eventId: 'demo-ev-1',
+        isDraft: true,
+      ),
     ];
+  }
+
+  /// The ledger behind each item's stock.
+  ///
+  /// Every change to stock is a movement, so the figures have to agree:
+  /// each list below sums to exactly the quantity the catalog shows. A
+  /// ledger that disagreed with the card above it would be worse than
+  /// the error message this replaced, and a test holds them in step.
+  static List<InventoryMovement> movementsFor(String inventoryId) {
+    final now = DateTime.now();
+    var serial = 0;
+    InventoryMovement move({
+      required int change,
+      required InventoryMovementType type,
+      required String reason,
+      required String by,
+      required int daysAgo,
+      String? eventId,
+      String? expenseItemId,
+    }) => InventoryMovement(
+      id: 'demo-mv-$inventoryId-${serial++}',
+      inventoryId: inventoryId,
+      eventId: eventId,
+      changeQty: change,
+      type: type,
+      reason: reason,
+      performedBy: by,
+      expenseItemId: expenseItemId,
+      createdAt: now.subtract(Duration(days: daysAgo)),
+    );
+
+    return switch (inventoryId) {
+      // 15 in, 3 out = 12.
+      'demo-inv-1' => [
+        move(change: 15, type: InventoryMovementType.openingBalance,
+            reason: 'Counted at the start of the school year',
+            by: 'Demo Admin', daysAgo: 30),
+        move(change: -3, type: InventoryMovementType.issue,
+            reason: 'Registration desks, CITE Week',
+            by: 'Demo Treasurer', daysAgo: 6, eventId: 'demo-ev-2'),
+      ],
+      // 4 in, 1 written off = 3, which is why it reads low stock.
+      'demo-inv-2' => [
+        move(change: 4, type: InventoryMovementType.acquisition,
+            reason: 'Bought with last year\'s remaining budget',
+            by: 'Demo Admin', daysAgo: 28),
+        move(change: -1, type: InventoryMovementType.disposal,
+            reason: 'Receiver failed, beyond repair',
+            by: 'Demo Admin', daysAgo: 9),
+      ],
+      // 6 in, 6 out = none left.
+      'demo-inv-3' => [
+        move(change: 6, type: InventoryMovementType.openingBalance,
+            reason: 'Counted at the start of the school year',
+            by: 'Demo Admin', daysAgo: 30),
+        move(change: -6, type: InventoryMovementType.issue,
+            reason: 'Lent to the College of Education, not yet returned',
+            by: 'Demo Treasurer', daysAgo: 4),
+      ],
+      // 500 in, 260 out = 240.
+      'demo-inv-4' => [
+        move(change: 500, type: InventoryMovementType.purchase,
+            reason: 'Ream for the semester',
+            by: 'Demo Treasurer', daysAgo: 21),
+        move(change: -260, type: InventoryMovementType.issue,
+            reason: 'Certificates for CITE Week',
+            by: 'Demo Treasurer', daysAgo: 5, eventId: 'demo-ev-2'),
+      ],
+      // The drafted one: a single movement, the purchase that made it,
+      // linked back to the expense line that paid for it.
+      'demo-inv-5' => [
+        move(change: 2, type: InventoryMovementType.purchase,
+            reason: 'From completing the Hack the Future purchase',
+            by: 'Demo Treasurer', daysAgo: 2, eventId: 'demo-ev-1',
+            expenseItemId: 'demo-exi-1'),
+      ],
+      _ => const [],
+    };
   }
 
   /// Enough spending to make the budget figures move, including one

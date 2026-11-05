@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -31,7 +30,6 @@ class ScannerScreen extends StatefulWidget {
 class _ScannerScreenState extends State<ScannerScreen> {
   final ImagePicker _picker = ImagePicker();
 
-  File? _capturedImage;
   Uint8List? _capturedBytes;
   String? _capturedFilename;
 
@@ -107,7 +105,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (!mounted) return;
     switch (result) {
       case CapturedReceipt(:final bytes, :final filename):
-        await _accept(bytes, filename, path: null);
+        await _accept(bytes, filename);
       case GalleryRequested():
         await _pick(ImageSource.gallery);
       case null:
@@ -139,22 +137,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
       return;
     }
 
-    _accept(bytes, photo.name, path: photo.path);
+    _accept(bytes, photo.name);
   }
 
   /// One way in for both routes: check it, hold it, then read it.
-  Future<void> _accept(
-    Uint8List bytes,
-    String filename, {
-    required String? path,
-  }) async {
+  Future<void> _accept(Uint8List bytes, String filename) async {
     if (bytes.length > _maxBytes) {
       final mb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
       setState(() => _error = 'That image is ${mb}MB. The limit is 10MB.');
       return;
     }
     setState(() {
-      _capturedImage = path == null ? null : File(path);
       _capturedBytes = bytes;
       _capturedFilename = filename;
       _scan = null;
@@ -327,7 +320,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   void _reset() {
     setState(() {
-      _capturedImage = null;
       _capturedBytes = null;
       _capturedFilename = null;
       _scan = null;
@@ -363,7 +355,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           const SizedBox(height: 14),
 
           _CapturePreview(
-            image: _capturedImage,
+            bytes: _capturedBytes,
             busy: _scanning,
             onCamera: _shoot,
           ),
@@ -442,12 +434,16 @@ class _EditableLine {
 
 class _CapturePreview extends StatelessWidget {
   const _CapturePreview({
-    required this.image,
+    required this.bytes,
     required this.busy,
     required this.onCamera,
   });
 
-  final File? image;
+  /// The photo in hand, held as bytes because that is what the in-app
+  /// camera returns — it crops the frame and never writes a file. This
+  /// used to be a `File`, which only the gallery route could supply, so
+  /// a receipt shot with the camera was never shown back at all.
+  final Uint8List? bytes;
   final bool busy;
   final VoidCallback onCamera;
 
@@ -464,7 +460,7 @@ class _CapturePreview extends StatelessWidget {
             boxShadow: context.shadows(AppShadows.base),
           ),
           clipBehavior: Clip.antiAlias,
-          child: image == null
+          child: bytes == null
               ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -479,15 +475,22 @@ class _CapturePreview extends StatelessWidget {
                     ],
                   ),
                 )
-              : Image.file(image!, fit: BoxFit.cover, width: double.infinity),
+              : Image.memory(
+                  bytes!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  // A retake replaces the image; without this the old one
+                  // blanks out before the new one paints.
+                  gaplessPlayback: true,
+                ),
         ),
         const SizedBox(height: 12),
         // One way on. The gallery is inside the camera, a tap away, so
         // the only decision here is whether this photo is the one.
         BrutButton(
-          label: image == null ? 'Open the camera' : 'Take another',
+          label: bytes == null ? 'Open the camera' : 'Take another',
           icon: Icons.photo_camera_outlined,
-          tone: image == null ? BrutTone.orange : BrutTone.neutral,
+          tone: bytes == null ? BrutTone.orange : BrutTone.neutral,
           onPressed: busy ? null : onCamera,
         ),
       ],

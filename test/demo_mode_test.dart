@@ -145,7 +145,16 @@ void main() {
 
     final approvals = await app.loadApprovals(app.events.first);
     expect(approvals.error, isNull);
-    expect(approvals.records, isEmpty);
+    // Answered from the seed, not from the network. This asserted an
+    // empty list while the demo returned a stub; emptiness was never the
+    // point, and it read as "No review decisions recorded yet." beneath a
+    // proposal whose own badge named the stage it was waiting on.
+    expect(approvals.records, isNotNull);
+    expect(
+      approvals.records!.map((r) => r.decision),
+      everyElement(isNot('')),
+      reason: 'a record the demo cannot account for is worse than none',
+    );
 
     await expectLater(
       app.eventReadiness('demo-ev-1'),

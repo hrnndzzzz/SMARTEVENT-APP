@@ -252,7 +252,8 @@ class SapService {
 
   /// `POST /sds-reject` — the SDS Office's final no. The event becomes
   /// rejected and the proposal cannot be sent again; the remarks are what
-  /// the organization reads and what prints on the form. Same body as
+  /// the organization reads and what prints as comments beside the form on
+  /// the copy with comments. Same body as
   /// [returnForRevision].
   Future<SapProposal> sdsReject(
     String eventId, {
@@ -469,11 +470,23 @@ class SapService {
   /// the watermark "REJECTED BY THE SDS OFFICE"; any other prints "Unsigned".
   /// The other signature slots always print empty, and the signed scan, a
   /// separate download, is the evidence of the paper signatures.
-  Future<DownloadedFile> pdf(String eventId, {int? revisionNo}) {
+  ///
+  /// [withComments] asks for the copy with the SDS Office's remarks as
+  /// margin comments; the flag is sent only when set. For a signed revision
+  /// whose Part 4 is gone the server answers 409, raised as a
+  /// [SapVersionConflict] carrying its message.
+  Future<DownloadedFile> pdf(
+    String eventId, {
+    int? revisionNo,
+    bool withComments = false,
+  }) {
     return _guard(() async {
       return _client.download(
         '${_base(eventId)}/pdf',
-        query: revisionNo == null ? null : {'revision_no': '$revisionNo'},
+        query: {
+          if (revisionNo != null) 'revision_no': '$revisionNo',
+          if (withComments) 'comments': 'true',
+        },
         expectedContentType: 'application/pdf',
         fallbackFilename: 'SAS-SDS-FO-020.pdf',
         patience: _printing,

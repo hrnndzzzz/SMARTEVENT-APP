@@ -1225,13 +1225,34 @@ class AppState extends ChangeNotifier {
   String? catalogEventFilter;
   bool catalogMissingEventOnly = false;
 
-  Future<void> loadCatalog() => _runLoad(catalogLoad, () async {
-    catalog = await _inventoryService.list(
-      isDraft: catalogDraftFilter,
-      eventId: catalogEventFilter,
-      missingEvent: catalogMissingEventOnly,
-    );
-  });
+  /// The three filters are the server's, so in the demo choosing one
+  /// highlighted the chip and changed nothing on the list below it — an
+  /// administrator's work queue answering with every item it was meant
+  /// to exclude. The seed is filtered here instead.
+  ///
+  /// It happens before [_runLoad] rather than inside it: that returns
+  /// early while exploring, so nothing passed to it runs.
+  Future<void> loadCatalog() {
+    if (_demoMode) {
+      catalog = _demoCatalog.where((item) {
+        if (catalogDraftFilter != null && item.isDraft != catalogDraftFilter) {
+          return false;
+        }
+        if (catalogEventFilter != null && item.eventId != catalogEventFilter) {
+          return false;
+        }
+        if (catalogMissingEventOnly && item.eventId != null) return false;
+        return true;
+      }).toList();
+    }
+    return _runLoad(catalogLoad, () async {
+      catalog = await _inventoryService.list(
+        isDraft: catalogDraftFilter,
+        eventId: catalogEventFilter,
+        missingEvent: catalogMissingEventOnly,
+      );
+    });
+  }
 
   Future<void> applyCatalogFilter({
     bool? isDraft,
@@ -1258,6 +1279,18 @@ class AppState extends ChangeNotifier {
     RemoteInventoryItem item, {
     String? eventId,
   }) async {
+    if (_demoMode) {
+      // The ledger is the whole explanation of a stock figure, and in
+      // the demo it said "nothing is sent to a server" instead — under
+      // an item whose quantity it was supposed to account for.
+      final seeded = _demoLedger(item.id);
+      return (
+        movements: eventId == null
+            ? seeded
+            : seeded.where((m) => m.eventId == eventId).toList(),
+        error: null,
+      );
+    }
     try {
       return (
         movements: await _inventoryService.movements(item.id, eventId: eventId),
@@ -1378,6 +1411,29 @@ class AppState extends ChangeNotifier {
           '${item.quantity} ${item.unit} are in stock.';
     }
 
+    if (_demoMode) {
+      // Recording is the point of the screen, and refusing it left the
+      // ledger below explaining a figure nobody could change. The
+      // movement is kept for the session and the stock moves with it,
+      // so the ledger still accounts for what the card shows.
+      _demoLedger(item.id).insert(
+        0,
+        InventoryMovement(
+          id: 'demo-mv-${item.id}-${DateTime.now().microsecondsSinceEpoch}',
+          inventoryId: item.id,
+          eventId: eventId.isEmpty ? null : eventId,
+          changeQty: change,
+          type: type,
+          reason: reason.trim(),
+          performedBy: currentAccount?.name ?? 'Demo user',
+          expenseItemId: null,
+          createdAt: DateTime.now(),
+        ),
+      );
+      _replaceCatalogItem(_withQuantity(item, item.quantity + change));
+      return null;
+    }
+
     try {
       await _inventoryService.recordMovement(
         item.id,
@@ -1394,11 +1450,59 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// The demo's own catalog, seeded once and then held for the session.
+  /// Re-reading [DemoData] on each filter would undo a movement recorded
+  /// during a walkthrough: the stock would go back to what it was the
+  /// moment a chip was tapped.
+  List<RemoteInventoryItem>? _demoCatalogHeld;
+
+  List<RemoteInventoryItem> get _demoCatalog =>
+      _demoCatalogHeld ??= [...DemoData.catalog()];
+
+  /// The demo's ledger for one item, seeded from [DemoData] the first
+  /// time it is asked for and then held for the session, so a movement
+  /// recorded during a walkthrough stays on the list below it.
+  final Map<String, List<InventoryMovement>> _demoMovements = {};
+
+  List<InventoryMovement> _demoLedger(String inventoryId) =>
+      _demoMovements.putIfAbsent(
+        inventoryId,
+        () => [...DemoData.movementsFor(inventoryId)],
+      );
+
+  /// The model holds its quantity final — only a movement changes it —
+  /// so moving stock in the demo means rebuilding the row.
+  RemoteInventoryItem _withQuantity(RemoteInventoryItem item, int quantity) =>
+      RemoteInventoryItem(
+        id: item.id,
+        itemName: item.itemName,
+        description: item.description,
+        quantity: quantity,
+        unit: item.unit,
+        lowStockThreshold: item.lowStockThreshold,
+        location: item.location,
+        isDraft: item.isDraft,
+        eventId: item.eventId,
+        departmentId: item.departmentId,
+        organizationId: item.organizationId,
+        createdAt: item.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
   void _replaceCatalogItem(RemoteInventoryItem updated) {
     catalog = [
       for (final i in catalog)
         if (i.id == updated.id) updated else i,
     ];
+    if (_demoMode) {
+      // Through the getter, which seeds it: the held list is usually
+      // still null here, because nothing has filtered yet, and skipping
+      // it then let the next filter put the old stock back.
+      _demoCatalogHeld = [
+        for (final i in _demoCatalog)
+          if (i.id == updated.id) updated else i,
+      ];
+    }
     notifyListeners();
   }
 
@@ -1918,6 +2022,118 @@ class AppState extends ChangeNotifier {
       ..addAll(remoteEvents.map(_mapRemoteEvent));
   });
 
+  /// The review timeline the demo can account for, read off the event
+  /// rather than invented: which stages its status has passed, what the
+  /// reviewers wrote, and where it stopped. A decision taken during the
+  /// demo appears here too, because [_demoDecision] writes those same
+  /// fields.
+  ///
+  /// Reviewer is left null. The row prints "Reviewer <id>", and the demo
+  /// has roles rather than account ids — "Reviewer Demo Adviser" reads
+  /// worse than the decision and its remark alone.
+  List<ApprovalRecord> _demoApprovals(EventItem event) {
+    final status = event.status;
+
+    // Stable rather than truthful: the demo holds no decision times, and
+    // DateTime.now() would move every row on each reload. Counting back
+    // from the activity's own date keeps the order and reads plausibly.
+    // The hour is set rather than inherited, because every row landing on
+    // 00:00 reads as placeholder data on a card someone is meant to
+    // believe — and because an event with a start time would otherwise
+    // have its decisions taken at exactly that time.
+    final base = event.on ?? DateTime.now();
+    DateTime decidedOn(int step) {
+      final day = base.subtract(Duration(days: 4 - step));
+      return DateTime(day.year, day.month, day.day, 8 + step * 2, 15);
+    }
+
+    ApprovalRecord record(int step, String decision, String? remarks) =>
+        ApprovalRecord(
+          id: 'demo-approval-${event.remoteId ?? event.title}-$step',
+          entityType: 'event',
+          entityId: event.remoteId ?? '',
+          stepOrder: step,
+          reviewerId: null,
+          decision: decision,
+          remarks: remarks,
+          decidedAt: decision == 'pending' ? null : decidedOn(step),
+        );
+
+    // What each desk wrote. The SDS Office's reason is on the proposal,
+    // not the event, so it is read from the same seed the form shows.
+    String? noteFor(int step) => switch (step) {
+      1 => event.adviserApprovalNote,
+      2 => event.adminApprovalNote,
+      _ => DemoProposals.sdsRemarksFor(event),
+    };
+
+    if (status == EventApprovalStatus.rejected) {
+      // Which desk turned it down, and so how far it had got. The adviser
+      // and the admin name themselves; the SDS Office and the signatories
+      // both sit after the admin, so they stop it at the last stage. A
+      // rejection that names nobody says only that it was rejected —
+      // ticking the earlier desks off on a guess would be worse.
+      final stoppedAt = switch (event.rejectedBy) {
+        'Adviser' => 1,
+        'Admin' => 2,
+        null => null,
+        _ => 3,
+      };
+      if (stoppedAt == null) {
+        return [
+          record(1, 'rejected', event.adviserApprovalNote ?? event.adminApprovalNote),
+        ];
+      }
+      return [
+        for (var step = 1; step < stoppedAt; step++)
+          record(step, 'approved', noteFor(step)),
+        record(stoppedAt, 'rejected', noteFor(stoppedAt)),
+      ];
+    }
+
+    final pastAdviser = switch (status) {
+      EventApprovalStatus.pendingAdmin ||
+      EventApprovalStatus.pendingInstitutional ||
+      EventApprovalStatus.approved ||
+      EventApprovalStatus.completed => true,
+      _ => false,
+    };
+    final pastAdmin = switch (status) {
+      EventApprovalStatus.pendingInstitutional ||
+      EventApprovalStatus.approved ||
+      EventApprovalStatus.completed => true,
+      _ => false,
+    };
+
+    /// One stage's row, or none when the proposal never reached it.
+    ApprovalRecord? stage(int step, {required bool past, required bool awaiting}) {
+      if (past) return record(step, 'approved', noteFor(step));
+      if (awaiting) return record(step, 'pending', null);
+      // Back with the organization, and this stage is the one that sent
+      // it back: a return, which is not a rejection.
+      final note = noteFor(step);
+      if (status == EventApprovalStatus.draft && (note?.isNotEmpty ?? false)) {
+        return record(step, 'returned', note);
+      }
+      return null;
+    }
+
+    return [
+      ?stage(1,
+          past: pastAdviser,
+          awaiting: status == EventApprovalStatus.pendingAdviser),
+      ?stage(2,
+          past: pastAdmin, awaiting: status == EventApprovalStatus.pendingAdmin),
+      // The signatories sign in sequence after the admin; the demo knows
+      // only whether that stage is open or done.
+      if (status == EventApprovalStatus.pendingInstitutional)
+        record(3, 'pending', null)
+      else if (status == EventApprovalStatus.approved ||
+          status == EventApprovalStatus.completed)
+        record(3, 'approved', null),
+    ];
+  }
+
   /// Review timeline for one event: who decided what, when, and why.
   ///
   /// The backend returns reviewer IDs, not display names, and fetching
@@ -1928,7 +2144,10 @@ class AppState extends ChangeNotifier {
   ) async {
     // Exploring has no server to ask. This one is called straight from
     // the card rather than through _runLoad, so it needs saying twice.
-    if (_demoMode) return (records: const <ApprovalRecord>[], error: null);
+    // An empty list here read as "No review decisions recorded yet." under
+    // a proposal whose own badge said "Approved", so the demo builds the
+    // timeline from what the event already records.
+    if (_demoMode) return (records: _demoApprovals(event), error: null);
 
     final remoteId = event.remoteId;
     if (remoteId == null) {
@@ -2443,6 +2662,14 @@ class AppState extends ChangeNotifier {
   Future<int?> proposalVersionFor(EventItem event) async {
     final id = event.remoteId;
     if (id == null) return null;
+    if (_demoMode) {
+      // The screen reads a return for revision off this: with a version
+      // it is a return, without one it is a rejection. Fetching it needs
+      // the server, so in the demo every return came out as a rejection
+      // — the badge said "Rejected by Adviser" while the message said
+      // returned. A seeded proposal reports a version of its own.
+      return DemoProposals.detailsFor(event) == null ? null : 1;
+    }
     try {
       return (await sapService.fetch(id)).version;
     } on SapUnavailable {
@@ -2458,6 +2685,9 @@ class AppState extends ChangeNotifier {
   Future<void> refreshEventStatus(EventItem event) async {
     final id = event.remoteId;
     if (id == null) return;
+    // Nothing else is editing the demo's events, so what is held in memory
+    // is already the current status; there is no server to ask.
+    if (_demoMode) return;
     event.status = _eventStatusFromString((await _eventService.get(id)).status);
     notifyListeners();
   }
@@ -2553,12 +2783,62 @@ class AppState extends ChangeNotifier {
   /// [expectedVersion] is the proposal version the Moderator read. With it,
   /// not approving is a return for revision: the proposal goes back to
   /// the organization as a draft, and nobody rejected it.
+  /// The demo's stand-in for a reviewer's decision.
+  ///
+  /// The review half of the workflow is what the moderator's feedback is
+  /// about, and without this the demo showed the buttons and refused the
+  /// press — the client stops every request before it is sent. So the
+  /// decision is applied locally, to the same states the server would
+  /// move the event to.
+  ({String? error, bool changed}) _demoDecision(
+    EventItem event, {
+    required bool approved,
+    required bool isAdviser,
+    String? note,
+    int? expectedVersion,
+  }) {
+    if (approved) {
+      event.status = isAdviser
+          ? EventApprovalStatus.pendingAdmin
+          : EventApprovalStatus.approved;
+      event.rejectedBy = null;
+    } else if (expectedVersion != null) {
+      // A version means a SAP proposal — the detail screen reads its own
+      // `isProposal` off the very same answer — and not approving a
+      // proposal is a return for revision rather than a rejection. It
+      // goes back to the organization as a draft, rejected by nobody.
+      event.status = EventApprovalStatus.draft;
+      event.rejectedBy = null;
+    } else {
+      event.status = EventApprovalStatus.rejected;
+      event.rejectedBy = isAdviser ? 'Adviser' : 'Admin';
+    }
+
+    if (isAdviser) {
+      event.adviserApprovalNote = note;
+    } else {
+      event.adminApprovalNote = note;
+    }
+
+    notifyListeners();
+    return (error: null, changed: false);
+  }
+
   Future<({String? error, bool changed})> adviserDecision(
     EventItem event, {
     required bool approved,
     String? note,
     int? expectedVersion,
   }) async {
+    if (_demoMode) {
+      return _demoDecision(
+        event,
+        approved: approved,
+        isAdviser: true,
+        note: note,
+        expectedVersion: expectedVersion,
+      );
+    }
     if (event.remoteId == null) {
       return (
         error: 'This event has no real backend record yet.',
@@ -2599,6 +2879,15 @@ class AppState extends ChangeNotifier {
     String? note,
     int? expectedVersion,
   }) async {
+    if (_demoMode) {
+      return _demoDecision(
+        event,
+        approved: approved,
+        isAdviser: false,
+        note: note,
+        expectedVersion: expectedVersion,
+      );
+    }
     if (event.remoteId == null) {
       return (
         error: 'This event has no real backend record yet.',
@@ -2843,6 +3132,8 @@ class AppState extends ChangeNotifier {
     expenses
       ..clear()
       ..addAll(DemoData.expenses());
+    _demoCatalogHeld = null;
+    _demoMovements.clear();
     catalog = DemoData.catalog();
     letters = DemoData.letters();
     financialReport = DemoData.financialReport();

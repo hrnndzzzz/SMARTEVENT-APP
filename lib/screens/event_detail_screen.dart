@@ -6,8 +6,8 @@ import 'event_report_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import '../theme/peso.dart';
 import 'sap/sap_form_screen.dart';
-import 'sap/sap_proposal_flow.dart';
 import '../state/sap_form.dart';
 import '../widgets/event_status.dart';
 import '../api/compliance_service.dart';
@@ -219,7 +219,11 @@ class EventDetailScreen extends StatelessWidget {
                   children: [
                     const BrutSectionTitle('Event details'),
                     const SizedBox(height: 12),
-                    _detailRow('Requested budget', event.budget, mono: true),
+                    _detailRow(
+                      'Requested budget',
+                      pesoText(event.budget),
+                      mono: true,
+                    ),
                     const SizedBox(height: 8),
                     _detailRow('School year', event.academicLabel),
                   ],
@@ -408,14 +412,12 @@ class _DecisionRowState extends State<_DecisionRow> {
   @override
   void initState() {
     super.initState();
-    if (context.read<AppState>().isDemoMode) {
-      // Every event in the demo has a seeded proposal, and there is no
-      // server to give it a version.
-      _loading = false;
-      _isProposal = true;
-    } else {
-      _load();
-    }
+    // The demo takes the same path: `proposalVersionFor` answers it from
+    // the seed rather than the server, so a seeded proposal reports a
+    // version and an event without one reports nothing. Short-circuiting
+    // it here used to claim every demo event had a proposal while leaving
+    // the version null, which turned every return into a rejection.
+    _load();
   }
 
   Future<void> _load({bool refreshEvent = false}) async {
