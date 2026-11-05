@@ -1,0 +1,90 @@
+flowchart LR
+
+%% SMARTEVENT chart 3 of 5 — after the event (closure).
+%% Paste the whole thing into mermaid.live.
+%% Sources: app/routers/closure.py, app/services/closure.py
+%% Staff-managed throughout: students never log in.
+
+%% UNLOCK
+RAN(["The activity has happened"]) --> COMPLETE["POST /complete<br/>staff marks the event completed"]
+COMPLETE --> STATUS{"event.status == completed?"}
+STATUS -- no --> LOCKED["Blocked:<br/>'Complete the event to unlock<br/>post-activity submissions'"]
+LOCKED --> COMPLETE
+STATUS -- yes --> INIT["POST /post-activity/initialize<br/>creates the post_activity requirements"]
+INIT --> JOURNAL{{"If anyone attended, the<br/>student_learning_journal requirement<br/>must exist or it is a blocker"}}
+
+%% ATTENDANCE
+subgraph ATTEND["Attendance"]
+  direction TB
+  APDF["GET /attendance.pdf<br/>generated sheet to print and sign"]
+  APDF --> SIGNED["Signed on paper, scanned back in<br/>as the signed_attendance document"]
+end
+INIT --> APDF
+
+%% WHO DID WHAT
+SPLIT{"participation_mode"}
+INIT --> SPLIT
+
+%% ATTENDING STUDENTS
+subgraph ATTPATH["Students who attended"]
+  direction TB
+  AUP["POST /post-activity/compliance/{record_id}/upload<br/>carries a version, so a stale screen cannot overwrite"]
+  AUP --> AREV["POST /post-activity/compliance/batch-review"]
+  AREV --> ASTAT{"VERIFIED?"}
+  ASTAT -- yes --> AOK(["counted"])
+  ASTAT -- no --> ABAD(["still unverified"])
+end
+SPLIT -- attending --> AUP
+
+%% PARALLEL STUDENTS
+subgraph PARPATH["Students given a parallel activity instead"]
+  direction TB
+  PASSIGN["POST /parallel-activities<br/>assign the substitute work"]
+  PASSIGN --> PUP["POST /parallel-activities/{id}/upload"]
+  PUP --> PREV["POST /parallel-activities/{id}/review"]
+  PREV --> PSTAT{"VERIFIED?"}
+  PSTAT -- yes --> POK(["counted"])
+  PSTAT -- no --> PBAD(["still unverified"])
+  RESTORE["PATCH /participants/{id}/participation<br/>put a student back to attending"]
+end
+SPLIT -- parallel --> PASSIGN
+RESTORE -.-> SPLIT
+
+%% CLOSURE REPORTS
+subgraph REPORTS["The three closure reports"]
+  direction TB
+  RUP["POST /post-activity/documents<br/>kind + reference_number + file"]
+  RUP --> RREV["POST /post-activity/documents/{id}/review"]
+  RREV --> RSTAT{"VERIFIED?"}
+  RSTAT -- yes --> ROK(["accepted"])
+  RSTAT -- no --> RBAD(["rejected, re-upload"])
+  KINDS["signed_attendance — only required if anyone attended<br/>debriefing_report<br/>final_expense_report"]
+end
+SIGNED --> RUP
+
+%% READINESS
+CLOSE{"GET closeout readiness"}
+AOK --> CLOSE
+POK --> CLOSE
+ROK --> CLOSE
+JOURNAL --> CLOSE
+ABAD -- "N post-activity document(s) unverified" --> OPEN
+PBAD -- "N parallel activity/activities need verification" --> OPEN
+RBAD -- "Verify <report name>" --> OPEN
+
+CLOSE -- "blockers remain" --> OPEN["status: OPEN<br/>blockers[] names each missing piece"]
+OPEN --> FIX["Staff clears them"]
+FIX --> CLOSE
+CLOSE -- "no blockers" --> CLOSED(["status: CLOSED<br/>the event is fully accounted for"])
+
+NOSTUD{{"An event with no attending students<br/>does not need signed_attendance<br/>and needs no learning journal"}} -.-> CLOSE
+
+classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+classDef warn fill:#fef3c7,stroke:#d97706,color:#78350f
+classDef terminal fill:#1f2937,stroke:#111827,color:#f9fafb,font-weight:bold
+
+class AOK,POK,ROK good
+class ABAD,PBAD,RBAD,OPEN,LOCKED bad
+class JOURNAL,NOSTUD,KINDS warn
+class CLOSED terminal

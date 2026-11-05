@@ -1,0 +1,110 @@
+flowchart LR
+
+%% SMARTEVENT chart 2 of 5 — before the event (pre-activity compliance).
+%% Paste the whole thing into mermaid.live.
+%% Sources: app/routers/compliance.py, app/services/compliance.py
+
+%% SETUP
+subgraph SETUP["Staff sets the event up"]
+  direction TB
+  LOG["PUT /logistics<br/>classify the activity"] --> WHERE{"activity_location"}
+  WHERE -- on_campus --> ONC(["on-campus"])
+  WHERE -- off_campus --> OFFC(["off-campus"])
+  PART["POST /participants<br/>admin only"] --> MODE{"participation_mode"}
+  MODE --> ATT["attending"]
+  MODE --> PAR["parallel<br/>handled at closing"]
+  REQ["POST /requirements<br/>from RequirementPreset<br/>phase = pre_activity"]
+  PERS["POST /personnel<br/>persons-in-charge"]
+  VEH["POST /vehicles<br/>plate, out_of_line flag"]
+end
+
+%% STUDENT PAPER TRAIL
+subgraph DOCS["Student paper trail — one record per participant x requirement"]
+  direction TB
+  SYNC["sync_compliance_records<br/>builds the grid"] --> UP["POST /compliance/{record_id}/upload"]
+  UP --> REVIEW["POST /compliance/batch-review"]
+  REVIEW --> VER{"status"}
+  VER -- VERIFIED --> OKDOC(["counts as done"])
+  VER -- "anything else" --> BADDOC(["still missing"])
+  NOTAR{{"A requirement with requires_notarization<br/>also needs notarization_confirmed"}}
+  SENS{{"is_sensitive records are staff-only"}}
+end
+ATT --> SYNC
+REQ --> SYNC
+
+%% READINESS
+READY{"GET /readiness<br/>ready = no blockers"}
+ONC --> READY
+OFFC --> OFFCHECK
+OKDOC --> READY
+BADDOC -- "N document(s) not verified" --> BLOCK
+
+%% OFF-CAMPUS EXTRAS
+subgraph OFFCHECK["Off-campus adds all of this"]
+  direction TB
+  D1["Activity date must be set"]
+  D2["At least one participating student"]
+  D3["PIC ratio: max 50 students per PIC<br/>required PICs = ceil(students / 50)"]
+  D4["parent_guardian_consent and medical_clearance<br/>must stay required"]
+  D5["Event evidence VERIFIED:<br/>lgu_coordination · agency_acknowledgment"]
+  TRANS{"transport_mode"}
+  TRANS -- none --> TN["transport_notes required<br/>and no active vehicles"]
+  TRANS -- "own or third_party" --> TV["At least one vehicle"]
+  TV --> VDOC["Per vehicle, all VERIFIED:<br/>vehicle_registration · insurance<br/>driver_license · roadworthiness"]
+  VDOC --> TP{"third_party?"}
+  TP -- yes --> TPD["plus ltfrb_franchise · dot_accreditation"]
+  TP -- no --> VOK(["vehicle cleared"])
+  TPD --> OOL{"vehicle out_of_line?"}
+  OOL -- yes --> SPEC["plus ltfrb_special_permit"]
+  OOL -- no --> VOK
+  SPEC --> VOK
+  VALID{{"Every vehicle document must be VERIFIED,<br/>validity_confirmed, and valid_until on or after<br/>the activity date"}}
+end
+
+PERS --> D3
+VEH --> TV
+D1 --> READY
+D2 --> READY
+D3 --> READY
+D4 --> READY
+D5 --> READY
+TN --> READY
+VOK --> READY
+
+%% OUTCOME
+READY -- "no" --> BLOCK["blockers[] lists exactly what is missing<br/>each one names the fix"]
+BLOCK --> FIXIT["Staff clears them and re-checks"]
+FIXIT --> READY
+READY -- "yes" --> CLEAR(["pre-activity clearance"])
+
+%% WHERE CLEARANCE IS ENFORCED
+subgraph GATES["require_pre_activity_clearance is checked three times"]
+  direction TB
+  G1["SAP /submit"]
+  G2["The Dean's approval"]
+  G3["Final approval of the evidence"]
+end
+CLEAR --> GATES
+NOTE["Correct evidence while the proposal is draft, returned,<br/>or with the Moderator or Dean. A 409 on the Dean's<br/>approval means repair the evidence first."] -.-> GATES
+
+%% EVENT-LEVEL DOCUMENTS
+subgraph EVDOC["Event-level evidence"]
+  direction TB
+  EUP["POST /compliance-documents<br/>kind + reference_number + file"]
+  EUP --> EREV["POST /compliance-documents/{id}/review"]
+  EREV --> ESTAT{"VERIFIED?"}
+  ESTAT -- yes --> EOK(["accepted"])
+  ESTAT -- no --> EBAD(["rejected, re-upload"])
+  EFILE["GET /{id}/file<br/>admin · adviser · treasurer · signatory"]
+end
+EOK --> D5
+
+classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+classDef warn fill:#fef3c7,stroke:#d97706,color:#78350f
+classDef state fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+
+class ONC,OFFC,ATT,PAR state
+class CLEAR,OKDOC,VOK,EOK good
+class BADDOC,BLOCK,EBAD bad
+class NOTAR,SENS,VALID,NOTE warn
