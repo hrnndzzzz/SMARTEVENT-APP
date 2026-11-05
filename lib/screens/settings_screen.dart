@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../api/api_config.dart';
 import '../state/app_settings.dart';
 import '../state/app_state.dart';
 import '../state/user_role.dart';
@@ -90,10 +91,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 20),
-          const BrutSectionTitle('Backend'),
-          const SizedBox(height: 10),
-          const BackendAddressCard(),
+          // Only a development build, with no address baked in, needs pointing at a laptop's backend.
+          if (!ApiConfig.isConfigured) ...[
+            const SizedBox(height: 20),
+            const BrutSectionTitle('Backend'),
+            const SizedBox(height: 10),
+            const BackendAddressCard(),
+          ],
           const SizedBox(height: 20),
           const BrutSectionTitle('This device'),
           const SizedBox(height: 10),
