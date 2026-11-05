@@ -116,7 +116,10 @@ def _safe_parse_float(raw_amount: Any) -> float | None:
 def _generate(contents, schema):
     if not settings.gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
-    with genai.Client(api_key=settings.gemini_api_key, http_options=types.HttpOptions(timeout=30_000)) as client:
+    # Gemini answers 503 "high demand" often; the SDK retries 408/429/5xx with ~1s, 2s, 4s backoff.
+    # shortcut: four timed-out attempts outlast the app's 90 s scan wait; add a total deadline if timeouts become common.
+    http_options = types.HttpOptions(timeout=30_000, retry_options=types.HttpRetryOptions(attempts=4))
+    with genai.Client(api_key=settings.gemini_api_key, http_options=http_options) as client:
         response = client.models.generate_content(
             model=settings.gemini_model,
             contents=contents,
