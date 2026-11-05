@@ -1,12 +1,11 @@
-%% SMARTEVENT — whole-system flowchart
-%% Paste into https://mermaid.live
-%% Sources: smartevent-backend/docs/sap-fo-020-frontend-contract.md,
-%%          app/dependencies.py, app/services/receipt_validation.py,
-%%          app/routers/{sap,expenses,inventory,reports}.py
-
 flowchart LR
 
-%% ───────────────────────── ACCESS ─────────────────────────
+%% SMARTEVENT whole-system flowchart. Paste the whole thing into mermaid.live.
+%% Sources: smartevent-backend/docs/sap-fo-020-frontend-contract.md,
+%% app/dependencies.py, app/services/receipt_validation.py,
+%% app/routers/sap.py, expenses.py, inventory.py, reports.py
+
+%% ACCESS
 subgraph ACCESS["Access control"]
   direction TB
   LOGIN["Log in<br/>Bearer JWT"] --> ACTIVE{"Account active<br/>and password changed?"}
@@ -21,7 +20,7 @@ subgraph ACCESS["Access control"]
   ROLE --> R_SIGN["signatory<br/>no new access"]
 end
 
-%% ───────────────────── PROPOSAL (Parts 1-3) ─────────────────────
+%% PROPOSAL (Parts 1-3)
 subgraph PROPOSE["Proposal — Parts 1 to 3"]
   direction TB
   NEWSAP["POST sap-proposal<br/>creates draft"] --> DRAFT(["draft"])
@@ -42,7 +41,7 @@ R_ADMIN --> NEWSAP
 REVREQ(["revision_requested"])
 REJ(["rejected — final<br/>every later call answers 409"])
 
-%% ───────────────────── DEPARTMENT REVIEW ─────────────────────
+%% DEPARTMENT REVIEW
 subgraph DEPT["Department review"]
   direction TB
   FREEZE --> PDR(["pending_department_review"])
@@ -58,7 +57,7 @@ MOD -- "return + remarks" --> REVREQ
 DEAN -- "reject" --> REJ
 DEAN -- "return + remarks" --> REVREQ
 
-%% ───────────────────── SDS OFFICE REVIEW ─────────────────────
+%% SDS OFFICE REVIEW
 subgraph SDSREV["SDS Office review"]
   direction TB
   DEAN -- "approve" --> PSR(["pending_sap_review<br/>event: pending_institutional_review"])
@@ -78,7 +77,7 @@ WD["POST /withdraw<br/>before SDS review starts<br/>back to draft, clears Part 4
 PDR -.-> WD
 PSR -.-> WD
 
-%% ───────────────────── NINE PHYSICAL SIGNATURES ─────────────────────
+%% NINE PHYSICAL SIGNATURES
 subgraph SIGS["Part 5 — nine physical signatures, recorded by SDS"]
   direction TB
   S1["1 · Organization President — Prepared by<br/>must link the original proposer"]
@@ -98,7 +97,7 @@ PSR -.-> S1
 SIGNED --> S5
 GATE -.-> S5
 
-%% ───────────────────── EVIDENCE AND CLOSE ─────────────────────
+%% EVIDENCE AND CLOSE
 subgraph CLOSE["Evidence and closing"]
   direction TB
   S9 --> SCAN["POST /final-signed-copy<br/>SDS uploads the scanned paper form"]
@@ -111,7 +110,7 @@ end
 
 QR["Public GET /sap/verify/{token}<br/>minimal JSON from the printed QR"] -.-> APPROVED
 
-%% ───────────────────── PRINTING ─────────────────────
+%% PRINTING
 subgraph PRINT["Printing"]
   direction TB
   GETPDF["GET /pdf"] --> WHICH{"comments=true?"}
@@ -124,7 +123,7 @@ end
 PSR -.-> GETPDF
 APPROVED -.-> GETPDF
 
-%% ───────────────────── FINANCE ─────────────────────
+%% FINANCE
 subgraph FIN["Finance — treasurer only"]
   direction TB
   SPEND["Record an expense"] --> RCPT{"Attach receipt?"}
@@ -142,7 +141,7 @@ subgraph FIN["Finance — treasurer only"]
 end
 R_TREAS --> SPEND
 
-%% ───────────────────── INVENTORY ─────────────────────
+%% INVENTORY
 subgraph INV["Inventory"]
   direction TB
   ITEM["Create item<br/>starts as a draft"] --> CONFIRM["Confirm draft item"]
@@ -154,7 +153,7 @@ subgraph INV["Inventory"]
   STOCK --> LOW["Low-stock list"]
 end
 
-%% ───────────────────── REPORTS ─────────────────────
+%% REPORTS
 subgraph REP["Reports and oversight"]
   direction TB
   AUDIT["Audit log<br/>every access change recorded"]
@@ -166,7 +165,7 @@ DONE --> REP
 EXPOK --> REP
 LEDGER --> REP
 
-%% ───────────────────── STYLING ─────────────────────
+%% STYLING
 classDef terminal fill:#1f2937,stroke:#111827,color:#f9fafb,font-weight:bold
 classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
 classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
