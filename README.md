@@ -1,129 +1,111 @@
 # SMARTEVENT-APP
 A Capstone Project Presented to the Faculty of the College of Information Technology and Engineering at La Consolacion University Philippines City of Malolos, Bulacan
 
-## Run SMARTEVENT: backend and phone app
+## Download the app
 
-A step-by-step guide for running the backend on a Windows laptop and the app on
-an Android phone connected by USB. Every command is for **Command Prompt**
-(`cmd`) and can be copied as is.
+**[SMARTEVENT-arm64-v8a.apk](SMARTEVENT-arm64-v8a.apk)**: Android 7.0 or newer, 64-bit phones (nearly all phones from the last few years).
 
-The app file is in the root of this repository: **[SMARTEVENT-arm64-v8a.apk](SMARTEVENT-arm64-v8a.apk)**
-(a release build of `develop`, for 64-bit Android phones, which is nearly all
-phones from the last few years).
+1. Download the APK on your phone and open it.
+2. Allow installing from this source when Android asks.
+3. Open SMARTEVENT and sign in. The app connects to the hosted server by itself;
+   there is nothing else to install or set up.
 
----
-
-### 1. Before the first run (once per laptop)
-
-You need:
-
-- **Python 3** (the backend has been run on 3.14): check with `python --version`.
-- **Android platform-tools (adb)**: installed with Android Studio, at
-  `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`.
-- **The project**, cloned somewhere. The commands below assume
-  `C:\SMARTEVENT-APP`; replace that path with yours.
-- **`smartevent-backend\.env`**: copy `.env.example` to `.env` and fill in the
-  values from a teammate (`DATABASE_URL`, `JWT_SECRET_KEY` and the rest; see
-  `smartevent-backend\SETUP.md`). Never commit it.
-
-Create the backend's virtual environment and install its packages:
-
-```cmd
-cd /d "C:\SMARTEVENT-APP\smartevent-backend"
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+- **The first sign-in of the day can take up to a minute.** The server sleeps when
+  nobody has used it for a while and wakes on the first request.
+- **Updating from an older copy?** If Settings → Backend shows a saved address,
+  reset it so the app uses the hosted server.
 
 ---
 
-### 2. Get the latest code
+## About SMARTEVENT
 
-```cmd
-cd /d "C:\SMARTEVENT-APP"
-git checkout develop
-git pull origin develop
-```
+SMARTEVENT is a mobile app for student organizations to plan events, get them
+approved, and account for every peso and item they use. It replaces paper forms,
+spreadsheets and chat-group approvals with one record that every role sees from
+their own side: officers propose, advisers and deans review, treasurers record the
+money, and the SDS Office clears and signs the official proposal form.
 
-If `requirements.txt` changed since your last run, run the `pip install` line
-from step 1 again.
+### Who uses it
 
----
-
-### 3. Start the backend
-
-Open a **new** Command Prompt window and paste:
-
-```cmd
-cd /d "C:\SMARTEVENT-APP\smartevent-backend"
-.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000 --reload
-```
-
-Wait for `Application startup complete.` Then open
-**http://127.0.0.1:8000/docs** in a browser: the API page means it is working.
-
-Leave this window open while you use the app. Press `Ctrl+C` in it to stop the
-backend.
-
----
-
-### 4. Connect the phone
-
-1. On the phone, turn on **Developer options → USB debugging**.
-2. Plug the phone into the laptop and tap **Allow** on the "Allow USB
-   debugging?" prompt.
-3. In a second Command Prompt window, paste:
-
-```cmd
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" devices
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" reverse tcp:8000 tcp:8000
-```
-
-The first line should list your phone as `device`. The second makes the
-phone's `127.0.0.1:8000` reach the laptop's backend over the USB cable, which
-is the address the app uses by default.
-
-Run the `reverse` line again whenever you unplug and replug the phone.
-
----
-
-### 5. Install the app
-
-With the phone still connected, paste:
-
-```cmd
-cd /d "C:\SMARTEVENT-APP"
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" install -r SMARTEVENT-arm64-v8a.apk
-```
-
-`Success` means it is installed. `-r` replaces an older SMARTEVENT and keeps
-its data.
-
-**Without a cable:** copy `SMARTEVENT-arm64-v8a.apk` to the phone (or download
-it from the root of this repository on GitHub), open it, and allow installing from that source
-when Android asks. Without the USB tunnel the app cannot reach `127.0.0.1`, so:
-
-1. Start the backend with `--host 0.0.0.0` added to the uvicorn line in step 3.
-2. In the app's **Settings**, set the server address to the laptop's address on
-   the same Wi-Fi, for example `http://192.168.1.20:8000` (find it with
-   `ipconfig`, under "IPv4 Address").
-
----
-
-### 6. Every time after that
-
-1. Command Prompt window 1: start the backend (step 3).
-2. Command Prompt window 2: `adb reverse tcp:8000 tcp:8000` (step 4).
-3. Open SMARTEVENT on the phone.
-
----
-
-### Problems
-
-| What you see | What to do |
+| Role | What they do in the app |
 |---|---|
-| `adb devices` lists nothing, or `unauthorized` | Replug the cable and tap **Allow** on the phone; check USB debugging is on. |
-| The app says it cannot reach the backend | Check the backend window is still running, then run the `adb reverse` line again. |
-| `No module named uvicorn` | Run the `pip install` line from step 1. |
-| The backend window shows a database connection error | Check the laptop's internet connection and `DATABASE_URL` in `.env`. |
-| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | The phone has a SMARTEVENT signed with a different key. Uninstall it on the phone first (this deletes the app's local data), then install again. |
-| `INSTALL_FAILED_NO_MATCHING_ABIS` (older 32-bit phone) | Build its file with `flutter build apk --release --split-per-abi` and install `build\app\outputs\flutter-apk\app-armeabi-v7a-release.apk`. |
+| **Super Admin** | The school's system administrator. Creates departments, organizations, and Admin, SDS and Signatory accounts; sees everything. |
+| **Admin (Dean)** | Runs the organizations in their department: member roster, budget categories, inventory catalog, final event and expense review, audit history. |
+| **Adviser / Moderator** | Reviews the organization's event proposals and expenses, records inventory movements, reads reports. |
+| **Treasurer** | Records income and expenses, scans receipts, completes purchases. The only role that writes financial records. |
+| **Officer** | Reads the organization's records and reports. President, Vice President and Secretary can also create and submit event proposals. |
+| **SDS Staff** | The Student Development and Services Office. Reviews, comments on, clears and signs Student Activity Proposals; reads proposal letters school-wide. |
+| **Signatory** | An institutional approver (for example a director or the University President) assigned to an event's approval route. |
+
+Every account is tied to one organization and department, so users only see their
+own records. No one can approve something they submitted themselves.
+
+### What it does
+
+**Accounts and sign-in**
+- Members register with the email their Admin placed on the roster and confirm it
+  with a one-time code sent by email. Their role and organization come from the
+  roster, not from what they pick.
+- Forgot-password recovery by email code, forced password change for new
+  admin-created accounts, and a 15-minute lock after five failed sign-ins.
+
+**Events and approvals**
+- Propose an event with its school year, semester, scope, budget category and
+  details; save it as a draft or submit it.
+- The proposal moves through Adviser review, then the Dean, then any assigned
+  institutional signatories, in order. A rejected proposal returns with remarks,
+  is edited and resubmitted, and every decision stays in its history.
+- Event readiness and risk views show what is still missing before an event.
+
+**Student Activity Proposal (SAP) and the SDS Office**
+- The organization fills in parts 1 to 3 of the official SAS-SDS-FO-020 form step
+  by step on the phone (activity details, budget, support requests and other
+  details), with supporting attachments, and submits it.
+- The SDS Office reviews it, leaves remarks per part, clears or returns it, and
+  signs it with an on-screen signature pad. A proposal can also be withdrawn.
+- The app prints the filled form as a PDF, with or without the SDS comments in the
+  margin. Each printout carries a verification link that confirms the copy is
+  genuine and shows its current revision.
+
+**Budgets, expenses and receipts**
+- Budget categories with an allocation, remaining balance and low-balance warning.
+- Expenses with item lines, linked to a category and event, reviewed by someone
+  other than the person who recorded them. Approval checks the budget first.
+- Receipts are photographed and read automatically (OCR): merchant, date, amount
+  and items are filled in for the user to check. Duplicate and look-alike receipts
+  are flagged for an independent reviewer.
+
+**Income**
+- Income per event, classified as registration fees, sponsorship, donation or
+  other. Income whose receipt is still under review is shown as withheld.
+
+**Inventory**
+- A catalog of the organization's items, with every change recorded as a movement:
+  opening balance, acquisition, donation, purchase, issue to an event, return,
+  disposal or adjustment.
+- Items bought through an approved expense enter stock only after payment and
+  delivery are recorded. Stock can never go negative.
+
+**Reports and analytics**
+- Dashboard with budgets, event and expense counts, flagged expenses and low stock.
+- Spending trends, a flagged-expense queue, and budget suggestions based on past
+  events in the same category.
+- Category, event and financial reports (weekly, monthly, semester or school year),
+  exported as PDF, CSV or a print-ready page.
+
+**Everyday use**
+- Notifications for account and proposal activity.
+- Offline viewing: the app saves the organization's records on the phone so they
+  stay readable without internet.
+- Demo mode: hold the heading on the sign-in screen to explore the app as any role
+  with sample data. Nothing in demo mode leaves the phone.
+
+### How it is built
+
+| Part | Technology |
+|---|---|
+| Phone app | Flutter (Android) |
+| Server | FastAPI (Python), hosted on Render |
+| Database and file storage | Supabase (PostgreSQL and private storage buckets) |
+| Receipt reading (OCR) | Google Gemini |
+| Email codes | Resend |
