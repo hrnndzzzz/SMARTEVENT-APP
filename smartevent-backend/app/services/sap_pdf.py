@@ -375,6 +375,9 @@ _WORD_LOCK = threading.Lock()
 _WORD_WAIT = 30  # seconds a print waits for the one before it; a print takes about 5 s
 _WORD_TIMEOUT = 60  # wait + timeout stay under the app's 120 s patience, so its user sees this error
 _USE_WORD = os.name == 'nt'  # Windows laptops print with Word; the Linux server (Dockerfile) uses LibreOffice
+# One LibreOffice profile, made ready in the Dockerfile: a fresh one per print is a slow first start on a small server.
+# Prints take turns under _WORD_LOCK, so they never share it at the same time.
+_LIBREOFFICE_PROFILE = Path(tempfile.gettempdir()) / 'smartevent-libreoffice'
 # COM starts Word outside powershell's process tree, so the script notes Word's process id for a timeout.
 _WORD_SCRIPT = (
     "$before = @(Get-Process WINWORD -ErrorAction SilentlyContinue).Id; "
@@ -411,9 +414,8 @@ def _convert_command(folder, src, dst, pid, markup):
                 _WORD_SCRIPT.format(src=quoted(src), pid=quoted(pid), export=export)]
     # LibreOffice's counterpart of Word's markup view: the comments print in the page margin.
     pdf = 'pdf:writer_pdf_Export:{"ExportNotesInMargin":{"type":"boolean","value":"true"}}' if markup else 'pdf'
-    # A profile per call, so a crashed earlier run cannot leave a lock that blocks this one.
-    return ['soffice', f'-env:UserInstallation={(folder / "profile").as_uri()}', '--headless',
-            '--convert-to', pdf, '--outdir', str(folder), str(src)]
+    return ['soffice', f'-env:UserInstallation={_LIBREOFFICE_PROFILE.as_uri()}', '--headless', '--norestore',
+            '--nologo', '--nodefault', '--convert-to', pdf, '--outdir', str(folder), str(src)]
 
 
 def docx_to_pdf(docx, *, markup=False):
@@ -427,14 +429,18 @@ def docx_to_pdf(docx, *, markup=False):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             src, dst, pid = (Path(folder) / name for name in ('form.docx', 'form.pdf', 'word.pid'))
             src.write_bytes(docx)
+            done = None
             try:
-                subprocess.run(_convert_command(Path(folder), src, dst, pid, markup),
-                               timeout=_WORD_TIMEOUT, check=True, capture_output=True)
+                done = subprocess.run(_convert_command(Path(folder), src, dst, pid, markup),
+                                      timeout=_WORD_TIMEOUT, check=True, capture_output=True)
                 return dst.read_bytes()  # soffice can exit 0 without writing it; the OSError is caught below
             except (OSError, subprocess.SubprocessError) as exc:
                 if isinstance(exc, subprocess.TimeoutExpired):
                     _kill_word(pid)
-                said = (getattr(exc, 'stderr', None) or b'').decode(errors='replace').strip()[-300:]
+                # With no PDF after a clean exit, the reason is in what the finished run printed (soffice uses stdout).
+                ran = exc if done is None else done
+                said = b' '.join(out for out in (getattr(ran, 'stdout', None), getattr(ran, 'stderr', None))
+                                 if isinstance(out, bytes)).decode(errors='replace').strip()[-300:]
                 raise RuntimeError(f'Could not convert the SAP form to PDF: {exc} {said}'.strip()) from exc
     finally:
         _WORD_LOCK.release()

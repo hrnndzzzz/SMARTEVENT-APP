@@ -350,8 +350,10 @@ def test_off_windows_libreoffice_converts_into_the_temp_folder(monkeypatch):
 
 def test_libreoffice_writing_nothing_is_a_conversion_error(monkeypatch):
     monkeypatch.setattr(sap_pdf, '_USE_WORD', False)
-    monkeypatch.setattr(sap_pdf.subprocess, 'run', Mock(return_value=Mock(returncode=0)))
-    with pytest.raises(RuntimeError, match='Could not convert'):
+    # soffice reports a failed conversion on stdout and still exits 0; that report is the error's reason.
+    said = Mock(returncode=0, stdout=b'Error: source file could not be loaded', stderr=b'')
+    monkeypatch.setattr(sap_pdf.subprocess, 'run', Mock(return_value=said))
+    with pytest.raises(RuntimeError, match='Could not convert.*source file could not be loaded'):
         sap_pdf.docx_to_pdf(b'docx')
 
 
