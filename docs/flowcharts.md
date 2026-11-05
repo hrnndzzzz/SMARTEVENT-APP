@@ -1,6 +1,7 @@
 # SMARTEVENT flowcharts
 
-Five Mermaid diagrams covering the system's 147 endpoints across 22 routers.
+Six Mermaid diagrams: five covering the backend's 147 endpoints across 22
+routers, and one covering how the app behaves when there is no live server.
 Paste any of them whole into <https://mermaid.live> — the first line of each
 file must read `flowchart LR`.
 
@@ -11,6 +12,7 @@ file must read `flowchart LR`.
 | 3 | [flowchart-after-event.mmd](flowchart-after-event.mmd) | Closure: completion, attendance, parallel activities, the three closure reports |
 | 4 | [flowchart-money-and-assets.mmd](flowchart-money-and-assets.mmd) | Income, expenses, receipt OCR and duplicate detection, approval, the purchase-to-inventory bridge |
 | 5 | [flowchart-admin-and-reference.mmd](flowchart-admin-and-reference.mmd) | Registration and OTP, sign-in, roles and scope, reference data, oversight and audit |
+| 6 | [flowchart-app-modes.mmd](flowchart-app-modes.mmd) | Flutter-side: demo mode and offline viewing |
 
 ## How they fit together
 
@@ -31,12 +33,13 @@ Three cross-chart connections worth following:
   asset line items becomes stock through `complete-purchase`, which is the only
   path from spending money to owning equipment.
 
-## Not covered
+## Chart 6 is the odd one out
 
-These are Flutter-side, not endpoints, so no backend chart describes them:
+Charts 1 to 5 are the backend. Chart 6 is the Flutter app, and answers the two
+questions no endpoint can: what happens with no server at all (demo mode), and
+what happens when the server was there and goes away (offline viewing).
 
-- **Demo mode** — how the app behaves with no server at all.
-- **Offline session handling** — saved viewers, scope revalidation, what
-  happens to displayed records when a refresh is denied.
-
-If either is likely to come up, they would need a sixth, app-side diagram.
+It also records the pattern that caused most of the demo-mode defects: `_runLoad`
+returns early in demo mode, so a feature without its own demo branch shows an
+error or nothing, and a branch written *inside* the `_runLoad` callback is
+unreachable because `_runLoad` has already returned.
