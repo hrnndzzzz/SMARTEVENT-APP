@@ -180,6 +180,7 @@ def test_ocr_shared_extraction_bounds_data_and_closes_client(monkeypatch):
     class Client:
         def __init__(self, **kwargs):
             assert kwargs["http_options"].timeout == 30_000
+            assert kwargs["http_options"].retry_options.attempts == 4
             self.models = self
 
         def __enter__(self):
