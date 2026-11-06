@@ -1,6 +1,8 @@
 import '../api/models/academic.dart';
 import '../api/models/income.dart';
 import '../api/models/inventory.dart';
+import '../api/models/receipt.dart';
+import '../api/models/remote_expense.dart';
 import '../api/models/reports.dart';
 import '../api/models/proposal_letter.dart';
 import '../api/models/scope.dart';
@@ -617,6 +619,157 @@ abstract final class DemoData {
       reviewNote: 'No quotation attached.',
     ),
   ];
+
+  /// Money in. One row is deliberately withheld: an income whose receipt
+  /// has not been reviewed is kept out of the totals but still listed,
+  /// and a demo that never shows that hides the rule.
+  static List<Income> incomes() {
+    final now = DateTime.now();
+    Income row({
+      required String id,
+      required String source,
+      required FundSource type,
+      required String purpose,
+      required double amount,
+      required int daysAgo,
+      ReceiptReviewStatus status = ReceiptReviewStatus.cleared,
+    }) => Income(
+      id: id,
+      eventId: 'demo-ev-1',
+      source: source,
+      sourceType: type,
+      purpose: purpose,
+      amount: amount,
+      receivedOn: now.subtract(Duration(days: daysAgo)),
+      receiptReviewStatus: status,
+      recordedBy: 'Demo Treasurer',
+      createdAt: now.subtract(Duration(days: daysAgo)),
+    );
+
+    return [
+      row(
+        id: 'demo-in-1',
+        source: 'Participant registration',
+        type: FundSource.registrationFees,
+        purpose: 'Seminar kits and certificates',
+        amount: 7250,
+        daysAgo: 12,
+      ),
+      row(
+        id: 'demo-in-2',
+        source: 'Bulacan Tech Solutions',
+        type: FundSource.sponsorship,
+        purpose: "Speaker's honorarium",
+        amount: 5000,
+        daysAgo: 9,
+      ),
+      row(
+        id: 'demo-in-3',
+        source: 'CITE Alumni Chapter',
+        type: FundSource.donation,
+        purpose: 'Tarpaulin and printing',
+        amount: 1500,
+        daysAgo: 4,
+        status: ReceiptReviewStatus.pending,
+      ),
+    ];
+  }
+
+  /// The itemized lines behind a demo expense.
+  ///
+  /// `demo-ex-2` carries asset lines on purpose: asset lines are what
+  /// make Complete purchase reachable, which is the only path in the app
+  /// from spending money to owning equipment.
+  static List<ExpenseLine> linesFor(String expenseId) {
+    final now = DateTime.now();
+    var serial = 0;
+    ExpenseLine line({
+      required String name,
+      required double amount,
+      required ItemCategory category,
+      int quantity = 1,
+      String unit = 'pcs',
+    }) => ExpenseLine(
+      id: 'demo-exl-$expenseId-${serial++}',
+      expenseId: expenseId,
+      name: name,
+      amount: amount,
+      category: category,
+      quantity: quantity,
+      unit: unit,
+      convertedInventoryId: null,
+      createdAt: now.subtract(const Duration(days: 8)),
+    );
+
+    return switch (expenseId) {
+      // 1,850 total: two assets worth keeping, one consumable.
+      'demo-ex-2' => [
+        line(
+          name: 'Extension cord 10m',
+          amount: 850,
+          category: ItemCategory.asset,
+          quantity: 2,
+        ),
+        line(
+          name: 'Whiteboard marker set',
+          amount: 600,
+          category: ItemCategory.asset,
+          quantity: 6,
+          unit: 'sets',
+        ),
+        line(
+          name: 'Bond paper, short',
+          amount: 400,
+          category: ItemCategory.consumable,
+          quantity: 5,
+          unit: 'reams',
+        ),
+      ],
+      'demo-ex-1' => [
+        line(
+          name: "Speaker's honorarium",
+          amount: 2000,
+          category: ItemCategory.consumable,
+        ),
+      ],
+      'demo-ex-3' => [
+        line(
+          name: 'Certificate printing',
+          amount: 2850,
+          category: ItemCategory.consumable,
+          quantity: 145,
+        ),
+      ],
+      _ => const [],
+    };
+  }
+
+  /// What the OCR would have read off a photographed receipt. The figures
+  /// add up to the total, because a scan whose lines do not reconcile is
+  /// exactly what the real parser refuses.
+  static ScannedReceipt scannedReceipt() => ScannedReceipt(
+    receiptUrl: 'demo://receipts/lcup-campus-store.jpg',
+    merchant: 'LCUP Campus Store',
+    date: DateTime.now().subtract(const Duration(days: 1)),
+    amount: 1220,
+    items: [
+      ScannedReceiptLine(
+        name: 'Tarpaulin 3x5',
+        amount: 450,
+        category: ItemCategory.consumable,
+      ),
+      ScannedReceiptLine(
+        name: 'Certificates (bond)',
+        amount: 600,
+        category: ItemCategory.consumable,
+      ),
+      ScannedReceiptLine(
+        name: 'Ribbon spool',
+        amount: 170,
+        category: ItemCategory.asset,
+      ),
+    ],
+  );
 
   static List<AppNotice> notices() => [
     // True of demo-ev-1, which is sent and with the Moderator.
