@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
+import 'receipts_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
@@ -336,6 +337,16 @@ class _CaptureScreenState extends State<CaptureScreen>
                   _teardown();
                   Navigator.of(context).maybePop();
                 },
+                // The camera holds the device; it has to be released
+                // before another screen goes on top of this one.
+                onRecent: () async {
+                  _teardown();
+                  if (!context.mounted) return;
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ReceiptsScreen()),
+                  );
+                  if (context.mounted) await _start();
+                },
               ),
               const _StepBars(current: 0, total: 2),
               Expanded(
@@ -452,9 +463,10 @@ Future<Uint8List> _cropToGuide(Uint8List bytes, double ratio) async {
 
 /// Back, the step and what is being shot, and the shape toggle.
 class _Header extends StatelessWidget {
-  const _Header({required this.onBack});
+  const _Header({required this.onBack, required this.onRecent});
 
   final VoidCallback onBack;
+  final VoidCallback onRecent;
 
   @override
   Widget build(BuildContext context) {
@@ -514,7 +526,50 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
+          // "Did I already record this one?" gets asked holding the paper,
+          // which is here, with the camera already open — not back on the
+          // screen behind this one.
+          _RecentReceipts(onTap: onRecent),
         ],
+      ),
+    );
+  }
+}
+
+/// Reaches the receipt history from the camera itself.
+class _RecentReceipts extends StatelessWidget {
+  const _RecentReceipts({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          // White on the camera's own dark chrome, matching the back
+          // button beside it rather than the app's light surfaces.
+          border: Border.all(color: Colors.white.withValues(alpha: 0.7),
+              width: 2),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.history, size: 15, color: Colors.white),
+            const SizedBox(width: 5),
+            Text(
+              'Recent',
+              style: AppText.caption.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
