@@ -25,6 +25,22 @@ void main() {
 
       expect(app.currentRole!.canManageCatalog, isTrue);
     });
+
+    // canManageCatalog moved from isAdministrator to managesOrganization,
+    // which takes in the adviser. Pinned so the next change to that rule
+    // has to be deliberate.
+    test('an adviser may too, within their own organization', () {
+      final app = treasurer()..switchDemoRole(UserRole.adviser);
+
+      expect(app.currentRole!.canManageCatalog, isTrue);
+      expect(app.currentRole!.managesOrganization, isTrue);
+    });
+
+    test('an officer never may', () {
+      final app = treasurer()..switchDemoRole(UserRole.officer);
+
+      expect(app.currentRole!.canManageCatalog, isFalse);
+    });
   });
 
   group('creating an item', () {
