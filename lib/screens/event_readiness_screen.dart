@@ -121,7 +121,7 @@ class _EventReadinessScreenState extends State<EventReadinessScreen> {
         children: [
           const MonoLabel('Before approval'),
           const SizedBox(height: 4),
-          Text(widget.event.title, style: AppText.screenTitle),
+          Text(widget.event.title, style: AppText.display),
           const SizedBox(height: AppLayout.section),
           if (_loading)
             const Center(

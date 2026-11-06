@@ -20,10 +20,15 @@ import '../theme/peso.dart';
 /// The dashboard: where you stand, what needs you, and the one thing you
 /// are most likely to have opened the app to do.
 ///
-/// It carries four figures and nothing else. The charts and the review
-/// queues are a tap away at the bottom, because someone who wants to
-/// study a chart goes looking for it, and someone opening the app at a
-/// supplier's counter does not.
+/// Laid out in the three parts the app is actually made of — Events,
+/// Finance, Analytics — each under its own heading. Before, the money
+/// figures ran straight on from the event list with nothing between
+/// them, so the page read as one undifferentiated column and the only
+/// way to know which module a figure belonged to was to recognise it.
+///
+/// Analytics sits last on purpose. Someone who wants to study a chart
+/// goes looking for it; someone opening the app at a supplier's counter
+/// does not.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -120,10 +125,26 @@ class HomeScreen extends StatelessWidget {
           ],
           const SizedBox(height: AppLayout.section),
 
-          // First thing under the greeting, because "has my event
-          // moved?" is the first question anyone opening this app has.
-          // What needs attention now lives on the bell instead, where
-          // the count already was.
+          // ── Events ────────────────────────────────────────────────
+          // First under the greeting, because "has my event moved?" is
+          // the first question anyone opening this app has. What needs
+          // attention now lives on the bell, where the count already was.
+          BrutSectionTitle(
+            'Events',
+            aside: _SeeAll(onTap: () => _open(context, 'events')),
+          ),
+          const SizedBox(height: AppLayout.between),
+          if (_nextEvent(app) case final next?) ...[
+            _NextUp(
+              event: next,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => EventDetailScreen(event: next),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayout.between),
+          ],
           EventProgressList(
             events: app.events,
             onOpen: (event) => Navigator.of(context).push(
@@ -132,7 +153,14 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          if (app.events.isNotEmpty) const SizedBox(height: AppLayout.section),
+          const SizedBox(height: AppLayout.section),
+
+          // ── Finance ───────────────────────────────────────────────
+          BrutSectionTitle(
+            'Finance',
+            aside: _SeeAll(onTap: () => _open(context, 'money')),
+          ),
+          const SizedBox(height: AppLayout.between),
 
           // The hero: what is left, beside the two numbers that explain it.
           //
@@ -249,6 +277,238 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppLayout.section),
+
+          // ── Analytics ─────────────────────────────────────────────
+          // What the server has already counted. Shown only when it has
+          // been loaded: three zeroes while a request is in flight read
+          // as "nothing is wrong", which is the one thing this section
+          // must never say by accident.
+          if (app.dashboard case final summary?) ...[
+            BrutSectionTitle(
+              'Analytics',
+              aside: _SeeAll(onTap: () => _open(context, 'reports')),
+            ),
+            const SizedBox(height: AppLayout.between),
+            Row(
+              children: [
+                Expanded(
+                  child: _Tile(
+                    value: '${summary.flaggedExpenseCount}',
+                    label: 'Flagged',
+                    tone: summary.flaggedExpenseCount == 0
+                        ? BrutTone.neutral
+                        : BrutTone.coral,
+                    onTap: () => _open(context, 'reports'),
+                  ),
+                ),
+                const SizedBox(width: AppLayout.between),
+                Expanded(
+                  child: _Tile(
+                    value: '${summary.lowStockItemCount}',
+                    label: 'Low stock',
+                    tone: summary.lowStockItemCount == 0
+                        ? BrutTone.neutral
+                        : BrutTone.orange,
+                    onTap: () => _open(context, 'inventory'),
+                  ),
+                ),
+                const SizedBox(width: AppLayout.between),
+                Expanded(
+                  child: _Tile(
+                    value: '${summary.draftInventoryCount}',
+                    label: 'Draft items',
+                    tone: summary.draftInventoryCount == 0
+                        ? BrutTone.neutral
+                        : BrutTone.neutral,
+                    onTap: () => _open(context, 'inventory'),
+                  ),
+                ),
+              ],
+            ),
+            if (app.spendingTrends.length > 1) ...[
+              const SizedBox(height: AppLayout.between),
+              _SpendingTrend(points: app.spendingTrends),
+            ],
+            const SizedBox(height: AppLayout.section),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// The soonest event still ahead of us, or null when there is none.
+  /// Rejected and completed ones are behind us whatever their date says.
+  static EventItem? _nextEvent(AppState app) {
+    final now = DateTime.now();
+    // A date is optional on an event, and one without a date cannot be
+    // the next thing happening.
+    final ahead =
+        app.events
+            .where(
+              (e) =>
+                  e.on != null &&
+                  e.on!.isAfter(now) &&
+                  e.status != EventApprovalStatus.rejected &&
+                  e.status != EventApprovalStatus.completed,
+            )
+            .toList()
+          ..sort((a, b) => a.on!.compareTo(b.on!));
+    return ahead.isEmpty ? null : ahead.first;
+  }
+}
+
+/// The "see all" affordance on a section heading. A section whose title
+/// is not tappable looks like a label; this says the module is there.
+class _SeeAll extends StatelessWidget {
+  const _SeeAll({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'See all',
+              style: AppText.caption.copyWith(
+                color: p.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 16, color: p.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// How long until the next activity. Counting in days is what anyone
+/// actually asks; a date alone makes them do the subtraction.
+class _NextUp extends StatelessWidget {
+  const _NextUp({required this.event, required this.onTap});
+
+  final EventItem event;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final days = DateUtils.dateOnly(event.on!).difference(today).inDays;
+    final when = switch (days) {
+      0 => 'Today',
+      1 => 'Tomorrow',
+      _ => 'In $days days',
+    };
+
+    return BrutCard(
+      onTap: onTap,
+      tone: days <= 1 ? BrutTone.orange : BrutTone.neutral,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const MonoLabel('Next up'),
+                const SizedBox(height: 6),
+                Text(
+                  event.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.titleBig.copyWith(fontSize: 17),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(when, style: AppText.number.copyWith(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Six months of spending as bars. Deliberately not a charting library:
+/// the shape is the whole message, and the figures are a tap away in
+/// Reports for anyone who wants them.
+class _SpendingTrend extends StatelessWidget {
+  const _SpendingTrend({required this.points});
+
+  final List<SpendingTrendPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final peak = points.fold<double>(
+      0,
+      (most, point) => point.totalAmount > most ? point.totalAmount : most,
+    );
+
+    return BrutCard(
+      radius: AppRadius.rowAll,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const MonoLabel('Spending, last 6 months'),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 56,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final point in points) ...[
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        // Expanded first: a FractionallySizedBox needs a
+                        // bounded height to take a fraction of, and a
+                        // Column hands its children unbounded height.
+                        Expanded(
+                          child: FractionallySizedBox(
+                            alignment: Alignment.bottomCenter,
+                            // A month with nothing spent still gets a
+                            // sliver, so the gap reads as zero rather
+                            // than as missing.
+                            heightFactor: peak == 0
+                                ? 0.04
+                                : (point.totalAmount / peak).clamp(0.04, 1.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: point == points.last
+                                    ? p.brandTint
+                                    : p.muted.withValues(alpha: 0.35),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          point.month.substring(5),
+                          style: AppText.caption.copyWith(
+                            fontSize: 9,
+                            color: p.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (point != points.last) const SizedBox(width: 5),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

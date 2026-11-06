@@ -38,7 +38,7 @@ class CategoriesScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Budget categories', style: AppText.screenTitle),
+          const Text('Budget categories', style: AppText.display),
           const SizedBox(height: 4),
           const Text(
             'Allocation and remaining balance per category.',

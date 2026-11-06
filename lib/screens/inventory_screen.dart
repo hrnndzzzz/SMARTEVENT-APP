@@ -54,7 +54,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Inventory', style: AppText.screenTitle),
+          const Text('Inventory', style: AppText.display),
           const SizedBox(height: 4),
           const Text(
             'Stock changes only through recorded movements.',

@@ -87,7 +87,7 @@ class _RiskScreenState extends State<RiskScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Flagged for review', style: AppText.screenTitle),
+          const Text('Flagged for review', style: AppText.display),
           const SizedBox(height: 4),
           const Text(
             'Expenses the system noticed something about. A flag is a '

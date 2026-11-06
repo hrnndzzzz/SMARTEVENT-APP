@@ -31,7 +31,11 @@ class AppText {
 
   // ── Headings ──────────────────────────────────────────────────────────
 
-  /// The app name on the welcome and sign-in screens.
+  /// **Every screen's own title**, and the app name on welcome and
+  /// sign-in. One size for the thing at the top of a page, so Income and
+  /// Expenses do not announce themselves at half and full volume when
+  /// they sit one tap apart under the same hub. Wraps rather than
+  /// truncating, which is why it carries a line height.
   static const TextStyle display = TextStyle(
     fontFamily: headerFamily,
     fontWeight: FontWeight.w800,
@@ -49,7 +53,9 @@ class AppText {
     height: 1.15,
   );
 
-  /// Screen headers. One line, truncated.
+  /// Titles *inside* a surface — a sheet's heading, an AppBar — where the
+  /// surface is already the frame and a page-sized title would shout.
+  /// Not for a screen's own title: that is [display].
   static const TextStyle screenTitle = TextStyle(
     fontFamily: headerFamily,
     fontWeight: FontWeight.w800,

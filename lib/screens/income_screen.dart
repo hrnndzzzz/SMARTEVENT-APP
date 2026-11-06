@@ -56,7 +56,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Income', style: AppText.screenTitle),
+          const Text('Income', style: AppText.display),
           const SizedBox(height: 4),
           const Text(
             'Money received, by where it came from.',

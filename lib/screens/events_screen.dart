@@ -47,7 +47,7 @@ class _EventsScreenState extends State<EventsScreen> {
         children: [
           Row(
             children: [
-              const Expanded(child: Text('Events', style: AppText.screenTitle)),
+              const Expanded(child: Text('Events', style: AppText.display)),
               _ViewToggle(
                 calendar: _calendar,
                 onChanged: (v) => setState(() => _calendar = v),
