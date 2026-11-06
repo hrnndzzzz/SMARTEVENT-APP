@@ -296,6 +296,26 @@ void main() {
       );
     });
 
+    // Caught on the phone, not here: the stock was added correctly but the
+    // button stayed, and the refusal only arrived after the whole form had
+    // been filled in a second time.
+    test('the button stops being offered once it is done', () async {
+      final app = treasurer();
+      final expense = assetExpense(app);
+      final assets =
+          (await app.loadExpenseLines(expense)).lines!.where((l) => l.isAsset).toList();
+      expect(expense.canStartPurchaseCompletion, isTrue);
+
+      await app.completePurchase(expense, completionFor(assets));
+
+      expect(expense.isPurchaseCompleted, isTrue);
+      expect(
+        expense.canStartPurchaseCompletion,
+        isFalse,
+        reason: 'the Complete purchase button must be gone',
+      );
+    });
+
     test('stock is never added twice', () async {
       final app = treasurer();
       final expense = assetExpense(app);

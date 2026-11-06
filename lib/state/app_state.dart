@@ -412,6 +412,12 @@ class ExpenseEntry {
   /// and purchase state straight off it. Null for the local seed rows.
   RemoteExpense? remote;
 
+  /// Set when the demo completes a purchase. A seeded row has no [remote]
+  /// to carry that state, so without this the Complete purchase button
+  /// stayed on screen after the stock had already been received, and the
+  /// refusal only came once the whole form had been filled in again.
+  bool demoPurchaseCompleted = false;
+
   ExpenseEntry({
     this.remoteId,
     required this.vendor,
@@ -431,7 +437,8 @@ class ExpenseEntry {
   String? get flagReason => remote?.flagReason;
 
   /// Approved and paid/received, so its asset lines are already stock.
-  bool get isPurchaseCompleted => remote?.isPurchaseCompleted ?? false;
+  bool get isPurchaseCompleted =>
+      demoPurchaseCompleted || (remote?.isPurchaseCompleted ?? false);
 
   /// Eligible for the Complete Purchase step: approved, not already
   /// completed. Whether it actually has asset lines is decided once the
@@ -2644,6 +2651,7 @@ class AppState extends ChangeNotifier {
       _markDemoLineStocked(remoteId, line, item.id);
     }
 
+    expense.demoPurchaseCompleted = true;
     notifyListeners();
     return null;
   }
