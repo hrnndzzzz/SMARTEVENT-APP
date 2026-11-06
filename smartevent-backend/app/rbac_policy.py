@@ -77,7 +77,7 @@ ROLE_POLICY = {
     "officer": {
         "scope": "assigned organization and department",
         "responsibility": "View organization records for monitoring.",
-        "permissions": ["Read operational records, reports, and analytics"],
+        "permissions": ["Read operational records, reports, and analytics", "Record inventory stock movements"],
     },
     "sds_staff": {
         "scope": "school proposal letters and activity proposals the Dean has approved",

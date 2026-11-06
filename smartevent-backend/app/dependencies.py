@@ -44,6 +44,8 @@ OFFICER_PROPOSAL_WRITES = {
     ("POST", "/events/{event_id}/sap-proposal/submit"),
     ("POST", "/events/{event_id}/sap-proposal/withdraw"),
 }
+# Any officer may be tasked with handing out or returning stock.
+OFFICER_INVENTORY_WRITES = {("POST", "/inventory/{inventory_id}/transactions")}
 
 
 def get_current_user(
@@ -131,7 +133,8 @@ def enforce_read_only(
     user = ensure_account_ready_for_app(user)
     if user.role == "officer" and request.method not in ("GET", "HEAD", "OPTIONS"):
         route = request.scope.get("route")
-        if can_propose_events(user) and (request.method, getattr(route, "path", None)) in OFFICER_PROPOSAL_WRITES:
+        write = (request.method, getattr(route, "path", None))
+        if write in OFFICER_INVENTORY_WRITES or (can_propose_events(user) and write in OFFICER_PROPOSAL_WRITES):
             return user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
