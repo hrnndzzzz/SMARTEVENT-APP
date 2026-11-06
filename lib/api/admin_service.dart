@@ -39,8 +39,9 @@ class AdminService {
   /// Adds someone to the approved roster. This creates **no account** — it
   /// makes one possible, by letting that email register.
   ///
-  /// [role] must be a member role. An Admin may omit [departmentId] to use
-  /// its own; a Super Admin has to choose.
+  /// [role] must be one the caller may manage (`manageableRolesFor`). An
+  /// Admin or Adviser may omit the scope to use its own; a Super Admin
+  /// chooses, except for school-wide roles, which take none.
   Future<RosterEntry> addToRoster({
     required String fullName,
     required String email,
@@ -148,7 +149,8 @@ class AdminService {
 
   /// `PATCH /users/{id}/access` — role, position, suspension, and transfer.
   ///
-  /// An Admin cannot elevate anyone to Admin or SDS, cannot transfer scope,
+  /// An Admin changes only member roles and an Adviser only Officers and
+  /// Treasurers. Neither can transfer scope,
   /// cannot change its own access and cannot touch a Super Admin. Those are
   /// enforced server-side; the UI hides what it can and handles the 403 for
   /// the rest.

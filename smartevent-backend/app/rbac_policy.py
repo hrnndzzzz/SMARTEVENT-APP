@@ -2,6 +2,20 @@
 
 EVENT_PROPOSER_POSITIONS = {"president", "vice president", "secretary"}
 
+MEMBER_ROLES = {"officer", "treasurer", "adviser"}
+SCHOOL_REVIEWER_ROLES = {"sds_staff", "signatory"}
+# Super Admin is deliberately absent: no roster row or upload can create one.
+ROSTER_ROLES = MEMBER_ROLES | {"admin"} | SCHOOL_REVIEWER_ROLES
+
+
+def manageable_roles(user) -> set[str]:
+    """Roles this account may put on the roster or assign through an access change."""
+    return {
+        "super_admin": ROSTER_ROLES,
+        "admin": MEMBER_ROLES,
+        "adviser": {"officer", "treasurer"},
+    }.get(user.role, set())
+
 
 def can_propose_events(user) -> bool:
     if user.role in {"super_admin", "admin", "adviser", "treasurer"}:
@@ -42,8 +56,10 @@ ROLE_POLICY = {
         "responsibility": "Adviser or Moderator overseeing the organization and reviewing event and expense submissions.",
         "permissions": [
             "Read operational records, reports, and analytics", "Create and manage own draft events",
+            "Manage the organization's officer and treasurer roster and accounts",
+            "Manage categories and the inventory catalog", "View organization audit history",
             "Review events and expenses submitted by others", "Record inventory movements",
-            "Upload and read proposal letters",
+            "Upload and read proposal letters", "Maintain event student rosters",
             "Assign qualified PICs and verify staff-managed student and logistics evidence",
             "Print attendance sheets, complete events, and record post-activity and alternative learning work",
         ],

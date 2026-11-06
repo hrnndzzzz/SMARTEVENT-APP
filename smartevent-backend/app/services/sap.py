@@ -16,6 +16,7 @@ from app.services.approvals import record_decision
 from app.services.compliance import invalidate_clearance, require_pre_activity_clearance
 from app.services.academic_year import validate_school_year
 from app.services.closure import institution_today
+from app.services.notifications import deliver_notification
 
 
 def now():
@@ -250,4 +251,11 @@ def department_review(db, event, proposal, user, decision, remarks, expected_ver
     require_pre_activity_clearance(db, event)
     record_decision(db, 'event', event.id, 'approved', user, remarks)
     proposal.state, event.status = 'pending_sap_review', 'pending_institutional_review'
-    return save(db, event, proposal, user, 'sap_dean_approved', notify=True)
+    result = save(db, event, proposal, user, 'sap_dean_approved', notify=True)
+    # Email the SDS Office now, with the form attached; a failure stays queued for scripts.deliver_notifications.
+    expected = {'proposal_id': str(proposal.id), 'revision_no': proposal.revision_no, 'action': 'sap_dean_approved'}
+    for row in (db.query(Notification).join(User, Notification.user_id == User.id)
+                .filter(Notification.kind == 'sap_workflow', Notification.email_status == 'pending', User.role == 'sds_staff').all()):
+        if all((row.payload or {}).get(k) == v for k, v in expected.items()):
+            deliver_notification(db, row.id)
+    return result

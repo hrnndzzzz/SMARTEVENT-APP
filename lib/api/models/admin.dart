@@ -14,8 +14,8 @@ class RosterEntry {
   final String fullName;
   final String email;
 
-  /// Only ever a member role — officer, treasurer or adviser. Admin and SDS
-  /// accounts are created through their own Super Admin endpoints.
+  /// Any of [rosterRoles]. SDS Staff and Signatory entries have no
+  /// department or organization.
   final UserRole role;
 
   final String? position;
@@ -50,8 +50,6 @@ class RosterEntry {
       id: json['id'] as String,
       fullName: json['full_name'] as String,
       email: json['email'] as String,
-      // A roster role is always a member role; anything else would be a
-      // backend change worth noticing rather than silently coercing.
       role: userRoleFromWire(json['role'] as String? ?? '') ?? UserRole.officer,
       position: json['position'] as String?,
       departmentId: json['department_id'] as String?,
