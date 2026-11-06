@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'popover.dart';
 import '../screens/event_detail_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -23,6 +24,9 @@ import '../theme/palette.dart';
 /// than showing fewer than the badge promised.
 abstract final class NotificationMenu {
   static Future<void> show(BuildContext context) {
+    // Measured here, from the button's own context, before the route
+    // goes on: inside pageBuilder this context may already be gone.
+    final anchor = PopoverFrame.anchorOf(context);
     final app = context.read<AppState>();
     if (app.notices.where((n) => n.isUnread).length != app.unreadNoticeCount) {
       app.loadNotices();
@@ -34,9 +38,9 @@ abstract final class NotificationMenu {
       barrierLabel: 'Close notifications',
       barrierColor: AppColors.ink.withValues(alpha: 0.1),
       transitionDuration: AppMotion.sheet,
-      pageBuilder: (_, _, _) => const Material(
+      pageBuilder: (_, _, _) => Material(
         type: MaterialType.transparency,
-        child: _NotificationMenu(),
+        child: PopoverFrame(anchor: anchor, child: const _NotificationMenu()),
       ),
       transitionBuilder: (context, animation, _, child) {
         if (MediaQuery.disableAnimationsOf(context)) return child;
@@ -151,94 +155,76 @@ class _NotificationMenu extends StatelessWidget {
         if (!shelf.isDismissed(n.id)) n,
     ];
     final unread = rows.where((n) => n.isUnread).length;
+    final screenHeight = MediaQuery.sizeOf(context).height;
 
-    final size = MediaQuery.sizeOf(context);
-    final width =
-        size.width - AppLayout.popoverMargin * 2 < AppLayout.popoverMaxWidth
-        ? size.width - AppLayout.popoverMargin * 2
-        : AppLayout.popoverMaxWidth;
+    // Position and width belong to the PopoverFrame this sits inside,
+    // so that the bell's panel and the avatar's cannot drift apart.
+    return BrutCard(
+      shadow: AppShadows.lg,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Notifications',
+                  style: AppText.cardTitle.copyWith(fontSize: 15),
+                ),
+              ),
+              _TextAction(
+                label: 'Mark read',
+                onTap: unread == 0 ? null : () => _markAllRead(context, rows),
+              ),
+              const SizedBox(width: 10),
+              _ClearAll(
+                enabled: rows.isNotEmpty,
+                onTap: () => shelf.dismissAll(rows.map((n) => n.id)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
 
-    return Align(
-      alignment: Alignment.topRight,
-      child: Padding(
-        padding: const EdgeInsets.only(
-          top: AppLayout.popoverTop,
-          right: AppLayout.popoverMargin,
-        ),
-        child: SizedBox(
-          width: width,
-          child: BrutCard(
-            shadow: AppShadows.lg,
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+          if (rows.isEmpty)
+            const _CaughtUp()
+          else
+            // Past a little over half the screen it scrolls, so the
+            // window never grows into a page.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: screenHeight * 0.56),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Notifications',
-                        style: AppText.cardTitle.copyWith(fontSize: 15),
+                    for (var i = 0; i < rows.length; i++) ...[
+                      _SwipeToDismiss(
+                        key: ValueKey(rows[i].id),
+                        onDismissed: () => shelf.dismiss(rows[i].id),
+                        child: _NoticeRow(
+                          notice: rows[i],
+                          onTap: () => _openOrRead(context, rows[i]),
+                        ),
                       ),
-                    ),
-                    _TextAction(
-                      label: 'Mark read',
-                      onTap: unread == 0
-                          ? null
-                          : () => _markAllRead(context, rows),
-                    ),
-                    const SizedBox(width: 10),
-                    _ClearAll(
-                      enabled: rows.isNotEmpty,
-                      onTap: () => shelf.dismissAll(rows.map((n) => n.id)),
-                    ),
+                      if (i != rows.length - 1) const SizedBox(height: 8),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 10),
-
-                if (rows.isEmpty)
-                  const _CaughtUp()
-                else
-                  // Past a little over half the screen it scrolls, so the
-                  // window never grows into a page.
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: size.height * 0.56),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var i = 0; i < rows.length; i++) ...[
-                            _SwipeToDismiss(
-                              key: ValueKey(rows[i].id),
-                              onDismissed: () => shelf.dismiss(rows[i].id),
-                              child: _NoticeRow(
-                                notice: rows[i],
-                                onTap: () => _openOrRead(context, rows[i]),
-                              ),
-                            ),
-                            if (i != rows.length - 1)
-                              const SizedBox(height: 8),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-
-                if (rows.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Center(
-                    child: Text(
-                      'SWIPE A NOTIFICATION SIDEWAYS TO REMOVE IT',
-                      style: AppText.monoLabel.copyWith(fontSize: 9),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-        ),
+
+          if (rows.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Center(
+              child: Text(
+                'SWIPE A NOTIFICATION SIDEWAYS TO REMOVE IT',
+                style: AppText.monoLabel.copyWith(fontSize: 9),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -344,8 +330,7 @@ class _SwipeToDismissState extends State<_SwipeToDismiss> {
     return GestureDetector(
       // Horizontal only: dragging up and down has to keep scrolling the
       // list underneath.
-      onHorizontalDragUpdate: (d) =>
-          setState(() => _offset += d.delta.dx),
+      onHorizontalDragUpdate: (d) => setState(() => _offset += d.delta.dx),
       onHorizontalDragEnd: (_) {
         if (_offset.abs() >= _threshold) {
           setState(() {

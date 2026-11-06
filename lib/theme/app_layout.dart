@@ -74,7 +74,13 @@ class AppLayout {
   static const double sheetVerticalPadding = 12;
 
   // ── Popovers ──────────────────────────────────────────────────────────
+  /// Only a fallback now: a popover hangs off the control that opened
+  /// it, and uses this corner only when that control cannot be measured.
   static const double popoverTop = 58;
   static const double popoverMargin = 16;
   static const double popoverMaxWidth = 330;
+
+  /// Between a control and the panel it opens. Close enough to read as
+  /// attached to it, clear enough not to touch.
+  static const double popoverGap = 8;
 }

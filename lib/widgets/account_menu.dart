@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'popover.dart';
 import 'package:provider/provider.dart';
 
 import '../screens/about_screen.dart';
@@ -27,6 +28,8 @@ import 'user_avatar.dart';
 /// gesture closes it before it leaves the screen underneath.
 abstract final class AccountMenu {
   static Future<void> show(BuildContext context) {
+    // From the avatar's own context, before the route is pushed.
+    final anchor = PopoverFrame.anchorOf(context);
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -38,9 +41,9 @@ abstract final class AccountMenu {
       // A route's page is not under the app's Material by default, and
       // text outside one renders with Flutter's missing-ancestor
       // underline. Transparent, so the scrim still shows through.
-      pageBuilder: (_, _, _) => const Material(
+      pageBuilder: (_, _, _) => Material(
         type: MaterialType.transparency,
-        child: _AccountMenu(),
+        child: PopoverFrame(anchor: anchor, child: const _AccountMenu()),
       ),
       transitionBuilder: (context, animation, _, child) {
         if (MediaQuery.disableAnimationsOf(context)) return child;
@@ -112,124 +115,107 @@ class _AccountMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final name = app.currentAccount?.name ?? 'Guest';
-    final width = MediaQuery.sizeOf(context).width;
 
-    return Align(
-      alignment: Alignment.topRight,
-      child: Padding(
-        padding: const EdgeInsets.only(
-          top: AppLayout.popoverTop,
-          right: AppLayout.popoverMargin,
-        ),
-        child: SizedBox(
-          width: width - AppLayout.popoverMargin * 2 < AppLayout.popoverMaxWidth
-              ? width - AppLayout.popoverMargin * 2
-              : AppLayout.popoverMaxWidth,
-          child: BrutCard(
-            shadow: AppShadows.lg,
-            padding: const EdgeInsets.all(AppLayout.between),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+    // Position and width belong to the PopoverFrame this sits inside.
+    return BrutCard(
+      shadow: AppShadows.lg,
+      padding: const EdgeInsets.all(AppLayout.between),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              UserAvatar(name: name, size: 48),
+              const SizedBox(width: AppLayout.between),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    UserAvatar(name: name, size: 48),
-                    const SizedBox(width: AppLayout.between),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            name,
-                            style: AppText.cardTitle.copyWith(fontSize: 15),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          MonoLabel(_roleLabel(app.currentRole)),
-                          if (app.currentAccount?.email.isNotEmpty == true) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              app.currentAccount!.email,
-                              style: AppText.caption,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
-                      ),
+                    Text(
+                      name,
+                      style: AppText.cardTitle.copyWith(fontSize: 15),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 2),
+                    MonoLabel(_roleLabel(app.currentRole)),
+                    if (app.currentAccount?.email.isNotEmpty == true) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        app.currentAccount!.email,
+                        style: AppText.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: AppLayout.between),
-                const _StatusRow(),
-                const SizedBox(height: 10),
-                _MenuRow(
-                  icon: Icons.person_outline,
-                  title: 'Edit profile',
-                  hint: 'Your name and email on this device',
-                  onTap: () => _go(
-                    context,
-                    EditProfileScreen(
-                      name: name,
-                      role: _roleLabel(app.currentRole),
-                    ),
-                  ),
-                ),
-                if (app.currentRole?.canManageMembers ?? false) ...[
-                  const SizedBox(height: 6),
-                  _MenuRow(
-                    icon: Icons.manage_accounts_outlined,
-                    title: 'Administration',
-                    hint: 'Roster, accounts and the audit log',
-                    onTap: () => _go(context, const AdminScreen()),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                _MenuRow(
-                  icon: Icons.settings_outlined,
-                  title: 'Settings',
-                  hint: 'Theme and motion on this device',
-                  onTap: () => _go(context, const SettingsScreen()),
-                ),
-                const SizedBox(height: 6),
-                _MenuRow(
-                  icon: Icons.notifications_none,
-                  title: 'Notification preferences',
-                  hint: 'What you want to be told about',
-                  onTap: () => _go(context, const NotificationPrefsScreen()),
-                ),
-                const SizedBox(height: 6),
-                _MenuRow(
-                  icon: Icons.help_outline,
-                  title: 'Help and support',
-                  hint: 'How the app actually works',
-                  onTap: () => _go(context, const HelpScreen()),
-                ),
-                const SizedBox(height: 6),
-                _MenuRow(
-                  icon: Icons.info_outline,
-                  title: 'About SmartEvent',
-                  hint: 'Version, modules and credits',
-                  onTap: () => _go(context, const AboutScreen()),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: AppLayout.smallAction,
-                  child: BrutButton(
-                    label: 'Log out',
-                    icon: Icons.logout,
-                    tone: BrutTone.coral,
-                    size: BrutSize.small,
-                    onPressed: () => _logOut(context),
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppLayout.between),
+          const _StatusRow(),
+          const SizedBox(height: 10),
+          _MenuRow(
+            icon: Icons.person_outline,
+            title: 'Edit profile',
+            hint: 'Your name and email on this device',
+            onTap: () => _go(
+              context,
+              EditProfileScreen(name: name, role: _roleLabel(app.currentRole)),
             ),
           ),
-        ),
+          if (app.currentRole?.canManageMembers ?? false) ...[
+            const SizedBox(height: 6),
+            _MenuRow(
+              icon: Icons.manage_accounts_outlined,
+              title: 'Administration',
+              hint: 'Roster, accounts and the audit log',
+              onTap: () => _go(context, const AdminScreen()),
+            ),
+          ],
+          const SizedBox(height: 6),
+          _MenuRow(
+            icon: Icons.settings_outlined,
+            title: 'Settings',
+            hint: 'Theme and motion on this device',
+            onTap: () => _go(context, const SettingsScreen()),
+          ),
+          const SizedBox(height: 6),
+          _MenuRow(
+            icon: Icons.notifications_none,
+            title: 'Notification preferences',
+            hint: 'What you want to be told about',
+            onTap: () => _go(context, const NotificationPrefsScreen()),
+          ),
+          const SizedBox(height: 6),
+          _MenuRow(
+            icon: Icons.help_outline,
+            title: 'Help and support',
+            hint: 'How the app actually works',
+            onTap: () => _go(context, const HelpScreen()),
+          ),
+          const SizedBox(height: 6),
+          _MenuRow(
+            icon: Icons.info_outline,
+            title: 'About SmartEvent',
+            hint: 'Version, modules and credits',
+            onTap: () => _go(context, const AboutScreen()),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: AppLayout.smallAction,
+            child: BrutButton(
+              label: 'Log out',
+              icon: Icons.logout,
+              tone: BrutTone.coral,
+              size: BrutSize.small,
+              onPressed: () => _logOut(context),
+            ),
+          ),
+        ],
       ),
     );
   }

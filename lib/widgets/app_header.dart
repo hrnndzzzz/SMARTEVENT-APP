@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_settings.dart';
 import '../state/app_state.dart';
+import '../state/notice_shelf.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
@@ -36,12 +37,7 @@ class AppHeader extends StatelessWidget {
   /// the menu very much do.
   final VoidCallback? onBack;
 
-  const AppHeader({
-    super.key,
-    this.subtitle,
-    this.onAvatarTap,
-    this.onBack,
-  });
+  const AppHeader({super.key, this.subtitle, this.onAvatarTap, this.onBack});
 
   /// `CITE · TREASURER`. Falls back to whichever half is known rather than
   /// printing a placeholder for the other.
@@ -186,7 +182,26 @@ class _BellWithBadgeState extends State<_BellWithBadge>
 
   @override
   Widget build(BuildContext context) {
-    final count = context.watch<AppState>().unreadNoticeCount;
+    final app = context.watch<AppState>();
+    // The badge must equal the number of rows the panel will show, or
+    // the window it opens contradicts it. The panel hides notices this
+    // phone has swiped away, so the badge has to discount them too —
+    // before this, swiping an unread one away left the badge counting
+    // a row that was no longer there.
+    //
+    // Until the inbox has been fetched there is nothing to discount
+    // against, so the server's own count stands.
+    NoticeShelf? shelf;
+    try {
+      shelf = context.watch<NoticeShelf>();
+    } on ProviderNotFoundException {
+      shelf = null;
+    }
+    final count = (app.notices.isEmpty || shelf == null)
+        ? app.unreadNoticeCount
+        : app.notices
+              .where((n) => n.isUnread && !shelf!.isDismissed(n.id))
+              .length;
     // Reduce-motion is a preference, not a requirement: a host without
     // the settings provider — a widget test, mostly — should still get a
     // working bell rather than an exception.
