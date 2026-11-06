@@ -621,7 +621,9 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSelf = context.watch<AppState>().currentAccount?.id == user.id;
+    final app = context.watch<AppState>();
+    final isSelf = app.currentAccount?.id == user.id;
+    final canManage = manageableRolesFor(app.currentRole).contains(user.role);
 
     return BrutCard(
       child: Column(
@@ -665,6 +667,12 @@ class _UserCard extends StatelessWidget {
               text:
                   'This is your own account — you cannot change your own '
                   'access.',
+            )
+          else if (!canManage)
+            const BrutInlineMessage(
+              tone: BrutTone.neutral,
+              icon: Icons.lock_outline,
+              text: 'Only the Dean or a Super Admin can change this account.',
             )
           else ...[
             Row(
@@ -807,7 +815,9 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
       setState(() => _error = 'Enter the email they will register with.');
       return;
     }
+    final schoolWide = _role.isSchoolWide;
     if (app.mustChooseScope &&
+        !schoolWide &&
         (_departmentId == null || _organizationId == null)) {
       setState(() => _error = 'Choose a department and organization.');
       return;
@@ -825,8 +835,8 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
       position: _positionController.text.trim().isEmpty
           ? null
           : _positionController.text.trim(),
-      departmentId: _departmentId,
-      organizationId: _organizationId,
+      departmentId: schoolWide ? null : _departmentId,
+      organizationId: schoolWide ? null : _organizationId,
     );
 
     if (!mounted) return;
@@ -865,7 +875,7 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (app.mustChooseScope) ...[
+          if (app.mustChooseScope && !_role.isSchoolWide) ...[
             ScopePicker(
               departments: app.departments,
               departmentId: _departmentId,
@@ -905,15 +915,17 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
             value: _role,
             hint: 'Select a role',
             items: [
-              for (final role in memberRoles)
+              for (final role in manageableRolesFor(app.currentRole))
                 DropdownMenuItem(value: role, child: Text(role.label)),
             ],
             onChanged: (v) => setState(() => _role = v ?? _role),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Admin and SDS accounts are created separately by a Super '
-            'Admin, not through the roster.',
+          Text(
+            _role.isSchoolWide
+                ? '${_role.label} accounts are school-wide, so they have no '
+                      'department or organization.'
+                : 'They get this role when they register.',
             style: AppText.caption,
           ),
           const SizedBox(height: 14),
@@ -980,11 +992,19 @@ class _AccessSheetState extends State<_AccessSheet> {
   Future<void> _save() async {
     setState(() => _saving = true);
     final app = context.read<AppState>();
+    final canTransfer = app.currentRole?.canAdministerSchool ?? false;
     final error = await app.updateUserAccess(
       widget.user,
       role: _role,
       position: _position.text.trim().isEmpty ? null : _position.text.trim(),
-      organizationId: _organizationId,
+      // Only a Super Admin may send an organization at all, and a
+      // school-wide role must not carry one.
+      organizationId:
+          canTransfer &&
+              !(_role?.isSchoolWide ?? false) &&
+              _organizationId != widget.user.organizationId
+          ? _organizationId
+          : null,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -1020,7 +1040,14 @@ class _AccessSheetState extends State<_AccessSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (canTransfer)
+          if (_role?.isSchoolWide ?? false)
+            BrutInlineMessage(
+              icon: Icons.public,
+              text:
+                  '${_role!.label} accounts are school-wide, so they leave '
+                  'their organization.',
+            )
+          else if (canTransfer)
             BrutDropdown<String>(
               label: 'Organization',
               value: _organizationId,
@@ -1049,10 +1076,7 @@ class _AccessSheetState extends State<_AccessSheet> {
             value: _role,
             hint: 'Select a role',
             items: [
-              // A Super Admin may also promote to Admin or SDS Staff;
-              // an Admin changes roles within their own organization.
-              for (final role
-                  in canTransfer ? accessAssignableRoles : memberRoles)
+              for (final role in manageableRolesFor(app.currentRole))
                 DropdownMenuItem(value: role, child: Text(role.label)),
             ],
             onChanged: (role) => setState(() => _role = role),

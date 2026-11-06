@@ -14,6 +14,7 @@ NonnegativeMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=
 FundSource = Literal["registration_fees", "sponsorship", "donation", "other"]
 
 Role = Literal["super_admin", "admin", "adviser", "officer", "treasurer", "sds_staff", "signatory"]
+RosterRole = Literal["admin", "adviser", "officer", "treasurer", "sds_staff", "signatory"]  # = rbac_policy.ROSTER_ROLES
 
 
 class CiteSelfRegisterRequest(BaseModel):
@@ -820,7 +821,7 @@ class CiteMemberCreate(BaseModel):
     organization_id: uuid.UUID | None = None
     full_name: str = Field(min_length=1, max_length=150)
     email: AccountEmail
-    role: Literal["officer", "adviser", "treasurer"]
+    role: RosterRole
     position: str | None = Field(default=None, max_length=50)
     department_id: uuid.UUID | None = Field(
         default=None,
@@ -852,7 +853,7 @@ class CiteMemberOut(BaseModel):
     id: uuid.UUID
     full_name: str
     email: EmailStr
-    role: Literal["officer", "adviser", "treasurer"]
+    role: RosterRole
     position: str | None
     department_id: uuid.UUID | None
     claimed_by_user_id: uuid.UUID | None
@@ -861,7 +862,7 @@ class CiteMemberOut(BaseModel):
 
 class CiteMemberUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    role: Literal["officer", "adviser", "treasurer"] | None = None
+    role: RosterRole | None = None
     position: str | None = Field(default=None, max_length=50)
     organization_id: uuid.UUID | None = None
 

@@ -54,7 +54,7 @@ def _get_item_or_404(db: Session, inventory_id: uuid.UUID, *, lock: bool = False
 def create_item(
     payload: InventoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     department_id = resolve_department_id(
         current_user,
@@ -149,7 +149,7 @@ def get_item(
 def confirm_draft_item(
     inventory_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
@@ -187,7 +187,7 @@ def list_item_transactions(
 @router.patch("/{inventory_id}/transactions/{transaction_id}/metadata", response_model=InventoryTransactionOut)
 def repair_transaction_metadata(inventory_id: uuid.UUID, transaction_id: uuid.UUID,
                                  payload: InventoryTransactionRepair, db: Session = Depends(get_db),
-                                 current_user: User = Depends(require_role("admin"))):
+                                 current_user: User = Depends(require_role("admin", "adviser"))):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
     _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id)
@@ -221,7 +221,7 @@ def update_item(
     inventory_id: uuid.UUID,
     payload: InventoryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
@@ -263,7 +263,7 @@ def update_item(
 def delete_item(
     inventory_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)

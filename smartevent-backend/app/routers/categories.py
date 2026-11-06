@@ -24,7 +24,7 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 def create_category(
     payload: CategoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     department_id = resolve_department_id(
         current_user,
@@ -84,7 +84,7 @@ def update_category(
     category_id: uuid.UUID,
     payload: CategoryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     category = db.query(Category).filter(Category.id == category_id).with_for_update().first()
     if category is None:
@@ -136,7 +136,7 @@ def update_category(
 def delete_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     category = db.query(Category).filter(Category.id == category_id).with_for_update().first()
     if category is None:

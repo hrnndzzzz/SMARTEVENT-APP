@@ -166,7 +166,7 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
     assert len(checked) >= 25
 
 
-@pytest.mark.parametrize("role", ["adviser", "treasurer"])
+@pytest.mark.parametrize("role", ["treasurer"])
 def test_catalog_changes_require_administrator(system, role):
     client, db, users, orgs, resources, login = system
     login(role)

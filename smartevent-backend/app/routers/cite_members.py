@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import assert_record_scope, assert_department_scope, require_role, resolve_department_id, resolve_organization_id, scope_query_by_department
 from app.models import CiteMember, Organization, User
+from app.rbac_policy import SCHOOL_REVIEWER_ROLES, manageable_roles
 from app.schemas import CiteMemberCreate, CiteMemberOut, CiteMemberUpdate, RosterImportOut
 from app.services.access_audit import record_access_change
 from app.services.roster_import import MAX_FILE_BYTES, commit_roster_import, validate_roster_workbook
@@ -15,11 +16,16 @@ from app.services.roster_import import MAX_FILE_BYTES, commit_roster_import, val
 router = APIRouter(prefix="/cite-members", tags=["cite-members"])
 
 
+def assert_can_manage_role(current_user: User, role: str) -> None:
+    if role not in manageable_roles(current_user):
+        raise HTTPException(status_code=403, detail=f"Your account cannot manage {role.replace('_', ' ')} roster entries")
+
+
 @router.post("/import", response_model=RosterImportOut, status_code=status.HTTP_201_CREATED)
 def import_cite_members(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     try:
         content = file.file.read(MAX_FILE_BYTES + 1)
@@ -35,14 +41,20 @@ def import_cite_members(
 def add_cite_member(
     payload: CiteMemberCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
-    department_id = resolve_department_id(
-        current_user,
-        payload.department_id,
-        require_for_admin=True,
-    )
-    organization_id = resolve_organization_id(db, current_user, payload.organization_id, department_id)
+    assert_can_manage_role(current_user, payload.role)
+    if payload.role in SCHOOL_REVIEWER_ROLES:
+        if payload.department_id is not None or payload.organization_id is not None:
+            raise HTTPException(status_code=422, detail="SDS Staff and Signatory entries have no department or organization")
+        department_id = organization_id = None
+    else:
+        department_id = resolve_department_id(
+            current_user,
+            payload.department_id,
+            require_for_admin=True,
+        )
+        organization_id = resolve_organization_id(db, current_user, payload.organization_id, department_id)
     existing = db.query(CiteMember).filter(CiteMember.email == payload.email).first()
     if existing:
         raise HTTPException(
@@ -78,7 +90,7 @@ def list_cite_members(
     ),
     organization_id: uuid.UUID | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     query = db.query(CiteMember)
     if current_user.role == "super_admin":
@@ -110,7 +122,7 @@ def list_cite_members(
 @router.patch("/{member_id}", response_model=CiteMemberOut)
 def update_cite_member(
     member_id: uuid.UUID, payload: CiteMemberUpdate,
-    db: Session = Depends(get_db), current_user: User = Depends(require_role("admin")),
+    db: Session = Depends(get_db), current_user: User = Depends(require_role("admin", "adviser")),
 ):
     member = db.query(CiteMember).filter(CiteMember.id == member_id).with_for_update().first()
     if member is None:
@@ -121,13 +133,22 @@ def update_cite_member(
     updates = payload.model_dump(exclude_unset=True)
     if not updates or any(value is None for key, value in updates.items() if key != "position"):
         raise HTTPException(status_code=422, detail="Provide non-null role or organization fields, or a position")
-    if "organization_id" in updates:
+    new_role = updates.get("role", member.role)
+    assert_can_manage_role(current_user, member.role)
+    assert_can_manage_role(current_user, new_role)
+    if new_role in SCHOOL_REVIEWER_ROLES:
+        if "organization_id" in updates:
+            raise HTTPException(status_code=422, detail="SDS Staff and Signatory entries have no organization")
+        updates["department_id"] = updates["organization_id"] = None
+    elif "organization_id" in updates:
         if current_user.role != "super_admin":
             raise HTTPException(status_code=403, detail="Only Super Admin can transfer roster entries")
         organization = db.query(Organization).filter(Organization.id == updates["organization_id"]).first()
         if organization is None:
             raise HTTPException(status_code=400, detail="Organization does not exist")
         updates["department_id"] = organization.department_id
+    elif member.organization_id is None:
+        raise HTTPException(status_code=422, detail="Assign an organization for this role")
     before = {"role": member.role, "position": member.position, "organization_id": str(member.organization_id)}
     for field, value in updates.items():
         setattr(member, field, value)
@@ -144,13 +165,14 @@ def update_cite_member(
 def remove_cite_member(
     member_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     member = db.query(CiteMember).filter(CiteMember.id == member_id).with_for_update().first()
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CITE member not found")
 
     assert_record_scope(current_user, member)
+    assert_can_manage_role(current_user, member.role)
 
     if member.claimed_by_user_id is not None:
         raise HTTPException(

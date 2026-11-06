@@ -12,6 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.models import CiteMember, Department, Organization
+from app.rbac_policy import ROSTER_ROLES, SCHOOL_REVIEWER_ROLES, manageable_roles
 from app.schemas import CiteMemberCreate, RosterImportError
 from app.services.access_audit import record_access_change
 
@@ -94,6 +95,8 @@ def validate_roster_workbook(db, current_user, content: bytes, filename: str) ->
     if current_user.role != "super_admin":
         department_query = department_query.filter(Department.id == current_user.department_id)
         organization_query = organization_query.filter(Organization.department_id == current_user.department_id)
+    if current_user.role not in {"super_admin", "admin"}:
+        organization_query = organization_query.filter(Organization.id == current_user.organization_id)
     for department in department_query.all():
         departments[department.name.strip().casefold()].append(department)
     for organization in organization_query.all():
@@ -106,17 +109,26 @@ def validate_roster_workbook(db, current_user, content: bytes, filename: str) ->
         def error(column, message):
             errors.append(RosterImportError(row=number, column=column, message=message))
 
-        department_matches = departments[row["Department"].casefold()]
-        department = department_matches[0] if len(department_matches) == 1 else None
-        if department is None:
-            error("Department", "Department name is missing, ambiguous, or outside your permitted scope")
-        organization_matches = organizations[(department.id, row["Organization Full Name"].casefold())] if department else []
-        organization = organization_matches[0] if len(organization_matches) == 1 else None
-        if organization is None:
-            error("Organization Full Name", "Organization must uniquely match an existing organization in the permitted department")
+        role = "_".join(row["Role"].casefold().split())  # "SDS Staff" -> "sds_staff"
+        department = organization = None
+        if role in SCHOOL_REVIEWER_ROLES:
+            for column in ("Department", "Organization Full Name"):
+                if row[column]:
+                    error(column, "Leave blank: SDS Staff and Signatory accounts are school-wide")
+        else:
+            department_matches = departments[row["Department"].casefold()]
+            department = department_matches[0] if len(department_matches) == 1 else None
+            if department is None:
+                error("Department", "Department name is missing, ambiguous, or outside your permitted scope")
+            organization_matches = organizations[(department.id, row["Organization Full Name"].casefold())] if department else []
+            organization = organization_matches[0] if len(organization_matches) == 1 else None
+            if organization is None:
+                error("Organization Full Name", "Organization must uniquely match an existing organization in the permitted department")
+        if role in ROSTER_ROLES and role not in manageable_roles(current_user):
+            error("Role", f"Your account cannot add {row['Role']} roster entries")
         try:
             member = CiteMemberCreate(
-                full_name=row["Full Name"], email=row["Email"], role=row["Role"].lower(),
+                full_name=row["Full Name"], email=row["Email"], role=role,
                 position=row["Position"] or None,
                 department_id=department.id if department else None,
                 organization_id=organization.id if organization else None,
