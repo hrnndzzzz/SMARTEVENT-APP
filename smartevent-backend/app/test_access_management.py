@@ -147,6 +147,8 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
                                                ("/auth/register/admin", "/auth/register/sds", "/auth/register/signatory")):
             continue
         for method in {operation.upper() for operation in operations} & {"POST", "PUT", "PATCH", "DELETE"}:
+            if (method, route_path) == ("POST", "/inventory/{inventory_id}/transactions"):
+                continue  # stock movements are open to every officer
             if position and (method, route_path) in {
                 ("POST", "/events"), ("PATCH", "/events/{event_id}"),
                 ("DELETE", "/events/{event_id}"), ("POST", "/events/{event_id}/submit"),
@@ -166,12 +168,15 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
     assert len(checked) >= 25
 
 
-@pytest.mark.parametrize("role", ["adviser", "treasurer"])
+@pytest.mark.parametrize("role", ["treasurer", "officer"])
 def test_catalog_changes_require_administrator(system, role):
     client, db, users, orgs, resources, login = system
     login(role)
     assert client.post("/categories", json={"name": "New"}).status_code == 403
+    assert client.post("/inventory", json={"item_name": "Desk", "quantity": 1, "unit": "pcs",
+                                           "event_id": str(resources[0]["events"].id)}).status_code == 403
     assert client.patch(f"/inventory/{resources[0]['inventory'].id}", json={"item_name": "Changed"}).status_code == 403
+    assert client.delete(f"/inventory/{resources[0]['inventory'].id}").status_code == 403
     response = client.post(f"/inventory/{resources[0]['inventory'].id}/transactions", json={"change_qty": 1,
         "event_id": str(resources[0]["events"].id), "transaction_type": "donation", "reason": "Donated chair"})
     assert response.status_code == 201
@@ -277,7 +282,8 @@ def test_audit_visibility_is_scoped_and_permissions_are_exposed(system):
     assert {row["organization_id"] for row in logs.json()} == {str(org.id) for org in orgs}
     login("officer")
     assert client.get("/audit-logs").status_code == 403
-    assert client.get("/auth/permissions").json()["permissions"] == ["Read operational records, reports, and analytics"]
+    assert client.get("/auth/permissions").json()["permissions"] == [
+        "Read operational records, reports, and analytics", "Record inventory stock movements"]
 
 
 def test_admin_creation_validates_organization_before_provisioning(system, monkeypatch):

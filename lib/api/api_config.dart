@@ -70,6 +70,13 @@ class ApiConfig {
   static Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // A deployed build has no Backend setting, so an address saved by an
+      // older build would strand the phone on it with no way back.
+      if (isConfigured) {
+        _override = null;
+        await prefs.remove(_prefsKey);
+        return;
+      }
       final stored = prefs.getString(_prefsKey);
       _override = (stored == null || stored.isEmpty) ? null : stored;
     } catch (_) {

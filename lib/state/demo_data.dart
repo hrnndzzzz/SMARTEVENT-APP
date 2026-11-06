@@ -1,6 +1,8 @@
 import '../api/models/academic.dart';
 import '../api/models/income.dart';
 import '../api/models/inventory.dart';
+import '../api/models/receipt.dart';
+import '../api/models/remote_expense.dart';
 import '../api/models/reports.dart';
 import '../api/models/proposal_letter.dart';
 import '../api/models/scope.dart';
@@ -617,6 +619,282 @@ abstract final class DemoData {
       reviewNote: 'No quotation attached.',
     ),
   ];
+
+  /// Money in. One row is deliberately withheld: an income whose receipt
+  /// has not been reviewed is kept out of the totals but still listed,
+  /// and a demo that never shows that hides the rule.
+  static List<Income> incomes() {
+    final now = DateTime.now();
+    Income row({
+      required String id,
+      required String source,
+      required FundSource type,
+      required String purpose,
+      required double amount,
+      required int daysAgo,
+      ReceiptReviewStatus status = ReceiptReviewStatus.cleared,
+    }) => Income(
+      id: id,
+      eventId: 'demo-ev-1',
+      source: source,
+      sourceType: type,
+      purpose: purpose,
+      amount: amount,
+      receivedOn: now.subtract(Duration(days: daysAgo)),
+      receiptReviewStatus: status,
+      recordedBy: 'Demo Treasurer',
+      createdAt: now.subtract(Duration(days: daysAgo)),
+    );
+
+    return [
+      row(
+        id: 'demo-in-1',
+        source: 'Participant registration',
+        type: FundSource.registrationFees,
+        purpose: 'Seminar kits and certificates',
+        amount: 7250,
+        daysAgo: 12,
+      ),
+      row(
+        id: 'demo-in-2',
+        source: 'Bulacan Tech Solutions',
+        type: FundSource.sponsorship,
+        purpose: "Speaker's honorarium",
+        amount: 5000,
+        daysAgo: 9,
+      ),
+      row(
+        id: 'demo-in-3',
+        source: 'CITE Alumni Chapter',
+        type: FundSource.donation,
+        purpose: 'Tarpaulin and printing',
+        amount: 1500,
+        daysAgo: 4,
+        status: ReceiptReviewStatus.pending,
+      ),
+    ];
+  }
+
+  /// The itemized lines behind a demo expense.
+  ///
+  /// `demo-ex-2` carries asset lines on purpose: asset lines are what
+  /// make Complete purchase reachable, which is the only path in the app
+  /// from spending money to owning equipment.
+  static List<ExpenseLine> linesFor(String expenseId) {
+    final now = DateTime.now();
+    var serial = 0;
+    ExpenseLine line({
+      required String name,
+      required double amount,
+      required ItemCategory category,
+      int quantity = 1,
+      String unit = 'pcs',
+    }) => ExpenseLine(
+      id: 'demo-exl-$expenseId-${serial++}',
+      expenseId: expenseId,
+      name: name,
+      amount: amount,
+      category: category,
+      quantity: quantity,
+      unit: unit,
+      convertedInventoryId: null,
+      createdAt: now.subtract(const Duration(days: 8)),
+    );
+
+    return switch (expenseId) {
+      // 1,850 total: two assets worth keeping, one consumable.
+      'demo-ex-2' => [
+        line(
+          name: 'Extension cord 10m',
+          amount: 850,
+          category: ItemCategory.asset,
+          quantity: 2,
+        ),
+        line(
+          name: 'Whiteboard marker set',
+          amount: 600,
+          category: ItemCategory.asset,
+          quantity: 6,
+          unit: 'sets',
+        ),
+        line(
+          name: 'Bond paper, short',
+          amount: 400,
+          category: ItemCategory.consumable,
+          quantity: 5,
+          unit: 'reams',
+        ),
+      ],
+      'demo-ex-1' => [
+        line(
+          name: "Speaker's honorarium",
+          amount: 2000,
+          category: ItemCategory.consumable,
+        ),
+      ],
+      'demo-ex-3' => [
+        line(
+          name: 'Certificate printing',
+          amount: 2850,
+          category: ItemCategory.consumable,
+          quantity: 145,
+        ),
+      ],
+      _ => const [],
+    };
+  }
+
+  /// The figures the Analytics sheet and the dashboard's analytics
+  /// section read. Derived from the same seed the other screens use, so
+  /// the counts agree with what is on the lists rather than being a
+  /// second set of numbers that happens to look plausible.
+  static DashboardSummary dashboard() => DashboardSummary(
+    totalCategories: categories().length,
+    totalAllocatedBudget: 50000,
+    totalRemainingBudget: 35550,
+    eventsByStatus: {
+      'pending_adviser': 1,
+      'approved': 1,
+      'rejected': 1,
+      'draft': 2,
+      'completed': 1,
+    },
+    expensesByStatus: {'pending': 1, 'approved': 2, 'rejected': 1},
+    flaggedExpenseCount: 1,
+    lowStockItemCount: 2,
+    draftInventoryCount: 1,
+  );
+
+  /// Six months of spending, ending on the current month so the chart
+  /// never reads as stale during a walkthrough.
+  static List<SpendingTrendPoint> spendingTrends() {
+    final now = DateTime.now();
+    const amounts = [3200.0, 5400.0, 2100.0, 8750.0, 6300.0, 14450.0];
+    const counts = [2, 3, 1, 5, 4, 4];
+    return [
+      for (var back = 5; back >= 0; back--)
+        () {
+          final month = DateTime(now.year, now.month - back);
+          final index = 5 - back;
+          return SpendingTrendPoint(
+            month: '${month.year}-${month.month.toString().padLeft(2, '0')}',
+            totalAmount: amounts[index],
+            expenseCount: counts[index],
+          );
+        }(),
+    ];
+  }
+
+  /// The receipt history behind the expenses, newest first.
+  ///
+  /// One pair is deliberately alike — same merchant, same amount, a day
+  /// apart — because the similarity flag is the point of this screen and
+  /// a history with nothing flagged in it never shows what it is for.
+  static List<Receipt> receipts() {
+    final now = DateTime.now();
+    Receipt row({
+      required String id,
+      required String purpose,
+      required String merchant,
+      required double amount,
+      required int daysAgo,
+      String? expenseId,
+      bool flagged = false,
+      List<String> similar = const [],
+      ReceiptReviewStatus status = ReceiptReviewStatus.cleared,
+    }) => Receipt(
+      id: id,
+      organizationId: 'demo-org-1',
+      departmentId: 'demo-dept-1',
+      eventId: 'demo-ev-1',
+      expenseId: expenseId,
+      incomeId: null,
+      purpose: purpose,
+      receiptUrl: 'demo://receipts/$id.jpg',
+      merchant: merchant,
+      // Never captured by the app yet, which is why the exact duplicate
+      // check can only run on two of its three keys.
+      receiptNumber: null,
+      issuedOn: now.subtract(Duration(days: daysAgo)),
+      amount: amount,
+      isFlagged: flagged,
+      similarReceiptIds: similar,
+      reviewStatus: status,
+      reviewReason: flagged
+          ? 'Same merchant and amount within a day of demo-rc-3.'
+          : null,
+      reviewedBy: status == ReceiptReviewStatus.cleared ? 'Demo Adviser' : null,
+      reviewedAt: status == ReceiptReviewStatus.cleared
+          ? now.subtract(Duration(days: daysAgo - 1))
+          : null,
+      recordedBy: 'Demo Treasurer',
+      createdAt: now.subtract(Duration(days: daysAgo)),
+    );
+
+    return [
+      row(
+        id: 'demo-rc-4',
+        purpose: 'Tarpaulin and printing',
+        merchant: 'PrintHub',
+        amount: 4600,
+        daysAgo: 2,
+        expenseId: 'demo-ex-4',
+        flagged: true,
+        similar: const ['demo-rc-3'],
+        status: ReceiptReviewStatus.pending,
+      ),
+      row(
+        id: 'demo-rc-3',
+        purpose: 'Tarpaulin and printing',
+        merchant: 'PrintHub',
+        amount: 4600,
+        daysAgo: 3,
+      ),
+      row(
+        id: 'demo-rc-2',
+        purpose: 'Seminar materials',
+        merchant: 'National Book Store',
+        amount: 1850,
+        daysAgo: 8,
+        expenseId: 'demo-ex-2',
+      ),
+      row(
+        id: 'demo-rc-1',
+        purpose: "Speaker's honorarium",
+        merchant: 'Hack the Future',
+        amount: 2000,
+        daysAgo: 14,
+        expenseId: 'demo-ex-1',
+      ),
+    ];
+  }
+
+  /// What the OCR would have read off a photographed receipt. The figures
+  /// add up to the total, because a scan whose lines do not reconcile is
+  /// exactly what the real parser refuses.
+  static ScannedReceipt scannedReceipt() => ScannedReceipt(
+    receiptUrl: 'demo://receipts/lcup-campus-store.jpg',
+    merchant: 'LCUP Campus Store',
+    date: DateTime.now().subtract(const Duration(days: 1)),
+    amount: 1220,
+    items: [
+      ScannedReceiptLine(
+        name: 'Tarpaulin 3x5',
+        amount: 450,
+        category: ItemCategory.consumable,
+      ),
+      ScannedReceiptLine(
+        name: 'Certificates (bond)',
+        amount: 600,
+        category: ItemCategory.consumable,
+      ),
+      ScannedReceiptLine(
+        name: 'Ribbon spool',
+        amount: 170,
+        category: ItemCategory.asset,
+      ),
+    ],
+  );
 
   static List<AppNotice> notices() => [
     // True of demo-ev-1, which is sent and with the Moderator.

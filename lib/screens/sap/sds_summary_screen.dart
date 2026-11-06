@@ -85,7 +85,7 @@ class _SdsSummaryScreenState extends State<SdsSummaryScreen> {
             children: [
               Text(
                 d.title?.isNotEmpty == true ? d.title! : 'Untitled activity',
-                style: AppText.screenTitle,
+                style: AppText.display,
               ),
               const SizedBox(height: 4),
               Text(

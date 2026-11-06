@@ -41,7 +41,7 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Receipts', style: AppText.screenTitle),
+          const Text('Receipts', style: AppText.display),
           const SizedBox(height: 4),
           const Text(
             'Proof of spending, and anything that looks like a duplicate.',

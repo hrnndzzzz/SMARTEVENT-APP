@@ -1,0 +1,179 @@
+flowchart LR
+
+%% SMARTEVENT whole-system flowchart. Paste the whole thing into mermaid.live.
+%% Sources: smartevent-backend/docs/sap-fo-020-frontend-contract.md,
+%% app/dependencies.py, app/services/receipt_validation.py,
+%% app/routers/sap.py, expenses.py, inventory.py, reports.py
+
+%% ACCESS
+subgraph ACCESS["Access control"]
+  direction TB
+  LOGIN["Log in<br/>Bearer JWT"] --> ACTIVE{"Account active<br/>and password changed?"}
+  ACTIVE -- no --> BLOCKED["Blocked<br/>finish password setup"]
+  ACTIVE -- yes --> ROLE{"Role"}
+  ROLE --> R_SUPER["super_admin"]
+  ROLE --> R_ADMIN["admin"]
+  ROLE --> R_ADV["adviser / Moderator"]
+  ROLE --> R_TREAS["treasurer"]
+  ROLE --> R_OFF["officer<br/>President · VP · Secretary"]
+  ROLE --> R_SDS["sds_staff<br/>institution-wide, no org"]
+  ROLE --> R_SIGN["signatory<br/>no new access"]
+end
+
+%% PROPOSAL (Parts 1-3)
+subgraph PROPOSE["Proposal — Parts 1 to 3"]
+  direction TB
+  NEWSAP["POST sap-proposal<br/>creates draft"] --> DRAFT(["draft"])
+  DRAFT --> EDIT["PATCH details<br/>PUT program-flow · budget-items<br/>support-requests · affected-classes<br/>max 16 rows each"]
+  EDIT --> DRAFT
+  DRAFT --> SUBMIT{"POST /submit<br/>cross-field checks:<br/>time · classes · budget"}
+  SUBMIT -- "fails 422" --> DRAFT
+  SUBMIT -- "passes" --> FREEZE["Freeze snapshot + PDF<br/>create all nine checkpoints<br/>revision_no + 1"]
+end
+
+R_OFF --> NEWSAP
+R_TREAS --> NEWSAP
+R_ADV --> NEWSAP
+R_ADMIN --> NEWSAP
+
+%% Shared outcomes — declared at top level on purpose. Mermaid puts a node in
+%% whichever subgraph mentions it first, and these belong to no single stage.
+REVREQ(["revision_requested"])
+REJ(["rejected — final<br/>every later call answers 409"])
+
+%% DEPARTMENT REVIEW
+subgraph DEPT["Department review"]
+  direction TB
+  FREEZE --> PDR(["pending_department_review"])
+  PDR --> MOD{"Moderator decides<br/>event: pending_adviser"}
+  MOD -- "approve" --> DEAN{"Dean decides<br/>event: pending_admin"}
+  NOTE_SKIP["A proposal the Moderator<br/>sent or created starts at the Dean"] -.-> DEAN
+end
+
+%% These edges stay outside the subgraph: an edge drawn inside it would pull
+%% the shared REJ / REVREQ nodes into the Department review box.
+MOD -- "reject" --> REJ
+MOD -- "return + remarks" --> REVREQ
+DEAN -- "reject" --> REJ
+DEAN -- "return + remarks" --> REVREQ
+
+%% SDS OFFICE REVIEW
+subgraph SDSREV["SDS Office review"]
+  direction TB
+  DEAN -- "approve" --> PSR(["pending_sap_review<br/>event: pending_institutional_review"])
+  PSR --> PART4["PUT /sds-clearance — Part 4<br/>consent · attachments · class interruption<br/>medical exam · compliance · ratio<br/>must be complete before signing"]
+  PART4 --> SDSDEC{"SDS Office decides"}
+  SDSDEC -- "sds-sign" --> SIGNED(["sds_signed"])
+end
+
+%% Outside the subgraph, for the same reason as above.
+SDSDEC -- "return + remarks<br/>returned_by: sds<br/>clears Part 4" --> REVREQ
+SDSDEC -- "sds-reject<br/>remarks saved as<br/>overall_remarks" --> REJ
+
+REVREQ --> RESUB["Proposer revises<br/>old PDF + snapshot + checkpoints kept<br/>signatures never copied forward"]
+RESUB --> PDR
+
+WD["POST /withdraw<br/>before SDS review starts<br/>back to draft, clears Part 4"] -.-> DRAFT
+PDR -.-> WD
+PSR -.-> WD
+
+%% NINE PHYSICAL SIGNATURES
+subgraph SIGS["Part 5 — nine physical signatures, recorded by SDS"]
+  direction TB
+  S1["1 · Organization President — Prepared by<br/>must link the original proposer"]
+  S23["2 · Org Moderator  ·  3 · College Dean<br/>Reviewed by — either order"]
+  S4["4 · SDS Coordinator / Activity Officer"]
+  S5["5 · Director, SAS — Noted by"]
+  S6["6 · Assistant VPAA — Endorsed by"]
+  S7["7 · VPAA — Recommending approval"]
+  S8["8 · Applicable admins"]
+  S9["9 · University President — Approved by"]
+  S1 --> S23 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
+  GATE{{"Slots 1-4 from pending_sap_review<br/>Slots 5-9 only after sds_signed<br/>else 409"}}
+  RULES["All nine distinct people · slots 2-9 exclude the proposer<br/>physical date between submission and today<br/>mis-recorded evidence is never overwritten — return instead"]
+end
+
+PSR -.-> S1
+SIGNED --> S5
+GATE -.-> S5
+
+%% EVIDENCE AND CLOSE
+subgraph CLOSE["Evidence and closing"]
+  direction TB
+  S9 --> SCAN["POST /final-signed-copy<br/>SDS uploads the scanned paper form"]
+  SCAN --> CHECKS{"All nine recorded<br/>+ pre-activity compliance ready?"}
+  CHECKS -- no --> SCANFAIL["409 — repair evidence first"]
+  CHECKS -- yes --> APPROVED(["approved<br/>SHA-256 stored, private URL"])
+  APPROVED --> EVAL["POST /evaluation — Part 6<br/>conducted or canceled + remarks"]
+  EVAL --> DONE(["completed"])
+end
+
+QR["Public GET /sap/verify/{token}<br/>minimal JSON from the printed QR"] -.-> APPROVED
+
+%% PRINTING
+subgraph PRINT["Printing"]
+  direction TB
+  GETPDF["GET /pdf"] --> WHICH{"comments=true?"}
+  WHICH -- no --> CLEANPDF["Clean form<br/>goes to the signatories<br/>no remark text anywhere"]
+  WHICH -- yes --> COMPDF["Same form + SDS remarks<br/>as margin comment bubbles<br/>file name ends -comments"]
+  RENDER{{"Windows: Word COM<br/>Linux/macOS: LibreOffice soffice<br/>then dashed links drawn to each part"}}
+  COMPDF --- RENDER
+  CLEANPDF --- RENDER
+end
+PSR -.-> GETPDF
+APPROVED -.-> GETPDF
+
+%% FINANCE
+subgraph FIN["Finance — treasurer only"]
+  direction TB
+  SPEND["Record an expense"] --> RCPT{"Attach receipt?"}
+  RCPT -- "photo or scan" --> OCR["Gemini OCR<br/>retries when Gemini is busy"]
+  OCR --> FIELDS["merchant · amount · receipt number<br/>issue date · line items"]
+  RCPT -- "typed" --> FIELDS
+  FIELDS --> DUP{"Duplicate check"}
+  DUP -- "url_fingerprint<br/>file_sha256<br/>reference_key = hash merchant+number" --> HARD["409 duplicate_receipt<br/>refused outright"]
+  DUP -- "same merchant + amount<br/>within one day" --> FLAG["is_flagged<br/>needs an independent review<br/>before the expense can be approved"]
+  DUP -- "clean" --> PENDEXP(["expense: pending"])
+  FLAG --> PENDEXP
+  PENDEXP --> EXPDEC{"Approver decides"}
+  EXPDEC -- approve --> EXPOK(["approved"])
+  EXPDEC -- reject --> EXPNO(["rejected"])
+end
+R_TREAS --> SPEND
+
+%% INVENTORY
+subgraph INV["Inventory"]
+  direction TB
+  ITEM["Create item<br/>starts as a draft"] --> CONFIRM["Confirm draft item"]
+  CONFIRM --> STOCK[("Catalog<br/>quantity on hand")]
+  STOCK --> MOVE["Record a movement<br/>received · issued for an event<br/>returned · damaged · lost"]
+  MOVE --> LEDGER["Movement ledger<br/>every change keeps its reason,<br/>event and timestamp"]
+  LEDGER --> STOCK
+  MOVE -.- GUARD{{"A movement that would take<br/>stock below zero is refused"}}
+  STOCK --> LOW["Low-stock list"]
+end
+
+%% REPORTS
+subgraph REP["Reports and oversight"]
+  direction TB
+  AUDIT["Audit log<br/>every access change recorded"]
+  ANALYTICS["Analytics · recommendations"]
+  EXPORTS["Exports<br/>financial + school-year reports"]
+  NOTIF["Notifications"]
+end
+DONE --> REP
+EXPOK --> REP
+LEDGER --> REP
+
+%% STYLING
+classDef terminal fill:#1f2937,stroke:#111827,color:#f9fafb,font-weight:bold
+classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+classDef warn fill:#fef3c7,stroke:#d97706,color:#78350f
+classDef state fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+
+class DRAFT,PDR,PSR,SIGNED,REVREQ state
+class APPROVED,EXPOK,CLEANPDF good
+class REJ,EXPNO,HARD,BLOCKED,SCANFAIL bad
+class FLAG,GATE,GUARD,RULES,SCAN warn
+class DONE terminal

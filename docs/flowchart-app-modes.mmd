@@ -1,0 +1,86 @@
+flowchart LR
+
+%% SMARTEVENT chart 6 of 6 — how the app behaves without a live server.
+%% Paste the whole thing into mermaid.live.
+%% Sources: lib/state/app_state.dart, lib/state/demo_data.dart,
+%% lib/api/api_config.dart, test/offline_session_test.dart
+%% These are Flutter-side, so none of the backend charts describe them.
+
+START(["App launches"]) --> LOADCFG["ApiConfig.load<br/>a deployed build wipes any saved override,<br/>so an address typed weeks ago cannot strand the phone"]
+LOADCFG --> PICK{"How is the app being used?"}
+
+%% DEMO MODE
+subgraph DEMO["Demo mode — no server exists at all"]
+  direction TB
+  ENTER["enterDemo(role)"] --> SEED["Seeded outright from DemoData:<br/>account · categories · departments<br/>organizations · events · expenses<br/>catalog · letters"]
+  SEED --> BELT{{"Belt and braces: the screens are filled without<br/>a request, AND _apiClient.demoMode refuses<br/>anything that asks anyway"}}
+  SEED --> SESSION["Session state forced:<br/>sessionChecked = true<br/>password setup not required"]
+  RESET["Re-entering demo clears the held catalog<br/>and the recorded movements, so a demo<br/>always starts from the same place"]
+  ENTER -.-> RESET
+end
+PICK -- "Demo" --> ENTER
+
+%% THE PATTERN THAT BIT US
+subgraph GUARD["Why each feature needs its own demo branch"]
+  direction TB
+  CALL["A screen asks for data"] --> RUNLOAD["_runLoad"]
+  RUNLOAD --> ISDEMO{"demo mode?"}
+  ISDEMO -- yes --> EARLY["returns early — no fetch happens"]
+  EARLY --> NEEDBRANCH{"Does this feature have<br/>its own demo branch?"}
+  NEEDBRANCH -- yes --> ANSWER(["answered from the seed"])
+  NEEDBRANCH -- no --> EMPTY["Shows an error, or nothing at all"]
+  ISDEMO -- no --> FETCH["Real request to the backend"]
+  LESSON{{"A demo branch placed inside the _runLoad callback<br/>is unreachable, because _runLoad already returned.<br/>It has to sit before the call."}}
+  EARLY -.- LESSON
+end
+SEED --> CALL
+
+HELD["Catalog and movement ledger are held for the session,<br/>so a recorded movement survives a filter<br/>instead of being rebuilt from the seed"]
+ANSWER -.-> HELD
+
+STILL["Still refuse in demo, by choice:<br/>+ New item · Create category<br/>Scan receipt · Save expense"]
+EMPTY -.-> STILL
+
+%% OFFLINE
+subgraph OFFLINE["Offline viewing — a real account, no reachable server"]
+  direction TB
+  SIGNED["Signed in earlier, profile and data saved"] --> DROP["Server becomes unreachable"]
+  DROP --> RO["_apiClient.readOnly = true<br/>isOfflineViewing"]
+  RO --> SHOW["Last successful downloads are shown:<br/>events · expenses · income · inventory<br/>receipts · categories · reports · dashboard<br/>notifications · proposal letters<br/>each with the date it was saved"]
+  RO --> NOWRITE["Writes are refused while read-only"]
+end
+PICK -- "Real account" --> SIGNED
+
+%% COMING BACK
+BACK["Connection returns<br/>_connectionChanged fires"] --> REVAL["retryOfflinePreparation"]
+SHOW --> BACK
+REVAL --> GEN{{"A session generation counter means a reply that<br/>arrives after a sign-out or server change is discarded"}}
+REVAL --> PROF{"GET current user"}
+
+PROF -- "inactive · suspended<br/>must change password<br/>unknown role" --> OUT["signOut — the saved viewer is revoked"]
+PROF -- "403 forbidden" --> OUT
+PROF -- "network still down" --> KEEP["Keep the saved viewer<br/>and its last downloads"]
+KEEP --> SHOW
+PROF -- "ok" --> REFRESH["Remember the profile, reload signed-in data,<br/>re-prepare the offline copy"]
+REFRESH --> LIVE(["live again, writes allowed"])
+
+%% WHAT THE TESTS PIN DOWN
+subgraph TESTS["What test/offline_session_test.dart pins down"]
+  direction TB
+  T1["A saved viewer opens before an unreachable<br/>server request times out"]
+  T2["An explicit account denial removes the saved viewer"]
+  T3["A password-setup refusal revokes an older offline viewer"]
+  T4["A denied refresh removes records already on screen"]
+  T5["Scope revalidation rejects requests started<br/>under the previous scope"]
+end
+OUT --> TESTS
+
+classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+classDef warn fill:#fef3c7,stroke:#d97706,color:#78350f
+classDef state fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+
+class RO,SHOW state
+class ANSWER,LIVE,REFRESH good
+class EMPTY,OUT,NOWRITE bad
+class BELT,LESSON,GEN,STILL,HELD warn

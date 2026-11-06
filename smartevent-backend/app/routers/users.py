@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import assert_record_scope, require_role, resolve_organization_id, scope_query_by_department
 from app.models import CiteMember, Department, Organization, User
+from app.rbac_policy import manageable_roles
 from app.schemas import SignatoryOut, UserAccessUpdate, UserDepartmentUpdate, UserOut
 from app.services.access_audit import record_access_change
 
@@ -33,7 +34,7 @@ def list_users(
     organization_id: uuid.UUID | None = Query(default=None),
     is_suspended: bool | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     query = db.query(User)
     if current_user.role == "super_admin":
@@ -105,7 +106,7 @@ def update_user_access(
     user_id: uuid.UUID,
     payload: UserAccessUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     target = db.query(User).filter(User.id == user_id).with_for_update().first()
     if target is None:
@@ -117,11 +118,12 @@ def update_user_access(
         raise HTTPException(status_code=422, detail="Provide at least one access change")
     if any(value is None for key, value in updates.items() if key != "position"):
         raise HTTPException(status_code=422, detail="Access fields cannot be null")
-    member_roles = {"adviser", "treasurer", "officer"}
     if current_user.role != "super_admin":
         assert_record_scope(current_user, target)
-        if target.role not in member_roles or updates.get("role", target.role) not in member_roles:
-            raise HTTPException(status_code=403, detail="Admins can manage only adviser, treasurer, and officer accounts")
+        allowed = manageable_roles(current_user)
+        if target.role not in allowed or updates.get("role", target.role) not in allowed:
+            names = ", ".join(sorted(allowed))
+            raise HTTPException(status_code=403, detail=f"Your account can manage only {names} accounts")
         if "organization_id" in updates:
             raise HTTPException(status_code=403, detail="Only Super Admin can transfer an account")
     new_role = updates.get("role", target.role)
@@ -143,8 +145,6 @@ def update_user_access(
         "organization_id": str(target.organization_id), "department_id": str(target.department_id),
     }
     member = db.query(CiteMember).filter(CiteMember.claimed_by_user_id == target.id).first()
-    if member is not None and new_role not in member_roles:
-        raise HTTPException(status_code=409, detail="Roster accounts must retain an adviser, treasurer, or officer role")
     for field, value in updates.items():
         setattr(target, field, value)
     if member is not None:

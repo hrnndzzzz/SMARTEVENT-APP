@@ -2,10 +2,25 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../api/api_client.dart' show ApiException;
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
+
+/// The server refuses a reference that names no stored file (422) or one it
+/// cannot find (404): that is a record without a photo, not an error to read out.
+bool _noStoredFile(Object? error) =>
+    error is ApiException && (error.isValidationError || error.isNotFound);
+
+Widget _brokenImage(BuildContext context, String message) => Column(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Icon(Icons.broken_image_outlined, size: 28, color: context.palette.muted),
+    const SizedBox(height: 8),
+    Text(message, style: AppText.caption, textAlign: TextAlign.center),
+  ],
+);
 
 /// A file held in storage, shown.
 ///
@@ -71,12 +86,17 @@ class _StoredImageState extends State<StoredImage> {
               width: double.infinity,
               child: url == null
                   ? Center(
-                      child: snapshot.hasError
-                          ? Text(
+                      child: !snapshot.hasError
+                          ? BrutSpinner()
+                          : _noStoredFile(snapshot.error)
+                          ? _brokenImage(
+                              context,
+                              'No ${widget.label.toLowerCase()} is stored.',
+                            )
+                          : Text(
                               '${snapshot.error}',
                               textAlign: TextAlign.center,
-                            )
-                          : BrutSpinner(),
+                            ),
                     )
                   : Image.memory(
                       Uint8List.fromList(url.bytes),
@@ -84,20 +104,9 @@ class _StoredImageState extends State<StoredImage> {
                       // A stored file that will not load is worth saying
                       // plainly: the record is fine, the image is not.
                       errorBuilder: (context, _, __) => Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.broken_image_outlined,
-                              size: 28,
-                              color: context.palette.muted,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'The image could not be loaded.',
-                              style: AppText.caption,
-                            ),
-                          ],
+                        child: _brokenImage(
+                          context,
+                          'The image could not be loaded.',
                         ),
                       ),
                     ),

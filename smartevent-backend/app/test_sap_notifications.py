@@ -1,4 +1,6 @@
 """SAP inbox payloads and existing email retries, without real external delivery."""
+import base64
+
 import pytest
 
 from app.test_access_management import system
@@ -52,6 +54,21 @@ def test_legacy_notifications_have_null_payload_and_remain_private(sap_system):
     login('sds_staff')
     assert client.get('/notifications').json() == []
     assert client.patch(f'/notifications/{old.id}/read').status_code == 404
+
+
+def test_sds_gets_the_filled_form_by_email_when_the_dean_approves(sap_system, monkeypatch):
+    client, db, users, *_ = sap_system
+    sent = []
+    monkeypatch.setattr('app.services.notifications.send_email',
+                        lambda to, subject, body, **kw: sent.append((to, subject, kw.get('attachments'))))
+    populate(sap_system)
+    sds = [s for s in sent if s[0] == users['sds_staff'].email and s[1] == 'SAP proposal sent to the SDS Office']
+    assert len(sds) == 1 and len(sds[0][2]) == 1
+    assert base64.b64decode(sds[0][2][0]['content']).startswith(b'%PDF')
+    assert sds[0][2][0]['filename'] == 'SAP-revision-1.pdf'
+    assert all(s[2] is None for s in sent if s[0] != users['sds_staff'].email)
+    row = db.query(Notification).filter_by(user_id=users['sds_staff'].id, title='SAP proposal sent to the SDS Office').one()
+    assert row.email_status == 'sent'
 
 
 def test_failed_email_retry_keeps_workflow_and_does_not_resend_sent(sap_system, monkeypatch):

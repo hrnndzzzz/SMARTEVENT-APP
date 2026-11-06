@@ -1,0 +1,119 @@
+flowchart LR
+
+%% SMARTEVENT chart 4 of 5 — money and assets.
+%% Paste the whole thing into mermaid.live.
+%% Sources: app/routers/expenses.py, receipts.py, incomes.py, inventory.py
+%% app/services/receipt_validation.py, app/services/purchase_completion.py
+
+%% WHO
+WHO{{"Recording money is treasurer-only<br/>require_financial_access"}}
+
+%% MONEY IN
+subgraph IN["Money in"]
+  direction TB
+  INC["POST /incomes<br/>source + purpose"] --> INCL["GET /incomes<br/>received income per event"]
+end
+
+%% CAPTURING AN EXPENSE
+subgraph SPEND["Recording an expense"]
+  direction TB
+  NEWEXP["POST /expenses"] --> HOW{"How is the receipt captured?"}
+  HOW -- "photo of paper" --> SCAN["POST /scan-receipt<br/>Gemini Vision OCR"]
+  HOW -- "pasted text" --> PARSE["POST /parse-receipt<br/>text parser"]
+  HOW -- "typed by hand" --> FIELDS
+  SCAN --> FIELDS["merchant · amount · receipt number<br/>issue date · line items"]
+  PARSE --> FIELDS
+  RETRY{{"Gemini answers 503 under load;<br/>the SDK retries 408/429/5xx up to four times"}}
+  SCAN -.- RETRY
+end
+WHO --> NEWEXP
+WHO --> INC
+
+%% DUPLICATE DETECTION
+subgraph DUPCHK["Duplicate detection"]
+  direction TB
+  DUP{"Three exact keys"}
+  DUP -- "url_fingerprint matches" --> HARD
+  DUP -- "file_sha256 matches" --> HARD
+  DUP -- "reference_key matches<br/>hash of merchant + receipt number" --> HARD["409 duplicate_receipt<br/>refused outright"]
+  DUP -- "none match" --> SIM{"Similar?<br/>same merchant + amount<br/>within one day"}
+  SIM -- yes --> FLAG["is_flagged = true<br/>a different person must review it<br/>before the expense can be approved"]
+  SIM -- no --> CLEANR(["receipt accepted"])
+  FLAG --> FREV["POST /receipts/{id}/review<br/>only a pending flag can be cleared"]
+  FREV --> CLEANR
+  GAP{{"Known gap: receipt_number and issued_on are<br/>never captured, so reference_key is always null.<br/>The same paper receipt photographed twice is<br/>only flagged, never refused."}}
+  DUP -.- GAP
+end
+FIELDS --> DUP
+
+%% APPROVAL
+PEND(["expense: pending"])
+CLEANR --> PEND
+PEND --> EDIT["PATCH /expenses/{id}<br/>pending expenses only"]
+EDIT --> PEND
+PEND --> APPR{"POST /approve — every check must pass"}
+
+subgraph CHECKS["What approval checks"]
+  direction TB
+  C1["A flagged similar receipt has been reviewed"]
+  C2["An asset purchase has its receipt recorded"]
+  C3["amount <= category.remaining_budget"]
+  C4["amount <= event.remaining_budget"]
+end
+APPR -.- CHECKS
+
+APPR -- "a check fails" --> REFUSE["409 naming the exact shortfall,<br/>e.g. over the remaining budget for<br/>'<category>' (₱x,xxx.xx)"]
+REFUSE --> PEND
+APPR -- "all pass" --> APPROVED(["expense: approved"])
+PEND --> REJECT["POST /reject"] --> REJECTED(["expense: rejected"])
+PEND --> DEL["DELETE /expenses/{id}"]
+
+%% THE BRIDGE INTO INVENTORY
+subgraph BRIDGE["Buying an asset turns into stock"]
+  direction TB
+  COMP["POST /complete-purchase"]
+  COMP --> BCHECK{"All of these, or 409"}
+  BCHECK --> B1["expense is approved, not already completed"]
+  BCHECK --> B2["recorded payment equals the expense amount"]
+  BCHECK --> B3["expense is assigned to its event, ownership matches"]
+  BCHECK --> B4["a purpose-bearing receipt is linked,<br/>its event and amount match"]
+  BCHECK --> B5["the expense has asset line items,<br/>each confirmed exactly once, each named"]
+  BCHECK --> B6["line amounts do not exceed the purchase total"]
+  B6 --> MADE(["asset items converted<br/>converted_inventory_id set"])
+  TWICE{{"Already-converted items are refused:<br/>'stock will not be added twice'"}}
+  COMP -.- TWICE
+end
+APPROVED --> COMP
+
+%% INVENTORY
+subgraph INV["Inventory"]
+  direction TB
+  CREATE["POST /inventory<br/>created as a draft"] --> CONFIRM["POST /confirm<br/>draft becomes real stock"]
+  CONFIRM --> STOCK[("Catalog<br/>quantity on hand")]
+  MADE --> STOCK
+  STOCK --> MOVE["POST transaction<br/>received · issued for an event<br/>returned · damaged · lost"]
+  MOVE --> ZERO{"Would this take stock below zero?"}
+  ZERO -- yes --> NOPE["Refused"]
+  ZERO -- no --> LEDGER["Movement ledger<br/>each entry keeps reason, event, timestamp"]
+  LEDGER --> STOCK
+  STOCK --> LOW["GET /low-stock"]
+  STOCK --> UPD["PATCH item · DELETE item"]
+  REPAIR["PATCH /transactions/{id}<br/>repair metadata on a past movement"]
+end
+
+%% REPORTING OUT
+OUT["Spending trends · flagged expenses<br/>category, event and consolidated reports<br/>CSV exports"]
+APPROVED --> OUT
+INCL --> OUT
+LEDGER --> OUT
+FLAG --> OUT
+
+classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+classDef warn fill:#fef3c7,stroke:#d97706,color:#78350f
+classDef state fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+
+class PEND,CLEANR state
+class APPROVED,MADE,OKDOC good
+class HARD,REJECTED,REFUSE,NOPE bad
+class FLAG,GAP,RETRY,TWICE,WHO warn

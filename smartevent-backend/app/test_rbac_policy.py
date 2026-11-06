@@ -222,11 +222,6 @@ def test_sds_staff_cannot_read_operational_modules(client, user, path):
         ),
         (
             "post",
-            f"/inventory/{uuid4()}/transactions",
-            {"json": {"change_qty": 1}},
-        ),
-        (
-            "post",
             "/proposal-letters",
             {
                 "data": {"event_id": str(uuid4()), "title": "Test letter"},

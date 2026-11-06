@@ -412,6 +412,12 @@ class ExpenseEntry {
   /// and purchase state straight off it. Null for the local seed rows.
   RemoteExpense? remote;
 
+  /// Set when the demo completes a purchase. A seeded row has no [remote]
+  /// to carry that state, so without this the Complete purchase button
+  /// stayed on screen after the stock had already been received, and the
+  /// refusal only came once the whole form had been filled in again.
+  bool demoPurchaseCompleted = false;
+
   ExpenseEntry({
     this.remoteId,
     required this.vendor,
@@ -431,7 +437,8 @@ class ExpenseEntry {
   String? get flagReason => remote?.flagReason;
 
   /// Approved and paid/received, so its asset lines are already stock.
-  bool get isPurchaseCompleted => remote?.isPurchaseCompleted ?? false;
+  bool get isPurchaseCompleted =>
+      demoPurchaseCompleted || (remote?.isPurchaseCompleted ?? false);
 
   /// Eligible for the Complete Purchase step: approved, not already
   /// completed. Whether it actually has asset lines is decided once the
@@ -1314,6 +1321,48 @@ class AppState extends ChangeNotifier {
     String? departmentId,
     String? organizationId,
   }) async {
+    if (_demoMode) {
+      final now = DateTime.now();
+      final item = RemoteInventoryItem(
+        id: 'demo-inv-${now.microsecondsSinceEpoch}',
+        itemName: itemName,
+        description: description,
+        quantity: quantity,
+        unit: unit,
+        lowStockThreshold: lowStockThreshold,
+        location: location,
+        isDraft: false,
+        eventId: eventId.isEmpty ? null : eventId,
+        departmentId: departmentId ?? 'demo-dept-1',
+        organizationId: organizationId ?? 'demo-org-1',
+        createdAt: now,
+        updatedAt: now,
+      );
+      _demoCatalogHeld = [item, ..._demoCatalog];
+      catalog = [item, ...catalog];
+      // Opening stock is still stock arriving, so it goes on the ledger
+      // rather than being a quantity that appeared from nowhere.
+      if (quantity > 0) {
+        _demoLedger(item.id).insert(
+          0,
+          InventoryMovement(
+            id: 'demo-mv-${item.id}-0',
+            inventoryId: item.id,
+            eventId: null,
+            changeQty: quantity,
+            type: initialTransactionType == InitialStockType.openingBalance
+                ? InventoryMovementType.openingBalance
+                : InventoryMovementType.acquisition,
+            reason: reason,
+            performedBy: currentAccount?.name ?? 'Demo Admin',
+            expenseItemId: null,
+            createdAt: now,
+          ),
+        );
+      }
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _inventoryService.create(
         eventId: eventId,
@@ -1346,6 +1395,22 @@ class AppState extends ChangeNotifier {
     String? location,
     String? eventId,
   }) async {
+    if (_demoMode) {
+      // Quantity is deliberately absent here, in the demo as on the
+      // server: only a movement changes stock.
+      _replaceCatalogItem(
+        _withMetadata(
+          item,
+          itemName: itemName,
+          description: description,
+          unit: unit,
+          lowStockThreshold: lowStockThreshold,
+          location: location,
+          eventId: eventId,
+        ),
+      );
+      return null;
+    }
     try {
       final updated = await _inventoryService.update(
         item.id,
@@ -1364,6 +1429,16 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> deleteInventoryItem(RemoteInventoryItem item) async {
+    if (_demoMode) {
+      _demoCatalogHeld = [
+        for (final i in _demoCatalog)
+          if (i.id != item.id) i,
+      ];
+      _demoMovements.remove(item.id);
+      catalog = catalog.where((i) => i.id != item.id).toList();
+      notifyListeners();
+      return null;
+    }
     try {
       await _inventoryService.delete(item.id);
       catalog = catalog.where((i) => i.id != item.id).toList();
@@ -1377,6 +1452,10 @@ class AppState extends ChangeNotifier {
   /// Accepts a purchase-created draft. Adds no stock — that already
   /// happened when the purchase was completed.
   Future<String?> confirmInventoryDraft(RemoteInventoryItem item) async {
+    if (_demoMode) {
+      _replaceCatalogItem(_withMetadata(item, isDraft: false));
+      return null;
+    }
     try {
       _replaceCatalogItem(await _inventoryService.confirmDraft(item.id));
       return null;
@@ -1384,6 +1463,33 @@ class AppState extends ChangeNotifier {
       return _messageForFailure(error);
     }
   }
+
+  /// Rebuilds a row with new metadata, leaving the quantity alone. The
+  /// model holds its fields final, so changing one means rebuilding it.
+  RemoteInventoryItem _withMetadata(
+    RemoteInventoryItem item, {
+    String? itemName,
+    String? description,
+    String? unit,
+    int? lowStockThreshold,
+    String? location,
+    String? eventId,
+    bool? isDraft,
+  }) => RemoteInventoryItem(
+    id: item.id,
+    itemName: itemName ?? item.itemName,
+    description: description ?? item.description,
+    quantity: item.quantity,
+    unit: unit ?? item.unit,
+    lowStockThreshold: lowStockThreshold ?? item.lowStockThreshold,
+    location: location ?? item.location,
+    isDraft: isDraft ?? item.isDraft,
+    eventId: eventId ?? item.eventId,
+    departmentId: item.departmentId,
+    organizationId: item.organizationId,
+    createdAt: item.createdAt,
+    updatedAt: DateTime.now(),
+  );
 
   /// Records a stock movement.
   ///
@@ -1516,9 +1622,27 @@ class AppState extends ChangeNotifier {
   /// Narrows the ledger to one event — the only server-side income filter.
   String? incomeEventFilter;
 
-  Future<void> loadIncomes() => _runLoad(incomesLoad, () async {
-    incomes = await _incomeService.list(eventId: incomeEventFilter);
-  });
+  /// The demo's income ledger, seeded once and held for the session so a
+  /// row recorded during a walkthrough survives the event filter.
+  List<Income>? _demoIncomesHeld;
+
+  List<Income> get _demoIncomes =>
+      _demoIncomesHeld ??= [...DemoData.incomes()];
+
+  Future<void> loadIncomes() {
+    // Outside _runLoad, which returns early in demo: a branch written
+    // inside the callback below would never run.
+    if (_demoMode) {
+      incomes = [
+        for (final income in _demoIncomes)
+          if (incomeEventFilter == null || income.eventId == incomeEventFilter)
+            income,
+      ];
+    }
+    return _runLoad(incomesLoad, () async {
+      incomes = await _incomeService.list(eventId: incomeEventFilter);
+    });
+  }
 
   Future<void> applyIncomeFilter({String? eventId}) async {
     incomeEventFilter = eventId;
@@ -1556,6 +1680,30 @@ class AppState extends ChangeNotifier {
     DateTime? receivedOn,
     ReceiptDetailsInput? receipt,
   }) async {
+    if (_demoMode) {
+      final now = DateTime.now();
+      final recorded = Income(
+        id: 'demo-in-${now.microsecondsSinceEpoch}',
+        eventId: eventId,
+        source: source,
+        sourceType: sourceType,
+        purpose: purpose,
+        amount: double.tryParse(amount) ?? 0,
+        receivedOn: receivedOn ?? now,
+        // A receipt the treasurer has just attached has not been reviewed
+        // by anyone yet, so it is withheld from totals exactly as a real
+        // one would be. Without a receipt there is nothing to review.
+        receiptReviewStatus: receipt == null
+            ? ReceiptReviewStatus.cleared
+            : ReceiptReviewStatus.pending,
+        recordedBy: currentAccount?.name ?? 'Demo Treasurer',
+        createdAt: now,
+      );
+      _demoIncomesHeld = [recorded, ..._demoIncomes];
+      incomes = [recorded, ...incomes];
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _incomeService.record(
         eventId: eventId,
@@ -1857,6 +2005,26 @@ class AppState extends ChangeNotifier {
     required double allocatedBudget,
     double lowBalanceThreshold = 0,
   }) async {
+    if (_demoMode) {
+      final now = DateTime.now();
+      categories = [
+        ...categories,
+        Category(
+          id: 'demo-cat-${now.microsecondsSinceEpoch}',
+          name: name,
+          allocatedBudget: allocatedBudget,
+          // Nothing has been spent against a category that did not exist
+          // a moment ago, so all of it remains.
+          remainingBudget: allocatedBudget,
+          lowBalanceThreshold: lowBalanceThreshold,
+          createdBy: currentAccount?.name ?? 'Demo Admin',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _categoryService.create(
         name: name,
@@ -1883,6 +2051,27 @@ class AppState extends ChangeNotifier {
     double? allocatedBudget,
     double? lowBalanceThreshold,
   }) async {
+    if (_demoMode) {
+      final changed = Category(
+        id: category.id,
+        name: name ?? category.name,
+        allocatedBudget: allocatedBudget ?? category.allocatedBudget,
+        // Raising the allocation does not top up what is left: remaining
+        // is server-owned and only moves when money is spent. Inventing
+        // a new remaining here would teach the opposite.
+        remainingBudget: category.remainingBudget,
+        lowBalanceThreshold: lowBalanceThreshold ?? category.lowBalanceThreshold,
+        createdBy: category.createdBy,
+        createdAt: category.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      categories = [
+        for (final c in categories)
+          if (c.id == changed.id) changed else c,
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final updated = await _categoryService.update(
         category.id,
@@ -1905,6 +2094,19 @@ class AppState extends ChangeNotifier {
   /// expense still references the category; that explanation comes back in
   /// the returned message rather than being guessed at here.
   Future<String?> deleteCategory(Category category) async {
+    if (_demoMode) {
+      // The backend's 409. Keeping it means the demo shows why a
+      // category in use cannot simply be removed, rather than quietly
+      // deleting one and leaving its expenses pointing at nothing.
+      final inUse = expenses.where((e) => e.category == category.name).length;
+      if (inUse > 0) {
+        return 'Cannot delete this category: $inUse expense'
+            '${inUse == 1 ? '' : 's'} still reference it.';
+      }
+      categories = categories.where((c) => c.id != category.id).toList();
+      notifyListeners();
+      return null;
+    }
     try {
       await _categoryService.delete(category.id);
       categories = categories.where((c) => c.id != category.id).toList();
@@ -2227,6 +2429,16 @@ class AppState extends ChangeNotifier {
   /// otherwise updates its allocated budget. Returns null on success,
   /// or an error message.
   Future<String?> setCategoryBudget(String categoryName, double amount) async {
+    if (_demoMode) {
+      // Routed through the same two paths the server call uses, so the
+      // demo cannot drift from them.
+      final existing = categories
+          .where((c) => c.name == categoryName)
+          .firstOrNull;
+      return existing == null
+          ? createCategory(name: categoryName, allocatedBudget: amount)
+          : updateCategory(existing, allocatedBudget: amount);
+    }
     try {
       final existing = categories
           .where((c) => c.name == categoryName)
@@ -2272,12 +2484,21 @@ class AppState extends ChangeNotifier {
     if (remoteId == null) {
       return (lines: null, error: 'This expense has no backend record yet.');
     }
+    if (_demoMode) return (lines: _demoLines(remoteId), error: null);
     try {
       return (lines: await _expenseService.items(remoteId), error: null);
     } catch (error) {
       return (lines: null, error: _messageForFailure(error));
     }
   }
+
+  /// One demo expense's lines, seeded on first ask and held for the
+  /// session so completing a purchase can mark them converted and have
+  /// that stick when the screen reloads them.
+  final Map<String, List<ExpenseLine>> _demoExpenseLines = {};
+
+  List<ExpenseLine> _demoLines(String expenseId) => _demoExpenseLines
+      .putIfAbsent(expenseId, () => [...DemoData.linesFor(expenseId)]);
 
   /// The single review decision for this expense, with remarks.
   Future<({List<ApprovalRecord>? records, String? error})> loadExpenseApprovals(
@@ -2303,6 +2524,12 @@ class AppState extends ChangeNotifier {
     required List<int> bytes,
     required String filename,
   }) async {
+    if (_demoMode) {
+      // The real call is a round trip to Gemini, so the demo waits too:
+      // a scan that returns instantly looks like it never read anything.
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      return (scan: DemoData.scannedReceipt(), error: null);
+    }
     try {
       final scan = await _expenseService.scanReceipt(
         bytes: bytes,
@@ -2348,6 +2575,7 @@ class AppState extends ChangeNotifier {
     final remoteId = expense.remoteId;
     if (remoteId == null) return 'This expense has no backend record yet.';
 
+    if (_demoMode) return _completeDemoPurchase(expense, remoteId, completion);
     try {
       await _expenseService.completePurchase(remoteId, completion);
       await loadExpenses();
@@ -2356,6 +2584,102 @@ class AppState extends ChangeNotifier {
     } catch (error) {
       return _messageForFailure(error);
     }
+  }
+
+  /// The demo's version of the only path from spending money to owning
+  /// equipment. It keeps the two refusals that make the rule visible:
+  /// the expense must be approved, and stock is never added twice.
+  String? _completeDemoPurchase(
+    ExpenseEntry expense,
+    String remoteId,
+    PurchaseCompletionInput completion,
+  ) {
+    if (expense.status != ExpenseStatus.approved) {
+      return 'An expense must be approved before purchase completion.';
+    }
+    final lines = _demoLines(remoteId);
+    final assets = [for (final line in lines) if (line.isAsset) line];
+    if (assets.isEmpty) {
+      return 'This expense has no asset items to receive into inventory.';
+    }
+    if (assets.any((line) => line.isStocked)) {
+      return 'This purchase is already completed; '
+          'stock will not be added twice.';
+    }
+
+    final now = DateTime.now();
+    final confirmed = {
+      for (final item in completion.items) item.expenseItemId: item,
+    };
+
+    for (final line in assets) {
+      final choice = confirmed[line.id];
+      if (choice == null) continue;
+      final item = RemoteInventoryItem(
+        id: 'demo-inv-${line.id}',
+        itemName: line.name,
+        description: 'Received from ${completion.vendor}',
+        quantity: choice.quantity,
+        unit: choice.unit,
+        lowStockThreshold: 1,
+        location: 'CITE stockroom',
+        isDraft: false,
+        eventId: null,
+        departmentId: 'demo-dept-1',
+        organizationId: 'demo-org-1',
+        createdAt: now,
+        updatedAt: now,
+      );
+      _demoCatalogHeld = [item, ..._demoCatalog];
+      catalog = [item, ...catalog];
+      // Stock only ever moves through the ledger, so the arrival is a
+      // movement rather than a quantity written straight onto the row.
+      _demoLedger(item.id).insert(
+        0,
+        InventoryMovement(
+          id: 'demo-mv-${item.id}-0',
+          inventoryId: item.id,
+          eventId: null,
+          changeQty: choice.quantity,
+          type: InventoryMovementType.purchase,
+          reason: 'Received from ${completion.vendor}',
+          performedBy: currentAccount?.name ?? 'Demo Treasurer',
+          expenseItemId: line.id,
+          createdAt: completion.receivedOn,
+        ),
+      );
+      _markDemoLineStocked(remoteId, line, item.id);
+    }
+
+    expense.demoPurchaseCompleted = true;
+    notifyListeners();
+    return null;
+  }
+
+  /// Rebuilds one held line with its inventory link set, which is what
+  /// stops the same purchase being completed a second time.
+  void _markDemoLineStocked(
+    String expenseId,
+    ExpenseLine line,
+    String inventoryId,
+  ) {
+    _demoExpenseLines[expenseId] = [
+      for (final existing in _demoLines(expenseId))
+        if (existing.id == line.id)
+          ExpenseLine(
+            id: existing.id,
+            expenseId: existing.expenseId,
+            name: existing.name,
+            amount: existing.amount,
+            category: existing.category,
+            quantity: existing.quantity,
+            unit: existing.unit,
+            convertedInventoryId: inventoryId,
+            createdAt: existing.createdAt,
+          )
+        else
+          existing,
+    ];
   }
 
   /// Creates an expense with everything the contract allows: an optional
@@ -2375,6 +2699,19 @@ class AppState extends ChangeNotifier {
     String? departmentId,
     String? organizationId,
   }) async {
+    if (_demoMode) {
+      final category = categories.where((c) => c.id == categoryId).firstOrNull;
+      final entry = ExpenseEntry(
+        remoteId: 'demo-ex-${DateTime.now().microsecondsSinceEpoch}',
+        vendor: description,
+        amount: double.tryParse(amount) ?? 0,
+        category: category?.name ?? 'Uncategorized',
+        status: ExpenseStatus.pending,
+      );
+      expenses.insert(0, entry);
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _expenseService.create(
         categoryId: categoryId,
@@ -2444,6 +2781,14 @@ class AppState extends ChangeNotifier {
   }) async {
     if (expense.remoteId == null)
       return 'This expense has no real backend record yet.';
+    if (_demoMode) {
+      return _decideDemoExpense(
+        expense,
+        ExpenseStatus.approved,
+        reviewerRole: reviewerRole,
+        note: note,
+      );
+    }
     try {
       // The reviewer's note is part of the decision record, so it goes to
       // the backend rather than only being kept on the local object.
@@ -2474,6 +2819,14 @@ class AppState extends ChangeNotifier {
   }) async {
     if (expense.remoteId == null)
       return 'This expense has no real backend record yet.';
+    if (_demoMode) {
+      return _decideDemoExpense(
+        expense,
+        ExpenseStatus.rejected,
+        reviewerRole: reviewerRole,
+        note: note,
+      );
+    }
     try {
       final updated = await _expenseService.reject(
         expense.remoteId!,
@@ -2487,6 +2840,28 @@ class AppState extends ChangeNotifier {
     } catch (error) {
       return _messageForFailure(error);
     }
+  }
+
+  /// Approve or reject in the demo.
+  ///
+  /// The backend refuses a decision on anything that is not pending, and
+  /// so does this: a walkthrough that lets the same expense be approved
+  /// twice teaches the wrong thing about the control.
+  String? _decideDemoExpense(
+    ExpenseEntry expense,
+    ExpenseStatus decision, {
+    required String reviewerRole,
+    String? note,
+  }) {
+    if (expense.status != ExpenseStatus.pending) {
+      return "This expense is '${expense.status.name}' — "
+          'only pending expenses can be reviewed.';
+    }
+    expense.status = decision;
+    expense.reviewedBy = reviewerRole;
+    expense.reviewNote = (note?.isEmpty ?? true) ? null : note;
+    notifyListeners();
+    return null;
   }
 
   /// Filled from the backend by loadEvents.
@@ -3134,9 +3509,14 @@ class AppState extends ChangeNotifier {
       ..addAll(DemoData.expenses());
     _demoCatalogHeld = null;
     _demoMovements.clear();
+    _demoIncomesHeld = null;
+    _demoExpenseLines.clear();
     catalog = DemoData.catalog();
     letters = DemoData.letters();
     financialReport = DemoData.financialReport();
+    receipts = DemoData.receipts();
+    dashboard = DemoData.dashboard();
+    spendingTrends = DemoData.spendingTrends();
     notices = DemoData.notices();
     unreadNoticeCount = notices.where((n) => n.isUnread).length;
 

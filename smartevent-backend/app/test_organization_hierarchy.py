@@ -91,7 +91,6 @@ def test_lead_officers_still_cannot_write_other_modules(system, position):
     officer_position(system, position)
     requests = [
         ("POST", "/categories"), ("PATCH", f"/inventory/{resources[0]['inventory'].id}"),
-        ("POST", f"/inventory/{resources[0]['inventory'].id}/transactions"),
         ("POST", "/cite-members"), ("PATCH", f"/users/{users['treasurer'].id}/access"),
         ("POST", f"/events/{resources[0]['events'].id}/approve"),
         ("PATCH", f"/events/{resources[0]['events'].id}/academic-metadata"),

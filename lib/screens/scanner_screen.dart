@@ -11,6 +11,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import 'capture_screen.dart';
+import 'receipts_screen.dart';
 import '../theme/peso.dart';
 
 /// Capture a receipt, read it, correct it, then save it.
@@ -346,7 +347,22 @@ class _ScannerScreenState extends State<ScannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Scan receipt', style: AppText.screenTitle),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text('Scan receipt', style: AppText.display),
+              ),
+              // "Did I already record this one?" is asked at the counter,
+              // before scanning, not afterwards from a different menu.
+              // The history was only reachable from Money → Receipts.
+              _HistoryButton(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ReceiptsScreen()),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           const Text(
             'Nothing is saved until you press Save.',
@@ -864,3 +880,44 @@ class _LineEditorRow extends StatelessWidget {
 
 /// Department and organization pickers.
 ///
+
+/// Opens the receipt history from the scanner.
+///
+/// Framed as "Recent" rather than "History" because what it answers is
+/// "did I already record this one?", which is a question about the last
+/// few, not about the archive.
+class _HistoryButton extends StatelessWidget {
+  const _HistoryButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: p.line, width: 2),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.history, size: 16, color: p.ink),
+            const SizedBox(width: 6),
+            Text(
+              'Recent',
+              style: AppText.caption.copyWith(
+                color: p.ink,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -63,31 +63,31 @@ extension UserRoleNaming on UserRole {
   };
 }
 
-/// Roles an ordinary member account can hold.
-///
-/// Admin and SDS Staff accounts are not created this way — they come from
-/// dedicated Super Admin endpoints (`POST /auth/register/admin` and
-/// `/auth/register/sds`) that issue a temporary password instead of taking
-/// one, and an Admin may not create either.
+/// Roles an ordinary member account of an organization can hold.
 const List<UserRole> memberRoles = [
   UserRole.officer,
   UserRole.treasurer,
   UserRole.adviser,
 ];
 
-/// Roles `PATCH /users/{id}/access` will accept, in its own order.
-///
-/// Wider than [memberRoles], because the access route can also make an
-/// account an Admin or SDS Staff — promotions a roster entry cannot
-/// express. Super Admin and Signatory are absent: both are provisioned
-/// through their own endpoints and neither is reachable this way.
-const List<UserRole> accessAssignableRoles = [
-  UserRole.officer,
-  UserRole.treasurer,
-  UserRole.adviser,
-  UserRole.sdsStaff,
+/// Every role the roster and `PATCH /users/{id}/access` accept. Super
+/// Admin is absent on purpose: no roster row or upload can create one.
+const List<UserRole> rosterRoles = [
+  ...memberRoles,
   UserRole.admin,
+  UserRole.sdsStaff,
+  UserRole.signatory,
 ];
+
+/// Roles [role] may put on the roster or assign to an account, mirroring
+/// `manageable_roles` in the backend's `rbac_policy.py`. An Adviser manages
+/// the students of their own organization, not fellow Advisers.
+List<UserRole> manageableRolesFor(UserRole? role) => switch (role) {
+  UserRole.superAdmin => rosterRoles,
+  UserRole.admin => memberRoles,
+  UserRole.adviser => const [UserRole.officer, UserRole.treasurer],
+  _ => const [],
+};
 
 /// Parses a role string from the API.
 ///
@@ -118,8 +118,9 @@ extension UserRoleCapabilities on UserRole {
   bool get isAdministrator =>
       this == UserRole.admin || this == UserRole.superAdmin;
 
-  /// Officers read everything operational and write nothing. Their own
-  /// password change and marking their own notifications read still work.
+  /// Officers read everything operational. Their only writes are stock
+  /// movements, their own password and notifications, and proposals when
+  /// their position allows it.
   bool get isOperationalReadOnly => this == UserRole.officer;
 
   /// SDS Staff is isolated to proposal letters: no dashboard, events,
@@ -134,8 +135,15 @@ extension UserRoleCapabilities on UserRole {
   /// Reaches the operational app at all.
   bool get hasOperationalAccess => !isLetterOnly && !isInstitutionalReviewer;
 
+  /// SDS Staff and Signatory accounts belong to the school, not to any
+  /// department or organization.
+  bool get isSchoolWide => isLetterOnly || isInstitutionalReviewer;
+
+  /// Admin, Super Admin, or an Adviser within their own organization.
+  bool get managesOrganization => isAdministrator || this == UserRole.adviser;
+
   /// Create, edit and delete categories and the inventory catalog.
-  bool get canManageCatalog => isAdministrator;
+  bool get canManageCatalog => managesOrganization;
 
   /// Propose events. Officers cannot; SDS has no event access.
   bool get canProposeEvents =>
@@ -152,21 +160,25 @@ extension UserRoleCapabilities on UserRole {
 
   /// Record inventory stock movements (issue, return, disposal, …).
   bool get canRecordInventoryMovements =>
-      this == UserRole.treasurer || this == UserRole.adviser || isAdministrator;
+      this == UserRole.officer ||
+      this == UserRole.treasurer ||
+      this == UserRole.adviser ||
+      isAdministrator;
 
   /// Read and upload proposal letters. Officers have no access at all.
   bool get canAccessProposalLetters =>
       this != UserRole.officer && !isInstitutionalReviewer;
 
   /// Manage the approved roster and member account access, within scope.
-  bool get canManageMembers => isAdministrator;
+  bool get canManageMembers => managesOrganization;
 
   /// Create departments, organizations, organization Admins and SDS
   /// accounts, and transfer accounts between organizations.
   bool get canAdministerSchool => this == UserRole.superAdmin;
 
-  /// View the audit log (Admin scoped, Super Admin global).
-  bool get canViewAuditLog => isAdministrator;
+  /// View the audit log (Adviser: organization, Admin: department, Super
+  /// Admin: global).
+  bool get canViewAuditLog => managesOrganization;
 
   /// Any operational write at all. Useful for a single "read-only account"
   /// banner rather than checking each capability separately.

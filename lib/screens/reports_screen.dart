@@ -191,7 +191,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppLayout.contentPadding),
-          const Text('Financial reports', style: AppText.screenTitle),
+          const Text('Financial reports', style: AppText.display),
           const SizedBox(height: 4),
           const Text(
             'Income and approved spending over a period.',

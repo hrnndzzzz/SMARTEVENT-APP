@@ -100,7 +100,7 @@ def get_compliance(event_id: uuid.UUID, db: Session = Depends(get_db), user: Use
 
 
 @router.post("/participants", response_model=list[ParticipantOut], status_code=201)
-def add_participants(event_id: uuid.UUID, payload: list[ParticipantCreate], db: Session = Depends(get_db), user: User = Depends(require_role("admin"))):
+def add_participants(event_id: uuid.UUID, payload: list[ParticipantCreate], db: Session = Depends(get_db), user: User = Depends(require_role("admin", "adviser"))):
     event = event_for_compliance(db, event_id, user, write=True, structure=True)
     if not 1 <= len(payload) <= 500 or len({row.student_number for row in payload}) != len(payload):
         raise HTTPException(422, "Provide 1–500 students with distinct student numbers")
@@ -114,7 +114,7 @@ def add_participants(event_id: uuid.UUID, payload: list[ParticipantCreate], db: 
 
 @router.patch("/participants/{participant_id}", response_model=ParticipantOut)
 def update_participant(event_id: uuid.UUID, participant_id: uuid.UUID, payload: ParticipantUpdate,
-                       db: Session = Depends(get_db), user: User = Depends(require_role("admin"))):
+                       db: Session = Depends(get_db), user: User = Depends(require_role("admin", "adviser"))):
     event = event_for_compliance(db, event_id, user, write=True, structure=True)
     row = event_record(db, EventParticipant, event, participant_id)
     if row.full_name != payload.full_name and db.query(StudentComplianceRecord).filter(

@@ -67,7 +67,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Proposal letters', style: AppText.screenTitle),
+          const Text('Proposal letters', style: AppText.display),
           const SizedBox(height: 4),
           Text(switch (role) {
             null => 'Not signed in.',

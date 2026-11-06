@@ -36,7 +36,7 @@ class SignatoryScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             name == null ? 'Signed in' : 'Signed in as $name',
-            style: AppText.screenTitle,
+            style: AppText.display,
           ),
           const SizedBox(height: AppLayout.section),
           const BrutInlineMessage(

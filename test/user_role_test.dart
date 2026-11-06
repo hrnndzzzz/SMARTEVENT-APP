@@ -45,12 +45,12 @@ void main() {
       expect(officer.hasOperationalAccess, isTrue);
     });
 
-    test('writes nothing at all', () {
-      expect(officer.canWriteAnything, isFalse);
+    test('records stock movements and writes nothing else', () {
+      expect(officer.canRecordInventoryMovements, isTrue);
+      expect(officer.canWriteAnything, isTrue);
       expect(officer.canProposeEvents, isFalse);
       expect(officer.canRecordFinance, isFalse);
       expect(officer.canManageCatalog, isFalse);
-      expect(officer.canRecordInventoryMovements, isFalse);
       expect(officer.canReview, isFalse);
     });
 
@@ -91,8 +91,49 @@ void main() {
       expect(adviser.canRecordFinance, isFalse);
     });
 
-    test('does not manage the catalog', () {
-      expect(adviser.canManageCatalog, isFalse);
+    test('manages its organization like the Dean', () {
+      expect(adviser.canManageCatalog, isTrue);
+      expect(adviser.canManageMembers, isTrue);
+      expect(adviser.canViewAuditLog, isTrue);
+      expect(adviser.canAdministerSchool, isFalse);
+    });
+
+    test('manages officers and treasurers, not fellow advisers', () {
+      expect(manageableRolesFor(adviser), [
+        UserRole.officer,
+        UserRole.treasurer,
+      ]);
+    });
+  });
+
+  group('roster roles', () {
+    test('a Super Admin may put every role but Super Admin on the roster', () {
+      expect(manageableRolesFor(UserRole.superAdmin), rosterRoles);
+      expect(rosterRoles, isNot(contains(UserRole.superAdmin)));
+      expect(
+        rosterRoles,
+        containsAll([UserRole.admin, UserRole.sdsStaff, UserRole.signatory]),
+      );
+    });
+
+    test('a Dean keeps member roles; others manage nobody', () {
+      expect(manageableRolesFor(UserRole.admin), memberRoles);
+      for (final role in [
+        UserRole.officer,
+        UserRole.treasurer,
+        UserRole.sdsStaff,
+        UserRole.signatory,
+        null,
+      ]) {
+        expect(manageableRolesFor(role), isEmpty, reason: '$role');
+      }
+    });
+
+    test('only SDS Staff and Signatory are school-wide', () {
+      expect(
+        UserRole.values.where((r) => r.isSchoolWide),
+        [UserRole.sdsStaff, UserRole.signatory],
+      );
     });
   });
 

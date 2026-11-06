@@ -27,11 +27,11 @@ from app.schemas import (
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
-def _event_for_item(db, event_id, user, organization_id, department_id):
+def _event_for_item(db, event_id, user, organization_id, department_id, *, allow_officer_read=False):
     event = db.query(Event).filter(Event.id == event_id).first()
     if event is None:
         raise HTTPException(400, "Event does not exist")
-    assert_record_scope(user, event)
+    assert_record_scope(user, event, allow_officer_read=allow_officer_read)
     if event.organization_id != organization_id or event.department_id != department_id:
         raise HTTPException(400, "Inventory and event must share an organization and department")
     return event
@@ -54,7 +54,7 @@ def _get_item_or_404(db: Session, inventory_id: uuid.UUID, *, lock: bool = False
 def create_item(
     payload: InventoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     department_id = resolve_department_id(
         current_user,
@@ -149,7 +149,7 @@ def get_item(
 def confirm_draft_item(
     inventory_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
@@ -187,7 +187,7 @@ def list_item_transactions(
 @router.patch("/{inventory_id}/transactions/{transaction_id}/metadata", response_model=InventoryTransactionOut)
 def repair_transaction_metadata(inventory_id: uuid.UUID, transaction_id: uuid.UUID,
                                  payload: InventoryTransactionRepair, db: Session = Depends(get_db),
-                                 current_user: User = Depends(require_role("admin"))):
+                                 current_user: User = Depends(require_role("admin", "adviser"))):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
     _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id)
@@ -221,7 +221,7 @@ def update_item(
     inventory_id: uuid.UUID,
     payload: InventoryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
@@ -263,7 +263,7 @@ def update_item(
 def delete_item(
     inventory_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role("admin", "adviser")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item)
@@ -301,10 +301,10 @@ def create_transaction(
     inventory_id: uuid.UUID,
     payload: InventoryTransactionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin")),
+    current_user: User = Depends(require_role("treasurer", "adviser", "admin", "officer")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
-    assert_record_scope(current_user, item)
+    assert_record_scope(current_user, item, allow_officer_read=True)
     if item.event_id is None:
         raise HTTPException(409, "Assign the legacy inventory item's intended event first")
     if item.is_draft:
@@ -312,7 +312,7 @@ def create_transaction(
     if payload.transaction_type == "purchase":
         raise HTTPException(409, "Purchased stock must use POST /expenses/{expense_id}/complete-purchase")
 
-    _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id)
+    _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id, allow_officer_read=True)
 
     new_quantity = item.quantity + payload.change_qty
     if new_quantity > 2**31 - 1:
