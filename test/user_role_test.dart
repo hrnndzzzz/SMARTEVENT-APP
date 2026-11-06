@@ -45,12 +45,12 @@ void main() {
       expect(officer.hasOperationalAccess, isTrue);
     });
 
-    test('writes nothing at all', () {
-      expect(officer.canWriteAnything, isFalse);
+    test('records stock movements and writes nothing else', () {
+      expect(officer.canRecordInventoryMovements, isTrue);
+      expect(officer.canWriteAnything, isTrue);
       expect(officer.canProposeEvents, isFalse);
       expect(officer.canRecordFinance, isFalse);
       expect(officer.canManageCatalog, isFalse);
-      expect(officer.canRecordInventoryMovements, isFalse);
       expect(officer.canReview, isFalse);
     });
 

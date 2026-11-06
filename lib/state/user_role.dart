@@ -118,8 +118,9 @@ extension UserRoleCapabilities on UserRole {
   bool get isAdministrator =>
       this == UserRole.admin || this == UserRole.superAdmin;
 
-  /// Officers read everything operational and write nothing. Their own
-  /// password change and marking their own notifications read still work.
+  /// Officers read everything operational. Their only writes are stock
+  /// movements, their own password and notifications, and proposals when
+  /// their position allows it.
   bool get isOperationalReadOnly => this == UserRole.officer;
 
   /// SDS Staff is isolated to proposal letters: no dashboard, events,
@@ -159,7 +160,10 @@ extension UserRoleCapabilities on UserRole {
 
   /// Record inventory stock movements (issue, return, disposal, …).
   bool get canRecordInventoryMovements =>
-      this == UserRole.treasurer || this == UserRole.adviser || isAdministrator;
+      this == UserRole.officer ||
+      this == UserRole.treasurer ||
+      this == UserRole.adviser ||
+      isAdministrator;
 
   /// Read and upload proposal letters. Officers have no access at all.
   bool get canAccessProposalLetters =>

@@ -73,5 +73,7 @@ class Settings(BaseSettings):
 try:
     settings = Settings()
 except ValidationError as exc:
-    fields = ", ".join(sorted({".".join(map(str, error["loc"])) or "production security" for error in exc.errors()}))
+    # The production checks have no field name; their messages name the problem and hold no secrets.
+    fields = ", ".join(sorted({".".join(map(str, error["loc"])) or error["msg"].removeprefix("Value error, ")
+                               for error in exc.errors()}))
     raise RuntimeError(f"Invalid settings: {fields}. Check the environment and .env.example.") from None

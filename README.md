@@ -100,3 +100,20 @@ budget drops by ₱1,250, and the markers are added to inventory once delivery i
 | Email codes | Resend |
 
 For the full picture of how each process flows, see the [flowcharts](docs/flowcharts.md).
+
+## Hosted server (Render)
+
+The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
+(set up once from `render.yaml`: Render Dashboard → New → Blueprint).
+
+- **It sleeps after 15 minutes idle.** The first request after that takes about a
+  minute; open `https://<service>.onrender.com/health` before a demo to wake it.
+- **SAP PDFs are printed with LibreOffice there**, not Word, so check a printout
+  after each change to the SAP form.
+- **The app points at it** when built with
+  `flutter build apk --release --target-platform android-arm64 --dart-define=SMARTEVENT_API_BASE_URL=https://<service>.onrender.com`,
+  or by typing the address in the app's Settings → Backend.
+- `DATABASE_URL` must be Supabase's **Session pooler** address (Render has no
+  IPv6) ending in `?sslmode=verify-full&sslrootcert=/srv/certs/supabase-ca.crt`.
+  The certificate comes from Supabase → Project Settings → Database → SSL.
+

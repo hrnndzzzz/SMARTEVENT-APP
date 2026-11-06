@@ -1,4 +1,5 @@
 """Render SAP data onto the controlled SAS-SDS-FO-020 form."""
+import os
 import re
 import subprocess
 from copy import deepcopy
@@ -9,9 +10,11 @@ from io import BytesIO
 from pathlib import Path
 
 from docx import Document
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 from docx.text.paragraph import Paragraph as DocxParagraph
+from docx.text.run import Run
 from PIL import Image, ImageDraw
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib import colors
@@ -351,29 +354,94 @@ _ANCHORS = {  # the paragraph each section remark's comment sits on; the overall
 }
 
 
+_LABELS = {  # each section's name as the app shows it (SapRemarkSection), printed before its remark
+    'activity_details': 'Activity details', 'budget': 'Budget', 'support_requests': 'School support',
+    'additional_information': 'Additional information', 'clearance': 'Clearance', 'other': 'Other',
+}
+
+
 def _remarks(review):
-    """(anchor label, comment text) for each saved remark: the overall one first, then the sections."""
+    """(anchor label, section name, remark) for each saved remark: the overall one first, then the sections."""
     review = review or {}
-    rows = [(_PART_4, 'Overall: ' + review['overall_remarks'])] if (review.get('overall_remarks') or '').strip() else []
-    return rows + [(_ANCHORS.get(key, _PART_4), text) for key, text in (review.get('section_remarks') or {}).items() if text.strip()]
+    rows = [(_PART_4, 'Overall', review['overall_remarks'])] if (review.get('overall_remarks') or '').strip() else []
+    return rows + [(_ANCHORS.get(key, _PART_4), _LABELS.get(key, key), text)
+                   for key, text in (review.get('section_remarks') or {}).items() if text.strip()]
 
 
 def _add_comments(doc, paragraphs, review):
-    """One Word comment per saved remark, on its part's label; a missing label falls back to the Part 4 heading."""
+    """One Word comment per saved remark, named for its section, just before its part's label;
+    a missing label falls back to the Part 4 heading."""
     find = lambda label: next((p for p in paragraphs if p.text.strip().startswith(label) and p.runs), None)
-    for label, text in _remarks(review):  # no remarks: no comments part, so the printed page keeps its normal width
+    for anchor, name, text in _remarks(review):  # no remarks: no comments part, so the printed page keeps its normal width
+        paragraph = find(anchor) or find(_PART_4)
+        runs = paragraph.runs
+        if not _USE_WORD:
+            # LibreOffice paints over the text a comment is attached to, so it gets an empty run before the label.
+            # Not for Word: it keeps the labels readable and drops some comments attached to an empty run.
+            point = OxmlElement('w:r')
+            next((r for r in runs if r.text), runs[0])._r.addprevious(point)
+            runs = [Run(point, paragraph)]
         # Word clips a margin comment at about 870 characters, so a long remark is several comments on the same part.
-        # 690 + the " (n/m)" label (6 characters up to 9 parts) stays within 700.
-        parts = textwrap.wrap(_clean(text), 690, replace_whitespace=False)
+        # The name, 690 characters and the " (n/m)" label (6 characters up to 9 parts) stay within 700.
+        parts = textwrap.wrap(_clean(text), 690 - len(name) - 2, replace_whitespace=False)
         for number, part in enumerate(parts, 1):
-            doc.add_comment((find(label) or find(_PART_4)).runs, text=part + (f' ({number}/{len(parts)})' if len(parts) > 1 else ''),
+            doc.add_comment(runs, text=f'{name}: {part}' + (f' ({number}/{len(parts)})' if len(parts) > 1 else ''),
                             author='SDS Office', initials='SDS')
+
+
+def _comment_links(page, review):
+    """(label point, box point) for each comment LibreOffice printed in this page's margin, to the label it is about."""
+    width, pieces = float(page.mediabox.width), []
+    page.extract_text(visitor_text=lambda text, cm, tm, *_: text.strip() and pieces.append(
+        (text.strip(), tm[4] * cm[0] + cm[4], tm[5] * cm[3] + cm[5])))
+    links = []
+    for anchor, name, _ in _remarks(review):
+        boxes = [(x, y) for text, x, y in pieces if x > width * 0.7 and text.startswith(name + ':')]
+        labels = [sorted((x, y) for text, x, y in pieces if x <= width * 0.7 and text.startswith(label))
+                  for label in (anchor, _PART_4)]  # the Part 4 heading, as in _add_comments, when the label is missing
+        label = labels[0] or labels[1]
+        links += [(label[0], box) for box in boxes if label]
+    return links
+
+
+def _link_comments(pdf, review):
+    """A dashed line from each part's label to its comment box, which LibreOffice leaves unjoined (Word draws its own)."""
+    writer = PdfWriter(clone_from=PdfReader(BytesIO(pdf)))
+    for page in writer.pages:
+        try:
+            links = _comment_links(page, review)
+        except Exception:  # a line is a reading aid; a page it cannot be found on still prints
+            continue
+        if not links:
+            continue
+        layer = BytesIO()
+        canvas = Canvas(layer, pagesize=(float(page.mediabox.width), float(page.mediabox.height)))
+        canvas.setStrokeColor(colors.HexColor('#2F6FD0'))
+        canvas.setFillColor(colors.HexColor('#2F6FD0'))
+        canvas.setLineWidth(0.7)
+        canvas.setDash(2, 2)
+        for (label_x, label_y), (box_x, box_y) in links:
+            start = (label_x - 4, label_y - 2)  # just under the start of the label
+            canvas.circle(*start, 1.6, stroke=0, fill=1)
+            path = canvas.beginPath()
+            path.moveTo(*start)
+            path.lineTo(box_x - 10, start[1])  # along the row to the form's edge, then up or down to the box
+            path.lineTo(box_x - 2, box_y + 3)
+            canvas.drawPath(path, stroke=1, fill=0)
+        canvas.save()
+        page.merge_page(PdfReader(layer).pages[0])
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
 
 
 _WORD_LOCK = threading.Lock()
 _WORD_WAIT = 30  # seconds a print waits for the one before it; a print takes about 5 s
 _WORD_TIMEOUT = 60  # wait + timeout stay under the app's 120 s patience, so its user sees this error
-# shortcut: needs Windows + Word; if the backend moves to Linux, swap in soffice --headless --convert-to pdf
+_USE_WORD = os.name == 'nt'  # Windows laptops print with Word; the Linux server (Dockerfile) uses LibreOffice
+# One LibreOffice profile, made ready in the Dockerfile: a fresh one per print is a slow first start on a small server.
+# Prints take turns under _WORD_LOCK, so they never share it at the same time.
+_LIBREOFFICE_PROFILE = Path(tempfile.gettempdir()) / 'smartevent-libreoffice'
 # COM starts Word outside powershell's process tree, so the script notes Word's process id for a timeout.
 _WORD_SCRIPT = (
     "$before = @(Get-Process WINWORD -ErrorAction SilentlyContinue).Id; "
@@ -402,8 +470,21 @@ def _kill_word(pid_file):
         pass  # the conversion has already failed; that is the error to report
 
 
+def _convert_command(folder, src, dst, pid, markup):
+    if _USE_WORD:
+        quoted = lambda path: str(path).replace("'", "''")  # PowerShell single-quoted string
+        export = (_MARKUP_EXPORT if markup else _PLAIN_EXPORT).format(dst=quoted(dst))
+        return ['powershell', '-NoProfile', '-NonInteractive', '-Command',
+                _WORD_SCRIPT.format(src=quoted(src), pid=quoted(pid), export=export)]
+    # LibreOffice's counterpart of Word's markup view: the comments print in the page margin.
+    pdf = 'pdf:writer_pdf_Export:{"ExportNotesInMargin":{"type":"boolean","value":"true"}}' if markup else 'pdf'
+    return ['soffice', f'-env:UserInstallation={_LIBREOFFICE_PROFILE.as_uri()}', '--headless', '--norestore',
+            '--nologo', '--nodefault', '--convert-to', pdf, '--outdir', str(folder), str(src)]
+
+
 def docx_to_pdf(docx, *, markup=False):
-    """Word turns the filled form into a PDF, one document at a time; markup=True prints its comments in the margin."""
+    """Word (or LibreOffice off Windows) turns the filled form into a PDF, one document at a time;
+    markup=True prints its comments in the margin."""
     # Bounded, because a waiting request holds a database connection and, for submit and sign, the event row.
     if not _WORD_LOCK.acquire(timeout=_WORD_WAIT):
         raise RuntimeError('SAP printing is busy with another form; try again in a minute.')
@@ -412,17 +493,18 @@ def docx_to_pdf(docx, *, markup=False):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             src, dst, pid = (Path(folder) / name for name in ('form.docx', 'form.pdf', 'word.pid'))
             src.write_bytes(docx)
-            quoted = lambda path: str(path).replace("'", "''")  # PowerShell single-quoted string
+            done = None
             try:
-                subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command',
-                                _WORD_SCRIPT.format(src=quoted(src), pid=quoted(pid),
-                                                    export=(_MARKUP_EXPORT if markup else _PLAIN_EXPORT).format(dst=quoted(dst)))],
-                               timeout=_WORD_TIMEOUT, check=True, capture_output=True)
-                return dst.read_bytes()
+                done = subprocess.run(_convert_command(Path(folder), src, dst, pid, markup),
+                                      timeout=_WORD_TIMEOUT, check=True, capture_output=True)
+                return dst.read_bytes()  # soffice can exit 0 without writing it; the OSError is caught below
             except (OSError, subprocess.SubprocessError) as exc:
                 if isinstance(exc, subprocess.TimeoutExpired):
                     _kill_word(pid)
-                said = (getattr(exc, 'stderr', None) or b'').decode(errors='replace').strip()[-300:]
+                # With no PDF after a clean exit, the reason is in what the finished run printed (soffice uses stdout).
+                ran = exc if done is None else done
+                said = b' '.join(out for out in (getattr(ran, 'stdout', None), getattr(ran, 'stderr', None))
+                                 if isinstance(out, bytes)).decode(errors='replace').strip()[-300:]
                 raise RuntimeError(f'Could not convert the SAP form to PDF: {exc} {said}'.strip()) from exc
     finally:
         _WORD_LOCK.release()
@@ -449,4 +531,8 @@ def render_proposal(snapshot, revision, verification_url=None, *, review=None, s
     docx = fill_form(snapshot, review=review, signer_name=signer_name, signature_strokes=signature_strokes, signed=signed,
                      comments=comments)
     # Markup only when there are comments to show: without any, the page stays full width.
-    return _stamp(docx_to_pdf(docx, markup=comments and bool(_remarks(review))), revision, verification_url, signed, rejected)
+    markup = comments and bool(_remarks(review))
+    pdf = docx_to_pdf(docx, markup=markup)
+    if markup and not _USE_WORD:
+        pdf = _link_comments(pdf, review)
+    return _stamp(pdf, revision, verification_url, signed, rejected)

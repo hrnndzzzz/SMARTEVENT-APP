@@ -176,8 +176,9 @@ def test_movements_require_event_type_and_reason_and_stay_scoped(system):
     for field in ("event_id", "transaction_type", "reason"):
         assert client.post(path, json={key: value for key, value in base.items() if key != field}).status_code == 422
     assert move(system, "donation", 1, event_index=1).status_code == 403
-    login("officer")
-    assert move(system, "donation", 1).status_code == 403
+    login("officer")  # any officer may be tasked with stock, inside their own organization
+    assert move(system, "donation", 1).status_code == 201
+    assert move(system, "donation", 1, event_index=1).status_code == 403
     login("sds_staff")
     assert client.get("/inventory").status_code == 403
 
