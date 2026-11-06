@@ -1,6 +1,8 @@
 """Durable registration confirmation; failed email delivery never revokes approval."""
+import base64
 from datetime import datetime, timezone
 import logging
+import uuid
 
 from app.models import Notification, Organization
 from app.services.email import send_email
@@ -32,6 +34,20 @@ def queue_registration_confirmation(db, user):
     return notification
 
 
+def _sap_form_attachment(db, notification, user):
+    """The SDS Office's copy of the filled form, on the email telling it a proposal has arrived."""
+    payload = notification.payload or {}
+    if notification.kind != "sap_workflow" or payload.get("action") != "sap_dean_approved" or user.role != "sds_staff":
+        return None
+    from app.models_sap import SAPRevision
+    revision = db.query(SAPRevision).filter_by(proposal_id=uuid.UUID(payload["proposal_id"]),
+                                               revision_no=payload["revision_no"]).first()
+    if revision is None:
+        return None
+    return [{"filename": f"SAP-revision-{revision.revision_no}.pdf",
+             "content": base64.b64encode(revision.printable_pdf).decode()}]
+
+
 def deliver_notification(db, notification_id):
     notification = db.query(Notification).filter(Notification.id == notification_id).with_for_update().first()
     if notification is None or notification.email_status == "sent":
@@ -41,7 +57,8 @@ def deliver_notification(db, notification_id):
     notification.email_attempts += 1
     try:
         send_email(user.email, notification.title, notification.body,
-                   idempotency_key=f"{'registration-confirmation' if notification.kind == 'registration_confirmation' else notification.kind}/{notification.id}")
+                   idempotency_key=f"{'registration-confirmation' if notification.kind == 'registration_confirmation' else notification.kind}/{notification.id}",
+                   attachments=_sap_form_attachment(db, notification, user))
         notification.email_status = "sent"
         notification.email_sent_at = datetime.now(timezone.utc)
     except Exception:
