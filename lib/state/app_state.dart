@@ -1314,6 +1314,48 @@ class AppState extends ChangeNotifier {
     String? departmentId,
     String? organizationId,
   }) async {
+    if (_demoMode) {
+      final now = DateTime.now();
+      final item = RemoteInventoryItem(
+        id: 'demo-inv-${now.microsecondsSinceEpoch}',
+        itemName: itemName,
+        description: description,
+        quantity: quantity,
+        unit: unit,
+        lowStockThreshold: lowStockThreshold,
+        location: location,
+        isDraft: false,
+        eventId: eventId.isEmpty ? null : eventId,
+        departmentId: departmentId ?? 'demo-dept-1',
+        organizationId: organizationId ?? 'demo-org-1',
+        createdAt: now,
+        updatedAt: now,
+      );
+      _demoCatalogHeld = [item, ..._demoCatalog];
+      catalog = [item, ...catalog];
+      // Opening stock is still stock arriving, so it goes on the ledger
+      // rather than being a quantity that appeared from nowhere.
+      if (quantity > 0) {
+        _demoLedger(item.id).insert(
+          0,
+          InventoryMovement(
+            id: 'demo-mv-${item.id}-0',
+            inventoryId: item.id,
+            eventId: null,
+            changeQty: quantity,
+            type: initialTransactionType == InitialStockType.openingBalance
+                ? InventoryMovementType.openingBalance
+                : InventoryMovementType.acquisition,
+            reason: reason,
+            performedBy: currentAccount?.name ?? 'Demo Admin',
+            expenseItemId: null,
+            createdAt: now,
+          ),
+        );
+      }
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _inventoryService.create(
         eventId: eventId,
@@ -1346,6 +1388,22 @@ class AppState extends ChangeNotifier {
     String? location,
     String? eventId,
   }) async {
+    if (_demoMode) {
+      // Quantity is deliberately absent here, in the demo as on the
+      // server: only a movement changes stock.
+      _replaceCatalogItem(
+        _withMetadata(
+          item,
+          itemName: itemName,
+          description: description,
+          unit: unit,
+          lowStockThreshold: lowStockThreshold,
+          location: location,
+          eventId: eventId,
+        ),
+      );
+      return null;
+    }
     try {
       final updated = await _inventoryService.update(
         item.id,
@@ -1364,6 +1422,16 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> deleteInventoryItem(RemoteInventoryItem item) async {
+    if (_demoMode) {
+      _demoCatalogHeld = [
+        for (final i in _demoCatalog)
+          if (i.id != item.id) i,
+      ];
+      _demoMovements.remove(item.id);
+      catalog = catalog.where((i) => i.id != item.id).toList();
+      notifyListeners();
+      return null;
+    }
     try {
       await _inventoryService.delete(item.id);
       catalog = catalog.where((i) => i.id != item.id).toList();
@@ -1377,6 +1445,10 @@ class AppState extends ChangeNotifier {
   /// Accepts a purchase-created draft. Adds no stock — that already
   /// happened when the purchase was completed.
   Future<String?> confirmInventoryDraft(RemoteInventoryItem item) async {
+    if (_demoMode) {
+      _replaceCatalogItem(_withMetadata(item, isDraft: false));
+      return null;
+    }
     try {
       _replaceCatalogItem(await _inventoryService.confirmDraft(item.id));
       return null;
@@ -1384,6 +1456,33 @@ class AppState extends ChangeNotifier {
       return _messageForFailure(error);
     }
   }
+
+  /// Rebuilds a row with new metadata, leaving the quantity alone. The
+  /// model holds its fields final, so changing one means rebuilding it.
+  RemoteInventoryItem _withMetadata(
+    RemoteInventoryItem item, {
+    String? itemName,
+    String? description,
+    String? unit,
+    int? lowStockThreshold,
+    String? location,
+    String? eventId,
+    bool? isDraft,
+  }) => RemoteInventoryItem(
+    id: item.id,
+    itemName: itemName ?? item.itemName,
+    description: description ?? item.description,
+    quantity: item.quantity,
+    unit: unit ?? item.unit,
+    lowStockThreshold: lowStockThreshold ?? item.lowStockThreshold,
+    location: location ?? item.location,
+    isDraft: isDraft ?? item.isDraft,
+    eventId: eventId ?? item.eventId,
+    departmentId: item.departmentId,
+    organizationId: item.organizationId,
+    createdAt: item.createdAt,
+    updatedAt: DateTime.now(),
+  );
 
   /// Records a stock movement.
   ///
@@ -1899,6 +1998,26 @@ class AppState extends ChangeNotifier {
     required double allocatedBudget,
     double lowBalanceThreshold = 0,
   }) async {
+    if (_demoMode) {
+      final now = DateTime.now();
+      categories = [
+        ...categories,
+        Category(
+          id: 'demo-cat-${now.microsecondsSinceEpoch}',
+          name: name,
+          allocatedBudget: allocatedBudget,
+          // Nothing has been spent against a category that did not exist
+          // a moment ago, so all of it remains.
+          remainingBudget: allocatedBudget,
+          lowBalanceThreshold: lowBalanceThreshold,
+          createdBy: currentAccount?.name ?? 'Demo Admin',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _categoryService.create(
         name: name,
@@ -1925,6 +2044,27 @@ class AppState extends ChangeNotifier {
     double? allocatedBudget,
     double? lowBalanceThreshold,
   }) async {
+    if (_demoMode) {
+      final changed = Category(
+        id: category.id,
+        name: name ?? category.name,
+        allocatedBudget: allocatedBudget ?? category.allocatedBudget,
+        // Raising the allocation does not top up what is left: remaining
+        // is server-owned and only moves when money is spent. Inventing
+        // a new remaining here would teach the opposite.
+        remainingBudget: category.remainingBudget,
+        lowBalanceThreshold: lowBalanceThreshold ?? category.lowBalanceThreshold,
+        createdBy: category.createdBy,
+        createdAt: category.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      categories = [
+        for (final c in categories)
+          if (c.id == changed.id) changed else c,
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final updated = await _categoryService.update(
         category.id,
@@ -1947,6 +2087,19 @@ class AppState extends ChangeNotifier {
   /// expense still references the category; that explanation comes back in
   /// the returned message rather than being guessed at here.
   Future<String?> deleteCategory(Category category) async {
+    if (_demoMode) {
+      // The backend's 409. Keeping it means the demo shows why a
+      // category in use cannot simply be removed, rather than quietly
+      // deleting one and leaving its expenses pointing at nothing.
+      final inUse = expenses.where((e) => e.category == category.name).length;
+      if (inUse > 0) {
+        return 'Cannot delete this category: $inUse expense'
+            '${inUse == 1 ? '' : 's'} still reference it.';
+      }
+      categories = categories.where((c) => c.id != category.id).toList();
+      notifyListeners();
+      return null;
+    }
     try {
       await _categoryService.delete(category.id);
       categories = categories.where((c) => c.id != category.id).toList();
@@ -2269,6 +2422,16 @@ class AppState extends ChangeNotifier {
   /// otherwise updates its allocated budget. Returns null on success,
   /// or an error message.
   Future<String?> setCategoryBudget(String categoryName, double amount) async {
+    if (_demoMode) {
+      // Routed through the same two paths the server call uses, so the
+      // demo cannot drift from them.
+      final existing = categories
+          .where((c) => c.name == categoryName)
+          .firstOrNull;
+      return existing == null
+          ? createCategory(name: categoryName, allocatedBudget: amount)
+          : updateCategory(existing, allocatedBudget: amount);
+    }
     try {
       final existing = categories
           .where((c) => c.name == categoryName)
