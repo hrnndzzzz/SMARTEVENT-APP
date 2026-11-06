@@ -12,7 +12,8 @@ class EmailError(Exception):
     pass
 
 
-def send_email(to_email: str, subject: str, body_text: str, *, idempotency_key: str | None = None) -> None:
+def send_email(to_email: str, subject: str, body_text: str, *, idempotency_key: str | None = None,
+               attachments: list[dict] | None = None) -> None:
     if not settings.resend_api_key:
         raise RuntimeError("Resend is not configured. Set RESEND_API_KEY.")
     if not settings.resend_from_email:
@@ -38,6 +39,8 @@ def send_email(to_email: str, subject: str, body_text: str, *, idempotency_key: 
                 "subject": subject,
                 "text": body_text,
             }
+        if attachments:
+            params["attachments"] = attachments
         if idempotency_key:
             resend.Emails.send(params, {"idempotency_key": idempotency_key})
         else:
