@@ -1,112 +1,102 @@
-# SMARTEVENT-APP
-A Capstone Project Presented to the Faculty of the College of Information Technology and Engineering at La Consolacion University Philippines City of Malolos, Bulacan
+# SMARTEVENT
 
-## Download the app
+**One app for student organizations to plan events, get them approved, and account
+for every peso and item they use.**
 
-**[Download SMARTEVENT-arm64-v8a.apk](https://github.com/hrnndzzzz/SMARTEVENT-APP/releases/latest/download/SMARTEVENT-arm64-v8a.apk)**
-(the latest release; earlier versions are under [Releases](https://github.com/hrnndzzzz/SMARTEVENT-APP/releases)):
-Android 7.0 or newer, 64-bit phones (nearly all phones from the last few years).
+A Capstone Project Presented to the Faculty of the College of Information Technology
+and Engineering at La Consolacion University Philippines, City of Malolos, Bulacan.
 
-1. Download the APK on your phone and open it.
-2. Allow installing from this source when Android asks.
-3. Open SMARTEVENT and sign in. The app connects to the hosted server by itself;
-   there is nothing else to install or set up.
-
-- **The first sign-in of the day can take up to a minute.** The server sleeps when
-  nobody has used it for a while and wakes on the first request.
-- **Updating?** Download the latest release and install it over the old app.
+**[Download the latest app (Android APK)](https://github.com/hrnndzzzz/SMARTEVENT-APP/releases/latest/download/SMARTEVENT-arm64-v8a.apk)**
+· [All releases](https://github.com/hrnndzzzz/SMARTEVENT-APP/releases)
 
 ---
 
-## About SMARTEVENT
+## Why it exists
 
-SMARTEVENT is a mobile app for student organizations to plan events, get them
-approved, and account for every peso and item they use. It replaces paper forms,
-spreadsheets and chat-group approvals with one record that every role sees from
-their own side: officers propose, advisers and deans review, treasurers record the
-money, and the SDS Office clears and signs the official proposal form.
+Running a student event today means paper proposal forms passed from office to office,
+budgets kept in personal spreadsheets, receipts stuffed in envelopes, and approvals
+buried in group chats. Forms get lost, nobody knows who is holding a proposal, and at
+the end of the term it is hard to show where the money went.
 
-### Who uses it
+SMARTEVENT puts all of that into one shared record on the phone. Officers propose,
+advisers and deans review, treasurers record the money, and the SDS Office clears and
+signs the official proposal form. Each person sees the same event from their own side,
+every decision is kept, and the paperwork prints itself when it is needed.
 
-| Role | What they do in the app |
+## Features at a glance
+
+- **Event proposals and approvals:** submit an event and follow it step by step,
+  from the Adviser to the Dean to any other signatories. Returned proposals come back
+  with remarks so you can fix them and resubmit.
+- **Official SDS proposal form:** fill in the Student Activity Proposal (SAS-SDS-FO-020)
+  on your phone. The SDS Office comments on it, clears it and signs it on screen, and
+  the app prints it as a PDF that anyone can check is genuine.
+- **Budgets and expenses:** set a budget per category, record expenses against it,
+  and get warned before money runs low. Someone other than the person who recorded an
+  expense has to approve it.
+- **Receipt scanning:** take a photo of a receipt and the app fills in the store,
+  date, amount and items for you. Duplicate receipts are flagged.
+- **Income:** record registration fees, sponsorships and donations for each event.
+- **Inventory:** keep a list of the organization's items and every time something is
+  bought, lent to an event, returned or disposed of.
+- **Reports:** a dashboard plus weekly, monthly, semester or school-year reports,
+  saved as PDF or CSV.
+- **Works offline:** your organization's records stay readable without internet.
+- **Demo mode:** try every role with sample data, no account needed.
+
+## Who uses it
+
+| Role | In one line |
 |---|---|
-| **Super Admin** | The school's system administrator. Creates departments, organizations, and Admin, SDS and Signatory accounts; sees everything. |
-| **Admin (Dean)** | Runs the organizations in their department: member roster, budget categories, inventory catalog, final event and expense review, audit history. |
-| **Adviser / Moderator** | Reviews the organization's event proposals and expenses, records inventory movements, reads reports. |
-| **Treasurer** | Records income and expenses, scans receipts, completes purchases. The only role that writes financial records. |
-| **Officer** | Reads the organization's records and reports. President, Vice President and Secretary can also create and submit event proposals. |
-| **SDS Staff** | The Student Development and Services Office. Reviews, comments on, clears and signs Student Activity Proposals; reads proposal letters school-wide. |
-| **Signatory** | An institutional approver (for example a director or the University President) assigned to an event's approval route. |
+| **Super Admin** | Sets up departments, organizations and staff accounts; sees everything. |
+| **Admin (Dean)** | Runs the organizations in their department and gives final approval. |
+| **Adviser / Moderator** | Reviews proposals and expenses and manages their own organization's roster, budgets and items. |
+| **Treasurer** | Records income and expenses and scans receipts. |
+| **Officer** | Reads the organization's records. The President, Vice President and Secretary can also propose events. |
+| **SDS Staff** | Reviews, clears and signs Student Activity Proposals. |
+| **Signatory** | Approves events they are assigned to, such as a director or the University President. |
 
-Every account is tied to one organization and department, so users only see their
-own records. No one can approve something they submitted themselves.
+Everyone only sees their own organization's records, and no one can approve something
+they submitted themselves.
 
-### What it does
+## How to use it
 
-**Accounts and sign-in**
-- Members register with the email their Admin placed on the roster and confirm it
-  with a one-time code sent by email. Their role and organization come from the
-  roster, not from what they pick.
-- Forgot-password recovery by email code, forced password change for new
-  admin-created accounts, and a 15-minute lock after five failed sign-ins.
+1. **Install.** Download the APK on an Android phone (Android 7.0 or newer), open it, and
+   allow installing from this source when asked.
+2. **Register.** Sign up with the email your Admin or Adviser put on the roster, then type
+   the code sent to that email. Your role and organization are set for you.
+3. **Sign in and go.** The app connects to the school's server by itself. There is
+   nothing else to set up.
 
-**Events and approvals**
-- Propose an event with its school year, semester, scope, budget category and
-  details; save it as a draft or submit it.
-- The proposal moves through Adviser review, then the Dean, then any assigned
-  institutional signatories, in order. A rejected proposal returns with remarks,
-  is edited and resubmitted, and every decision stays in its history.
-- Event readiness and risk views show what is still missing before an event.
+> The first sign-in of the day can take up to a minute while the server wakes up.
+> To update, install the latest release over the old app.
 
-**Student Activity Proposal (SAP) and the SDS Office**
-- The organization fills in parts 1 to 3 of the official SAS-SDS-FO-020 form step
-  by step on the phone (activity details, budget, support requests and other
-  details), with supporting attachments, and submits it.
-- The SDS Office reviews it, leaves remarks per part, clears or returns it, and
-  signs it with an on-screen signature pad. A proposal can also be withdrawn.
-- The app prints the filled form as a PDF, with or without the SDS comments in the
-  margin. Each printout carries a verification link that confirms the copy is
-  genuine and shows its current revision.
+## Examples
 
-**Budgets, expenses and receipts**
-- Budget categories with an allocation, remaining balance and low-balance warning.
-- Expenses with item lines, linked to a category and event, reviewed by someone
-  other than the person who recorded them. Approval checks the budget first.
-- Receipts are photographed and read automatically (OCR): merchant, date, amount
-  and items are filled in for the user to check. Duplicate and look-alike receipts
-  are flagged for an independent reviewer.
+**Proposing an event.** The org President creates a "Foundation Week Booth" event with
+its date, budget category and details, and submits it. The Adviser approves it, the Dean
+approves it, and the President gets a notification at each step. If the Dean returns it
+asking for a smaller budget, the President edits it and sends it again, and the earlier
+decision stays in the history.
 
-**Income**
-- Income per event, classified as registration fees, sponsorship, donation or
-  other. Income whose receipt is still under review is shown as withheld.
+**Getting the SDS form signed.** The organization fills in the Student Activity Proposal
+one part at a time and attaches its supporting files. SDS Staff leave a remark on the
+budget part and return it. Once it is fixed, SDS clears it and signs it on screen, and
+the organization prints the signed PDF to submit.
 
-**Inventory**
-- A catalog of the organization's items, with every change recorded as a movement:
-  opening balance, acquisition, donation, purchase, issue to an event, return,
-  disposal or adjustment.
-- Items bought through an approved expense enter stock only after payment and
-  delivery are recorded. Stock can never go negative.
+**Buying supplies.** The Treasurer photographs a receipt for ₱1,250 of tarpaulin and
+markers. The app fills in the store, date and items, and the Treasurer checks them and
+saves the expense under the event's budget. The Adviser approves it, the remaining
+budget drops by ₱1,250, and the markers are added to inventory once delivery is recorded.
 
-**Reports and analytics**
-- Dashboard with budgets, event and expense counts, flagged expenses and low stock.
-- Spending trends, a flagged-expense queue, and budget suggestions based on past
-  events in the same category.
-- Category, event and financial reports (weekly, monthly, semester or school year),
-  exported as PDF, CSV or a print-ready page.
+## How it is built
 
-**Everyday use**
-- Notifications for account and proposal activity.
-- Offline viewing: the app saves the organization's records on the phone so they
-  stay readable without internet.
-- Demo mode: hold the heading on the sign-in screen to explore the app as any role
-  with sample data. Nothing in demo mode leaves the phone.
-
-### How it is built
-
-| Part | Technology |
+| Part | Tool |
 |---|---|
 | Phone app | Flutter (Android) |
 | Server | FastAPI (Python), hosted on Render |
-| Database and file storage | Supabase (PostgreSQL and private storage buckets) |
-| Receipt reading (OCR) | Google Gemini |
+| Database and files | Supabase |
+| Receipt reading | Google Gemini |
 | Email codes | Resend |
+
+For the full picture of how each process flows, see the [flowcharts](docs/flowcharts.md).
