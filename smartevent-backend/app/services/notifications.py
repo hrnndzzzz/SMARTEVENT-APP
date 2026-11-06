@@ -12,10 +12,14 @@ logger = logging.getLogger(__name__)
 
 def check_registration_assignment(db, member, user=None):
     from fastapi import HTTPException
-    organization = db.query(Organization).filter(Organization.id == member.organization_id).first()
-    if (member.role not in {"officer", "adviser", "treasurer"}
-            or member.department_id is None or organization is None
-            or organization.department_id != member.department_id):
+    from app.rbac_policy import ROSTER_ROLES, SCHOOL_REVIEWER_ROLES
+    if member.role in SCHOOL_REVIEWER_ROLES:
+        valid = member.department_id is None and member.organization_id is None
+    else:
+        organization = db.query(Organization).filter(Organization.id == member.organization_id).first()
+        valid = (member.role in ROSTER_ROLES and member.department_id is not None
+                 and organization is not None and organization.department_id == member.department_id)
+    if not valid:
         raise HTTPException(403, "An administrator must provide a valid roster role and organization assignment")
     if user is not None and (member.claimed_by_user_id != user.id
             or user.role != member.role or user.department_id != member.department_id

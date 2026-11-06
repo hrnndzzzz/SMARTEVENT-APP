@@ -70,13 +70,23 @@ def evidence(client, path, kind, vehicle=None, expiry=None):
     return result
 
 
-@pytest.mark.parametrize("role", ["adviser", "treasurer", "officer", "sds_staff", "signatory"])
-def test_only_admin_manages_roster(phase2, role):
+@pytest.mark.parametrize("role", ["treasurer", "officer", "sds_staff", "signatory"])
+def test_only_admin_and_adviser_manage_roster(phase2, role):
     system, path = phase2
     client, db, users, orgs, resources, login = system
     login(role)
     assert client.post(path + "/participants", json=[{"student_number": "S1", "full_name": "Student"}]).status_code == 403
     assert db.query(EventParticipant).count() == 0
+
+
+def test_adviser_manages_own_organization_student_roster(phase2):
+    system, path = phase2
+    client, db, users, orgs, resources, login = system
+    login("adviser")
+    assert client.post(path + "/participants", json=[{"student_number": "S1", "full_name": "Student"}]).status_code == 201
+    other = f"/events/{resources[1]['events'].id}/participants"
+    assert client.post(other, json=[{"student_number": "S2", "full_name": "Student"}]).status_code == 403
+    assert db.query(EventParticipant).count() == 1
 
 
 @pytest.mark.parametrize("role", ["treasurer", "officer", "sds_staff", "signatory"])

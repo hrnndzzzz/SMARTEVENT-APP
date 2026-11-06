@@ -25,13 +25,12 @@ void main() {
     expect(find.text('New category'), findsNothing);
   });
 
-  testWidgets('advisers get no create control either', (tester) async {
-    // Advisers review; managing the catalog is an administrator's job.
+  testWidgets('advisers manage their organization catalog too', (tester) async {
     final state = AppState()..devQuickLogin(UserRole.adviser);
     await tester.pumpWidget(_host(state));
     await tester.pump();
 
-    expect(find.text('New category'), findsNothing);
+    expect(find.text('New category'), findsOneWidget);
   });
 
   testWidgets('treasurers get no create control', (tester) async {

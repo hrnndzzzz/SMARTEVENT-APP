@@ -101,7 +101,7 @@ def test_department_admin_and_super_admin_multi_organization(system, role):
     assert response.json()["inserted_count"] == 2
 
 
-@pytest.mark.parametrize("role", ["officer", "adviser", "treasurer", "sds_staff", "signatory"])
+@pytest.mark.parametrize("role", ["officer", "treasurer", "sds_staff", "signatory"])
 def test_non_admin_cannot_import(system, role):
     client, db, _, _, _, login = system
     login(role)
