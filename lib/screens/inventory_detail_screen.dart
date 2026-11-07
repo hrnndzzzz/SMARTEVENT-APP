@@ -10,6 +10,23 @@ import '../theme/brut.dart';
 /// Quantity appears here only as a figure. There is no field to type it
 /// into, because the only way it changes is a movement — which carries an
 /// event, a reason and a direction.
+/// Opens the movement form for [item], from wherever it is asked for.
+///
+/// The form lived only inside the detail screen, so recording a
+/// movement meant opening an item first — and the list, which is where
+/// someone standing at a cupboard is looking, offered no way to do it.
+///
+/// Returns true when a movement was recorded.
+Future<bool> showMovementSheet(
+  BuildContext context,
+  RemoteInventoryItem item,
+) async =>
+    await BrutSheet.show<bool>(
+      context,
+      builder: (_) => _MovementSheet(item: item),
+    ) ??
+    false;
+
 class InventoryDetailScreen extends StatefulWidget {
   const InventoryDetailScreen({super.key, required this.item});
 

@@ -33,9 +33,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.catalogLoad;
-    final canManage =
-        !context.watch<AppState>().isOfflineViewing &&
-        (app.currentRole?.canManageCatalog ?? false);
+    final offline = context.watch<AppState>().isOfflineViewing;
+    final canManage = !offline && (app.currentRole?.canManageCatalog ?? false);
+    // Adding an item and moving stock are different permissions: a
+    // treasurer moves stock but does not shape the catalogue. The screen
+    // offered neither, so a treasurer saw a list and no way to act on it.
+    final canMove =
+        !offline && (app.currentRole?.canRecordInventoryMovements ?? false);
 
     return BrutScreen(
       floatingActionButton: canManage
@@ -67,8 +71,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
           // tell whether an item was theirs to make or something the
           // system had produced. Kept to one line: this sits above the
           // list, and the keyboard has to fit under it.
-          const Text(
-            'They come from completing a purchase, or you add one by hand.',
+          //
+          // Which of those two is available depends on the role, and an
+          // absent button looks the same as a missing feature. Saying
+          // whose job it is beats leaving a treasurer wondering whether
+          // the screen is broken.
+          Text(
+            canManage
+                ? 'They come from completing a purchase, or you add one '
+                      'by hand.'
+                : 'They come from completing a purchase. Adding and '
+                      'removing items is an adviser or administrator job.',
             style: AppText.caption,
           ),
           const SizedBox(height: 12),
@@ -105,6 +118,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ],
                 onRefresh: app.loadCatalog,
                 emptyLabel: _stock.label.toLowerCase(),
+                canMove: canMove,
               ),
             },
           ),
@@ -156,9 +170,13 @@ class _FilterBar extends StatelessWidget {
 }
 
 class _ItemCard extends StatelessWidget {
-  const _ItemCard({required this.item});
+  const _ItemCard({required this.item, required this.onMove});
 
   final RemoteInventoryItem item;
+
+  /// Null when this account may not move stock, or the item cannot take
+  /// a movement yet — a draft has no event to move against.
+  final VoidCallback? onMove;
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +196,18 @@ class _ItemCard extends StatelessWidget {
                 '${item.quantity} ${item.unit}',
                 style: AppText.moneyLarge.copyWith(fontSize: 16),
               ),
+              // Issuing stock is the common errand on this screen and it
+              // was only reachable by opening the item first, which is a
+              // tap nobody standing at a cupboard wants to spend.
+              if (onMove != null) ...[
+                const SizedBox(width: 6),
+                BrutIconButton(
+                  icon: Icons.swap_vert,
+                  label: 'Record a movement for ${item.itemName}',
+                  onPressed: onMove,
+                  size: 34,
+                ),
+              ],
             ],
           ),
           if (item.description?.isNotEmpty == true) ...[
@@ -487,11 +517,15 @@ class _Grouped extends StatelessWidget {
     required this.items,
     required this.onRefresh,
     required this.emptyLabel,
+    required this.canMove,
   });
 
   final List<RemoteInventoryItem> items;
   final Future<void> Function() onRefresh;
   final String emptyLabel;
+
+  /// Whether this account may record stock movements at all.
+  final bool canMove;
 
   @override
   Widget build(BuildContext context) {
@@ -532,7 +566,17 @@ class _Grouped extends StatelessWidget {
             ),
             const SizedBox(height: AppLayout.between),
             for (final item in byPlace[place]!) ...[
-              _ItemCard(item: item),
+              _ItemCard(
+                item: item,
+                // A draft has no event to move stock against, so it is
+                // confirmed from its own page before anything moves.
+                onMove: (canMove && item.isUsable)
+                    ? () async {
+                        final moved = await showMovementSheet(context, item);
+                        if (moved) await onRefresh();
+                      }
+                    : null,
+              ),
               const SizedBox(height: 10),
             ],
             const SizedBox(height: AppLayout.tight),
