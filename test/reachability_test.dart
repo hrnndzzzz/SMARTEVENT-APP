@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:smartevent/state/reachability.dart';
 import 'package:smartevent/theme/app_theme.dart';
@@ -36,6 +38,36 @@ void main() {
 
     expect(reach.state, Reachable.offline);
     expect(reach.offlineFor, isNotNull);
+  });
+
+  test('opening the app asks the server instead of waiting', () async {
+    var asked = 0;
+    final reach = Reachability(
+      httpClient: MockClient((_) async {
+        asked++;
+        return http.Response('ok', 200);
+      }),
+    );
+
+    await Future.wait([reach.wake(), reach.wake()]);
+
+    expect(reach.state, Reachable.online);
+    expect(asked, 1, reason: 'a second open while one is asking waits');
+    // A stale "online" from before the app was put away is asked again.
+    await reach.wake();
+    expect(asked, 2);
+    reach.dispose();
+  });
+
+  test('a server that does not answer the wake-up is offline', () async {
+    final reach = Reachability(
+      httpClient: MockClient((_) async => throw http.ClientException('down')),
+    );
+
+    await reach.wake();
+
+    expect(reach.state, Reachable.offline);
+    reach.dispose();
   });
 
   testWidgets('the dot shows nothing while nothing is known', (tester) async {

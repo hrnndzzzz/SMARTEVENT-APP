@@ -49,6 +49,8 @@ class Reachability extends ChangeNotifier {
   Reachable _state = Reachable.unknown;
   DateTime? _offlineSince;
   Timer? _timer;
+  bool _probing = false;
+  bool _disposed = false;
 
   Reachable get state => _state;
   bool get isOnline => _state == Reachable.online;
@@ -59,6 +61,8 @@ class Reachability extends ChangeNotifier {
 
   /// Called by [ApiClient] after every request.
   void report({required bool reachable}) {
+    // A probe still in flight when the app closes lands here afterwards.
+    if (_disposed) return;
     if (reachable) {
       _timer?.cancel();
       _timer = null;
@@ -82,13 +86,25 @@ class Reachability extends ChangeNotifier {
     _timer = Timer.periodic(probeEvery, (_) => _probe());
   }
 
-  Future<void> _probe() async {
-    if (_state == Reachable.online) return;
-    _set(Reachable.reconnecting);
+  /// Asks the backend right now, whatever the last answer was.
+  ///
+  /// Called each time the app opens or comes back to the front. The hosted
+  /// server sleeps after 15 idle minutes, so "online" from before the app
+  /// was put away says nothing, and the Welcome screen asks it nothing at
+  /// all. This request is what wakes it, before anyone taps Sign in.
+  Future<void> wake() => _probe(force: true);
+
+  Future<void> _probe({bool force = false}) async {
+    if (_probing || (!force && _state == Reachable.online)) return;
+    _probing = true;
+    // Quiet from a standing start: the app opening is not a reconnection.
+    if (_state == Reachable.offline) _set(Reachable.reconnecting);
     try {
       final response = await _httpClient
           .get(Uri.parse('${ApiConfig.baseUrl}/health'))
-          .timeout(const Duration(seconds: 5));
+          // A sleeping server takes about a minute to answer its first
+          // request, so a shorter wait gives up on one that is starting.
+          .timeout(const Duration(seconds: 90));
       // Any answer at all means it is up. The body is not this class's
       // business.
       if (response.statusCode > 0) {
@@ -96,13 +112,16 @@ class Reachability extends ChangeNotifier {
         return;
       }
     } catch (_) {
-      // Still down. Stay offline and wait for the next tick.
+      // Still down. Offline, and the timer keeps asking.
+    } finally {
+      _probing = false;
     }
-    _set(Reachable.offline);
+    report(reachable: false);
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _timer?.cancel();
     _httpClient.close();
     super.dispose();

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The one folder the installer may read: where lib/state/apk_file_io.dart
+     saves a downloaded update. -->
+<paths>
+    <cache-path name="update" path="update/" />
+</paths>

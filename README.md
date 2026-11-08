@@ -69,7 +69,9 @@ they submitted themselves.
    nothing else to set up.
 
 > The first sign-in of the day can take up to a minute while the server wakes up.
-> To update, install the latest release over the old app.
+> The app keeps itself up to date: when a new release is out it asks you to install it,
+> downloads it, and opens the phone's installer. The first time, allow installing from
+> SMARTEVENT when asked.
 
 ## Examples
 
@@ -111,8 +113,10 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
 - **SAP PDFs are printed with LibreOffice there**, not Word, so check a printout
   after each change to the SAP form.
 - **The app points at it** when built with
-  `flutter build apk --release --target-platform android-arm64 --dart-define=SMARTEVENT_API_BASE_URL=https://<service>.onrender.com`,
-  or by typing the address in the app's Settings → Backend.
+  `flutter build apk --release --target-platform android-arm64 --dart-define=SMARTEVENT_API_BASE_URL=https://<service>.onrender.com --dart-define=SMARTEVENT_RELEASE_TAG=<tag>`,
+  or by typing the address in the app's Settings → Backend. `<tag>` is the GitHub
+  release the APK goes out as (such as `v1.0.4`). The app compares it with the latest
+  release to offer updates, so it must match; a build without it never checks.
 - `DATABASE_URL` must be Supabase's **Session pooler** address (Render has no
   IPv6) ending in `?sslmode=verify-full&sslrootcert=/srv/certs/supabase-ca.crt`.
   The certificate comes from Supabase → Project Settings → Database → SSL.

@@ -468,9 +468,10 @@ class AppState extends ChangeNotifier {
   int _navigationGeneration = 0;
   int get navigationGeneration => _navigationGeneration;
   void _connectionChanged() {
+    // Every return of the server reloads, not only the saved viewer's: a
+    // resume that met a sleeping server otherwise keeps its stale screens.
     if (!_restoringSession &&
         _reachability?.isOnline == true &&
-        isOfflineViewing &&
         !requiresOnlineSignIn) {
       unawaited(retryOfflinePreparation());
     }

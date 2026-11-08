@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'state/app_settings.dart';
 import 'state/avatar.dart';
 import 'state/app_state.dart';
+import 'state/app_update.dart';
 import 'state/reachability.dart';
 import 'widgets/connection_banner.dart';
 import 'widgets/offline_banner.dart';
@@ -69,16 +70,39 @@ class _SmartEventAppState extends State<SmartEventApp>
   final _sfx = SfxPlayer()..load();
   final _shelf = NoticeShelf();
 
+  bool _updateShown = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _opened();
+  }
+
+  /// Every launch and every return to the front: wake the server rather
+  /// than wait for a screen to need it, and look for a newer release.
+  void _opened() {
+    // The demo talks to no server, so it has nothing to wake or report.
+    if (!_appState.isDemoMode) _reachability.wake();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (_updateShown) return;
+    final tag = await AppUpdate.newerRelease();
+    final context = _navigatorKey.currentContext;
+    if (tag == null || _updateShown || context == null || !context.mounted) {
+      return;
+    }
+    _updateShown = true;
+    AppUpdate.promptRequired(context, tag);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appState.offlineSync.foreground = state == AppLifecycleState.resumed;
     if (state == AppLifecycleState.resumed) {
+      _opened();
       _appState.retryOfflinePreparation();
     } else {
       _appState.offlineSync.cancel();

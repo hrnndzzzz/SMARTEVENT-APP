@@ -9,6 +9,7 @@ import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/api/token_store.dart';
 import 'package:smartevent/offline/offline_store.dart';
 import 'package:smartevent/state/app_state.dart';
+import 'package:smartevent/state/reachability.dart';
 
 class MemoryToken extends TokenStore {
   String? value = 'expired-token';
@@ -128,6 +129,35 @@ void main() {
       app.dispose();
     },
   );
+
+  test('the server coming back reloads a signed-in app', () async {
+    var profileReads = 0;
+    final reach = Reachability();
+    final api = ApiClient(
+      tokenStore: MemoryToken(),
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/auth/me') {
+          profileReads++;
+          return http.Response(jsonEncode(profile), 200);
+        }
+        if (request.url.path == '/auth/permissions') {
+          return http.Response('{}', 404);
+        }
+        return http.Response('[]', 200);
+      }),
+    );
+    final app = AppState(reachability: reach, apiClient: api)
+      ..devQuickLogin(UserRole.sdsStaff);
+    expect(app.isOfflineViewing, isFalse, reason: 'an online session');
+
+    reach.report(reachable: false);
+    reach.report(reachable: true);
+    await pumpEventQueue(times: 200);
+
+    expect(profileReads, 1, reason: 'it refreshed without being asked');
+    app.dispose();
+    reach.dispose();
+  });
 
   test('password setup refusal revokes an older offline viewer', () async {
     final api = ApiClient(
