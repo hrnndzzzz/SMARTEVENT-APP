@@ -10,6 +10,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
+import '../widgets/event_picker_items.dart';
 import 'capture_screen.dart';
 import 'receipts_screen.dart';
 import '../theme/peso.dart';
@@ -42,16 +43,22 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool _saving = false;
   String? _error;
 
-  /// True when OCR was unavailable and the user is filling this in by hand.
+  /// True when the user skipped the scan, or OCR was unavailable, and is
+  /// filling this in by hand. A photo already taken goes along as proof.
   bool _manualEntry = false;
 
   String? _categoryId;
   String? _eventId;
   DateTime? _expenseDate;
 
+  final _merchantController = TextEditingController();
   final _vendorController = TextEditingController();
   final _totalController = TextEditingController();
   final _purposeController = TextEditingController();
+
+  /// Why there is no scanned receipt. Required for a manual entry, and
+  /// shown to whoever reviews it.
+  final _reasonController = TextEditingController();
 
   /// Reviewed line items. Starts from the scan and is editable.
   List<_EditableLine> _lines = [];
@@ -80,9 +87,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   @override
   void dispose() {
+    _merchantController.dispose();
     _vendorController.dispose();
     _totalController.dispose();
     _purposeController.dispose();
+    _reasonController.dispose();
     super.dispose();
   }
 
@@ -189,6 +198,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       _scanning = false;
       _scan = scan;
       // Prefilled from the reading, all of it editable.
+      _merchantController.text = scan.merchant ?? '';
       _vendorController.text = scan.merchant ?? '';
       _totalController.text = scan.amount == null
           ? ''
@@ -252,6 +262,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (_scan != null && _purposeController.text.trim().isEmpty) {
       return 'Describe what this receipt was for.';
     }
+    if (_scan == null && _reasonController.text.trim().length < 5) {
+      return 'Say why there is no scanned receipt, so the reviewer knows.';
+    }
     return null;
   }
 
@@ -269,20 +282,28 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     final amount = MoneyInput.normalize(_totalController.text)!;
     final scan = _scan;
+    final merchant = _merchantController.text.trim();
+    final photo = _capturedBytes;
 
-    final error = await context.read<AppState>().createExpense(
+    final result = await context.read<AppState>().createExpense(
       categoryId: _categoryId!,
       eventId: _eventId,
       description: _vendorController.text.trim(),
       amount: amount,
       expenseDate: _expenseDate,
+      merchant: merchant.isEmpty ? null : merchant,
+      manualEntryReason: scan == null ? _reasonController.text.trim() : null,
+      // The photo that could not be read is still proof of something.
+      proof: scan == null && photo != null
+          ? (bytes: photo, filename: _capturedFilename ?? 'proof.jpg')
+          : null,
       receipt: scan == null
           ? null
           : ReceiptDetailsInput(
               receiptUrl: scan.receiptUrl,
               purpose: _purposeController.text.trim(),
-              merchant: scan.merchant,
-              issuedOn: scan.date,
+              merchant: merchant.isEmpty ? null : merchant,
+              issuedOn: _expenseDate ?? scan.date,
               amount: amount,
             ),
       items: [
@@ -306,13 +327,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
     if (!mounted) return;
     setState(() {
       _saving = false;
-      _error = error;
+      _error = result.error;
     });
 
-    if (error == null) {
+    if (result.error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Expense saved: ${_vendorController.text.trim()}'),
+          content: Text(
+            result.warning ??
+                'Expense saved: ${_vendorController.text.trim()}',
+          ),
         ),
       );
       _reset();
@@ -328,10 +352,26 @@ class _ScannerScreenState extends State<ScannerScreen> {
       _lines = [];
       _expenseDate = null;
       _eventId = null;
+      _merchantController.clear();
+      _reasonController.clear();
       _vendorController.clear();
       _totalController.clear();
       _purposeController.clear();
     });
+  }
+
+  String _duplicateWarning(List<DuplicateExpense> rows) {
+    final first = rows.first;
+    final when = first.expenseDate == null
+        ? ''
+        : ' · ${BrutDateField.format(first.expenseDate!)}';
+    final status = first.status == 'approved'
+        ? 'approved'
+        : 'waiting for review';
+    final more = rows.length > 1 ? ', and ${rows.length - 1} more' : '';
+    return 'This looks like an expense already recorded: '
+        '${first.description} · ${peso(first.amount)}$when · $status$more. '
+        'Saving it flags it for review.';
   }
 
   @override
@@ -386,9 +426,61 @@ class _ScannerScreenState extends State<ScannerScreen> {
             _ErrorCard(
               message: _error!,
               // Losing the photo to a failed read would be the worst
-              // outcome, so both recoveries stay available.
+              // outcome: it can be read again, or go along as proof below.
               onRetry: _hasImage && !_scanning ? _runScan : null,
-              onManual: _hasImage && !showForm ? _startManualEntry : null,
+            ),
+          ],
+
+          // The camera or the reader failing must not stop money being
+          // recorded, so typing it in is always one tap away.
+          if (!showForm && !_scanning) ...[
+            const SizedBox(height: 14),
+            BrutButton(
+              label: 'Skip scan — enter manually',
+              icon: Icons.edit_outlined,
+              tone: BrutTone.neutral,
+              onPressed: _startManualEntry,
+            ),
+          ],
+
+          if (_scan?.possibleDuplicates case final duplicates?
+              when duplicates.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(
+              tone: BrutTone.coral,
+              icon: Icons.content_copy_outlined,
+              text: _duplicateWarning(duplicates),
+            ),
+          ],
+
+          if (_manualEntry) ...[
+            const SizedBox(height: 14),
+            BrutCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const BrutSectionTitle('No scanned receipt'),
+                  const SizedBox(height: 10),
+                  BrutTextField(
+                    label: 'Why there is no scanned receipt',
+                    controller: _reasonController,
+                    hint: 'e.g. The vendor gave a handwritten note',
+                    maxLength: 500,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _hasImage
+                        ? 'The photo above goes with it as proof. The '
+                              'expense is flagged so the reviewer checks it.'
+                        : 'Optional proof: take a photo above. If it cannot '
+                              'be read as a receipt, it goes with this '
+                              'expense. The expense is flagged so the '
+                              'reviewer checks it.',
+                    style: AppText.caption,
+                  ),
+                ],
+              ),
             ),
           ],
 
@@ -402,6 +494,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
               events: app.events,
               eventId: _eventId,
               onEventChanged: (id) => setState(() => _eventId = id),
+              merchantController: _merchantController,
               vendorController: _vendorController,
               totalController: _totalController,
               purposeController: _purposeController,
@@ -533,11 +626,10 @@ class _Busy extends StatelessWidget {
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message, this.onRetry, this.onManual});
+  const _ErrorCard({required this.message, this.onRetry});
 
   final String message;
   final VoidCallback? onRetry;
-  final VoidCallback? onManual;
 
   @override
   Widget build(BuildContext context) {
@@ -548,33 +640,14 @@ class _ErrorCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           BrutInlineMessage(text: message, tone: BrutTone.coral),
-          if (onRetry != null || onManual != null) ...[
+          if (onRetry != null) ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                if (onRetry != null)
-                  Expanded(
-                    child: BrutButton(
-                      label: 'Try again',
-                      icon: Icons.refresh,
-                      size: BrutSize.small,
-                      tone: BrutTone.neutral,
-                      onPressed: onRetry,
-                    ),
-                  ),
-                if (onRetry != null && onManual != null)
-                  const SizedBox(width: 8),
-                if (onManual != null)
-                  Expanded(
-                    child: BrutButton(
-                      label: 'Enter manually',
-                      icon: Icons.edit_outlined,
-                      size: BrutSize.small,
-                      tone: BrutTone.neutral,
-                      onPressed: onManual,
-                    ),
-                  ),
-              ],
+            BrutButton(
+              label: 'Try again',
+              icon: Icons.refresh,
+              size: BrutSize.small,
+              tone: BrutTone.neutral,
+              onPressed: onRetry,
             ),
           ],
         ],
@@ -597,6 +670,7 @@ class _ReviewCard extends StatelessWidget {
     required this.events,
     required this.eventId,
     required this.onEventChanged,
+    required this.merchantController,
     required this.vendorController,
     required this.totalController,
     required this.purposeController,
@@ -612,6 +686,7 @@ class _ReviewCard extends StatelessWidget {
   final List<EventItem> events;
   final String? eventId;
   final ValueChanged<String?> onEventChanged;
+  final TextEditingController merchantController;
   final TextEditingController vendorController;
   final TextEditingController totalController;
   final TextEditingController purposeController;
@@ -621,6 +696,8 @@ class _ReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canAddCategory =
+        context.watch<AppState>().currentRole?.canManageCatalog ?? false;
     return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -636,6 +713,13 @@ class _ReviewCard extends StatelessWidget {
               style: AppText.caption,
             ),
           ],
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Merchant',
+            controller: merchantController,
+            hint: 'Who was paid',
+            textCapitalization: TextCapitalization.words,
+          ),
           const SizedBox(height: 14),
           BrutTextField(
             label: 'Description',
@@ -670,7 +754,10 @@ class _ReviewCard extends StatelessWidget {
             items: [
               for (final c in categories)
                 DropdownMenuItem(value: c.id, child: Text(c.name)),
-              const DropdownMenuItem(
+              // Only those who manage categories can make one; anyone
+              // else got a form whose save was refused.
+              if (canAddCategory)
+                const DropdownMenuItem(
                 value: newCategorySentinel,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -705,10 +792,7 @@ class _ReviewCard extends StatelessWidget {
             label: 'Event',
             value: eventId,
             hint: 'No event',
-            items: [
-              for (final e in events.where((e) => e.remoteId != null))
-                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-            ],
+            items: eventPickerItems(events, keep: eventId),
             onChanged: onEventChanged,
           ),
           const SizedBox(height: 4),

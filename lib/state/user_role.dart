@@ -49,7 +49,8 @@ extension UserRoleNaming on UserRole {
   /// One-line description of what the role is for, matching the backend's
   /// own `ROLE_POLICY` responsibilities.
   String get responsibility => switch (this) {
-    UserRole.officer => 'View organization records for monitoring.',
+    UserRole.officer =>
+      'Propose events, record financial activity and inventory movements.',
     UserRole.treasurer => 'Record financial activity and inventory movements.',
     UserRole.adviser => 'Review event proposals and expense submissions.',
     UserRole.sdsStaff =>
@@ -118,11 +119,6 @@ extension UserRoleCapabilities on UserRole {
   bool get isAdministrator =>
       this == UserRole.admin || this == UserRole.superAdmin;
 
-  /// Officers read everything operational. Their only writes are stock
-  /// movements, their own password and notifications, and proposals when
-  /// their position allows it.
-  bool get isOperationalReadOnly => this == UserRole.officer;
-
   /// SDS Staff is isolated to proposal letters: no dashboard, events,
   /// finance, inventory, reports or administrative screens.
   bool get isLetterOnly => this == UserRole.sdsStaff;
@@ -157,10 +153,11 @@ extension UserRoleCapabilities on UserRole {
   bool get canAddRemoveInventoryItems =>
       managesOrganization || this == UserRole.officer;
 
-  /// Record income and expenses. Adviser is deliberately excluded: the
-  /// whole point of the split is that whoever records the money is not the
-  /// one who reviews it.
-  bool get canRecordFinance => this == UserRole.treasurer || isAdministrator;
+  /// Record income and expenses. Officers and the Treasurer record; the
+  /// Adviser and administrators review, and whoever records the money is
+  /// never the one who reviews it. Mirrors `FINANCIAL_ROLES` in the backend.
+  bool get canRecordFinance =>
+      this == UserRole.officer || this == UserRole.treasurer;
 
   /// Approve or reject others' submissions. Never your own — that is a
   /// separate per-record check the API enforces.

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../widgets/event_picker_items.dart';
+import '../widgets/last_change_note.dart';
 
 /// One catalog item: its stock, its movement ledger, and the form for
 /// recording a movement.
@@ -164,6 +166,8 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
             const SizedBox(height: 14),
           ],
           _StockCard(item: item),
+          const SizedBox(height: 8),
+          LastChangeNote(area: 'inventory', entityId: item.id),
 
           if (item.isDraft) ...[
             const SizedBox(height: 14),
@@ -377,9 +381,10 @@ class _MovementRow extends StatelessWidget {
 
 /// Recording a movement.
 ///
-/// The form asks for a positive count even for Issue and Disposal, and the
-/// sign is applied from the type. Asking anyone to type a minus is how you
-/// get stock going the wrong way.
+/// Add or Deduct comes first, then what happened, from the choices that go
+/// that way. The count is always positive and the direction supplies the
+/// sign. Asking anyone to type a minus is how you get stock going the wrong
+/// way. Bought 5 and threw 2 away is two movements, so the ledger keeps both.
 class _MovementSheet extends StatefulWidget {
   const _MovementSheet({required this.item});
 
@@ -393,7 +398,20 @@ class _MovementSheetState extends State<_MovementSheet> {
   final _countController = TextEditingController(text: '1');
   final _reasonController = TextEditingController();
 
-  InventoryMovementType _type = InventoryMovementType.issue;
+  static const _addTypes = [
+    InventoryMovementType.acquisition,
+    InventoryMovementType.donation,
+    InventoryMovementType.returned,
+    InventoryMovementType.adjustment,
+  ];
+  static const _deductTypes = [
+    InventoryMovementType.issue,
+    InventoryMovementType.disposal,
+    InventoryMovementType.adjustment,
+  ];
+
+  bool _adding = true;
+  InventoryMovementType _type = InventoryMovementType.acquisition;
   String? _eventId;
   bool _submitting = false;
   String? _error;
@@ -412,10 +430,23 @@ class _MovementSheetState extends State<_MovementSheet> {
     super.dispose();
   }
 
+  void _setDirection(bool adding) => setState(() {
+    _adding = adding;
+    final types = adding ? _addTypes : _deductTypes;
+    if (!types.contains(_type)) _type = types.first;
+  });
+
+  /// The count with the chosen direction's sign. Only an adjustment reads
+  /// it; every other type carries its own direction.
+  String get _count {
+    final n = int.tryParse(_countController.text.trim())?.abs();
+    return n == null ? _countController.text : '${_adding ? '' : '-'}$n';
+  }
+
   /// What this movement would leave in stock, so the effect is visible
   /// before it is committed.
   int? get _projected {
-    final change = signedChangeFor(_type, _countController.text);
+    final change = signedChangeFor(_type, _count);
     return change == null ? null : widget.item.quantity + change;
   }
 
@@ -434,7 +465,7 @@ class _MovementSheetState extends State<_MovementSheet> {
       widget.item,
       type: _type,
       eventId: _eventId!,
-      count: _countController.text,
+      count: _count,
       reason: _reasonController.text,
     );
 
@@ -449,11 +480,10 @@ class _MovementSheetState extends State<_MovementSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events = context
-        .watch<AppState>()
-        .events
-        .where((e) => e.remoteId != null)
-        .toList();
+    final events = eventPickerItems(
+      context.watch<AppState>().events,
+      keep: _eventId,
+    );
     final projected = _projected;
 
     return BrutSheet(
@@ -474,12 +504,34 @@ class _MovementSheetState extends State<_MovementSheet> {
             style: AppText.caption,
           ),
           const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: BrutChip(
+                  label: 'Add stock',
+                  selected: _adding,
+                  tone: BrutTone.mint,
+                  onTap: () => _setDirection(true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: BrutChip(
+                  label: 'Deduct stock',
+                  selected: !_adding,
+                  tone: BrutTone.coral,
+                  onTap: () => _setDirection(false),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           BrutDropdown<InventoryMovementType>(
             label: 'What happened',
             value: _type,
             hint: 'Select',
             items: [
-              for (final t in selectableMovementTypes)
+              for (final t in _adding ? _addTypes : _deductTypes)
                 DropdownMenuItem(value: t, child: Text(t.label)),
             ],
             onChanged: (v) => setState(() => _type = v ?? _type),
@@ -491,10 +543,7 @@ class _MovementSheetState extends State<_MovementSheet> {
             label: 'Event',
             value: _eventId,
             hint: 'Select an event',
-            items: [
-              for (final e in events)
-                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-            ],
+            items: events,
             onChanged: (v) => setState(() => _eventId = v),
           ),
           const SizedBox(height: 14),
@@ -506,12 +555,8 @@ class _MovementSheetState extends State<_MovementSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            _type == InventoryMovementType.adjustment
-                // The one case where the user genuinely picks the
-                // direction, so a minus is meaningful here.
-                ? 'Use a minus for a downward correction.'
-                : 'A positive count — the direction follows from what '
-                      'happened.',
+            'How many to ${_adding ? 'add' : 'take away'}. Always a positive '
+            'number.',
             style: AppText.caption,
           ),
           if (projected != null) ...[

@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +7,8 @@ import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../widgets/last_change_note.dart';
+import 'sap_attachment_rows.dart';
 import 'sap_part1_screen.dart';
 import 'sap_part2_screen.dart';
 import 'sap_part3_screen.dart';
@@ -43,6 +46,32 @@ class _SapFormScreenState extends State<SapFormScreen> {
       if (mounted) SapProposalFlow.fillFromAccount(context, widget.form);
     });
     widget.form.loadAttachments();
+  }
+
+  /// A PDF that goes with the proposal to its reviewers and the SDS
+  /// Office. Only while the proposer can still edit, as the server allows.
+  Future<void> _attachSupportingPdf() async {
+    final picked = await FilePicker.pickFiles(
+      dialogTitle: 'Choose a supporting PDF',
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+    );
+    final file = picked.firstOrNull;
+    if (file == null || !mounted) return;
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+
+    final problem = await widget.form.attachFile(
+      category: SapAttachmentCategory.other,
+      bytes: bytes,
+      filename: file.name,
+    );
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(problem ?? '${file.name} attached.')),
+    );
   }
 
   /// The SDS Office's remarks print as comments only if the proposer says
@@ -232,36 +261,30 @@ class _SapFormScreenState extends State<SapFormScreen> {
                       icon: Icons.error_outline,
                       text: message,
                     ),
-                  const SizedBox(height: 14),
-                  // One row per file, named. Every attachment used to
-                  // read "Open supporting file", so three of them gave
-                  // three identical buttons and no way to tell the
-                  // ROC/COC from an appendix — and a flat Material
-                  // button sat oddly among the bordered rows below it.
-                  for (final attachment in form.attachments) ...[
-                    BrutListRow(
-                      title: attachment.category?.label ?? 'Supporting file',
-                      meta: attachment.filename,
-                      marker: const BrutIconTile(
-                        size: 32,
-                        icon: Icons.attach_file,
-                        tone: BrutTone.brand,
-                      ),
-                      onTap: () async {
-                        try {
-                          await ExportSaver.share(
-                            await form.attachmentFile(attachment.id),
-                            subject: 'Proposal attachment',
-                          );
-                        } catch (error) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text('$error')));
-                        }
-                      },
-                    ),
+                  if (form.eventId case final eventId?) ...[
                     const SizedBox(height: 10),
+                    LastChangeNote(area: 'proposals', entityId: eventId),
+                  ],
+                  const SizedBox(height: 14),
+                  SapAttachmentRows(form: form),
+                  // Before it is sent: once submitted, the server takes no
+                  // more files until the proposal comes back for changes.
+                  if (form.canEditProposerParts && !form.isLocalOnly) ...[
+                    BrutButton(
+                      label: 'Attach a supporting PDF',
+                      icon: Icons.picture_as_pdf_outlined,
+                      tone: BrutTone.neutral,
+                      busy: form.saving,
+                      busyLabel: 'Attaching',
+                      onPressed: _attachSupportingPdf,
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'PDF, up to 10 MB. Reviewers and the SDS Office see it '
+                      'with the proposal.',
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 14),
                   ],
                   for (final part in SapPart.values) ...[
                     _PartRow(

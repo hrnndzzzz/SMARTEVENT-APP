@@ -29,8 +29,8 @@ class HelpScreen extends StatelessWidget {
             answer:
                 'Open Events and tap New. Fill in the title, '
                 'school year, semester, scope and requested budget, '
-                'then submit. A Treasurer, Adviser or Admin can '
-                'propose; an Officer cannot.',
+                'then submit. An Officer, Treasurer, Adviser or Admin '
+                'can propose.',
           ),
           const SizedBox(height: 10),
           const _FaqTile(

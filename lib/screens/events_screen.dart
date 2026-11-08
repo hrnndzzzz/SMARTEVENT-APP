@@ -10,6 +10,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_calendar.dart';
 import '../widgets/event_status.dart';
+import '../widgets/last_change_note.dart';
 import 'event_detail_screen.dart';
 
 /// Every proposal, as a list or as a month.
@@ -71,6 +72,8 @@ class _EventsScreenState extends State<EventsScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: 4),
+          const LastChangeNote(area: 'proposals'),
           const SizedBox(height: 12),
           _EventFilterBar(
             status: _status,

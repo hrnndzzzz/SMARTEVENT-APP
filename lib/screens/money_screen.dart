@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import '../widgets/app_header.dart';
+import '../widgets/last_change_note.dart';
 import 'categories_screen.dart';
 import 'expenses_screen.dart';
 import 'income_screen.dart';
@@ -36,6 +37,8 @@ class MoneyScreen extends StatelessWidget {
         children: [
           const SizedBox(height: AppLayout.section),
           const Text('Money', style: AppText.display),
+          const SizedBox(height: 4),
+          const LastChangeNote(area: 'finance'),
           const SizedBox(height: AppLayout.section),
           MoneyFigures(
             app: app,
@@ -56,16 +59,18 @@ class MoneyScreen extends StatelessWidget {
             count: app.pendingExpenses.length,
             onTap: () => _go(context, const ExpensesScreen()),
           ),
-          const SizedBox(height: AppLayout.tight),
-          _Tile(
-            icon: Icons.document_scanner_outlined,
-            title: 'Record an expense',
-            blurb: canRecord
-                ? 'Scan the receipt, check what was read, save.'
-                : 'A Treasurer records these. You can see them here.',
-            tone: BrutTone.orange,
-            onTap: () => _go(context, const ScannerScreen()),
-          ),
+          // Offered only to those who record: anyone else reached a camera
+          // whose save always came back refused.
+          if (canRecord) ...[
+            const SizedBox(height: AppLayout.tight),
+            _Tile(
+              icon: Icons.document_scanner_outlined,
+              title: 'Record an expense',
+              blurb: 'Scan the receipt, or enter it by hand, then save.',
+              tone: BrutTone.orange,
+              onTap: () => _go(context, const ScannerScreen()),
+            ),
+          ],
           const SizedBox(height: AppLayout.tight),
           _Tile(
             icon: Icons.receipt_long_outlined,

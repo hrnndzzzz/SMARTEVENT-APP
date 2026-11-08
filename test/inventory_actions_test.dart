@@ -38,6 +38,46 @@ void main() {
   // cases pass without proving anything.
   Finder moveButtons() => find.bySemanticsLabel(RegExp('Record a movement'));
 
+  group('adding or deducting stock', () {
+    // A route's animation starts on the frame after the tap, so one frame
+    // to start it and one to finish it.
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    int projected(WidgetTester tester) {
+      final text = tester
+          .widget<Text>(find.textContaining('Stock would become'))
+          .data!;
+      return int.parse(RegExp(r'become (-?\d+)').firstMatch(text)!.group(1)!);
+    }
+
+    testWidgets('the sheet adds by default, and Deduct takes the same count away', (
+      tester,
+    ) async {
+      await open(tester, UserRole.officer);
+      await tester.tap(moveButtons().first);
+      await settle(tester);
+
+      expect(find.text('Add stock'), findsOneWidget);
+      expect(find.text('Bought or acquired'), findsOneWidget);
+      final added = projected(tester);
+
+      await tester.tap(find.text('Deduct stock'));
+      await settle(tester);
+      expect(find.text('Issued for an event'), findsOneWidget);
+      expect(added - projected(tester), 2, reason: '+1 became -1');
+
+      // A correction takes its direction from the chip, not a typed minus.
+      await tester.tap(find.text('Issued for an event'));
+      await settle(tester);
+      await tester.tap(find.text('Adjustment').last);
+      await settle(tester);
+      expect(added - projected(tester), 2);
+    });
+  });
+
   group('moving stock', () {
     testWidgets('a treasurer can move stock from the list itself', (
       tester,

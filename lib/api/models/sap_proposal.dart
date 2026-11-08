@@ -1120,7 +1120,7 @@ enum SapAttachmentCategory {
   pcf('pcf', 'Parent Consent Form'),
   appendix('appendix', 'Appendix'),
   rocCoc('roc_coc', 'ROC / COC'),
-  other('other', 'Other');
+  other('other', 'Supporting document');
 
   const SapAttachmentCategory(this.wireName, this.label);
 

@@ -5,6 +5,7 @@ import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import '../../theme/peso.dart';
+import 'sap_attachment_rows.dart';
 import 'sap_form_screen.dart';
 import 'sds_sign_screen.dart';
 
@@ -35,6 +36,7 @@ class _SdsSummaryScreenState extends State<SdsSummaryScreen> {
     // The list hands over a form nobody has loaded. Only the full form
     // loaded it, so this read blank until that had been opened once.
     form.load();
+    form.loadAttachments();
   }
 
   @override
@@ -106,6 +108,13 @@ class _SdsSummaryScreenState extends State<SdsSummaryScreen> {
               _Money(form: form),
               const SizedBox(height: 10),
               _Support(form: form),
+
+              if (form.attachments.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const BrutSectionTitle('Supporting documents'),
+                const SizedBox(height: 8),
+                SapAttachmentRows(form: form),
+              ],
 
               if (d.rationale?.isNotEmpty == true) ...[
                 const SizedBox(height: 20),

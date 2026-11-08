@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import 'capture_screen.dart';
 import 'complete_purchase_screen.dart';
 import '../theme/peso.dart';
+import '../widgets/brut_date_picker.dart';
+import '../widgets/event_picker_items.dart';
+import '../widgets/last_change_note.dart';
 import '../widgets/stored_image.dart';
 
 /// One expense in full: amounts, the OCR reading, any flag, the itemized
@@ -71,6 +76,90 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
     if (completed == true && mounted) await _loadLines();
   }
 
+  /// Edits go back to the list: this screen shows the record it was opened
+  /// with, so staying would show the old figures.
+  Future<void> _edit() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final saved = await BrutSheet.show<bool>(
+      context,
+      builder: (_) => _EditExpenseSheet(expense: widget.expense),
+    );
+    if (saved != true || !mounted) return;
+    messenger.showSnackBar(const SnackBar(content: Text('Expense updated.')));
+    navigator.pop();
+  }
+
+  Future<void> _delete() async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete "${widget.expense.vendor}"?'),
+        content: const Text(
+          'It is removed for everyone. Only a pending expense with no '
+          'receipt can be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep it'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final error = await context.read<AppState>().deleteExpense(widget.expense);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text(error ?? 'Expense deleted.')),
+    );
+    if (error == null) navigator.pop();
+  }
+
+  /// A receipt photo for an expense saved without one — including a proof
+  /// photo that failed to attach when it was saved.
+  Future<void> _attachPhoto() async {
+    final result = await Navigator.of(context).push<CaptureResult>(
+      MaterialPageRoute(builder: (_) => const CaptureScreen()),
+    );
+    if (!mounted) return;
+    ({List<int> bytes, String filename})? photo;
+    switch (result) {
+      case CapturedReceipt(:final bytes, :final filename):
+        photo = (bytes: bytes, filename: filename);
+      case GalleryRequested():
+        final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+        );
+        if (picked != null) {
+          photo = (bytes: await picked.readAsBytes(), filename: picked.name);
+        }
+      case null:
+        break;
+    }
+    if (photo == null || !mounted) return;
+    final app = context.read<AppState>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final error = await app.uploadExpenseReceipt(
+      widget.expense,
+      bytes: photo.bytes,
+      filename: photo.filename,
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(error ?? 'Photo attached.')));
+    if (error == null) {
+      await app.loadExpenses();
+      navigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final expense = widget.expense;
@@ -86,6 +175,18 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
         app.mayRecordFinance &&
         _assetLines.isNotEmpty;
 
+    // Whoever recorded it may still change it while it waits for review.
+    // The demo's own rows carry no record of who made them.
+    final mine = remote == null
+        ? app.isDemoMode
+        : remote.recordedBy == app.currentAccount?.id;
+    final canChange =
+        !app.isOfflineViewing &&
+        app.mayRecordFinance &&
+        expense.status == ExpenseStatus.pending &&
+        mine;
+    final hasReceipt = remote?.hasReceipt ?? false;
+
     return BrutScreen(
       header: BrutHeader(
         eyebrow: '${expense.category} · ${peso(expense.amount)}',
@@ -97,6 +198,10 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _StatusRow(expense: expense),
+          if (expense.remoteId case final id?) ...[
+            const SizedBox(height: 10),
+            LastChangeNote(area: 'finance', entityId: id),
+          ],
           if (expense.isFlagged) ...[
             const SizedBox(height: 14),
             _FlagCard(reason: expense.flagReason),
@@ -115,6 +220,47 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
           if (remote != null && remote.isPurchaseCompleted) ...[
             const SizedBox(height: 14),
             _PurchaseCard(expense: remote),
+          ],
+          if (canChange) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: BrutButton(
+                    label: 'Edit',
+                    icon: Icons.edit_outlined,
+                    tone: BrutTone.neutral,
+                    onPressed: _edit,
+                  ),
+                ),
+                if (!hasReceipt) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: BrutButton(
+                      label: 'Delete',
+                      icon: Icons.delete_outline,
+                      tone: BrutTone.coral,
+                      onPressed: _delete,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (hasReceipt)
+              const Text(
+                'It has a receipt, so it cannot be deleted. Ask a reviewer '
+                'to reject it instead.',
+                style: AppText.caption,
+                textAlign: TextAlign.center,
+              )
+            else if (!app.isDemoMode)
+              BrutButton(
+                label: 'Attach a receipt photo',
+                icon: Icons.add_a_photo_outlined,
+                tone: BrutTone.neutral,
+                onPressed: _attachPhoto,
+              ),
           ],
           if (canComplete) ...[
             const SizedBox(height: 20),
@@ -426,4 +572,163 @@ class _PurchaseCard extends StatelessWidget {
       ? '—'
       : '${value.year}-${value.month.toString().padLeft(2, '0')}'
             '-${value.day.toString().padLeft(2, '0')}';
+}
+
+/// Changing your own pending expense.
+///
+/// Event, amount and date are shown only when no receipt is attached: once
+/// one is, the server keeps them as the receipt says.
+class _EditExpenseSheet extends StatefulWidget {
+  const _EditExpenseSheet({required this.expense});
+
+  final ExpenseEntry expense;
+
+  @override
+  State<_EditExpenseSheet> createState() => _EditExpenseSheetState();
+}
+
+class _EditExpenseSheetState extends State<_EditExpenseSheet> {
+  late final RemoteExpense? _remote = widget.expense.remote;
+  late final _description = TextEditingController(
+    text: widget.expense.vendor,
+  );
+  late final _amount = TextEditingController(
+    text: MoneyInput.fromDouble(widget.expense.amount),
+  );
+  late String? _categoryId = _remote?.categoryId;
+  late String? _eventId = _remote?.eventId;
+  late DateTime? _date = _remote?.expenseDate;
+  bool _saving = false;
+  String? _error;
+
+  bool get _locked => _remote?.hasReceipt ?? false;
+
+  @override
+  void dispose() {
+    _description.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await BrutDatePicker.show(
+      context,
+      initial: _date ?? now,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+      title: 'When was this spent?',
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _save() async {
+    final description = _description.text.trim();
+    if (description.isEmpty) {
+      setState(() => _error = 'Enter what this expense was for.');
+      return;
+    }
+    final amountProblem = _locked ? null : MoneyInput.validate(_amount.text);
+    if (amountProblem != null) {
+      setState(() => _error = amountProblem);
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final remote = _remote;
+    final amount = _locked ? null : MoneyInput.normalize(_amount.text);
+    // Only what changed, so a locked field is never sent back.
+    final error = await context.read<AppState>().updateExpense(
+      widget.expense,
+      description: description == widget.expense.vendor ? null : description,
+      categoryId: _categoryId == remote?.categoryId ? null : _categoryId,
+      amount: amount == MoneyInput.fromDouble(widget.expense.amount)
+          ? null
+          : amount,
+      expenseDate: _locked || _date == remote?.expenseDate ? null : _date,
+      eventId: _locked || _eventId == remote?.eventId ? null : _eventId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _error = error;
+    });
+    if (error == null) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    return BrutSheet(
+      title: 'Edit expense',
+      footer: BrutButton(
+        label: 'Save changes',
+        size: BrutSize.large,
+        busy: _saving,
+        busyLabel: 'Saving…',
+        onPressed: _save,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutTextField(
+            label: 'Description',
+            controller: _description,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 14),
+          BrutDropdown<String>(
+            label: 'Category',
+            value: _categoryId,
+            hint: 'Select a category',
+            items: [
+              for (final c in app.categories)
+                DropdownMenuItem(value: c.id, child: Text(c.name)),
+            ],
+            onChanged: (v) => setState(() => _categoryId = v ?? _categoryId),
+          ),
+          if (_locked) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'A receipt is attached, so the amount, date and event stay as '
+              'it says.',
+              style: AppText.caption,
+            ),
+          ] else ...[
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'Total amount',
+              controller: _amount,
+              prefixIcon: Icons.payments_outlined,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+            const SizedBox(height: 14),
+            BrutDateField(
+              label: 'Date',
+              value: _date,
+              hint: 'Select a date',
+              onTap: _pickDate,
+            ),
+            const SizedBox(height: 14),
+            BrutDropdown<String>(
+              label: 'Event',
+              value: _eventId,
+              hint: 'No event',
+              items: eventPickerItems(app.events, keep: _eventId),
+              onChanged: (v) => setState(() => _eventId = v),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
+      ),
+    );
+  }
 }

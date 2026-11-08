@@ -70,7 +70,7 @@ class _AccountMenu extends StatelessWidget {
   const _AccountMenu();
 
   static String _roleLabel(UserRole? role) => switch (role) {
-    UserRole.officer => 'Officer (view only)',
+    UserRole.officer => 'Officer',
     UserRole.treasurer => 'Treasurer',
     UserRole.adviser => 'Faculty Adviser',
     UserRole.sdsStaff => 'SDS Staff',
