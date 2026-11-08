@@ -169,7 +169,7 @@ extension InventoryMovementTypeInfo on InventoryMovementType {
   /// What a person would call it.
   String get label => switch (this) {
     InventoryMovementType.openingBalance => 'Opening balance',
-    InventoryMovementType.acquisition => 'Acquired',
+    InventoryMovementType.acquisition => 'Bought or acquired',
     InventoryMovementType.donation => 'Donated',
     InventoryMovementType.purchase => 'Purchased',
     InventoryMovementType.issue => 'Issued for an event',
@@ -204,7 +204,9 @@ extension InventoryMovementTypeInfo on InventoryMovementType {
   };
 
   String get hint => switch (this) {
-    InventoryMovementType.acquisition => 'Obtained without a purchase record.',
+    InventoryMovementType.acquisition =>
+      'Added by hand. If an expense paid for it, complete that purchase '
+          'instead.',
     InventoryMovementType.donation => 'Given to the organization.',
     InventoryMovementType.issue => 'Taken out for use at an event.',
     InventoryMovementType.returned =>

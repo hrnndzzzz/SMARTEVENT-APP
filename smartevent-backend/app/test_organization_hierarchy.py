@@ -128,10 +128,10 @@ def test_officer_letters_are_limited_to_owned_editable_proposals(system, monkeyp
     assert client.get(f"/proposal-letters/{letter_id}").status_code == 200
 
 
-@pytest.mark.parametrize("role", ["admin", "super_admin", "adviser", "officer", "sds_staff"])
-def test_non_treasurers_cannot_execute_any_financial_write(system, role):
+@pytest.mark.parametrize("role", ["admin", "super_admin", "adviser", "sds_staff"])
+def test_non_recorders_cannot_execute_any_financial_write(system, role):
     client, db, users, orgs, resources, login = system
-    users[role].position = "Treasurer" if role != "officer" else "President"
+    users[role].position = "Treasurer"
     db.commit()
     login(role)
     expense_id = resources[0]["expenses"].id
@@ -233,7 +233,7 @@ def test_position_change_updates_roster_audit_and_existing_token_capabilities(sy
     permissions = client.get("/auth/permissions").json()
     assert permissions["position"] == "President"
     assert permissions["can_propose_events"] is True
-    assert permissions["can_record_finance"] is False
+    assert permissions["can_record_finance"] is True
     created = client.post("/events", json=proposal(orgs[0]))
     assert created.status_code == 201, created.text
     login("admin")
@@ -281,7 +281,7 @@ def test_owned_draft_with_letter_returns_conflict_and_preserves_records(system):
     ("adviser", "Moderator", True, False), ("adviser", "Adviser", True, False),
     ("treasurer", "Treasurer", True, True), ("admin", "Dean", True, False),
     ("super_admin", None, True, False), ("sds_staff", "President", False, False),
-    ("officer", "Auditor", True, False),
+    ("officer", "Auditor", True, True),
 ])
 def test_permissions_describe_effective_capabilities(system, role, position, propose, finance):
     client, db, users, orgs, resources, login = system

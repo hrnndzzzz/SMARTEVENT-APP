@@ -276,12 +276,17 @@ class ScannedReceipt {
   final double? amount;
   final List<ScannedReceiptLine> items;
 
+  /// Pending or approved expenses that look like this receipt — same
+  /// name, amount and day. Shown before saving; saving flags it as well.
+  final List<DuplicateExpense> possibleDuplicates;
+
   ScannedReceipt({
     required this.receiptUrl,
     required this.merchant,
     required this.date,
     required this.amount,
     required this.items,
+    this.possibleDuplicates = const [],
   });
 
   factory ScannedReceipt.fromJson(Map<String, dynamic> json) {
@@ -296,6 +301,10 @@ class ScannedReceipt {
         for (final item in (json['items'] as List? ?? const []))
           ScannedReceiptLine.fromJson((item as Map).cast<String, dynamic>()),
       ],
+      possibleDuplicates: [
+        for (final row in (json['possible_duplicates'] as List? ?? const []))
+          DuplicateExpense.fromJson((row as Map).cast<String, dynamic>()),
+      ],
     );
   }
 
@@ -308,6 +317,29 @@ class ScannedReceipt {
         category: item.category ?? ItemCategory.consumable,
       ),
   ];
+}
+
+/// An expense already on record that a new receipt looks like.
+class DuplicateExpense {
+  const DuplicateExpense({
+    required this.description,
+    required this.amount,
+    required this.expenseDate,
+    required this.status,
+  });
+
+  final String description;
+  final double amount;
+  final DateTime? expenseDate;
+  final String status;
+
+  factory DuplicateExpense.fromJson(Map<String, dynamic> json) =>
+      DuplicateExpense(
+        description: json['description'] as String,
+        amount: (json['amount'] as num).toDouble(),
+        expenseDate: DateTime.tryParse(json['expense_date'] as String? ?? ''),
+        status: json['status'] as String,
+      );
 }
 
 class ScannedReceiptLine {

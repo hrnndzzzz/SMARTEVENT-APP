@@ -6,6 +6,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
+import '../widgets/event_picker_items.dart';
 import '../theme/peso.dart';
 
 /// Income recorded against events, by fund source.
@@ -236,7 +237,8 @@ class _Empty extends StatelessWidget {
         hint: canRecord
             ? 'Record money as it comes in — fees, sponsorships and '
                   'donations each count separately in reports.'
-            : 'Income appears here once a Treasurer records it.',
+            : 'Income appears here once an officer or the Treasurer '
+                  'records it.',
       ),
     );
   }
@@ -336,9 +338,8 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
   Widget build(BuildContext context) {
     final events = context
         .watch<AppState>()
-        .events
-        .where((e) => e.remoteId != null)
-        .toList();
+        .events;
+    final items = eventPickerItems(events, keep: _eventId);
 
     return BrutSheet(
       title: 'Record income',
@@ -356,11 +357,8 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
           BrutDropdown<String>(
             label: 'Event',
             value: _eventId,
-            hint: events.isEmpty ? 'No events available' : 'Select an event',
-            items: [
-              for (final e in events)
-                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-            ],
+            hint: items.isEmpty ? 'No events available' : 'Select an event',
+            items: items,
             onChanged: (v) => setState(() => _eventId = v),
           ),
           const SizedBox(height: 14),

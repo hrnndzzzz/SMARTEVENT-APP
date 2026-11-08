@@ -146,6 +146,8 @@ def create_event(
         remaining_budget=payload.allocated_budget,
     )
     db.add(event)
+    db.flush()
+    record_access_change(db, current_user, "event.created", event)
     db.commit()
     db.refresh(event)
 
@@ -329,6 +331,7 @@ def update_event(
         setattr(event, field, value)
 
     _require_academic_metadata(event)
+    record_access_change(db, current_user, "event.updated", event, {"fields": sorted(updates)})
     db.commit()
     db.refresh(event)
     return event
@@ -360,6 +363,7 @@ def submit_event(
             db, "event", event.id, "resubmitted", current_user,
             "Event revised and resubmitted for review.",
         )
+    record_access_change(db, current_user, "event.submitted", event)
 
     db.commit()
     db.refresh(event)
@@ -404,6 +408,7 @@ def approve_event(
             )
         begin_institutional_review(db, event)
         record_decision(db, "event", event.id, "approved", current_user, payload.remarks)
+    record_access_change(db, current_user, "event.approved", event)
 
     db.commit()
     db.refresh(event)
@@ -444,6 +449,7 @@ def reject_event(
     else:
         record_decision(db, "event", event.id, "rejected", current_user, payload.remarks)
         event.status = "rejected"
+    record_access_change(db, current_user, "event.rejected", event)
 
     db.commit()
     db.refresh(event)
@@ -478,6 +484,8 @@ def delete_event(
         db.delete(step)
     try:
         db.flush()
+        # The name goes with the entry: the row it points at is about to go.
+        record_access_change(db, current_user, "event.deleted", event, {"name": event.title})
         db.delete(event)
         db.commit()
     except IntegrityError as exc:

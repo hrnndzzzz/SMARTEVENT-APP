@@ -38,19 +38,19 @@ void main() {
     });
   });
 
-  group('officer proposes events and handles stock', () {
+  group('officer proposes events, handles stock and records money', () {
     const officer = UserRole.officer;
 
     test('reaches operational screens', () {
       expect(officer.hasOperationalAccess, isTrue);
     });
 
-    test('proposes, moves stock, adds and removes items, nothing else', () {
+    test('proposes, moves stock, records money, but never reviews', () {
       expect(officer.canRecordInventoryMovements, isTrue);
       expect(officer.canWriteAnything, isTrue);
       expect(officer.canProposeEvents, isTrue);
       expect(officer.canAddRemoveInventoryItems, isTrue);
-      expect(officer.canRecordFinance, isFalse);
+      expect(officer.canRecordFinance, isTrue);
       expect(officer.canManageCatalog, isFalse);
       expect(officer.canReview, isFalse);
     });
@@ -211,6 +211,16 @@ void main() {
       expect(ids, isNot(contains('admin')));
       // Officers do read operational records, so these stay.
       expect(ids, containsAll(['events', 'money', 'inventory', 'reports']));
+    });
+
+    test('no role is offered the Letters menu entry', () {
+      for (final role in UserRole.values) {
+        expect(
+          menuAreasFor(role).map((a) => a.id),
+          isNot(contains('letters')),
+          reason: role.name,
+        );
+      }
     });
 
     test('only administrators are offered administration', () {

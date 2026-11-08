@@ -199,13 +199,13 @@ void main() {
       final app = treasurer();
       final before = app.expenses.length;
 
-      final error = await app.createExpense(
+      final result = await app.createExpense(
         categoryId: app.categories.first.id,
         description: 'LCUP Campus Store',
         amount: '1220',
       );
 
-      expect(error, isNull, reason: 'the demo must not refuse this');
+      expect(result.error, isNull, reason: 'the demo must not refuse this');
       expect(app.expenses.length, before + 1);
       expect(app.expenses.first.status, ExpenseStatus.pending);
       expect(app.expenses.first.category, app.categories.first.name);

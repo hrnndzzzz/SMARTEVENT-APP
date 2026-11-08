@@ -59,6 +59,8 @@ class ExpenseService {
     DateTime? expenseDate,
     String? receiptUrl,
     ReceiptDetailsInput? receipt,
+    String? merchant,
+    String? manualEntryReason,
     List<ExpenseLineInput> items = const [],
     String? departmentId,
     String? organizationId,
@@ -73,6 +75,9 @@ class ExpenseService {
         if (expenseDate != null) 'expense_date': _asDate(expenseDate),
         if (receiptUrl != null) 'receipt_url': receiptUrl,
         if (receipt != null) 'receipt': receipt.toJson(),
+        if (merchant != null) 'merchant': merchant,
+        // No scanned receipt: the server flags the expense with this reason.
+        if (manualEntryReason != null) 'manual_entry_reason': manualEntryReason,
         if (items.isNotEmpty) 'items': [for (final i in items) i.toJson()],
         // Scoped accounts get these applied server-side from their own
         // profile; a Super Admin has no scope and must supply them.

@@ -42,10 +42,10 @@ administrative audit history.
 | Create event proposals | All | Own department | Own organization | Own organization | Own organization | No |
 | Edit/submit/delete eligible events | All | Own department | Own proposals | Own proposals | Own proposals only | No |
 | Approve/reject events and expenses | Others' submissions | Others' department submissions | Others' organization submissions | No | No | No |
-| Record income and expenses | No | No | No | Own organization | No | No |
-| Edit/delete pending expenses, receipts, OCR, purchase completion | No | No | No | Own eligible transactions | No | No |
+| Record income and expenses | No | No | No | Own organization | Own organization | No |
+| Edit/delete pending expenses, receipts, OCR, purchase completion | No | No | No | Own eligible transactions | Own eligible transactions | No |
 | Create/edit/delete inventory catalog and confirm drafts | All | Own department | No | No | No | No |
-| Record inventory movements | All | Own department | Own organization | Own organization | No | No |
+| Record inventory movements | All | Own department | Own organization | Own organization | Own organization | No |
 | Upload proposal letters | All | Own department | Own organization | Own organization | Own draft/rejected proposals only | No |
 | Read proposal letters | All | Own department | Own organization | Own organization | Own proposals only | All |
 | Read administrative audit history | All | Own department | No | No | No | No |
@@ -53,10 +53,10 @@ administrative audit history.
 
 Every Officer may propose events, whatever their `position`. Officers also
 record stock movements and add or remove inventory items (removing an item with
-history archives it). No position grants finance, administration or review
-permissions.
-Only `role=treasurer` can record finances, including receipts, OCR and purchase
-completion. Admin/Super Admin/Adviser retain financial viewing and independent
+history archives it), and record finances like the Treasurer. No position grants
+administration or review permissions.
+Only `role=treasurer` and `role=officer` record finances, including receipts, OCR
+and purchase completion; each edits only their own pending records. Admin/Super Admin/Adviser retain financial viewing and independent
 review. Personal password and notification actions remain available.
 
 Officers create drafts or submit directly to `pending_adviser`, then
@@ -179,8 +179,8 @@ authorize direct client access to database tables.
 | Upload/verify alternative work | Scoped Admin/Super Admin/Adviser; approved/completed. |
 
 Treasurer, Officer, SDS Staff and Signatory do not receive these student/closeout
-permissions. Treasurer retains own pre-activity logistics uploads. Officer remains
-read-only; Signatory reviews only the next assigned institutional step. Printing
+permissions. Treasurer retains own pre-activity logistics uploads. Officer has no
+logistics or closeout writes; Signatory reviews only the next assigned institutional step. Printing
 does not change attendance or approvals. `completed` records the end of an event;
 derived closeout `CLOSED` requires verified evidence and can reopen on replacement.
 
@@ -189,6 +189,6 @@ derived closeout `CLOSED` requires verified evidence and can reopen on replaceme
 Run .venv\Scripts\python.exe -m pytest -q -p no:cacheprovider app.
 Authorization tests use an isolated in-memory database and do not contact
 Supabase. They verify member organization isolation, department-wide Admin access,
-qualifying Officer proposal ownership/lifecycle, Treasurer-only financial writes,
+qualifying Officer proposal ownership/lifecycle, officer and Treasurer financial writes,
 other Officer write denial, suspension, position/role changes with existing tokens,
 user transfers, audit visibility, and self-review.

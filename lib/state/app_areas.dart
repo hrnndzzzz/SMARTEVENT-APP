@@ -4,7 +4,6 @@ import '../screens/admin_screen.dart';
 import '../screens/events_screen.dart';
 import '../screens/inventory_screen.dart';
 import '../screens/money_screen.dart';
-import '../screens/proposal_letters_screen.dart';
 import '../screens/reports_screen.dart';
 import '../screens/risk_screen.dart';
 import '../screens/search_screen.dart';
@@ -123,20 +122,6 @@ const List<AppArea> appAreas = [
     builder: _risk,
   ),
   AppArea(
-    id: 'letters',
-    title: 'Letters',
-    blurb: 'Proposal letters for events',
-    icon: Icons.description_outlined,
-    tone: BrutTone.brand,
-    badge: _letters,
-    badgeLabel: 'on file',
-    // Officers reach none of it, and sign-in does not even load the
-    // list for them — so the card would open on an empty screen that
-    // will never fill.
-    visibleTo: _canReadLetters,
-    builder: _lettersScreen,
-  ),
-  AppArea(
     id: 'search',
     title: 'Search',
     blurb: 'Find anything, or ask where something is',
@@ -182,17 +167,13 @@ int _pendingEvents(AppState app) =>
 int _pendingExpenses(AppState app) => app.pendingExpenses.length;
 int _lowStock(AppState app) => app.catalog.where((i) => i.isLowStock).length;
 int _flagged(AppState app) => app.flaggedExpenses.length;
-int _letters(AppState app) => app.letters.length;
 
 bool _canAdminister(UserRole role) => role.canManageMembers;
-
-bool _canReadLetters(UserRole role) => role.canAccessProposalLetters;
 
 Widget _events(BuildContext _) => const EventsScreen();
 Widget _money(BuildContext _) => const MoneyScreen();
 Widget _inventory(BuildContext _) => const InventoryScreen();
 Widget _reports(BuildContext _) => const ReportsScreen();
 Widget _risk(BuildContext _) => const RiskScreen();
-Widget _lettersScreen(BuildContext _) => const ProposalLettersScreen();
 Widget _search(BuildContext _) => const SearchScreen();
 Widget _admin(BuildContext _) => const AdminScreen();

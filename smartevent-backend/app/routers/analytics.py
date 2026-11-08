@@ -110,7 +110,7 @@ def get_spending_trends(
 @router.get("/threats", response_model=list[ExpenseOut])
 def get_flagged_expenses(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("adviser", "treasurer", "admin")),
+    current_user: User = Depends(require_role("adviser", "treasurer", "officer", "admin")),
 ):
     query = scope_query_by_department(
         db.query(Expense), Expense.department_id, current_user

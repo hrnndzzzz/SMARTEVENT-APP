@@ -18,16 +18,15 @@ void main() {
 
       final officer = signedInAs(UserRole.officer);
       expect(officer.mayProposeEvents, isTrue);
-      expect(officer.mayRecordFinance, isFalse);
+      expect(officer.mayRecordFinance, isTrue);
     });
 
-    test('an administrator keeps recording, which develop allows', () {
-      // The live backend lets an admin record; only the unmerged
-      // hierarchy branch narrows it. Denying here would break the app
-      // against the server it actually talks to.
+    test('an administrator reviews money rather than recording it', () {
+      // The backend's FINANCIAL_ROLES are the officer and the Treasurer;
+      // offering an admin the button only led to a 403.
       final admin = signedInAs(UserRole.admin);
 
-      expect(admin.mayRecordFinance, isTrue);
+      expect(admin.mayRecordFinance, isFalse);
     });
   });
 
@@ -49,12 +48,12 @@ void main() {
       );
     });
 
-    test('an administrator is refused recording when the server says so', () {
-      final app = signedInAs(UserRole.admin);
+    test('an officer is refused recording when the server says so', () {
+      final app = signedInAs(UserRole.officer);
       expect(app.mayRecordFinance, isTrue, reason: 'the role says yes');
 
       app.permissionsForTest = const AccountPermissions(
-        role: 'admin',
+        role: 'officer',
         canRecordFinance: false,
       );
 
@@ -66,9 +65,9 @@ void main() {
     });
 
     test('a reply carrying neither flag changes nothing', () {
-      final app = signedInAs(UserRole.admin);
+      final app = signedInAs(UserRole.treasurer);
 
-      app.permissionsForTest = const AccountPermissions(role: 'admin');
+      app.permissionsForTest = const AccountPermissions(role: 'treasurer');
 
       expect(app.mayRecordFinance, isTrue);
       expect(app.mayProposeEvents, isTrue);

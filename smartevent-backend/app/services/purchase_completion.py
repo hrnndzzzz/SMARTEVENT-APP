@@ -4,15 +4,15 @@ from decimal import Decimal
 from collections import defaultdict
 from fastapi import HTTPException
 from sqlalchemy import func
-from app.dependencies import assert_owner_or_admin, assert_record_scope
+from app.dependencies import FINANCIAL_ROLES, assert_owner_or_admin, assert_record_scope
 from app.models import Event, ExpenseItem, Inventory, InventoryTransaction, Organization, Receipt
 from app.services.access_audit import record_access_change
 from app.services.receipt_validation import assert_receipt_review_complete
 
 
 def complete_purchase(db, expense, payload, user):
-    assert_record_scope(user, expense)
-    assert_owner_or_admin(expense.recorded_by, user, "complete purchases", owner_roles={"treasurer"})
+    assert_record_scope(user, expense, allow_officer_read=True)
+    assert_owner_or_admin(expense.recorded_by, user, "complete purchases", owner_roles=FINANCIAL_ROLES)
     if expense.status != "approved":
         raise HTTPException(409, "An expense must be approved before purchase completion")
     if expense.purchase_completed_at is not None:
@@ -22,7 +22,7 @@ def complete_purchase(db, expense, payload, user):
     event = db.query(Event).filter(Event.id == expense.event_id).first()
     if event is None:
         raise HTTPException(409, "Assign the expense to its event before completing a purchase")
-    assert_record_scope(user, event)
+    assert_record_scope(user, event, allow_officer_read=True)
     if event.organization_id != expense.organization_id or event.department_id != expense.department_id:
         raise HTTPException(409, "Purchase and event ownership do not match")
     receipt = db.query(Receipt).filter(Receipt.expense_id == expense.id).first()

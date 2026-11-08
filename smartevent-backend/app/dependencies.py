@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Organization, User
-from app.rbac_policy import can_propose_events, can_record_finance
+from app.rbac_policy import FINANCIAL_ROLES, can_propose_events, can_record_finance
 from app.security import decode_access_token
 
 
@@ -28,7 +28,6 @@ VALID_ROLES = {
 ADMIN_ROLES = {"admin", "super_admin"}
 SCOPED_OPERATIONAL_ROLES = {"adviser", "treasurer"}
 SCOPED_READ_ROLES = SCOPED_OPERATIONAL_ROLES | {"officer"}
-FINANCIAL_ROLES = {"treasurer"}
 
 # Match registered route templates so future endpoints never inherit an exception.
 OFFICER_PROPOSAL_WRITES = {
@@ -47,6 +46,19 @@ OFFICER_PROPOSAL_WRITES = {
 # Any officer may be tasked with handing out or returning stock.
 OFFICER_INVENTORY_WRITES = {
     ("POST", "/inventory/{inventory_id}/transactions"), ("POST", "/inventory"), ("DELETE", "/inventory/{inventory_id}"),
+}
+# Officers record money like the Treasurer; reviewing it stays with advisers and admins.
+OFFICER_FINANCE_WRITES = {
+    ("POST", "/incomes"),
+    ("POST", "/expenses"),
+    ("PATCH", "/expenses/{expense_id}"),
+    ("DELETE", "/expenses/{expense_id}"),
+    ("POST", "/expenses/scan-receipt"),
+    ("POST", "/expenses/{expense_id}/receipt"),
+    ("POST", "/expenses/{expense_id}/parse-receipt"),
+    ("POST", "/expenses/{expense_id}/complete-purchase"),
+    ("POST", "/receipts"),
+    ("POST", "/receipts/{receipt_id}/upload"),
 }
 
 
@@ -131,12 +143,13 @@ def enforce_read_only(
     request: Request,
     user: User = Depends(require_active_account),
 ) -> User:
-    """Officer writes are limited to explicitly authorized proposal routes."""
+    """Officer writes are limited to explicitly authorized proposal, inventory and finance routes."""
     user = ensure_account_ready_for_app(user)
     if user.role == "officer" and request.method not in ("GET", "HEAD", "OPTIONS"):
         route = request.scope.get("route")
         write = (request.method, getattr(route, "path", None))
-        if write in OFFICER_INVENTORY_WRITES or (can_propose_events(user) and write in OFFICER_PROPOSAL_WRITES):
+        if (write in OFFICER_INVENTORY_WRITES or write in OFFICER_FINANCE_WRITES
+                or (can_propose_events(user) and write in OFFICER_PROPOSAL_WRITES)):
             return user
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -156,13 +169,13 @@ def require_event_proposer(user: User = Depends(require_active_account)) -> User
 def require_financial_access(
     user: User = Depends(require_active_account),
 ) -> User:
-    """Financial recording belongs exclusively to the Treasurer."""
+    """Financial recording belongs to officers and the Treasurer, never their reviewers."""
     user = ensure_account_ready_for_app(user)
     ensure_operational_assignment(user)
     if not can_record_finance(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Financial recording is restricted to the treasurer",
+            detail="Financial recording is restricted to officers and the treasurer",
         )
     return user
 

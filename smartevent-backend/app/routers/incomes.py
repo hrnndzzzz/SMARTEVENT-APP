@@ -32,7 +32,7 @@ def record_income(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="event_id does not match any existing event",
         )
-    assert_record_scope(current_user, event)
+    assert_record_scope(current_user, event, allow_officer_read=True)
 
     income = IncomeRecord(
         event_id=event.id,

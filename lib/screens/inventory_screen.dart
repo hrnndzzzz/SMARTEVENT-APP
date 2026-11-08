@@ -5,6 +5,8 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
+import '../widgets/event_picker_items.dart';
+import '../widgets/last_change_note.dart';
 import 'inventory_detail_screen.dart';
 
 /// The equipment catalog and its stock.
@@ -65,6 +67,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
             'Stock changes only through recorded movements.',
             style: AppText.caption,
           ),
+          const SizedBox(height: 2),
+          const LastChangeNote(area: 'inventory'),
           const SizedBox(height: 2),
 
           // Where items come from was explained only on the empty
@@ -373,11 +377,10 @@ class _NewItemSheetState extends State<_NewItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events = context
-        .watch<AppState>()
-        .events
-        .where((e) => e.remoteId != null)
-        .toList();
+    final events = eventPickerItems(
+      context.watch<AppState>().events,
+      keep: _eventId,
+    );
 
     return BrutSheet(
       title: 'New inventory item',
@@ -396,10 +399,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
             label: 'Event',
             value: _eventId,
             hint: events.isEmpty ? 'No events available' : 'Select an event',
-            items: [
-              for (final e in events)
-                DropdownMenuItem(value: e.remoteId, child: Text(e.title)),
-            ],
+            items: events,
             onChanged: (v) => setState(() => _eventId = v),
           ),
           const SizedBox(height: 14),

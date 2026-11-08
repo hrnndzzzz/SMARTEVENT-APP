@@ -19,6 +19,29 @@ def normalized(value):
     return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", value or "").strip().casefold())
 
 
+def possible_duplicate_expenses(db, organization_id, names, amount, on, exclude_id=None):
+    """Pending or approved expenses that look like the same purchase: same amount, a day apart, same name."""
+    keys = {normalized(name) for name in names} - {""}
+    if not keys or amount is None or on is None:
+        return []
+    query = db.query(Expense).filter(
+        Expense.organization_id == organization_id,
+        Expense.status.in_(["pending", "approved"]),
+        Expense.amount == Decimal(str(amount)).quantize(Decimal("0.01")),
+        Expense.expense_date >= on - timedelta(days=1),
+        Expense.expense_date <= on + timedelta(days=1),
+    )
+    if exclude_id is not None:
+        query = query.filter(Expense.id != exclude_id)
+    return [row for row in query.order_by(Expense.created_at).all()
+            if keys & {normalized(row.description), normalized(row.ocr_merchant)}]
+
+
+def duplicate_note(rows):
+    row = rows[0]
+    return f"Possible duplicate of {row.description} ₱{Decimal(str(row.amount)):,.2f} on {row.expense_date.isoformat()}"
+
+
 def fingerprint(value):
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
@@ -47,11 +70,11 @@ def save_receipt(db, transaction, details, current_user, *, file_sha256=None, al
     event = db.query(Event).filter(Event.id == transaction.event_id).first()
     if event is None:
         raise HTTPException(422, "Every receipt requires a transaction linked to an existing event")
-    assert_record_scope(current_user, event)
+    assert_record_scope(current_user, event, allow_officer_read=True)
     if not event.organization_id or not event.department_id:
         raise HTTPException(409, "Assign the event to an organization and department first")
     if isinstance(transaction, Expense):
-        assert_record_scope(current_user, transaction)
+        assert_record_scope(current_user, transaction, allow_officer_read=True)
         if transaction.status != "pending" and not (allow_historical and current_user.role == "super_admin"):
             raise HTTPException(409, "Only pending expenses can have receipt data changed")
     # Serialize matching checks for writes in the same organization.

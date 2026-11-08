@@ -75,7 +75,9 @@ void main() {
   testWidgets('only an account that may record money is offered it', (
     tester,
   ) async {
-    final app = AppState()..enterDemo(role: UserRole.officer);
+    // The adviser reviews money; recording it is the officers' and the
+    // Treasurer's.
+    final app = AppState()..enterDemo(role: UserRole.adviser);
     await openDashboard(tester, app);
 
     expect(find.bySemanticsLabel('Record an expense'), findsNothing);

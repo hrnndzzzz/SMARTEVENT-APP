@@ -68,6 +68,16 @@ class ApiClient {
       !path.endsWith('/pdf') &&
       !path.endsWith('/export');
 
+  /// Successful writes so far. Screens that show "last changed by" watch it
+  /// to refetch once their own change has landed.
+  int writeCount = 0;
+
+  Future<dynamic> _counted(Future<dynamic> write) async {
+    final result = await write;
+    writeCount++;
+    return result;
+  }
+
   void _guardWrite(String path) {
     _refuseInDemo();
     final publicAuth = path.startsWith('/auth/') && !hasOfflineSession;
@@ -231,20 +241,24 @@ class ApiClient {
       headers['Content-Type'] = 'application/json';
       encodedBody = body == null ? '' : jsonEncode(body);
     }
-    return _send(
-      () => _httpClient.post(_uri(path), headers: headers, body: encodedBody),
-      patience: patience,
+    return _counted(
+      _send(
+        () => _httpClient.post(_uri(path), headers: headers, body: encodedBody),
+        patience: patience,
+      ),
     );
   }
 
   Future<dynamic> patch(String path, {Object? body}) {
     _guardWrite(path);
     final headers = {..._authHeaders, 'Content-Type': 'application/json'};
-    return _send(
-      () => _httpClient.patch(
-        _uri(path),
-        headers: headers,
-        body: body == null ? '' : jsonEncode(body),
+    return _counted(
+      _send(
+        () => _httpClient.patch(
+          _uri(path),
+          headers: headers,
+          body: body == null ? '' : jsonEncode(body),
+        ),
       ),
     );
   }
@@ -254,19 +268,21 @@ class ApiClient {
   Future<dynamic> put(String path, {Object? body}) {
     _guardWrite(path);
     final headers = {..._authHeaders, 'Content-Type': 'application/json'};
-    return _send(
-      () => _httpClient.put(
-        _uri(path),
-        headers: headers,
-        body: body == null ? '' : jsonEncode(body),
+    return _counted(
+      _send(
+        () => _httpClient.put(
+          _uri(path),
+          headers: headers,
+          body: body == null ? '' : jsonEncode(body),
+        ),
       ),
     );
   }
 
   Future<void> delete(String path) async {
     _guardWrite(path);
-    await _send(
-      () => _httpClient.delete(_uri(path), headers: _authHeaders),
+    await _counted(
+      _send(() => _httpClient.delete(_uri(path), headers: _authHeaders)),
     );
     await offlineStore?.remove(path);
   }
@@ -293,7 +309,7 @@ class ApiClient {
     Map<String, String> fields = const {},
   }) async {
     _guardWrite(path);
-    return _send(() async {
+    return _counted(_send(() async {
       final request = http.MultipartRequest('POST', _uri(path))
         ..headers.addAll(_authHeaders)
         ..fields.addAll(fields)
@@ -314,7 +330,7 @@ class ApiClient {
       // Up to 10 MB from a phone, then storage (30 s) and, for a receipt
       // scan, OCR (30 s) on the server: twenty seconds gave up on uploads
       // that went on to succeed.
-    }, patience: const Duration(seconds: 90));
+    }, patience: const Duration(seconds: 90)));
   }
 
   /// Fetches a binary response — an export — rather than JSON.

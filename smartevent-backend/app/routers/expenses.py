@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.config import settings
 from app.dependencies import (
+    FINANCIAL_ROLES,
     assert_record_scope,
     assert_not_self_review,
     assert_owner_or_admin,
@@ -42,7 +43,10 @@ from app.services.purchase_completion import complete_purchase
 from app.services.approvals import record_decision
 from app.services.ocr import ReceiptParseError, parse_receipt_image, parse_receipt_text
 from app.services.storage import StorageError, canonical_file_url, prepare_image_for_upload, upload_receipt_image
-from app.services.receipt_validation import sync_expense_receipt, assert_receipt_review_complete, receipt_for_transaction
+from app.services.access_audit import record_access_change
+from app.services.receipt_validation import (
+    assert_receipt_review_complete, duplicate_note, possible_duplicate_expenses, receipt_for_transaction, sync_expense_receipt,
+)
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -72,10 +76,10 @@ def _assert_expense_owner_scope(
     current_user: User,
     action: str,
     *,
-    owner_roles: set[str] = {"treasurer"},
+    owner_roles: set[str] = FINANCIAL_ROLES,
 ) -> None:
     assert_owner_or_admin(expense.recorded_by, current_user, action, owner_roles=owner_roles)
-    assert_record_scope(current_user, expense)
+    assert_record_scope(current_user, expense, allow_officer_read=True)
 
 
 def _read_receipt_image(file: UploadFile):
@@ -147,6 +151,9 @@ def scan_receipt(
         date=parsed["date"],
         amount=parsed["amount"],
         items=parsed["items"],
+        # Warned now, before the form is filled in; saving flags it too.
+        possible_duplicates=possible_duplicate_expenses(
+            db, organization.id, [parsed["merchant"]], parsed["amount"], parsed["date"]),
     )
 
 
@@ -157,14 +164,14 @@ def create_expense(
     current_user: User = Depends(require_financial_access),
 ):
     category = _get_category_or_400(db, payload.category_id)
-    assert_record_scope(current_user, category)
+    assert_record_scope(current_user, category, allow_officer_read=True)
 
     event = None
     if payload.event_id is not None:
         event = db.query(Event).filter(Event.id == payload.event_id).first()
         if event is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="event_id does not match any existing event")
-        assert_record_scope(current_user, event)
+        assert_record_scope(current_user, event, allow_officer_read=True)
 
     requested_department_id = (
         payload.department_id
@@ -212,9 +219,26 @@ def create_expense(
         receipt_url=str(payload.receipt_url) if payload.receipt_url else None,
         recorded_by=current_user.id,
         status="pending",
+        # What the receipt says, so the expense shows its reading without a second parse.
+        ocr_merchant=payload.merchant or (payload.receipt.merchant if payload.receipt else None),
+        # save_receipt holds a receipt to the expense's amount and falls back to its date.
+        ocr_date=(payload.receipt.issued_on or payload.expense_date) if payload.receipt else None,
+        ocr_amount=payload.amount if payload.receipt else None,
     )
     db.add(expense)
     db.flush()
+
+    flags = []
+    if payload.manual_entry_reason:
+        flags.append(f"Entered without a scanned receipt: {payload.manual_entry_reason}")
+    duplicates = possible_duplicate_expenses(
+        db, organization_id, [expense.ocr_merchant, expense.description], expense.amount, expense.expense_date,
+        exclude_id=expense.id)
+    if duplicates:
+        flags.append(duplicate_note(duplicates))
+    if flags:
+        expense.is_flagged = True
+        expense.flag_reason = "\n".join(flags)
 
     for item in payload.items:
         db.add(
@@ -229,6 +253,7 @@ def create_expense(
         )
 
     sync_expense_receipt(db, expense, current_user, payload.receipt)
+    record_access_change(db, current_user, "expense.recorded", expense)
     db.commit()
     db.refresh(expense)
     return expense
@@ -329,14 +354,14 @@ def update_expense(
     category = db.query(Category).filter(Category.id == expense.category_id).first()
     if "category_id" in updates:
         category = _get_category_or_400(db, updates["category_id"])
-        assert_record_scope(current_user, category)
+        assert_record_scope(current_user, category, allow_officer_read=True)
 
     event = None
     if "event_id" in updates and updates["event_id"] is not None:
         event = db.query(Event).filter(Event.id == updates["event_id"]).first()
         if event is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="event_id does not match any existing event")
-        assert_record_scope(current_user, event)
+        assert_record_scope(current_user, event, allow_officer_read=True)
 
     if category is None:
         raise HTTPException(
@@ -363,6 +388,7 @@ def update_expense(
     for field, value in updates.items():
         setattr(expense, field, value)
     sync_expense_receipt(db, expense, current_user)
+    record_access_change(db, current_user, "expense.updated", expense, {"fields": sorted(updates)})
 
     db.commit()
     db.refresh(expense)
@@ -436,6 +462,7 @@ def approve_expense(
             )
 
     record_decision(db, "expense", expense.id, "approved", current_user, payload.remarks)
+    record_access_change(db, current_user, "expense.approved", expense)
     expense.status = "approved"
     db.commit()
     db.refresh(expense)
@@ -460,6 +487,7 @@ def reject_expense(
         )
 
     record_decision(db, "expense", expense.id, "rejected", current_user, payload.remarks)
+    record_access_change(db, current_user, "expense.rejected", expense)
     expense.status = "rejected"
     db.commit()
     db.refresh(expense)
@@ -575,6 +603,8 @@ def delete_expense(
 
     if receipt_for_transaction(db, expense):
         raise HTTPException(409, "Expenses with recorded receipts must be rejected, not deleted")
+    # The name goes with the entry: the row it points at is about to go.
+    record_access_change(db, current_user, "expense.deleted", expense, {"name": expense.description})
     db.delete(expense)
     db.commit()
     return None

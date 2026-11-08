@@ -36,6 +36,7 @@ import '../api/models/notification.dart';
 import '../api/notification_service.dart';
 import '../api/event_service.dart';
 import '../api/models/remote_event.dart';
+import '../api/activity_service.dart';
 import '../api/expense_service.dart';
 import '../api/models/remote_expense.dart';
 import '../api/models/registration_result.dart';
@@ -91,6 +92,7 @@ export '../api/models/notification.dart';
 export '../api/models/remote_expense.dart'
     show
         RemoteExpense,
+        DuplicateExpense,
         ExpenseLine,
         ExpenseLineInput,
         ItemCategory,
@@ -2396,6 +2398,22 @@ class AppState extends ChangeNotifier {
   }
 
   late final ExpenseService _expenseService = ExpenseService(_apiClient);
+  late final ActivityService _activityService = ActivityService(_apiClient);
+
+  /// Goes up after each successful write, so "last change" lines refetch.
+  int get writeCount => _apiClient.writeCount;
+
+  /// Who last changed something in [area] — `proposals`, `inventory` or
+  /// `finance` — or in one record of it. Null in the demo, while offline,
+  /// or when it cannot be fetched: the line is a courtesy, not a record.
+  Future<ActivityNote?> lastChange(String area, {String? entityId}) async {
+    if (_demoMode || isOfflineViewing || currentAccount == null) return null;
+    try {
+      return await _activityService.latest(area, entityId: entityId);
+    } catch (_) {
+      return null;
+    }
+  }
 
   ExpenseStatus _expenseStatusFromString(String status) => switch (status) {
     'approved' => ExpenseStatus.approved,
@@ -2689,13 +2707,21 @@ class AppState extends ChangeNotifier {
   /// [amount] and each line amount are decimal strings. Line totals may not
   /// exceed the expense total — the backend rejects that, and so should the
   /// form before getting here.
-  Future<String?> createExpense({
+  ///
+  /// [manualEntryReason] marks an expense entered without a scanned
+  /// receipt; the server flags it for its reviewer. [proof] is an optional
+  /// photo attached once the expense exists. A photo that fails to attach
+  /// does not undo the saved expense, so it comes back as a [warning].
+  Future<({String? error, String? warning})> createExpense({
     required String categoryId,
     String? eventId,
     required String description,
     required String amount,
     DateTime? expenseDate,
     ReceiptDetailsInput? receipt,
+    String? merchant,
+    String? manualEntryReason,
+    ({List<int> bytes, String filename})? proof,
     List<ExpenseLineInput> items = const [],
     String? departmentId,
     String? organizationId,
@@ -2711,26 +2737,104 @@ class AppState extends ChangeNotifier {
       );
       expenses.insert(0, entry);
       notifyListeners();
-      return null;
+      return (error: null, warning: null);
     }
+    RemoteExpense created;
     try {
-      final created = await _expenseService.create(
+      created = await _expenseService.create(
         categoryId: categoryId,
         eventId: eventId,
         description: description,
         amount: amount,
         expenseDate: expenseDate,
         receipt: receipt,
+        merchant: merchant,
+        manualEntryReason: manualEntryReason,
         items: items,
         departmentId: departmentId,
         organizationId: organizationId,
       );
-      expenses.insert(0, _mapRemoteExpense(created));
+    } catch (error) {
+      return (error: _messageForFailure(error), warning: null);
+    }
+    String? warning;
+    if (proof != null) {
+      try {
+        created = await _expenseService.uploadReceipt(
+          created.id,
+          bytes: proof.bytes,
+          filename: proof.filename,
+        );
+      } catch (error) {
+        warning =
+            'Saved, but the photo was not attached: '
+            '${_messageForFailure(error)} Open the expense to attach it again.';
+      }
+    }
+    expenses.insert(0, _mapRemoteExpense(created));
+    notifyListeners();
+    return (error: null, warning: warning);
+  }
+
+  /// Changes your own pending expense. Once a receipt is recorded the
+  /// server keeps its event, amount and date, so only send those without one.
+  Future<String?> updateExpense(
+    ExpenseEntry expense, {
+    String? description,
+    String? categoryId,
+    String? amount,
+    DateTime? expenseDate,
+    String? eventId,
+  }) async {
+    final index = expenses.indexOf(expense);
+    if (_demoMode) {
+      final category = categories.where((c) => c.id == categoryId).firstOrNull;
+      final edited = ExpenseEntry(
+        remoteId: expense.remoteId,
+        vendor: description ?? expense.vendor,
+        amount: double.tryParse(amount ?? '') ?? expense.amount,
+        category: category?.name ?? expense.category,
+        status: expense.status,
+        remote: expense.remote,
+      );
+      if (index >= 0) expenses[index] = edited;
+      notifyListeners();
+      return null;
+    }
+    final remoteId = expense.remoteId;
+    if (remoteId == null) return 'This expense has no backend record yet.';
+    try {
+      final updated = await _expenseService.update(
+        remoteId,
+        description: description,
+        categoryId: categoryId,
+        amount: amount,
+        expenseDate: expenseDate,
+        eventId: eventId,
+      );
+      if (index >= 0) expenses[index] = _mapRemoteExpense(updated);
       notifyListeners();
       return null;
     } catch (error) {
       return _messageForFailure(error);
     }
+  }
+
+  /// Removes your own pending expense. One with a recorded receipt is
+  /// refused by the server: a reviewer rejects it instead.
+  Future<String?> deleteExpense(ExpenseEntry expense) async {
+    if (!_demoMode) {
+      final remoteId = expense.remoteId;
+      if (remoteId == null) return 'This expense has no backend record yet.';
+      try {
+        await _expenseService.delete(remoteId);
+      } catch (error) {
+        return _messageForFailure(error);
+      }
+    }
+    expenses.remove(expense);
+    notifyListeners();
+    return null;
   }
 
   Future<String?> logExpense(
