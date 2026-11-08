@@ -150,8 +150,6 @@ def test_permission_and_stale_version(sap_system):
     assert client.patch(base, json={'expected_version': current, 'details': fixture_data()['details']}).status_code == 403
     login('treasurer')
     assert client.patch(base, json={'expected_version': current + 1, 'details': fixture_data()['details']}).status_code == 409
-    login('officer')
-    assert client.patch(base, json={'expected_version': current, 'details': fixture_data()['details']}).status_code == 403
 
 
 def test_organization_colleague_continues_a_draft(sap_system):

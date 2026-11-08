@@ -55,7 +55,7 @@ def get_dashboard(
     flagged_expense_count = expense_query.filter(Expense.is_flagged.is_(True)).count()
     inventory_query = scope_query_by_department(
         db.query(Inventory), Inventory.department_id, current_user
-    )
+    ).filter(Inventory.is_archived.is_(False))
     low_stock_item_count = inventory_query.filter(
         Inventory.quantity <= Inventory.low_stock_threshold
     ).count()

@@ -1,7 +1,5 @@
 """Shared role/position capabilities and public descriptions of their duties."""
 
-EVENT_PROPOSER_POSITIONS = {"president", "vice president", "secretary"}
-
 MEMBER_ROLES = {"officer", "treasurer", "adviser"}
 SCHOOL_REVIEWER_ROLES = {"sds_staff", "signatory"}
 # Super Admin is deliberately absent: no roster row or upload can create one.
@@ -18,10 +16,7 @@ def manageable_roles(user) -> set[str]:
 
 
 def can_propose_events(user) -> bool:
-    if user.role in {"super_admin", "admin", "adviser", "treasurer"}:
-        return True
-    position = " ".join((getattr(user, "position", None) or "").split()).casefold()
-    return user.role == "officer" and position in EVENT_PROPOSER_POSITIONS
+    return user.role in {"super_admin", "admin", "adviser", "treasurer", "officer"}
 
 
 def can_record_finance(user) -> bool:
@@ -76,8 +71,11 @@ ROLE_POLICY = {
     },
     "officer": {
         "scope": "assigned organization and department",
-        "responsibility": "View organization records for monitoring.",
-        "permissions": ["Read operational records, reports, and analytics", "Record inventory stock movements"],
+        "responsibility": "Propose events, manage own eligible proposals, and monitor organization records.",
+        "permissions": [
+            "Read operational records, reports, and analytics", "Record inventory stock movements",
+            "Create and manage own draft or rejected events", "Upload and read own event proposal letters",
+        ],
     },
     "sds_staff": {
         "scope": "school proposal letters and activity proposals the Dean has approved",
@@ -98,14 +96,10 @@ ROLE_POLICY = {
 
 def effective_role_policy(user) -> dict:
     policy = {**ROLE_POLICY[user.role], "permissions": list(ROLE_POLICY[user.role]["permissions"])}
-    proposer = can_propose_events(user)
-    if user.role == "officer" and proposer:
-        policy["responsibility"] = "Propose events and manage own eligible proposals."
-        policy["permissions"] += ["Create and manage own draft or rejected events", "Upload and read own event proposal letters"]
     return {
         "role": user.role,
         "position": getattr(user, "position", None),
         **policy,
-        "can_propose_events": proposer,
+        "can_propose_events": can_propose_events(user),
         "can_record_finance": can_record_finance(user),
     }

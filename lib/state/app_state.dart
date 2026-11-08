@@ -3107,16 +3107,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// The proposal already waiting on someone's decision, if there is
-  /// one.
-  ///
-  /// One at a time: a second proposal joining the queue while the first
-  /// is undecided is what the review asked us to prevent. A draft is
-  /// not this — an unsent draft is nobody's to decide on, and the
-  /// events hub already offers to carry it on.
-  EventItem? get proposalAwaitingDecision =>
-      events.where((e) => e.status.isPending).firstOrNull;
-
   List<EventItem> get pendingAdviserEvents => events
       .where((e) => e.status == EventApprovalStatus.pendingAdviser)
       .toList();

@@ -13,6 +13,10 @@ import '../theme/palette.dart';
 bool _noStoredFile(Object? error) =>
     error is ApiException && (error.isValidationError || error.isNotFound);
 
+/// 410: the server removed the photo after 30 days; its record remains.
+bool _photoRemoved(Object? error) =>
+    error is ApiException && error.statusCode == 410;
+
 Widget _brokenImage(BuildContext context, String message) => Column(
   mainAxisSize: MainAxisSize.min,
   children: [
@@ -93,6 +97,8 @@ class _StoredImageState extends State<StoredImage> {
                               context,
                               'No ${widget.label.toLowerCase()} is stored.',
                             )
+                          : _photoRemoved(snapshot.error)
+                          ? _brokenImage(context, '${snapshot.error}')
                           : Text(
                               '${snapshot.error}',
                               textAlign: TextAlign.center,

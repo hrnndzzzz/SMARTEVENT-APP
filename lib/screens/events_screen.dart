@@ -53,9 +53,8 @@ class _EventsScreenState extends State<EventsScreen> {
                 onChanged: (v) => setState(() => _calendar = v),
               ),
               const SizedBox(width: AppLayout.tight),
-              // SDS has no event access, and most Officers are
-              // read-only — but the server decides which, since an
-              // Officer who is President may propose.
+              // SDS has no event access; the server decides who may
+              // propose.
               if (context.watch<AppState>().mayProposeEvents)
                 BrutButton(
                   label: 'New',
@@ -64,28 +63,9 @@ class _EventsScreenState extends State<EventsScreen> {
                   expand: false,
                   onPressed: () {
                     final app = context.read<AppState>();
-
-                    // One proposal in the queue at a time. Saying which
-                    // one is holding it, rather than greying the button
-                    // out, is the difference between a rule and a bug.
-                    if (app.proposalAwaitingDecision case final waiting?) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '"${waiting.title}" is still waiting on a '
-                            'decision. One proposal at a time.',
-                          ),
-                          duration: const Duration(seconds: 5),
-                        ),
-                      );
-                      return;
-                    }
-
                     SapProposalFlow.start(
                       context,
-                      SapForm(
-                        service: app.isDemoMode ? null : app.sapService,
-                      ),
+                      SapForm(service: app.isDemoMode ? null : app.sapService),
                     );
                   },
                 ),

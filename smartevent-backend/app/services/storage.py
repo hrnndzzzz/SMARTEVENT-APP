@@ -130,10 +130,13 @@ def upload_proposal_letter(file_bytes: bytes, content_type: str, extension: str,
     return upload_file(file_bytes, content_type, settings.supabase_proposal_letters_bucket, extension, owner_id, organization_id)
 
 
-def delete_uploaded_file(ref: str) -> None:
-    """Remove an unreferenced upload after a failed SAP transaction."""
-    obj = storage_object(ref, settings.supabase_proposal_letters_bucket)
-    if obj is None:
-        raise StorageError("Invalid private upload reference")
-    bucket, path = obj
-    _request("DELETE", f"object/{quote(bucket, safe='')}", json={"prefixes": [path]})
+def delete_uploaded_file(ref: str | list[str], bucket: str | None = None) -> None:
+    """Remove uploads from one bucket: a failed SAP transaction's file, or expired receipt photos."""
+    bucket = bucket or settings.supabase_proposal_letters_bucket
+    paths = []
+    for one in [ref] if isinstance(ref, str) else ref:
+        obj = storage_object(one, bucket)
+        if obj is None:
+            raise StorageError("Invalid private upload reference")
+        paths.append(obj[1])
+    _request("DELETE", f"object/{quote(bucket, safe='')}", json={"prefixes": paths})

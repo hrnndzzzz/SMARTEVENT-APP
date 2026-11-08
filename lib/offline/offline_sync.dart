@@ -313,8 +313,11 @@ class OfflineSync extends ChangeNotifier {
             try {
               await job();
             } on ApiException catch (e) {
-              // Missing optional resources and role refusals are not failed downloads.
-              if (!e.isNotFound && !e.isForbidden) failed++;
+              // Missing optional resources, role refusals and receipt photos
+              // removed after 30 days (410) are not failed downloads.
+              if (!e.isNotFound && !e.isForbidden && e.statusCode != 410) {
+                failed++;
+              }
             } catch (_) {
               failed++;
             }

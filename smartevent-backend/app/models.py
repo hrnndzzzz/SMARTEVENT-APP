@@ -344,6 +344,7 @@ class Receipt(OrganizationScoped, Base):
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     recorded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    file_deleted_at = Column(DateTime(timezone=True), nullable=True)  # photo removed after 30 days
 
 
 class Inventory(OrganizationScoped, Base):
@@ -361,6 +362,7 @@ class Inventory(OrganizationScoped, Base):
 
 
     is_draft = Column(Boolean, nullable=False, default=False)
+    is_archived = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 

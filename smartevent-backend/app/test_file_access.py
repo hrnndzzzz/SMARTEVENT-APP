@@ -130,7 +130,7 @@ def test_proposal_writers_cannot_sign_arbitrary_or_foreign_records(system, signe
     own_unattached = reference("proposal-letters", orgs[0].id, users["treasurer"].id, str(uuid4()) + ".pdf")
     assert access(client, own_unattached).status_code == 404
     login("officer")
-    assert access(client, foreign).status_code == 403
+    assert access(client, foreign).status_code == 404  # officers may propose, but only see their own letters
     assert signer == []
 
 

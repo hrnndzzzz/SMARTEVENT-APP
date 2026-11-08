@@ -178,11 +178,6 @@ def test_sds_staff_cannot_read_operational_modules(client, user, path):
         ("post", "/categories", {"json": {"name": "Test category"}}),
         (
             "post",
-            "/events",
-            {"json": {"title": "Test event", "status": "draft"}},
-        ),
-        (
-            "post",
             "/expenses",
             {
                 "json": {
@@ -192,7 +187,6 @@ def test_sds_staff_cannot_read_operational_modules(client, user, path):
                 }
             },
         ),
-        ("post", "/inventory", {"json": {"item_name": "Test item"}}),
         (
             "post",
             "/incomes",
@@ -219,16 +213,6 @@ def test_sds_staff_cannot_read_operational_modules(client, user, path):
             "post",
             f"/expenses/{uuid4()}/approve",
             {"json": {}},
-        ),
-        (
-            "post",
-            "/proposal-letters",
-            {
-                "data": {"event_id": str(uuid4()), "title": "Test letter"},
-                "files": {
-                    "file": ("letter.pdf", b"%PDF-1.4", "application/pdf")
-                },
-            },
         ),
     ],
 )

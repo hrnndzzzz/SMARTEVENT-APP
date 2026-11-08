@@ -17,7 +17,7 @@ void main() {
       expect(treasurer.mayRecordFinance, isTrue);
 
       final officer = signedInAs(UserRole.officer);
-      expect(officer.mayProposeEvents, isFalse);
+      expect(officer.mayProposeEvents, isTrue);
       expect(officer.mayRecordFinance, isFalse);
     });
 
@@ -32,21 +32,20 @@ void main() {
   });
 
   group('when the server answers', () {
-    test('an Officer who is President may propose', () {
+    test('an Officer the server refuses may not propose', () {
       final app = signedInAs(UserRole.officer);
-      expect(app.mayProposeEvents, isFalse, reason: 'the role says no');
+      expect(app.mayProposeEvents, isTrue, reason: 'the role says yes');
 
       app.permissionsForTest = const AccountPermissions(
         role: 'officer',
-        position: 'President',
-        canProposeEvents: true,
+        canProposeEvents: false,
         canRecordFinance: false,
       );
 
       expect(
         app.mayProposeEvents,
-        isTrue,
-        reason: 'no role name can express this, which is the whole point',
+        isFalse,
+        reason: 'the server decides, so a policy change needs no release',
       );
     });
 

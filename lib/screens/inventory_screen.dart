@@ -34,7 +34,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final app = context.watch<AppState>();
     final load = app.catalogLoad;
     final offline = context.watch<AppState>().isOfflineViewing;
-    final canManage = !offline && (app.currentRole?.canManageCatalog ?? false);
+    final canManage =
+        !offline && (app.currentRole?.canAddRemoveInventoryItems ?? false);
     // Adding an item and moving stock are different permissions: a
     // treasurer moves stock but does not shape the catalogue. The screen
     // offered neither, so a treasurer saw a list and no way to act on it.
@@ -81,7 +82,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ? 'They come from completing a purchase, or you add one '
                       'by hand.'
                 : 'They come from completing a purchase. Adding and '
-                      'removing items is an adviser or administrator job.',
+                      'removing items is an officer, adviser or '
+                      'administrator job.',
             style: AppText.caption,
           ),
           const SizedBox(height: 12),

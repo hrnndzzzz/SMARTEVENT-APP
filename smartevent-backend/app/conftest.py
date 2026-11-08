@@ -10,6 +10,12 @@ def sqlite_uuid(type_, compiler, **kwargs):
 
 
 @pytest.fixture(autouse=True)
+def no_receipt_cleanup_thread(monkeypatch):
+    # Tests that configure storage must not start the daily cleanup against a real database.
+    monkeypatch.setattr("app.services.receipt_retention.start_receipt_cleanup", lambda *args, **kwargs: None)
+
+
+@pytest.fixture(autouse=True)
 def reset_auth_request_limits():
     from app.main import app
     app.state.auth_rate_limits.clear()

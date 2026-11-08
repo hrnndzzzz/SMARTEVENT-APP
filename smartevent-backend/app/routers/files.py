@@ -65,6 +65,10 @@ def get_file_access(
 
     if bucket == settings.supabase_receipts_bucket:
         _authorize_receipt(db, current_user, reference, path)
+        purged = db.query(Receipt).filter(Receipt.file_deleted_at.isnot(None))
+        if _has_reference(purged, Receipt.receipt_url, reference, bucket, path.split("/")[-1]):
+            raise HTTPException(410, "This receipt photo was removed 30 days after upload to save storage. "
+                                     "Its details are still on record.")
     else:
         require_proposal_letter_reader(current_user)
         query = db.query(EventProposalLetter).join(Event, Event.id == EventProposalLetter.event_id)

@@ -53,7 +53,7 @@ the docked record button, and it had Part 1's group count wrong.
 | 19 | The support grid | **School support as a grid** — detail appears only for what you tick |
 | 20 | The budget breakdown | **The breakdown reads across, like the paper** — 150 × ₱10.00 · ₱1,500.00 |
 | 21 | Leaving the form | **Leaving asks** — save as draft, go back, or stay |
-| 22 | Band one, with one in the queue | **One proposal at a time** — the band opens the one already waiting |
+| 22 | Band one, with one in the queue | **Propose another while one waits** — a pending proposal does not block a new one |
 
 ## When it comes back
 

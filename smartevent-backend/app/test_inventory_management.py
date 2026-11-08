@@ -210,10 +210,13 @@ def test_inventory_filters_and_metadata_cannot_bypass_stock_ledger(system):
     item = resources[0]["inventory"]
     assert client.patch(f"/inventory/{item.id}", json={"quantity": 100}).status_code == 422
     assert client.patch(f"/inventory/{item.id}", json={"event_id": None}).status_code == 422
-    assert client.delete(f"/inventory/{item.id}").status_code == 409
     login("officer")
     assert len(client.get(f"/inventory?event_id={resources[0]['events'].id}").json()) == 1
     assert client.get(f"/inventory?event_id={resources[1]['events'].id}").json() == []
+    # Deleting stocked inventory archives it; the row and its quantity stay.
+    assert client.delete(f"/inventory/{item.id}").status_code == 204
+    db.refresh(item)
+    assert item.is_archived and item.quantity > 0
 
 
 @pytest.mark.parametrize("role", ["officer", "adviser", "sds_staff"])

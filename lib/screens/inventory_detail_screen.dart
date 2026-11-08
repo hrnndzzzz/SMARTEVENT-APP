@@ -101,6 +101,36 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     );
   }
 
+  Future<void> _delete() async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Remove "${_item.itemName}"?'),
+        content: const Text(
+          'It leaves the inventory list. An item with stock or movements '
+          'is archived instead of erased, so its history stays in reports.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep it'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final error = await context.read<AppState>().deleteInventoryItem(_item);
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(error ?? 'Item removed.')));
+    if (error == null) navigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -115,6 +145,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
     final canManage =
         !context.watch<AppState>().isOfflineViewing &&
         (role?.canManageCatalog ?? false);
+    final canRemove =
+        !context.watch<AppState>().isOfflineViewing &&
+        (role?.canAddRemoveInventoryItems ?? false);
 
     return BrutScreen(
       header: BrutHeader(
@@ -178,6 +211,15 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
           const Text('Every change to stock, and why.', style: AppText.caption),
           const SizedBox(height: 12),
           _Ledger(movements: _movements, error: _movementsError),
+          if (canRemove) ...[
+            const SizedBox(height: 22),
+            BrutButton(
+              label: 'Remove item',
+              icon: Icons.delete_outline,
+              tone: BrutTone.coral,
+              onPressed: _delete,
+            ),
+          ],
         ],
       ),
     );

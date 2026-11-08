@@ -118,8 +118,8 @@ class InventoryService {
     return RemoteInventoryItem.fromJson(response as Map<String, dynamic>);
   }
 
-  /// Admin/Super Admin, and only for an item with zero stock and no
-  /// transaction or purchase provenance.
+  /// Officer, Adviser or Admin. An item with stock, movements or purchase
+  /// provenance is archived rather than erased.
   Future<void> delete(String inventoryId) async {
     await _client.delete('/inventory/$inventoryId');
   }

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -7,6 +8,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.database import SessionLocal
 from app.dependencies import enforce_read_only
 from app.middleware import RequestSecurityMiddleware
 from app.routers import (
@@ -36,7 +38,18 @@ from app.routers import (
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(_app):
+    # Not tied to APP_ENV: the live server runs as "development" during the demo.
+    if settings.supabase_url and settings.supabase_service_key:
+        from app.services.receipt_retention import start_receipt_cleanup
+        start_receipt_cleanup(SessionLocal)
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="SMARTEVENT API",
     docs_url="/docs" if settings.app_env == "development" else None,
     redoc_url="/redoc" if settings.app_env == "development" else None,

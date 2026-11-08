@@ -57,11 +57,11 @@ def test_lead_officers_can_manage_own_proposal_and_complete_review(system, posit
     ]
 
 
-@pytest.mark.parametrize("position", [None, "", "Auditor", "PRO", "Head of Creatives", "1st year representative", "Assistant Secretary", "Moderator", "Treasurer"])
-def test_other_officer_positions_cannot_propose(system, position):
+@pytest.mark.parametrize("position", [None, "", "Auditor", "PRO", "Head of Creatives", "1st year representative", "Assistant Secretary"])
+def test_every_officer_position_can_propose(system, position):
     client, db, users, orgs, resources, login = system
     officer_position(system, position)
-    assert client.post("/events", json=proposal(orgs[0])).status_code == 403
+    assert client.post("/events", json=proposal(orgs[0])).status_code == 201
     assert client.get("/events").status_code == 200
 
 
@@ -221,7 +221,7 @@ def test_dean_cannot_cross_department_or_select_foreign_organization(system):
 def test_position_change_updates_roster_audit_and_existing_token_capabilities(system):
     client, db, users, orgs, resources, login = system
     token = login("officer")
-    assert client.get("/auth/permissions").json().get("can_propose_events") is False
+    assert client.get("/auth/permissions").json().get("can_propose_events") is True
     login("admin")
     path = f"/users/{users['officer'].id}/access"
     assert client.patch(path, json={"position": "President"}).status_code == 200
@@ -239,8 +239,8 @@ def test_position_change_updates_roster_audit_and_existing_token_capabilities(sy
     login("admin")
     assert client.patch(path, json={"position": "Auditor"}).status_code == 200
     client.headers["Authorization"] = "Bearer " + token
-    assert client.get("/auth/permissions").json()["can_propose_events"] is False
-    assert client.post(f"/events/{created.json()['id']}/submit").status_code == 403
+    assert client.get("/auth/permissions").json()["can_propose_events"] is True
+    assert client.post(f"/events/{created.json()['id']}/submit").status_code != 403
     assert client.post("/auth/register", json={"email": users["officer"].email, "password": "some-password", "position": "President"}).status_code != 201
 
 
@@ -281,6 +281,7 @@ def test_owned_draft_with_letter_returns_conflict_and_preserves_records(system):
     ("adviser", "Moderator", True, False), ("adviser", "Adviser", True, False),
     ("treasurer", "Treasurer", True, True), ("admin", "Dean", True, False),
     ("super_admin", None, True, False), ("sds_staff", "President", False, False),
+    ("officer", "Auditor", True, False),
 ])
 def test_permissions_describe_effective_capabilities(system, role, position, propose, finance):
     client, db, users, orgs, resources, login = system

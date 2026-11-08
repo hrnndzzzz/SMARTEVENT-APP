@@ -77,31 +77,25 @@ fails closed rather than opening up.
 
 ## G4 — Are officers view-only?
 
-**Mostly, and deliberately so — with one exception, decided by the
-position the administrator records.**
-
-**President, Vice President and Secretary** keep `role=officer` and gain
-proposal rights: they may create and manage their own draft or returned
+**No.** Every officer, whatever position the administrator records,
+may propose events: create and manage their own draft or returned
 events, submit them, and upload the proposal letters for their own
 events. For a SAP proposal they may prepare Parts 1 to 3, manage the
-supporting attachments, and submit into the paper workflow.
-
-**Every other officer is a reader.** Auditor, PRO, committee heads, year
-representatives, and anyone whose position is blank: operational records,
-reports and analytics, and nothing written.
+supporting attachments, and submit into the paper workflow. Officers
+also record stock movements and add or remove inventory items; removing
+an item that has history archives it instead of erasing it.
 
 Three things hold whatever the position says:
 
-1. **No position grants finance, inventory, administration or review.**
-   A President cannot record an expense any more than an Auditor can.
+1. **No officer gets finance, administration or review.** An officer
+   cannot record an expense.
 2. **Nobody reviews their own proposal**, at any rank.
 3. **SDS-only work stays with the SDS Office** — clearance, signing,
    paper evidence and closeout.
 
-Enforced by `can_propose_events` in `rbac_policy.py`, which matches the
-position against `{president, vice president, secretary}`, ignoring case
-and collapsing whitespace, and `/auth/permissions` reports the answer
-per account so the app asks rather than guesses.
+Enforced by `can_propose_events` in `rbac_policy.py`, and
+`/auth/permissions` reports the answer per account so the app asks
+rather than guesses.
 
 ---
 

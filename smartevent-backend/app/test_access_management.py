@@ -2,7 +2,7 @@
 
 from datetime import date
 import re
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,7 +16,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models import (
     AuditLog, Category, CiteMember, Department, Event, Expense,
-    IncomeRecord, Inventory, Organization, User,
+    IncomeRecord, Inventory, InventoryTransaction, Organization, User,
 )
 from app.security import create_access_token
 from app.models_compliance import EventLogistics
@@ -135,7 +135,7 @@ def test_super_admin_sees_both_organizations_and_report_boundaries(system):
     assert [row["event_id"] for row in report.json()["events"]] == [str(resources[0]["events"].id)]
 
 
-@pytest.mark.parametrize("position", [None, "President", "Vice President", "Secretary"])
+@pytest.mark.parametrize("position", [None, "President", "Auditor"])
 def test_officer_cannot_use_unrelated_operational_write_routes(system, position):
     client, db, users, orgs, resources, login = system
     users["officer"].position = position
@@ -147,9 +147,12 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
                                                ("/auth/register/admin", "/auth/register/sds", "/auth/register/signatory")):
             continue
         for method in {operation.upper() for operation in operations} & {"POST", "PUT", "PATCH", "DELETE"}:
-            if (method, route_path) == ("POST", "/inventory/{inventory_id}/transactions"):
-                continue  # stock movements are open to every officer
-            if position and (method, route_path) in {
+            if (method, route_path) in {
+                ("POST", "/inventory/{inventory_id}/transactions"), ("POST", "/inventory"),
+                ("DELETE", "/inventory/{inventory_id}"),
+            }:
+                continue  # stock movements and adding/removing items are open to every officer
+            if (method, route_path) in {
                 ("POST", "/events"), ("PATCH", "/events/{event_id}"),
                 ("DELETE", "/events/{event_id}"), ("POST", "/events/{event_id}/submit"),
                 ("POST", "/proposal-letters"),
@@ -173,16 +176,52 @@ def test_catalog_changes_require_administrator(system, role):
     client, db, users, orgs, resources, login = system
     login(role)
     assert client.post("/categories", json={"name": "New"}).status_code == 403
-    assert client.post("/inventory", json={"item_name": "Desk", "quantity": 1, "unit": "pcs",
-                                           "event_id": str(resources[0]["events"].id)}).status_code == 403
+    adds = client.post("/inventory", json={"item_name": "Desk", "quantity": 1, "unit": "pcs",
+                                           "event_id": str(resources[0]["events"].id)}).status_code
+    assert adds == (201 if role == "officer" else 403)
     assert client.patch(f"/inventory/{resources[0]['inventory'].id}", json={"item_name": "Changed"}).status_code == 403
-    assert client.delete(f"/inventory/{resources[0]['inventory'].id}").status_code == 403
+    if role == "treasurer":
+        assert client.delete(f"/inventory/{resources[0]['inventory'].id}").status_code == 403
     response = client.post(f"/inventory/{resources[0]['inventory'].id}/transactions", json={"change_qty": 1,
         "event_id": str(resources[0]["events"].id), "transaction_type": "donation", "reason": "Donated chair"})
     assert response.status_code == 201
     assert client.post(f"/inventory/{resources[0]['inventory'].id}/transactions",
                        json={"change_qty": 1, "event_id": str(resources[1]["events"].id),
                              "transaction_type": "donation", "reason": "Donated chair"}).status_code == 403
+
+
+def test_officer_deletes_a_new_item_and_archives_one_with_history(system):
+    client, db, users, orgs, resources, login = system
+    login("officer")
+    event_id = str(resources[0]["events"].id)
+    fresh = client.post("/inventory", json={"item_name": "Banner", "quantity": 0, "unit": "pcs", "event_id": event_id})
+    assert fresh.status_code == 201, fresh.text
+    assert client.delete(f"/inventory/{fresh.json()['id']}").status_code == 204
+    assert db.query(Inventory).filter(Inventory.id == UUID(fresh.json()["id"])).first() is None
+
+    used = resources[0]["inventory"]
+    assert client.post(f"/inventory/{used.id}/transactions", json={"change_qty": 1, "event_id": event_id,
+        "transaction_type": "donation", "reason": "Donated chair"}).status_code == 201
+    assert client.delete(f"/inventory/{used.id}").status_code == 204
+    db.refresh(used)
+    assert used.is_archived and db.query(InventoryTransaction).filter_by(inventory_id=used.id).count() == 1
+    assert str(used.id) not in {row["id"] for row in client.get("/inventory").json()}
+    used.low_stock_threshold = 10**6  # low on stock, so only archiving keeps it out of the counts
+    db.commit()
+    assert str(used.id) not in {row["id"] for row in client.get("/inventory/low-stock").json()}
+    before = client.get("/analytics/dashboard").json()["low_stock_item_count"]
+    used.is_archived = False
+    db.commit()
+    assert client.get("/analytics/dashboard").json()["low_stock_item_count"] == before + 1
+    used.is_archived = True
+    db.commit()
+    assert client.delete(f"/inventory/{used.id}").status_code == 204  # archiving twice is a no-op
+    assert client.get(f"/inventory/{used.id}").status_code == 200
+    assert client.post(f"/inventory/{used.id}/transactions", json={"change_qty": 1, "event_id": event_id,
+        "transaction_type": "donation", "reason": "Again"}).status_code == 409
+    login("treasurer")
+    assert client.post("/inventory", json={"item_name": "Chair", "quantity": 0, "unit": "pcs",
+                                           "event_id": event_id}).status_code == 403
 
 
 def test_admin_cannot_promote_or_transfer_but_can_manage_department_members(system):
@@ -283,7 +322,8 @@ def test_audit_visibility_is_scoped_and_permissions_are_exposed(system):
     login("officer")
     assert client.get("/audit-logs").status_code == 403
     assert client.get("/auth/permissions").json()["permissions"] == [
-        "Read operational records, reports, and analytics", "Record inventory stock movements"]
+        "Read operational records, reports, and analytics", "Record inventory stock movements",
+        "Create and manage own draft or rejected events", "Upload and read own event proposal letters"]
 
 
 def test_admin_creation_validates_organization_before_provisioning(system, monkeypatch):

@@ -39,34 +39,33 @@ administrative audit history.
 | Transfer accounts to another organization | Yes | No | No | No | No | No |
 | Read operational data, reports, analytics | All | Own department | Own organization | Own organization | Own organization | Only an event whose activity proposal has reached them |
 | Create/update/delete budget categories | All | Own department | No | No | No | No |
-| Create event proposals | All | Own department | Own organization | Own organization | President, Vice President, Secretary only | No |
-| Edit/submit/delete eligible events | All | Own department | Own proposals | Own proposals | Those three positions, own proposals only | No |
+| Create event proposals | All | Own department | Own organization | Own organization | Own organization | No |
+| Edit/submit/delete eligible events | All | Own department | Own proposals | Own proposals | Own proposals only | No |
 | Approve/reject events and expenses | Others' submissions | Others' department submissions | Others' organization submissions | No | No | No |
 | Record income and expenses | No | No | No | Own organization | No | No |
 | Edit/delete pending expenses, receipts, OCR, purchase completion | No | No | No | Own eligible transactions | No | No |
 | Create/edit/delete inventory catalog and confirm drafts | All | Own department | No | No | No | No |
 | Record inventory movements | All | Own department | Own organization | Own organization | No | No |
-| Upload proposal letters | All | Own department | Own organization | Own organization | Those three positions, own draft/rejected proposals only | No |
-| Read proposal letters | All | Own department | Own organization | Own organization | Those three positions, own proposals only | All |
+| Upload proposal letters | All | Own department | Own organization | Own organization | Own draft/rejected proposals only | No |
+| Read proposal letters | All | Own department | Own organization | Own organization | Own proposals only | All |
 | Read administrative audit history | All | Own department | No | No | No | No |
 | Configure institutional event routing | All eligible events | Own department | No | No | No | No |
 
-President, Vice President and Secretary retain `role=officer` and gain proposal
-access based on their administrator-managed `position`. Matching ignores case and
-collapses whitespace. All other positions (including missing titles, Auditor,
-PRO, committee heads and year representatives) remain operational readers.
-No position grants finance, inventory, administration or review permissions.
+Every Officer may propose events, whatever their `position`. Officers also
+record stock movements and add or remove inventory items (removing an item with
+history archives it). No position grants finance, administration or review
+permissions.
 Only `role=treasurer` can record finances, including receipts, OCR and purchase
 completion. Admin/Super Admin/Adviser retain financial viewing and independent
 review. Personal password and notification actions remain available.
 
-Qualifying Officers create drafts or submit directly to `pending_adviser`, then
+Officers create drafts or submit directly to `pending_adviser`, then
 Adviser/Moderator review advances to `pending_admin`; Admin review then advances
 to the existing institutional routing. Assigned Signatories retain final approval.
 Owners edit draft/rejected proposals, resubmit them, and delete drafts subject to
 references. Rejection/resubmission history and no-self-review rules remain intact.
 
-For SAP proposals, the same qualifying Officers can prepare their own draft or
+For SAP proposals, Officers can prepare their own draft or
 returned Parts 1–3, manage supporting attachments, and submit to the existing SAP
 paper workflow. SDS-only clearance, signing, paper evidence and closeout powers
 remain separate. Private proposal-letter links require the same event ownership.

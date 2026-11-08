@@ -51,7 +51,8 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
     assert client.get('/sap/verify/' + rev.verification_token).json()['approval_state'] == 'superseded'
 
 
-@pytest.mark.parametrize('role', ['admin', 'super_admin', 'officer', 'signatory', 'sds_staff'])
+# Officers may propose, so like any organization member they may withdraw a colleague's.
+@pytest.mark.parametrize('role', ['admin', 'super_admin', 'signatory', 'sds_staff'])
 def test_nonproposer_cannot_withdraw(sap_system, role):
     submitted = populate(sap_system)
     client, _, _, _, login, base = sap_system

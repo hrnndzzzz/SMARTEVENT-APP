@@ -45,7 +45,9 @@ OFFICER_PROPOSAL_WRITES = {
     ("POST", "/events/{event_id}/sap-proposal/withdraw"),
 }
 # Any officer may be tasked with handing out or returning stock.
-OFFICER_INVENTORY_WRITES = {("POST", "/inventory/{inventory_id}/transactions")}
+OFFICER_INVENTORY_WRITES = {
+    ("POST", "/inventory/{inventory_id}/transactions"), ("POST", "/inventory"), ("DELETE", "/inventory/{inventory_id}"),
+}
 
 
 def get_current_user(

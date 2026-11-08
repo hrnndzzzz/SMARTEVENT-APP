@@ -145,9 +145,17 @@ extension UserRoleCapabilities on UserRole {
   /// Create, edit and delete categories and the inventory catalog.
   bool get canManageCatalog => managesOrganization;
 
-  /// Propose events. Officers cannot; SDS has no event access.
+  /// Propose events. SDS has no event access.
   bool get canProposeEvents =>
-      this == UserRole.treasurer || this == UserRole.adviser || isAdministrator;
+      this == UserRole.officer ||
+      this == UserRole.treasurer ||
+      this == UserRole.adviser ||
+      isAdministrator;
+
+  /// Add and remove inventory items. Editing an item stays with
+  /// [canManageCatalog].
+  bool get canAddRemoveInventoryItems =>
+      managesOrganization || this == UserRole.officer;
 
   /// Record income and expenses. Adviser is deliberately excluded: the
   /// whole point of the split is that whoever records the money is not the

@@ -38,17 +38,18 @@ void main() {
     });
   });
 
-  group('officer is operational read-only', () {
+  group('officer proposes events and handles stock', () {
     const officer = UserRole.officer;
 
     test('reaches operational screens', () {
       expect(officer.hasOperationalAccess, isTrue);
     });
 
-    test('records stock movements and writes nothing else', () {
+    test('proposes, moves stock, adds and removes items, nothing else', () {
       expect(officer.canRecordInventoryMovements, isTrue);
       expect(officer.canWriteAnything, isTrue);
-      expect(officer.canProposeEvents, isFalse);
+      expect(officer.canProposeEvents, isTrue);
+      expect(officer.canAddRemoveInventoryItems, isTrue);
       expect(officer.canRecordFinance, isFalse);
       expect(officer.canManageCatalog, isFalse);
       expect(officer.canReview, isFalse);

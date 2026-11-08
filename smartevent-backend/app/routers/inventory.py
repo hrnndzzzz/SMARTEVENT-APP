@@ -54,7 +54,7 @@ def _get_item_or_404(db: Session, inventory_id: uuid.UUID, *, lock: bool = False
 def create_item(
     payload: InventoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin", "adviser")),
+    current_user: User = Depends(require_role("admin", "adviser", "officer")),
 ):
     department_id = resolve_department_id(
         current_user,
@@ -62,7 +62,7 @@ def create_item(
         require_for_admin=True,
     )
     organization_id = resolve_organization_id(db, current_user, payload.organization_id, department_id)
-    _event_for_item(db, payload.event_id, current_user, organization_id, department_id)
+    _event_for_item(db, payload.event_id, current_user, organization_id, department_id, allow_officer_read=True)
     db.query(Organization).filter(Organization.id == organization_id).with_for_update().first()
     existing = db.query(Inventory).filter(
         func.lower(Inventory.item_name) == payload.item_name.lower(),
@@ -71,7 +71,8 @@ def create_item(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An item with this name already exists",
+            detail="An archived item already has this name; choose another"
+            if existing.is_archived else "An item with this name already exists",
         )
 
     item = Inventory(
@@ -107,7 +108,7 @@ def list_items(
 ):
     query = scope_query_by_department(
         db.query(Inventory), Inventory.department_id, current_user
-    )
+    ).filter(Inventory.is_archived.is_(False))
     if is_draft is not None:
         query = query.filter(Inventory.is_draft == is_draft)
     if event_id is not None:
@@ -128,7 +129,7 @@ def list_low_stock_items(
     )
     return (
         query
-        .filter(Inventory.quantity <= Inventory.low_stock_threshold)
+        .filter(Inventory.quantity <= Inventory.low_stock_threshold, Inventory.is_archived.is_(False))
         .order_by(Inventory.quantity)
         .all()
     )
@@ -263,29 +264,24 @@ def update_item(
 def delete_item(
     inventory_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin", "adviser")),
+    current_user: User = Depends(require_role("admin", "adviser", "officer")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
-    assert_record_scope(current_user, item)
+    assert_record_scope(current_user, item, allow_officer_read=True)
+    if item.is_archived:
+        return None
 
-    in_use = (
-        db.query(InventoryTransaction)
-        .filter(InventoryTransaction.inventory_id == inventory_id)
-        .first()
+    has_history = (
+        item.quantity != 0
+        or db.query(InventoryTransaction).filter(InventoryTransaction.inventory_id == inventory_id).first()
+        or db.query(ExpenseItem).filter(ExpenseItem.converted_inventory_id == item.id).first()
     )
-    if in_use:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "This item has recorded transactions and cannot be deleted. "
-                "Use an event-linked disposal transaction to retire stock."
-            ),
-        )
-
-    if db.query(ExpenseItem).filter(ExpenseItem.converted_inventory_id == item.id).first():
-        raise HTTPException(409, "Purchased inventory evidence cannot be deleted")
-    if item.quantity != 0:
-        raise HTTPException(409, "Only zero-stock items without history can be deleted")
+    if has_history:
+        # Stock history and purchase evidence stay for reports; the item just leaves the list.
+        item.is_archived = True
+        record_access_change(db, current_user, "inventory.archived", item)
+        db.commit()
+        return None
     record_access_change(db, current_user, "inventory.deleted", item)
     db.delete(item)
     db.commit()
@@ -309,6 +305,8 @@ def create_transaction(
         raise HTTPException(409, "Assign the legacy inventory item's intended event first")
     if item.is_draft:
         raise HTTPException(409, "An administrator must confirm this catalog draft before stock movements")
+    if item.is_archived:
+        raise HTTPException(409, "This item is archived")
     if payload.transaction_type == "purchase":
         raise HTTPException(409, "Purchased stock must use POST /expenses/{expense_id}/complete-purchase")
 
