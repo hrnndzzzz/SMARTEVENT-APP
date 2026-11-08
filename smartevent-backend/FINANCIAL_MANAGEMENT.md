@@ -101,7 +101,7 @@ matched. Do not present this feature as infallible duplicate detection.
 ## Frontend API integration
 
 Use `Authorization: Bearer <token>` on every financial/report/receipt request.
-Officers view finances; only Treasurer records finances; Adviser/Admin/
+Officers and the Treasurer record finances; Adviser/Admin/
 Super Admin review receipts and expenses. Existing organization scope and
 self-review restrictions remain active. SDS has no operational financial access.
 
@@ -157,8 +157,8 @@ legacy consolidated-report treatment is explained below.
 
 Use `income_id` instead of `expense_id` for income. Supplying neither or both
 returns 422. The server derives event/organization/department; the client cannot
-choose a conflicting assignment. Only Treasurer attaches receipts to their own
-transactions. Administrators and Advisers retain independent receipt review.
+choose a conflicting assignment. Officers and the Treasurer attach receipts to
+their own transactions. Administrators and Advisers retain independent receipt review.
 It returns a `ReceiptOut`.
 
 Other endpoints:
@@ -281,7 +281,7 @@ instructions in `CORE_SYSTEM_FEATURES.md`.
    Try self-review, a blank reason, and rewriting metadata to remove the flag.
 8. Try changing event/amount/date, detaching a receipt, or deleting its expense.
    Confirm no receipt-to-transaction linkage is broken.
-9. Read/download as Officer; writes must remain blocked. Try a foreign organization
+9. Record as an Officer, then try another member's expense: 403. Try a foreign organization
    receipt and SDS access: 403. Check PDF/CSV/HTML source and review information.
 10. Validate SQL constraints, simultaneous receipt submissions and budget approvals,
     actual storage, and legacy import on staging PostgreSQL before deployment.

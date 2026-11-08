@@ -16,6 +16,7 @@ from app.dependencies import (
 )
 from app.models import Category, Event, Expense, User
 from app.schemas import CategoryCreate, CategoryOut, CategoryUpdate
+from app.services.access_audit import record_access_change
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -52,6 +53,8 @@ def create_category(
         created_by=current_user.id,
     )
     db.add(category)
+    db.flush()
+    record_access_change(db, current_user, "category.created", category)
     db.commit()
     db.refresh(category)
     return category
@@ -126,6 +129,7 @@ def update_category(
 
     for field, value in updates.items():
         setattr(category, field, value)
+    record_access_change(db, current_user, "category.updated", category, {"fields": sorted(updates)})
 
     db.commit()
     db.refresh(category)
@@ -158,6 +162,7 @@ def delete_category(
             ),
         )
 
+    record_access_change(db, current_user, "category.deleted", category, {"name": category.name})
     db.delete(category)
     db.commit()
     return None

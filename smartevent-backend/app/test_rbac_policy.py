@@ -177,29 +177,6 @@ def test_sds_staff_cannot_read_operational_modules(client, user, path):
     [
         ("post", "/categories", {"json": {"name": "Test category"}}),
         (
-            "post",
-            "/expenses",
-            {
-                "json": {
-                    "category_id": str(uuid4()),
-                    "description": "Test expense",
-                    "amount": 1,
-                }
-            },
-        ),
-        (
-            "post",
-            "/incomes",
-            {
-                "json": {
-                    "event_id": str(uuid4()),
-                    "source": "Sponsorship",
-                    "purpose": "Event expenses",
-                    "amount": 100,
-                }
-            },
-        ),
-        (
             "patch",
             f"/categories/{uuid4()}",
             {"json": {"name": "Renamed category"}},
@@ -250,8 +227,9 @@ def test_adviser_can_reach_event_review_boundary(client, user):
     assert response.status_code == 404
 
 
-def test_treasurer_can_reach_financial_creation_boundary(client, user):
-    authenticate_as(user("treasurer"))
+@pytest.mark.parametrize("role", ["treasurer", "officer"])
+def test_recorders_can_reach_financial_creation_boundary(client, user, role):
+    authenticate_as(user(role))
     use_empty_database()
 
     response = client.post(

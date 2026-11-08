@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.dependencies import OFFICER_FINANCE_WRITES
 from app.main import app
 from app.models import (
     AuditLog, Category, CiteMember, Department, Event, Expense,
@@ -152,6 +153,8 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
                 ("DELETE", "/inventory/{inventory_id}"),
             }:
                 continue  # stock movements and adding/removing items are open to every officer
+            if (method, route_path) in OFFICER_FINANCE_WRITES:
+                continue  # officers record money like the treasurer
             if (method, route_path) in {
                 ("POST", "/events"), ("PATCH", "/events/{event_id}"),
                 ("DELETE", "/events/{event_id}"), ("POST", "/events/{event_id}/submit"),
@@ -248,7 +251,8 @@ def test_role_change_updates_roster_and_existing_token_permissions(system):
     payload = {"event_id": str(resources[0]["events"].id), "source": "Donation", "purpose": "Event", "amount": 10}
     assert client.post("/incomes", json=payload).status_code == 201
     login("admin")
-    assert client.patch(endpoint, json={"role": "officer"}).status_code == 200
+    # Officers record money too, so a reviewer role is what takes it away.
+    assert client.patch(endpoint, json={"role": "adviser"}).status_code == 200
     client.headers["Authorization"] = "Bearer " + officer_token
     assert client.post("/incomes", json=payload).status_code == 403
     assert db.query(AuditLog).filter(AuditLog.action == "user.access_changed").count() == 2
@@ -323,7 +327,9 @@ def test_audit_visibility_is_scoped_and_permissions_are_exposed(system):
     assert client.get("/audit-logs").status_code == 403
     assert client.get("/auth/permissions").json()["permissions"] == [
         "Read operational records, reports, and analytics", "Record inventory stock movements",
-        "Create and manage own draft or rejected events", "Upload and read own event proposal letters"]
+        "Create and manage own draft or rejected events", "Upload and read own event proposal letters",
+        "Create expenses and manage own pending expenses", "Scan and upload own expense receipts",
+        "Record income"]
 
 
 def test_admin_creation_validates_organization_before_provisioning(system, monkeypatch):

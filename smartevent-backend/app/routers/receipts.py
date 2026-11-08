@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.dependencies import assert_not_self_review, assert_owner_or_admin, assert_record_scope, require_financial_access, require_operational_read, require_role, scope_query_by_department
+from app.dependencies import FINANCIAL_ROLES, assert_not_self_review, assert_owner_or_admin, assert_record_scope, require_financial_access, require_operational_read, require_role, scope_query_by_department
 from app.models import Expense, IncomeRecord, Organization, Receipt, User
 from app.schemas import ReceiptCreate, ReceiptDetails, ReceiptOut, ReceiptReview
 from app.services.access_audit import record_access_change
@@ -35,7 +35,7 @@ def get_transaction(db, expense_id=None, income_id=None):
 def create_receipt(payload: ReceiptCreate, db: Session = Depends(get_db),
                    current_user: User = Depends(require_financial_access)):
     transaction = get_transaction(db, payload.expense_id, payload.income_id)
-    assert_owner_or_admin(transaction.recorded_by, current_user, "attach receipts", owner_roles={"treasurer"})
+    assert_owner_or_admin(transaction.recorded_by, current_user, "attach receipts", owner_roles=FINANCIAL_ROLES)
     details = ReceiptDetails(**payload.model_dump(exclude={"expense_id", "income_id"}))
     receipt = save_receipt(db, transaction, details, current_user)
     record_access_change(db, current_user, "receipt.recorded", receipt)
@@ -88,7 +88,7 @@ def upload_receipt_file(receipt_id: uuid.UUID, file: UploadFile = File(...),
                               db: Session = Depends(get_db), current_user: User = Depends(require_financial_access)):
     receipt = get_receipt(db, receipt_id, current_user)
     transaction = get_transaction(db, receipt.expense_id, receipt.income_id)
-    assert_owner_or_admin(transaction.recorded_by, current_user, "upload receipts", owner_roles={"treasurer"})
+    assert_owner_or_admin(transaction.recorded_by, current_user, "upload receipts", owner_roles=FINANCIAL_ROLES)
     db.query(Organization).filter(Organization.id == receipt.organization_id).with_for_update().first()
     receipt = db.query(Receipt).filter(Receipt.id == receipt_id).populate_existing().with_for_update().one()
     if receipt.review_status in {"cleared", "rejected"}:

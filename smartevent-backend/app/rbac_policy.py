@@ -4,6 +4,8 @@ MEMBER_ROLES = {"officer", "treasurer", "adviser"}
 SCHOOL_REVIEWER_ROLES = {"sds_staff", "signatory"}
 # Super Admin is deliberately absent: no roster row or upload can create one.
 ROSTER_ROLES = MEMBER_ROLES | {"admin"} | SCHOOL_REVIEWER_ROLES
+# Who records money. Advisers and admins review it, so they never record it.
+FINANCIAL_ROLES = {"treasurer", "officer"}
 
 
 def manageable_roles(user) -> set[str]:
@@ -20,7 +22,7 @@ def can_propose_events(user) -> bool:
 
 
 def can_record_finance(user) -> bool:
-    return user.role == "treasurer"
+    return user.role in FINANCIAL_ROLES
 
 ROLE_POLICY = {
     "super_admin": {
@@ -71,10 +73,12 @@ ROLE_POLICY = {
     },
     "officer": {
         "scope": "assigned organization and department",
-        "responsibility": "Propose events, manage own eligible proposals, and monitor organization records.",
+        "responsibility": "Propose events, record financial activity, and handle inventory for the organization.",
         "permissions": [
             "Read operational records, reports, and analytics", "Record inventory stock movements",
             "Create and manage own draft or rejected events", "Upload and read own event proposal letters",
+            "Create expenses and manage own pending expenses", "Scan and upload own expense receipts",
+            "Record income",
         ],
     },
     "sds_staff": {

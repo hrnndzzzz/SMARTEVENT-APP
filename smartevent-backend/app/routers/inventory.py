@@ -282,7 +282,7 @@ def delete_item(
         record_access_change(db, current_user, "inventory.archived", item)
         db.commit()
         return None
-    record_access_change(db, current_user, "inventory.deleted", item)
+    record_access_change(db, current_user, "inventory.deleted", item, {"name": item.item_name})
     db.delete(item)
     db.commit()
     return None

@@ -473,6 +473,10 @@ class ExpenseCreate(BaseModel):
 
     receipt_url: HttpUrl | None = None
     receipt: ReceiptDetails | None = None
+    # Who was paid. Shown with the receipt reading and used to spot duplicates.
+    merchant: str | None = Field(default=None, max_length=150)
+    # Set when there is no scanned receipt; the expense is flagged for its reviewer.
+    manual_entry_reason: str | None = Field(default=None, min_length=5, max_length=500)
 
 
     items: list[ExpenseItemInput] = Field(default_factory=list, max_length=100)
@@ -712,12 +716,29 @@ class ScannedReceiptItem(BaseModel):
     category: Literal["asset", "consumable"]
 
 
+class DuplicateExpense(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    description: str
+    amount: float
+    expense_date: date
+    status: str
+
+
 class ScanReceiptResponse(BaseModel):
     receipt_url: str
     merchant: str | None
     date: date | None
     amount: float | None
     items: list[ScannedReceiptItem]
+    possible_duplicates: list[DuplicateExpense] = Field(default_factory=list)
+
+
+class ActivityNoteOut(BaseModel):
+    action: str
+    actor_name: str
+    created_at: datetime
+    subject: str | None
 
 
 class DashboardSummary(BaseModel):
