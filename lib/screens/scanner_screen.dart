@@ -56,6 +56,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
   final _totalController = TextEditingController();
   final _purposeController = TextEditingController();
 
+  /// The OR or reference number printed on the paper.
+  ///
+  /// The backend hashes merchant + this into reference_key, which is
+  /// one of the three keys that refuse an exact duplicate outright.
+  /// Nothing ever filled it, so that key was always null and the same
+  /// receipt photographed twice got through as merely "similar".
+  final _referenceController = TextEditingController();
+
   /// Why there is no scanned receipt. Required for a manual entry, and
   /// shown to whoever reviews it.
   final _reasonController = TextEditingController();
@@ -91,6 +99,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     _vendorController.dispose();
     _totalController.dispose();
     _purposeController.dispose();
+    _referenceController.dispose();
     _reasonController.dispose();
     super.dispose();
   }
@@ -302,6 +311,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
           : ReceiptDetailsInput(
               receiptUrl: scan.receiptUrl,
               purpose: _purposeController.text.trim(),
+              receiptNumber: _referenceController.text.trim().isEmpty
+                  ? null
+                  : _referenceController.text.trim(),
               merchant: merchant.isEmpty ? null : merchant,
               issuedOn: _expenseDate ?? scan.date,
               amount: amount,
@@ -334,8 +346,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.warning ??
-                'Expense saved: ${_vendorController.text.trim()}',
+            result.warning ?? 'Expense saved: ${_vendorController.text.trim()}',
           ),
         ),
       );
@@ -357,6 +368,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       _vendorController.clear();
       _totalController.clear();
       _purposeController.clear();
+      _referenceController.clear();
     });
   }
 
@@ -380,9 +392,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final showForm = _scan != null || _manualEntry;
 
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       bottomPadding: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -498,6 +508,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
               vendorController: _vendorController,
               totalController: _totalController,
               purposeController: _purposeController,
+              referenceController: _referenceController,
               expenseDate: _expenseDate,
               onDateTap: _pickDate,
               requiresPurpose: _scan != null,
@@ -674,6 +685,7 @@ class _ReviewCard extends StatelessWidget {
     required this.vendorController,
     required this.totalController,
     required this.purposeController,
+    required this.referenceController,
     required this.expenseDate,
     required this.onDateTap,
     required this.requiresPurpose,
@@ -690,6 +702,7 @@ class _ReviewCard extends StatelessWidget {
   final TextEditingController vendorController;
   final TextEditingController totalController;
   final TextEditingController purposeController;
+  final TextEditingController referenceController;
   final DateTime? expenseDate;
   final VoidCallback onDateTap;
   final bool requiresPurpose;
@@ -758,16 +771,16 @@ class _ReviewCard extends StatelessWidget {
               // else got a form whose save was refused.
               if (canAddCategory)
                 const DropdownMenuItem(
-                value: newCategorySentinel,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add, size: 16),
-                    SizedBox(width: 6),
-                    Text('New category'),
-                  ],
+                  value: newCategorySentinel,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 16),
+                      SizedBox(width: 6),
+                      Text('New category'),
+                    ],
+                  ),
                 ),
-              ),
             ],
             onChanged: (value) async {
               if (value != newCategorySentinel) {
@@ -812,6 +825,19 @@ class _ReviewCard extends StatelessWidget {
             const SizedBox(height: 4),
             const Text(
               'Required whenever a receipt is attached.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'Reference or OR number',
+              controller: referenceController,
+              hint: 'e.g. OR 2026-00417',
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Optional, but it is what lets the same receipt be '
+              'refused if it is recorded twice.',
               style: AppText.caption,
             ),
           ],

@@ -391,77 +391,57 @@ class _StatTile extends StatelessWidget {
     return BrutCard(
       onTap: onTap,
       onLongPress: () => _showPeek(context),
-      padding: EdgeInsets.zero,
-      child: Stack(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (amount != null)
-            // Rises from the bottom as the budget goes. Orange while
-            // there is room, coral once there is not — the same two
-            // tones the bar it replaces used.
-            // Below the icon row, not behind it: the fill passing
-            // under the icon's own tinted chip muddied both colours.
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 48,
-              bottom: 0,
-              child: FractionallySizedBox(
-                // Left to right, the way a bar reads, rather than
-                // rising up the card.
-                alignment: Alignment.centerLeft,
-                widthFactor: amount.clamp(0.0, 1.0),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: amount >= 1 ? p.coralTint : p.orangeTint,
-                  ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: Icon(icon, size: 17, color: accent),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(icon, size: 17, color: accent),
-                    ),
-                    const Spacer(),
-                    _TrendBadge(trend: trend),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    style: AppText.heroNumber.copyWith(fontSize: 26),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  // Full ink where a fill sits behind it: muted grey
-                  // on the orange was legible but only just, and this
-                  // label carries the other half of the figure above.
-                  style: AppText.caption.copyWith(
-                    color: amount == null ? p.muted : p.ink,
-                    fontWeight: amount == null ? null : FontWeight.w600,
-                  ),
-                ),
-              ],
+              const Spacer(),
+              _TrendBadge(trend: trend),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: AppText.heroNumber.copyWith(fontSize: 26),
             ),
           ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.caption.copyWith(color: p.muted),
+          ),
+          // A bar, not a wash behind the card. Filling the box read as
+          // a stray block with hard edges — worse in dark, where the
+          // tint went muddy brown — and it had to dodge the icon. A
+          // bar says the same thing in the shape people already read
+          // proportions in.
+          if (amount != null) ...[
+            const SizedBox(height: 10),
+            BrutProgressBar(
+              value: amount.clamp(0.0, 1.0),
+              tone: switch (amount) {
+                >= 1 => BrutTone.coral,
+                >= 0.9 => BrutTone.sun,
+                _ => BrutTone.orange,
+              },
+            ),
+          ],
         ],
       ),
     );
