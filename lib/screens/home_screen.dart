@@ -196,9 +196,9 @@ class HomeScreen extends StatelessWidget {
                   label: 'of ${peso(allocated, decimals: 0)} left',
                   peekTitle: 'Budget',
                   opens: 'money',
-                  // The box fills as the budget goes, so the tile says
-                  // how much is left and shows it at the same time.
-                  // The bar that used to do this is gone.
+                  // The bar fills with what has been spent while the
+                  // figure counts what is left, so the tile says how
+                  // much remains and shows how far in you are at once.
                   fill: used,
                   // Held, it breaks into categories — the same shape
                   // the events peek takes, so a hold reads the same
@@ -355,8 +355,9 @@ class _StatTile extends StatelessWidget {
   /// names a figure, not a place: "Open Left to spend" is not English.
   final String opens;
 
-  /// 0 to 1. Fills the card behind the figure by that much, so a tile
-  /// about a proportion shows it rather than printing it twice.
+  /// 0 to 1, drawn as a bar under the figure, so a tile about a
+  /// proportion shows it rather than printing it twice. Null on a tile
+  /// that counts things rather than measuring one against a total.
   final double? fill;
 
   /// Shown in the peek instead of [peek], when the honest answer is a
