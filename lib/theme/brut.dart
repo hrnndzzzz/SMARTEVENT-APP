@@ -144,6 +144,32 @@ void _sound(BuildContext context) {
 class _BrutSurfaceState extends State<BrutSurface> {
   bool _down = false;
 
+  /// The last tap's work is still running.
+  bool _running = false;
+
+  /// One tap, one action. Tapping fast opened the same page once per tap,
+  /// and started the same proposal twice. A tap is let through only when
+  /// the last one's work has finished (callbacks that return a Future say
+  /// when that is) and this control's page is still the one on top — the
+  /// first tap may have opened another over it.
+  Future<void> _tap() async {
+    if (_running || !(ModalRoute.isCurrentOf(context) ?? true)) return;
+    // On the press itself rather than on the release, so it lands with
+    // the shadow rather than after it.
+    _sound(context);
+    // Called through Function so an async callback's Future can be seen;
+    // a VoidCallback's result cannot be read otherwise.
+    final Function onTap = widget.onTap!;
+    final Object? result = onTap();
+    if (result is! Future) return;
+    _running = true;
+    try {
+      await result;
+    } finally {
+      _running = false;
+    }
+  }
+
   bool get _interactive =>
       widget.enabled && (widget.onTap != null || widget.onLongPress != null);
 
@@ -201,14 +227,7 @@ class _BrutSurfaceState extends State<BrutSurface> {
     if (_interactive) {
       surface = GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap == null
-            ? null
-            : () {
-                // On the press itself rather than on the release, so it
-                // lands with the shadow rather than after it.
-                _sound(context);
-                widget.onTap!();
-              },
+        onTap: widget.onTap == null ? null : _tap,
         onLongPress: widget.onLongPress,
         onTapDown: (_) => setState(() => _down = true),
         onTapUp: (_) => setState(() => _down = false),

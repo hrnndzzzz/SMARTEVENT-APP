@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../state/sap_form.dart';
 import '../../theme/brut.dart';
 import '../../widgets/report_tiles.dart';
+import 'sap_proposal_flow.dart';
 
 /// Filling in the proposal, as its three parts.
 ///
@@ -59,9 +61,15 @@ abstract final class LeaveProposal {
   /// [save] is awaited before leaving, so a draft that fails to save
   /// keeps the person on the screen with their work rather than
   /// dropping them out of it.
+  ///
+  /// "Go back" promises nothing is kept, so a draft event [form] made on
+  /// the way out of Part 1 is deleted with it. Left on the server, it was
+  /// the first of two events with the same title once the proposer started
+  /// again. "Save as draft" keeps it for good.
   static Future<bool> confirm(
     BuildContext context, {
     required Future<bool> Function() save,
+    SapForm? form,
   }) async {
     final choice = await showDialog<_Leaving>(
       context: context,
@@ -131,9 +139,14 @@ abstract final class LeaveProposal {
       case _Leaving.stay:
         return false;
       case _Leaving.discard:
+        if (form != null && context.mounted) {
+          await SapProposalFlow.discardMadeEvent(context, form);
+        }
         return true;
       case _Leaving.save:
-        return save();
+        final saved = await save();
+        if (saved) form?.keepEvent();
+        return saved;
     }
   }
 

@@ -94,7 +94,7 @@ class _Body extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: () => app.loadCategories(),
+      onRefresh: () => app.refreshList(app.loadCategories),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 96),

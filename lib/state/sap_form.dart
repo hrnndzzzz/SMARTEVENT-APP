@@ -65,6 +65,23 @@ class SapForm extends ChangeNotifier {
   String? get eventId => _eventId;
   bool get hasEvent => _eventId != null;
 
+  /// This visit made the event, on the way out of Part 1, and nobody has
+  /// chosen to keep it yet. Leaving with "Go back" deletes such an event;
+  /// "Save as draft" ([keepEvent]) keeps it.
+  bool get madeEvent => _madeEvent;
+  bool _madeEvent = false;
+
+  void keepEvent() => _madeEvent = false;
+
+  /// Lets go of an event deleted from under this form, so starting again
+  /// makes a new one rather than writing to one that is gone.
+  void unbindEvent() {
+    _eventId = null;
+    _madeEvent = false;
+    _proposal = null;
+    notifyListeners();
+  }
+
   /// Where the event is filed, for a proposer who has to say so — a Super
   /// Admin belongs to no organization. Null for everyone else, whose own
   /// assignment the server applies. Sent with the event, not on the form.
@@ -322,9 +339,13 @@ class SapForm extends ChangeNotifier {
   /// Returns false when nothing was saved.
   /// Attaches this form to the event it just caused to exist, and
   /// pushes everything written so far.
-  Future<void> bindEvent(String id) async {
+  ///
+  /// [made] is true when the event was just created for this form, rather
+  /// than an existing draft being carried on: see [madeEvent].
+  Future<void> bindEvent(String id, {bool made = false}) async {
     if (_eventId != null) return;
     _eventId = id;
+    _madeEvent = made;
     notifyListeners();
     if (_service == null) return;
 
@@ -362,7 +383,8 @@ class SapForm extends ChangeNotifier {
     bool requireServer = false,
   }) async {
     if (isReadOnly) {
-      _error = 'Viewing saved data. Connect and sign in before making changes.';
+      _error =
+          'Viewing saved data while offline. Changes can be made once the app reconnects; pull down to try now.';
       notifyListeners();
       return false;
     }
@@ -462,10 +484,82 @@ class SapForm extends ChangeNotifier {
     );
   }
 
-  Future<bool> submit() => _write(
-    (s, v) => s.submit(_eventId!, expectedVersion: v),
-    requireServer: true,
-  );
+  /// Refused here, before any request, while [missingForSubmit] lists
+  /// anything: the server would refuse it too, in words nobody can act on.
+  Future<bool> submit() {
+    final missing = missingForSubmit;
+    if (missing.isNotEmpty) {
+      _error = 'Fill in these first: ${missing.join(', ')}.';
+      notifyListeners();
+      return Future.value(false);
+    }
+    return _write(
+      (s, v) => s.submit(_eventId!, expectedVersion: v),
+      requireServer: true,
+    );
+  }
+
+  /// What still has to be filled in before the proposal can be sent, in
+  /// the labels Parts 1 and 3 show. Empty means it may be sent.
+  ///
+  /// The fields the server requires at submission (`validate_submission`),
+  /// so the proposer is told here rather than refused there. Part 2 is
+  /// optional on the server and so here.
+  List<String> get missingForSubmit {
+    final d = _details;
+    bool blank(String? text) => (text ?? '').trim().isEmpty;
+    final offCampus = d.setting == SapSetting.offCampus;
+    final budget = d.totalBudget;
+    final breakdown = _budgetItems.fold(
+      0,
+      (sum, i) => sum + centavos(i.amount),
+    );
+    return [
+      if (blank(d.title)) 'Activity title',
+      if (blank(d.organizationName)) 'Organization',
+      if (blank(d.departmentType)) 'Department type',
+      if (blank(d.department)) 'Department',
+      if (blank(d.schoolYear)) 'School year',
+      if (d.proposalDate == null) 'Date of proposal',
+      if (d.activityDate == null) 'Activity date',
+      if (d.startTime == null) 'Start time',
+      if (d.endTime == null) 'End time',
+      if (d.modality == null) 'Modality',
+      if (d.setting == null) 'Setting',
+      if (offCampus && !d.offCampusAgreement) 'Off-campus agreement',
+      // The server checks this against the files; the demo has none.
+      if (offCampus && !hasRocCoc && !isDemo) 'ROC / COC attachment',
+      if (blank(d.venue)) 'Venue',
+      if (blank(d.personsInCharge)) 'Personnel-in-charge',
+      if (d.activityTypes.isEmpty) 'Activity type',
+      if (blank(d.scope)) 'Scope',
+      if (d.programTypes.isEmpty) 'Program',
+      if ((d.expectedStudents ?? 0) < 1) 'Number of students',
+      if (blank(d.rationale)) 'Rationale',
+      if (blank(d.objectives)) 'Objectives',
+      if (d.coreValues.isEmpty) 'Augustinian core values',
+      if (d.egas.isEmpty) 'Expected graduate attributes',
+      if (_programFlow.isEmpty) 'Program flow',
+      if (blank(d.emergencyPlan)) 'Emergency plan',
+      if (blank(budget)) 'Budget',
+      if (blank(d.fundingSource)) 'Source of budget',
+      if (!blank(budget) && centavos(budget!) != breakdown)
+        'Budget breakdown that adds up to the budget',
+    ];
+  }
+
+  /// A peso amount as exact centavos. The server compares decimals
+  /// exactly, and 2000.00 + 300.00 + 200.00 is the kind of sum binary
+  /// floating point gets wrong by a hundredth.
+  static int centavos(String amount) {
+    final cleaned = amount.replaceAll(',', '').trim();
+    final parts = cleaned.split('.');
+    final whole = int.tryParse(parts.first) ?? 0;
+    final frac = parts.length > 1
+        ? int.tryParse(parts[1].padRight(2, '0').substring(0, 2)) ?? 0
+        : 0;
+    return whole * 100 + frac;
+  }
 
   /// Takes an unreviewed proposal back to draft.
   ///

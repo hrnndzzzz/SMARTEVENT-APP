@@ -128,7 +128,7 @@ class _RiskScreenState extends State<RiskScreen> {
               ),
               _ when flagged.isEmpty => const _NothingFlagged(),
               _ => RefreshIndicator(
-                onRefresh: app.loadFlaggedExpenses,
+                onRefresh: () => app.refreshList(app.loadFlaggedExpenses),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 16),

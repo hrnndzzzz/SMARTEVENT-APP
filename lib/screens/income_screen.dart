@@ -79,7 +79,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
               ),
               _ when app.incomes.isEmpty => _Empty(canRecord: canRecord),
               _ => RefreshIndicator(
-                onRefresh: app.loadIncomes,
+                onRefresh: () => app.refreshList(app.loadIncomes),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 96),

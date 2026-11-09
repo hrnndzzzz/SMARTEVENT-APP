@@ -168,7 +168,8 @@ class _SapFormScreenState extends State<SapFormScreen> {
                 icon: Icons.outbox,
                 busy: form.saving,
                 busyLabel: 'Submitting',
-                onPressed: form.canEditProposerParts
+                onPressed:
+                    form.canEditProposerParts && form.missingForSubmit.isEmpty
                     ? () => _submit(form)
                     : null,
               ),
@@ -261,6 +262,10 @@ class _SapFormScreenState extends State<SapFormScreen> {
                       icon: Icons.error_outline,
                       text: message,
                     ),
+                  // Why the button is grey: it cannot be sent half-filled.
+                  if (form.canEditProposerParts &&
+                      form.missingForSubmit.isNotEmpty)
+                    MissingForSubmit(form.missingForSubmit),
                   if (form.eventId case final eventId?) ...[
                     const SizedBox(height: 10),
                     LastChangeNote(area: 'proposals', entityId: eventId),
@@ -393,6 +398,21 @@ class _SapFormScreenState extends State<SapFormScreen> {
       if (who == SapReturnedBy.sds) ...form.sdsRemarkLines(),
     ].join('\n');
   }
+}
+
+/// What is still to fill in before the proposal can be sent. Shown beside
+/// a send button that stays grey until the list is empty.
+class MissingForSubmit extends StatelessWidget {
+  const MissingForSubmit(this.missing, {super.key});
+
+  final List<String> missing;
+
+  @override
+  Widget build(BuildContext context) => BrutInlineMessage(
+    tone: BrutTone.sun,
+    icon: Icons.checklist,
+    text: 'To send it for review, fill in: ${missing.join(', ')}.',
+  );
 }
 
 class _PartRow extends StatelessWidget {

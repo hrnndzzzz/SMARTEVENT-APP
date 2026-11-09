@@ -198,10 +198,14 @@ void main() {
 
       // And it lets the proposer send it again only where that is theirs to
       // do: a seeded rejected or department-review proposal used to keep
-      // "Submit for review" lit, since the demo form has no server.
+      // "Submit for review" lit, since the demo form has no server. Where it
+      // is theirs, it is offered: lit, or saying what to fill in first.
       final submit = find.widgetWithText(BrutButton, 'Submit for review');
+      final offered =
+          tester.widget<BrutButton>(submit).onPressed != null ||
+          find.textContaining('To send it for review').evaluate().isNotEmpty;
       expect(
-        tester.widget<BrutButton>(submit).onPressed != null,
+        offered,
         state.isProposerEditable,
         reason: '${status.name} offers sending it again',
       );

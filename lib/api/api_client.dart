@@ -83,7 +83,7 @@ class ApiClient {
     final publicAuth = path.startsWith('/auth/') && !hasOfflineSession;
     if (!canWriteRemote && !publicAuth && path != '/auth/login') {
       throw const OfflineUnavailable(
-        'Viewing saved data. Connect and sign in before making changes.',
+        'Viewing saved data while offline. Changes can be made once the app reconnects; pull down to try now.',
       );
     }
   }
@@ -126,19 +126,98 @@ class ApiClient {
   Future<String?> restoreToken() async {
     final epoch = _epoch;
     final token = await _tokenStore.read();
+    final renewal = await _tokenStore.readRenewal();
     if (epoch != _epoch) throw const SessionChanged();
     _token = token;
+    _renewal = renewal;
     return _token;
   }
 
   /// Sets the in-memory token and persists it (or clears both, for null).
-  Future<void> setToken(String? token) async {
+  /// A sign-in hands over its [renewal] key with it; one without a key (a
+  /// temporary password) leaves none behind from an earlier session.
+  Future<void> setToken(String? token, {String? renewal}) async {
     _epoch++;
     _token = token;
+    _renewal = renewal;
     if (token == null) {
       await _tokenStore.clear();
     } else {
       await _tokenStore.write(token);
+      if (renewal == null) {
+        await _tokenStore.forgetRenewal();
+      } else {
+        await _tokenStore.writeRenewal(renewal);
+      }
+    }
+  }
+
+  /// The device's renewal key: swapped for a fresh login token, without the
+  /// password, when the login token has expired. The login token lasts an
+  /// hour, so without this every spell offline ended at the sign-in box.
+  String? _renewal;
+  Future<bool>? _renewing;
+
+  /// A renewal key is held, so an expired session can still come back
+  /// without the password once the server answers.
+  bool get canRenew => _renewal != null;
+
+  /// Renews the login token. True when it did. One at a time: every
+  /// request that met the expiry waits on the same renewal.
+  Future<bool> renewSession() =>
+      _renewing ??= _renew().whenComplete(() => _renewing = null);
+
+  Future<bool> _renew() async {
+    final key = _renewal;
+    if (key == null || demoMode) return false;
+    final epoch = _epoch;
+    try {
+      final response = await _httpClient
+          .post(
+            _uri('/auth/refresh'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': key}),
+          )
+          .timeout(timeout);
+      if (epoch != _epoch) return false;
+      if (response.statusCode == 401) {
+        // Ended: signed out elsewhere, a new password, a suspension, or 30
+        // days unused. Signing in is the only way on, so stop offering it.
+        _renewal = null;
+        await _tokenStore.forgetRenewal();
+        return false;
+      }
+      final token = response.statusCode == 200
+          ? (jsonDecode(response.body) as Map)['access_token']
+          : null;
+      if (token is! String || token.isEmpty) return false;
+      // The same session, so the epoch stays: requests in flight carry on.
+      _token = token;
+      await _tokenStore.write(token);
+      return true;
+    } catch (_) {
+      // Unreachable or a garbled answer: the expiry stands, and the next
+      // request or reconnect tries again.
+      return false;
+    }
+  }
+
+  /// Ends this device's renewal key on the server too, so a copy of it is
+  /// worthless. Best effort, and never waited on: signing out does not
+  /// depend on the network.
+  Future<void> endRenewal() async {
+    final key = _renewal;
+    if (key == null || demoMode) return;
+    try {
+      await _httpClient
+          .post(
+            _uri('/auth/logout'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': key}),
+          )
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // Offline: the key is gone from the phone, and it lapses unused.
     }
   }
 
@@ -232,31 +311,34 @@ class ApiClient {
     Duration? patience,
   }) {
     _guardWrite(path);
-    final headers = {..._authHeaders};
-    late final Object encodedBody;
-    if (isForm) {
-      headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      encodedBody = body as String;
-    } else {
-      headers['Content-Type'] = 'application/json';
-      encodedBody = body == null ? '' : jsonEncode(body);
-    }
+    final contentType = isForm
+        ? 'application/x-www-form-urlencoded'
+        : 'application/json';
+    final Object encodedBody = isForm
+        ? body as String
+        : (body == null ? '' : jsonEncode(body));
     return _counted(
       _send(
-        () => _httpClient.post(_uri(path), headers: headers, body: encodedBody),
+        // Headers built when it is sent, so a request sent again after a
+        // renewal carries the new token.
+        () => _httpClient.post(
+          _uri(path),
+          headers: {..._authHeaders, 'Content-Type': contentType},
+          body: encodedBody,
+        ),
         patience: patience,
+        renewable: path != '/auth/login',
       ),
     );
   }
 
   Future<dynamic> patch(String path, {Object? body}) {
     _guardWrite(path);
-    final headers = {..._authHeaders, 'Content-Type': 'application/json'};
     return _counted(
       _send(
         () => _httpClient.patch(
           _uri(path),
-          headers: headers,
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
           body: body == null ? '' : jsonEncode(body),
         ),
       ),
@@ -267,12 +349,11 @@ class ApiClient {
   /// amending one — logistics and the institutional route.
   Future<dynamic> put(String path, {Object? body}) {
     _guardWrite(path);
-    final headers = {..._authHeaders, 'Content-Type': 'application/json'};
     return _counted(
       _send(
         () => _httpClient.put(
           _uri(path),
-          headers: headers,
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
           body: body == null ? '' : jsonEncode(body),
         ),
       ),
@@ -421,10 +502,16 @@ class ApiClient {
   }) async {
     final http.Response response;
     final epoch = _epoch;
+    Future<http.Response> fetch() => _httpClient
+        .get(_uri(path, query), headers: _authHeaders)
+        .timeout(patience ?? timeout);
     try {
-      response = await _httpClient
-          .get(_uri(path, query), headers: _authHeaders)
-          .timeout(patience ?? timeout);
+      final first = await fetch();
+      // As in [_send]: an expired login token is renewed, then asked again.
+      response =
+          first.statusCode == 401 && _token != null && await renewSession()
+          ? await fetch()
+          : first;
     } on TimeoutException {
       throw NetworkException(
         'The backend at $baseUrl did not respond in time.',
@@ -573,15 +660,32 @@ class ApiClient {
   /// Runs a request and turns every failure mode into either an
   /// [ApiException] (the server answered) or a [NetworkException] (it
   /// didn't). Nothing else escapes.
+  ///
+  /// [request] builds its headers when it runs, so a request sent again
+  /// after a renewal carries the new token. [renewable] is false for
+  /// sign-in, where a 401 means a wrong password, not an expired token.
   Future<dynamic> _send(
     Future<http.Response> Function() request, {
     Duration? patience,
+    bool renewable = true,
   }) async {
     final epoch = _epoch;
+    final sentWith = _token;
     try {
-      final response = await request().timeout(patience ?? timeout);
+      var response = await request().timeout(patience ?? timeout);
       if (epoch != _epoch) throw const SessionChanged();
       onReachability?.call(reachable: true);
+      // The login token expired — an hour's use, or a spell offline. The
+      // renewal key gets a fresh one without the password, and the request
+      // goes again, once.
+      if (response.statusCode == 401 &&
+          renewable &&
+          sentWith != null &&
+          await renewSession()) {
+        if (epoch != _epoch) throw const SessionChanged();
+        response = await request().timeout(patience ?? timeout);
+        if (epoch != _epoch) throw const SessionChanged();
+      }
       return _handleResponse(response);
     } on SessionChanged {
       rethrow;
@@ -674,10 +778,19 @@ class ApiClient {
   /// Key used for a validation message that isn't tied to a single field.
   static const String _generalFieldKey = '_';
 
+  static bool _isRawDump(String detail) =>
+      detail.contains('pydantic') ||
+      detail.contains('[type=') ||
+      detail.contains('validation error');
+
   static String _messageFor(int status, Object? detail) {
     // The backend's own explanation is always the most specific thing we
-    // have — prefer it over any message invented here.
-    if (detail is String && detail.trim().isNotEmpty) return detail.trim();
+    // have — prefer it over any message invented here. Unless it is a raw
+    // validation dump (an older server sent those), which only a developer
+    // can read: the per-status message below says it better.
+    if (detail is String && detail.trim().isNotEmpty && !_isRawDump(detail)) {
+      return detail.trim();
+    }
 
     // Some refusals are objects: `{message, blockers}` for compliance,
     // `{code, detail}` for a duplicate receipt.

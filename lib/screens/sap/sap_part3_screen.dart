@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
+import 'sap_form_screen.dart' show MissingForSubmit;
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import '../../theme/peso.dart';
@@ -88,12 +89,12 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
   /// something, at a price the paper never gave — so an ordinary row
   /// still reads as a single figure.
   String _budgetLine(SapBudgetItem item) {
-    final amount = _peso(_centavos(item.amount));
+    final amount = _peso(SapForm.centavos(item.amount));
     final unit = item.unitCost;
 
     if (item.quantity <= 1 && unit == null) return amount;
     if (unit == null) return '${item.quantity} · $amount';
-    return '${item.quantity} × ${_peso(_centavos(unit))} · $amount';
+    return '${item.quantity} × ${_peso(SapForm.centavos(unit))} · $amount';
   }
 
   /// What the backend will take for this whole part.
@@ -152,19 +153,9 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
   int get _totalCentavos {
     var total = 0;
     for (final item in _form.budgetItems) {
-      total += _centavos(item.amount);
+      total += SapForm.centavos(item.amount);
     }
     return total;
-  }
-
-  static int _centavos(String amount) {
-    final cleaned = amount.replaceAll(',', '').trim();
-    final parts = cleaned.split('.');
-    final whole = int.tryParse(parts.first) ?? 0;
-    final frac = parts.length > 1
-        ? int.tryParse(parts[1].padRight(2, '0').substring(0, 2)) ?? 0
-        : 0;
-    return whole * 100 + frac;
   }
 
   /// Centavos in, the app's own money format out.
@@ -240,6 +231,7 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
     final navigator = Navigator.of(context);
     final leaving = await LeaveProposal.confirm(
       context,
+      form: _form,
       save: () async {
         final ok = await _saveAll();
         if (!context.mounted) return ok;
@@ -251,21 +243,30 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
         return ok;
       },
     );
-    if (leaving) navigator.maybePop();
+    if (leaving && navigator.canPop()) navigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return PopScope(
+      // The phone's back button and swipe ask too, as the header's
+      // does: they used to leave without a word, and an event made on
+      // the way out of Part 1 stayed behind.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave(context);
+      },
+      child: AnimatedBuilder(
       animation: _form,
       builder: (context, _) {
         final declared = _form.details.totalBudget;
         final summed = _totalCentavos;
+        final ready = _form.missingForSubmit.isEmpty;
         final mismatch =
             declared != null &&
             declared.isNotEmpty &&
             _form.budgetItems.isNotEmpty &&
-            _centavos(declared) != summed;
+            SapForm.centavos(declared) != summed;
 
         return BrutScreen(
           // One of three when it is being filled in as a run, its own
@@ -299,12 +300,20 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
               label: widget.step == null ? 'Save' : 'Send for review',
               busy: _form.saving,
               busyLabel: 'Saving',
-              onPressed: _editable ? _save : null,
+              // As a run's last step this sends it, and a half-filled
+              // proposal is not sent.
+              onPressed: _editable && (widget.step == null || ready)
+                  ? _save
+                  : null,
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.step != null && _editable && !ready) ...[
+                MissingForSubmit(_form.missingForSubmit),
+                const SizedBox(height: 14),
+              ],
               const BrutSectionTitle('Budget breakdown'),
               const SizedBox(height: 8),
               if (_form.budgetItems.isEmpty)
@@ -347,7 +356,7 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
                   icon: Icons.error_outline,
                   text:
                       'These lines come to ${_peso(summed)}, but Part 1 says '
-                      '${_peso(_centavos(declared))}. They have to match '
+                      '${_peso(SapForm.centavos(declared))}. They have to match '
                       'exactly before this can be submitted.',
                 ),
               ],
@@ -467,6 +476,7 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
           ),
         );
       },
+      ),
     );
   }
 }

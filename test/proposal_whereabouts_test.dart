@@ -18,6 +18,8 @@ import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
 
+import 'support/complete_proposal.dart';
+
 /// Where the organization's proposal is, and whose words it is reading.
 ///
 /// Sending a proposal now sends it to the Moderator and the Dean, and
@@ -42,6 +44,12 @@ void main() {
     'details': {'title': 'Hack the Future'},
     'collections': <String, dynamic>{},
     ...extra,
+  };
+
+  /// Everything a proposer must fill in, so it may be sent.
+  const complete = {
+    'details': completeDetailsJson,
+    'collections': completeCollectionsJson,
   };
 
   SapForm formFor(MockClient client) => SapForm(
@@ -246,7 +254,7 @@ void main() {
         return json(
           sent
               ? aggregate('pending_department_review', {'version': 5})
-              : aggregate('draft'),
+              : aggregate('draft', complete),
         );
       });
       final form = formFor(client);
@@ -278,7 +286,8 @@ void main() {
         tester,
       ) async {
         for (final state in SapState.values) {
-          final form = SapForm(eventId: 'e1')..seedLocally(state: state);
+          final form = filledIn(SapForm(eventId: 'e1'))
+            ..seedLocally(state: state);
 
           expect(
             await canSubmit(tester, form),
@@ -291,9 +300,13 @@ void main() {
       testWidgets('and keeps a proposal that has no state yet editable', (
         tester,
       ) async {
-        expect(await canSubmit(tester, SapForm()), isTrue, reason: 'brand new');
         expect(
-          await canSubmit(tester, SapForm(eventId: 'e1')),
+          await canSubmit(tester, filledIn(SapForm())),
+          isTrue,
+          reason: 'brand new',
+        );
+        expect(
+          await canSubmit(tester, filledIn(SapForm(eventId: 'e1'))),
           isTrue,
           reason: 'an event the demo does not seed',
         );
@@ -536,11 +549,10 @@ void main() {
     ) async {
       final day = DateTime.now().add(const Duration(days: 60));
       final draft = aggregate('draft', {
+        ...complete,
         'details': {
-          'title': 'Hack the Future',
-          'department': 'College of Arts and Sciences',
+          ...completeDetailsJson,
           'activity_date': day.toIso8601String().substring(0, 10),
-          'setting': 'on_campus',
         },
       });
       final client = MockClient((request) async {

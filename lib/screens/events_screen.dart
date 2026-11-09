@@ -153,7 +153,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   );
                 }
                 return RefreshIndicator(
-                  onRefresh: app.loadEvents,
+                  onRefresh: () => app.refreshList(app.loadEvents),
                   child: ListView(
                     // Always scrollable, so a short list can still be
                     // pulled: a one-event list is exactly when someone

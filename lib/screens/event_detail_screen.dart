@@ -149,6 +149,64 @@ class EventDetailScreen extends StatelessWidget {
     return (changed: result.changed, kept: result.error == null ? '' : text);
   }
 
+  /// Deleting cannot be undone, so the title has to be typed to do it.
+  Future<void> _deleteDraft(BuildContext context, AppState app) async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete this draft?', style: AppText.cardTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The draft and everything written in its proposal are '
+              'deleted for good. Type its title to confirm:',
+              style: AppText.body,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              event.title,
+              style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 14),
+            BrutTextField(
+              label: 'Title',
+              controller: controller,
+              hint: event.title,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => BrutButton(
+              label: 'Delete',
+              expand: false,
+              size: BrutSize.small,
+              tone: BrutTone.coral,
+              onPressed: value.text.trim() == event.title.trim()
+                  ? () => Navigator.pop(dialogContext, true)
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final error = await app.deleteDraftEvent(event.remoteId!);
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (error == null) Navigator.of(context).maybePop();
+    messenger.showSnackBar(SnackBar(content: Text(error ?? 'Draft deleted.')));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppState>(
@@ -310,6 +368,15 @@ class EventDetailScreen extends StatelessWidget {
                       ),
                     );
                   },
+                ),
+              ],
+              if (app.canDeleteDraft(event)) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Delete draft',
+                  icon: Icons.delete_outline,
+                  tone: BrutTone.coral,
+                  onPressed: () => _deleteDraft(context, app),
                 ),
               ],
               // The event's own finances: what it was allowed, what came

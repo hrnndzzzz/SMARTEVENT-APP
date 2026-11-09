@@ -121,6 +121,7 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
     final navigator = Navigator.of(context);
     final leaving = await LeaveProposal.confirm(
       context,
+      form: _form,
       save: () async {
         // What this step holds is the support requests, not the details.
         final ok = await _form.saveSupportRequests();
@@ -133,12 +134,20 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
         return ok;
       },
     );
-    if (leaving) navigator.maybePop();
+    if (leaving && navigator.canPop()) navigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return PopScope(
+      // The phone's back button and swipe ask too, as the header's
+      // does: they used to leave without a word, and an event made on
+      // the way out of Part 1 stayed behind.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave(context);
+      },
+      child: AnimatedBuilder(
       animation: _form,
       builder: (context, _) {
         return BrutScreen(
@@ -221,6 +230,7 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
           ),
         );
       },
+      ),
     );
   }
 }

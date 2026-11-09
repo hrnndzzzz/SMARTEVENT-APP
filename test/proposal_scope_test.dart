@@ -15,6 +15,8 @@ import 'package:smartevent/api/models/sap_proposal.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
 
+import 'support/complete_proposal.dart';
+
 /// A Super Admin's proposal never reached the SDS Office, and the app said
 /// it had. The event was refused for having no organization, the form went
 /// on without one, and sending a proposal with no event "succeeded" on the
@@ -40,7 +42,7 @@ void main() {
     }
 
     test('with a server but no event, submit fails and says why', () async {
-      final form = SapForm(service: serviceAnswering(200, {}));
+      final form = filledIn(SapForm(service: serviceAnswering(200, {})));
 
       expect(await form.submit(), isFalse);
       expect(form.error, contains('not on the server'));
@@ -48,9 +50,11 @@ void main() {
     });
 
     test('a 404 on submit is a failure, not a quiet local save', () async {
-      final form = SapForm(
-        eventId: 'e1',
-        service: serviceAnswering(404, {'detail': 'Not Found'}),
+      final form = filledIn(
+        SapForm(
+          eventId: 'e1',
+          service: serviceAnswering(404, {'detail': 'Not Found'}),
+        ),
       )..seedLocally(); // loaded: a form that never loaded sends nothing
 
       expect(await form.submit(), isFalse);
@@ -71,7 +75,7 @@ void main() {
     });
 
     test('the demo, with no server at all, still sends locally', () async {
-      final form = SapForm();
+      final form = filledIn(SapForm());
       expect(await form.submit(), isTrue);
     });
   });

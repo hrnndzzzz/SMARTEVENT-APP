@@ -479,7 +479,21 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> retryOfflinePreparation() async {
+  /// Pulling a screen down: ask the server now and, when it answers, reload
+  /// everything — what the server coming back does by itself, on demand.
+  /// The offline download carries on after the spinner has gone.
+  Future<void> reconnect() async {
+    if (_demoMode) return;
+    unawaited(_reachability?.wake());
+    await retryOfflinePreparation(waitForDownload: false);
+  }
+
+  /// A list's own pull-to-refresh: its [loader] while connected, and a
+  /// reconnect (which reloads it too) while showing saved data.
+  Future<void> refreshList(Future<void> Function() loader) =>
+      isOfflineViewing || requiresOnlineSignIn ? reconnect() : loader();
+
+  Future<void> retryOfflinePreparation({bool waitForDownload = true}) async {
     if (_revalidating ||
         _restoringSession ||
         _demoMode ||
@@ -501,7 +515,12 @@ class AppState extends ChangeNotifier {
       await _rememberProfile(profile);
       _applyProfile(profile);
       await _loadSignedInData();
-      await offlineSync.prepare();
+      final download = offlineSync.prepare();
+      if (waitForDownload) {
+        await download;
+      } else {
+        unawaited(download);
+      }
     } on ApiException catch (error) {
       if (error.isForbidden) await signOut();
     } on NetworkException {
@@ -530,7 +549,10 @@ class AppState extends ChangeNotifier {
   }
 
   bool get isOfflineViewing => !_demoMode && _apiClient.readOnly;
-  bool get requiresOnlineSignIn => _apiClient.requiresSignIn;
+  /// Only the password can bring this session back: it expired, and there
+  /// is no renewal key left to swap for a new one.
+  bool get requiresOnlineSignIn =>
+      _apiClient.requiresSignIn && !_apiClient.canRenew;
   Map<String, DateTime> get offlineSavedDates {
     const labels = {
       'events': 'Events',
@@ -2994,15 +3016,20 @@ class AppState extends ChangeNotifier {
     bool submitNow = true,
     String? departmentId,
     String? organizationId,
+    // Told the new event's id, so a caller binds to the event it made
+    // rather than to whatever is first in a list a reload can replace.
+    ValueSetter<String>? onCreated,
   }) async {
     // Exploring: make the event here. Creating one is the single most
     // worthwhile thing to show, and a demo that cannot do it because
     // there is no server is not demonstrating the app.
     if (_demoMode) {
+      final id = 'demo-ev-${DateTime.now().microsecondsSinceEpoch}';
+      onCreated?.call(id);
       events.insert(
         0,
         EventItem(
-          remoteId: 'demo-ev-${DateTime.now().microsecondsSinceEpoch}',
+          remoteId: id,
           title: title,
           org: 'ACPES',
           date: eventDate == null
@@ -3044,6 +3071,7 @@ class AppState extends ChangeNotifier {
           ? await _eventService.submit(created.id)
           : created;
 
+      onCreated?.call(created.id);
       final mapped = _mapRemoteEvent(submitted);
       events.insert(0, mapped);
 
@@ -3073,6 +3101,32 @@ class AppState extends ChangeNotifier {
 
   void updateEvent() {
     notifyListeners();
+  }
+
+  /// A draft nobody has been sent is its proposer's to delete, or an
+  /// administrator's. The server holds the same rule, and keeps a draft
+  /// that was ever sent for review.
+  bool canDeleteDraft(EventItem event) =>
+      !isOfflineViewing &&
+      event.remoteId != null &&
+      event.status == EventApprovalStatus.draft &&
+      ((currentRole?.isAdministrator ?? false) ||
+          (currentAccount?.id != null &&
+              event.proposedBy == currentAccount!.id));
+
+  /// Deletes a draft event and its never-sent proposal. Null on success,
+  /// or why it was not deleted.
+  Future<String?> deleteDraftEvent(String eventId) async {
+    if (!_demoMode) {
+      try {
+        await _eventService.delete(eventId);
+      } catch (error) {
+        return _messageForFailure(error);
+      }
+    }
+    events.removeWhere((e) => e.remoteId == eventId);
+    notifyListeners();
+    return null;
   }
 
   /// Returns null on success, or an error message. Matches the
@@ -3740,6 +3794,8 @@ class AppState extends ChangeNotifier {
   Future<void> refreshAll() async {
     // There is no server to ask, and the seed is already in memory.
     if (_demoMode) return;
+    // Showing saved data: reconnect, which reloads everything once it can.
+    if (isOfflineViewing) return reconnect();
     await _loadSignedInData();
   }
 

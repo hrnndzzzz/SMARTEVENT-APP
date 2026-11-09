@@ -122,7 +122,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   for (final item in app.catalog)
                     if (_stock.matches(item)) item,
                 ],
-                onRefresh: app.loadCatalog,
+                onRefresh: () => app.refreshList(app.loadCatalog),
                 emptyLabel: _stock.label.toLowerCase(),
                 canMove: canMove,
               ),

@@ -331,6 +331,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     final navigator = Navigator.of(context);
     final leaving = await LeaveProposal.confirm(
       context,
+      form: _form,
       save: () async {
         if (widget.onCreateEvent case final create?) {
           // It is made from what this part says, typed text included.
@@ -347,12 +348,20 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         return ok;
       },
     );
-    if (leaving) navigator.maybePop();
+    if (leaving && navigator.canPop()) navigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return PopScope(
+      // The phone's back button and swipe ask too, as the header's
+      // does: they used to leave without a word, and an event made on
+      // the way out of Part 1 stayed behind.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave(context);
+      },
+      child: AnimatedBuilder(
       animation: _form,
       builder: (context, _) {
         final d = _form.details;
@@ -926,6 +935,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
           ),
         );
       },
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'api_client.dart';
 import 'models/registration_result.dart';
 import 'models/account_permissions.dart';
@@ -39,7 +41,12 @@ class AuthService {
       patience: const Duration(seconds: 45),
     );
     final token = response['access_token'] as String;
-    await _client.setToken(token);
+    // The renewal key keeps the session alive past the hour the login token
+    // lasts. An older server, or a temporary password, sends none.
+    await _client.setToken(
+      token,
+      renewal: response['refresh_token'] as String?,
+    );
     return token;
   }
 
@@ -134,10 +141,12 @@ class AuthService {
     );
   }
 
-  /// Clears the token in memory and in secure storage. There is no backend
-  /// logout endpoint — the JWT stays valid until it expires, so the only
-  /// thing to do is stop holding it.
+  /// Clears both tokens in memory and in secure storage, and ends the
+  /// renewal key on the server without waiting on it. The login token
+  /// itself stays valid until it expires within the hour; the renewal key
+  /// is the long-lived one, and that is what `/auth/logout` ends.
   Future<void> logout() async {
+    unawaited(_client.endRenewal());
     await _client.setToken(null);
   }
 }

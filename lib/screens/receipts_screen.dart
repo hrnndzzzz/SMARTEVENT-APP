@@ -63,7 +63,7 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
               ),
               _ when app.receipts.isEmpty => const _Empty(),
               _ => RefreshIndicator(
-                onRefresh: app.loadReceipts,
+                onRefresh: () => app.refreshList(app.loadReceipts),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 16),

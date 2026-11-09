@@ -49,7 +49,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         .toList();
 
     return BrutScreen(
-      onRefresh: app.loadExpenses,
+      onRefresh: () => app.refreshList(app.loadExpenses),
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

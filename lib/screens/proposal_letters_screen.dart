@@ -111,7 +111,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
               ),
               _ when app.letters.isEmpty => _Empty(canUpload: canUpload),
               _ => RefreshIndicator(
-                onRefresh: app.loadLetters,
+                onRefresh: () => app.refreshList(app.loadLetters),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 96),

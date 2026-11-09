@@ -54,6 +54,7 @@ class SdsProposalsScreen extends StatelessWidget {
     ];
 
     return BrutScreen(
+      onRefresh: app.refreshAll,
       header: BrutHeader(
         title: 'Proposals',
         eyebrow: 'SDS Office',

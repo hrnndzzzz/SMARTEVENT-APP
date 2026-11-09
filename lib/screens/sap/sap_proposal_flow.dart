@@ -23,7 +23,29 @@ import 'sap_form_screen.dart';
 /// out of Part 1, from what Part 1 says, so nothing exists until there
 /// is a title and a date for it.
 abstract final class SapProposalFlow {
+  /// A form is being loaded to open. A second tap meanwhile — the band is
+  /// easy to hit twice — started a second proposal beside the first.
+  static bool _starting = false;
+
   static Future<void> start(BuildContext context, SapForm form) async {
+    if (_starting) return;
+    _starting = true;
+    final Widget? screen;
+    try {
+      screen = await _screenFor(context, form);
+    } finally {
+      // Released before the push: a route's future only completes when it
+      // is popped, and one never popped would block proposing for good.
+      _starting = false;
+    }
+    if (screen == null || !context.mounted) return;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => screen!));
+  }
+
+  /// The screen [start] opens, or null when there is none to open.
+  static Future<Widget?> _screenFor(BuildContext context, SapForm form) async {
     final app = _appOf(context);
 
     // A proposer the server will refuse should hear it before filling in
@@ -38,32 +60,22 @@ abstract final class SapProposalFlow {
           ),
         ),
       );
-      return;
+      return null;
     }
     final choosesScope = !form.hasEvent && (app?.choosesEventScope ?? false);
     if (choosesScope) await app!.loadScopeOptions();
-    if (!context.mounted) return;
+    if (!context.mounted) return null;
 
     await form.load();
-    if (!context.mounted) return;
+    if (!context.mounted) return null;
 
-    if (form.isReadOnly) {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => SapFormScreen(form: form)),
-      );
-      return;
-    }
+    if (form.isReadOnly) return SapFormScreen(form: form);
 
     fillFromAccount(context, form);
 
     // Already sent, or decided: there is nothing to fill in, so say where
     // it has got to instead of opening a form nobody may edit.
-    if (!form.canEditProposerParts) {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => SapProposalStatus(form: form)),
-      );
-      return;
-    }
+    if (!form.canEditProposerParts) return SapProposalStatus(form: form);
 
     // The cover comes first: the header the paper opens with, the two
     // dates filled in, and the on-or-off-campus question that decides
@@ -80,17 +92,34 @@ abstract final class SapProposalFlow {
       ),
     );
 
-    if (!context.mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SapCoverScreen(
-          form: form,
-          onBegin: (coverContext) => _openSteps(coverContext, form),
-          departments: choosesScope ? app!.departments : null,
-          organizationsIn: choosesScope ? app!.organizationsIn : null,
-        ),
-      ),
+    return SapCoverScreen(
+      form: form,
+      onBegin: (coverContext) => _openSteps(coverContext, form),
+      departments: choosesScope ? app!.departments : null,
+      organizationsIn: choosesScope ? app!.organizationsIn : null,
     );
+  }
+
+  /// "Go back" from a run whose event this visit made: the event goes
+  /// too, as the dialog promised. A draft that was opened to carry on is
+  /// never touched.
+  static Future<void> discardMadeEvent(
+    BuildContext context,
+    SapForm form,
+  ) async {
+    final id = form.eventId;
+    final app = _appOf(context);
+    if (!form.madeEvent || id == null || app == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await app.deleteDraftEvent(id);
+    if (error == null) {
+      form.unbindEvent();
+    } else {
+      // Kept, then, and said so: it is still under Events to delete.
+      messenger.showSnackBar(
+        SnackBar(content: Text('The draft was kept. $error')),
+      );
+    }
   }
 
   static Future<void> _openSteps(BuildContext context, SapForm form) {
@@ -156,7 +185,34 @@ abstract final class SapProposalFlow {
     }
 
     final app = context.read<AppState>();
+
+    // The same activity already drafted by this proposer — left on the
+    // server when the app was closed mid-form — is carried on rather than
+    // made a second time under the same title.
+    final me = app.currentAccount?.id;
+    final drafted = app.events
+        .where(
+          (e) =>
+              me != null &&
+              e.proposedBy == me &&
+              e.status == EventApprovalStatus.draft &&
+              e.remoteId != null &&
+              e.title.trim().toLowerCase() == title.toLowerCase(),
+        )
+        .firstOrNull;
+    if (drafted != null) {
+      await form.bindEvent(drafted.remoteId!);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Carrying on your draft "${drafted.title}".')),
+        );
+      }
+      return true;
+    }
+
+    String? created;
     final error = await app.addEvent(
+      onCreated: (id) => created = id,
       title: title,
       estimatedCost: double.tryParse(d.totalBudget ?? '') ?? 0,
       eventDate: d.activityDate,
@@ -181,9 +237,9 @@ abstract final class SapProposalFlow {
       return false;
     }
 
-    final created = app.events.isNotEmpty ? app.events.first.remoteId : null;
-    if (created == null) return false;
-    await form.bindEvent(created);
+    final id = created;
+    if (id == null) return false;
+    await form.bindEvent(id, made: true);
     return true;
   }
 
