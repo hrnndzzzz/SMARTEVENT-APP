@@ -78,37 +78,41 @@ class _SapStepsScreenState extends State<SapStepsScreen> {
   Widget build(BuildContext context) {
     return PageView(
       controller: _pages,
-      // Leaving Part 1 is what makes the event record, whichever way it
-      // is left. Pressing Next did it; swiping past would have skipped
-      // it, and the submission at the end would then have had nothing
-      // to attach itself to.
-      onPageChanged: (page) async {
-        if (page == ProposalSteps.activity) return;
-        if (await _ensureEvent(context) || !mounted) return;
-        await _goTo(ProposalSteps.activity);
-      },
-      // Each page brings its own header and footer, so the step bar and
-      // the Next button travel with the page rather than sitting over
-      // all three.
+      // Swiping is off. The event record is made on the way out of Part
+      // 1, and a swipe past it skipped that — the submission at the end
+      // then had nothing to attach itself to. Moving happens through
+      // Next, or through the step bar, both of which go through here.
+      physics: const NeverScrollableScrollPhysics(),
       children: [
-        SapPart1Screen(
-          form: widget.form,
-          step: ProposalSteps.activity,
-          onCreateEvent: _ensureEvent,
-          onContinue: (partContext) async {
-            if (!await _ensureEvent(partContext)) return;
-            if (!partContext.mounted) return;
-            await _goTo(ProposalSteps.support);
-          },
-        ),
+        for (final section in ProposalSteps.partOne)
+          SapPart1Screen(
+            form: widget.form,
+            step: section,
+            onCreateEvent: _ensureEvent,
+            onJumpTo: _goTo,
+            onContinue: (partContext) async {
+              // Only the last of the three makes the event: the title
+              // is on the first step and the date on the second, and
+              // the record needs both.
+              if (section == ProposalSteps.partOneEnd) {
+                if (!await _ensureEvent(partContext)) return;
+                if (!partContext.mounted) return;
+                await _goTo(ProposalSteps.support);
+                return;
+              }
+              await _goTo(section + 1);
+            },
+          ),
         SapPart2Screen(
           form: widget.form,
           step: ProposalSteps.support,
+          onJumpTo: _goTo,
           onContinue: (_) => _goTo(ProposalSteps.breakdown),
         ),
         SapPart3Screen(
           form: widget.form,
           step: ProposalSteps.breakdown,
+          onJumpTo: _goTo,
           onContinue: widget.onSubmit,
         ),
       ],

@@ -215,9 +215,10 @@ class SapCoverScreen extends StatelessWidget {
                 tone: BrutTone.neutral,
                 icon: Icons.info_outline,
                 text:
-                    'Three steps: the activity, the school support you '
-                    'need, and the budget breakdown. Nothing is sent until '
-                    'the end, and a draft can be left at any point.',
+                    'Five steps: what the activity is, when and where, '
+                    'the detail, the school support you need, and the '
+                    'budget breakdown. Nothing is sent until the end, and '
+                    'a draft can be left at any point.',
               ),
             ],
           ),

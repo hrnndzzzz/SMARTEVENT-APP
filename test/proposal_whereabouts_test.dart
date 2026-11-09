@@ -571,10 +571,11 @@ void main() {
 
       await tester.tap(find.text('Start the form'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Next: school support'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('Next:'));
-      await tester.pumpAndSettle();
+      // Part 1 is three steps now, then Part 2, then Part 3.
+      for (var step = 0; step < 4; step++) {
+        await tester.tap(find.textContaining('Next:'));
+        await tester.pumpAndSettle();
+      }
       await tester.tap(find.text('Send for review'));
       await tester.pumpAndSettle();
 

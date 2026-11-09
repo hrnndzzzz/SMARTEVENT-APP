@@ -19,6 +19,7 @@ class SapPart2Screen extends StatefulWidget {
     required this.form,
     this.step,
     this.onContinue,
+    this.onJumpTo,
   });
 
   final SapForm form;
@@ -31,8 +32,13 @@ class SapPart2Screen extends StatefulWidget {
   /// and the button carries on to the next rather than going back.
   final int? step;
 
-  /// What to do after this part saves, when it is one of three.
+  /// What to do after this part saves, when it is one of a run.
   final Future<void> Function(BuildContext)? onContinue;
+
+  /// Goes back to an earlier step from the bar. Only steps already
+  /// passed are offered: jumping forward would skip the point where
+  /// the event record is made.
+  final Future<void> Function(int)? onJumpTo;
 
 
   @override
@@ -151,8 +157,13 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
                   currentStep: widget.step!,
                   onBack: () => _leave(context),
                   steps: [
-                    for (final label in ProposalSteps.labels)
-                      BrutStep(label: label),
+                    for (var i = 0; i < ProposalSteps.labels.length; i++)
+                      BrutStep(
+                        label: ProposalSteps.labels[i],
+                        onJump: (widget.onJumpTo != null && i < widget.step!)
+                            ? () => widget.onJumpTo!(i)
+                            : null,
+                      ),
                   ],
                 ),
           // One back button, in the header. There were two doing the

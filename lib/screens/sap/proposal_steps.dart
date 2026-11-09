@@ -13,11 +13,36 @@ import '../../widgets/report_tiles.dart';
 /// Parts 4 to 6 are the SDS Office's and are not steps here: a bar a
 /// proposer cannot finish is worse than no bar.
 abstract final class ProposalSteps {
-  static const List<String> labels = ['Activity', 'Support', 'Breakdown'];
+  /// Part 1 is three steps rather than one.
+  ///
+  /// It carried about twenty-five fields and two collections on a
+  /// single scroll, and the people who tried it said there was too much
+  /// happening. The groups it was already drawn in — the activity, when
+  /// and where, then everything describing it — are now a step each, so
+  /// the bar counts five rather than three.
+  ///
+  /// Parts 4 to 6 are the SDS Office's and are still not steps here: a
+  /// bar a proposer cannot finish is worse than no bar.
+  static const List<String> labels = [
+    'Activity',
+    'Schedule',
+    'Details',
+    'Support',
+    'Breakdown',
+  ];
 
   static const int activity = 0;
-  static const int support = 1;
-  static const int breakdown = 2;
+  static const int schedule = 1;
+  static const int details = 2;
+  static const int support = 3;
+  static const int breakdown = 4;
+
+  /// The three that make up Part 1, in order.
+  static const List<int> partOne = [activity, schedule, details];
+
+  /// The last of Part 1 — where the event record is created, because
+  /// only by here are the title and the date both in hand.
+  static const int partOneEnd = details;
 
   static int get count => labels.length;
 }
