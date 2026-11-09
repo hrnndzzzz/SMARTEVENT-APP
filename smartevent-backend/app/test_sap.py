@@ -1,6 +1,7 @@
 """Isolated SAP workflow, security, paper evidence and generic routing regression."""
 from copy import deepcopy
 import hashlib
+import uuid
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -10,7 +11,7 @@ from fastapi import HTTPException
 from app.test_access_management import system
 from app.config import settings
 from app.models import DocumentRouting, Notification, Organization
-from app.models_sap import SAPRevision, SAPFinalCopy, SAPReview
+from app.models_sap import SAPAttachment, SAPItem, SAPProposal, SAPRevision, SAPFinalCopy, SAPReview
 from app.schemas_sap import validate_submission
 from app.services.sap_pdf import render_proposal, signature_slots
 
@@ -254,9 +255,48 @@ def test_hack_future_return_sign_scan_evaluate(sap_system, monkeypatch, outcome)
 def test_generic_routes_cannot_bypass_sap(sap_system):
     client, db, users, event, login, base = sap_system
     assert client.post(f'/events/{event.id}/submit').status_code == 409
-    assert client.delete(f'/events/{event.id}').status_code == 409
     populate(sap_system)
     assert client.patch(base, json={'expected_version': version(client, base), 'details': fixture_data()['details']}).status_code == 409
+    assert client.delete(f'/events/{event.id}').status_code == 409  # sent, so no longer a draft
+
+
+@pytest.mark.parametrize('deleter', ['treasurer', 'admin'])
+def test_creator_or_admin_deletes_a_never_sent_draft_with_its_proposal(sap_system, monkeypatch, deleter):
+    client, db, users, event, login, base = sap_system
+    removed = []
+    monkeypatch.setattr('app.services.storage.delete_uploaded_file', removed.append)
+    # A draft as the app makes one: a bare event, then its proposal.
+    made = client.post('/events', json={'title': 'Started then dropped', 'school_year': '2026-2027', 'semester': '1st',
+        'event_scope': 'organizational', 'organization_id': str(event.organization_id),
+        'department_id': str(event.department_id)})
+    assert made.status_code == 201, made.text
+    draft = f"/events/{made.json()['id']}"
+    assert client.post(draft + '/sap-proposal').status_code == 201
+    proposal = db.query(SAPProposal).filter_by(event_id=uuid.UUID(made.json()['id'])).one()
+    db.add(SAPAttachment(proposal_id=proposal.id, revision_no=1, category='appendix',
+        display_name='Budget.pdf', file_name='Budget.pdf', content_type='application/pdf',
+        storage_ref='private/test-budget.pdf', sha256='a' * 64, uploaded_by=users['treasurer'].id))
+    db.commit()
+    flow = fixture_data()['collections']['program-flow']
+    saved = client.put(draft + '/sap-proposal/program-flow', json={'expected_version': proposal.version, 'items': flow})
+    assert saved.status_code == 200, saved.text
+    login('officer')  # not the one who made it
+    assert client.delete(draft).status_code == 403
+    login(deleter)
+    deleted = client.delete(draft)
+    assert deleted.status_code == 204, deleted.text
+    assert db.query(SAPProposal).filter_by(id=proposal.id).count() == 0
+    assert db.query(SAPItem).filter_by(proposal_id=proposal.id).count() == 0
+    assert db.query(SAPAttachment).filter_by(proposal_id=proposal.id).count() == 0
+    assert removed == [['private/test-budget.pdf']]
+
+
+def test_a_draft_once_sent_for_review_keeps_its_record(sap_system):
+    client, db, users, event, login, base = sap_system
+    db.query(SAPProposal).one().revision_no = 1  # sent once, then withdrawn or returned
+    db.commit()
+    response = client.delete(f'/events/{event.id}')
+    assert response.status_code == 409 and 'sent for review before' in response.json()['detail']
 
 
 def test_final_scan_requires_all_slots_and_valid_pdf(sap_system):
@@ -507,6 +547,10 @@ def test_partial_draft_and_projection_before_review(sap_system):
     assert response.status_code == 200 and response.json()['details'] == {'title': 'Partial'}
     response = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert response.status_code == 422
+    # Words the proposer can act on, in the app's own labels, not Pydantic's dump.
+    detail = response.json()['detail']
+    assert detail.startswith('Fill in these first: ') and 'Start time' in detail and 'Personnel-in-charge' in detail
+    assert 'pydantic' not in detail and 'type=' not in detail and 'Activity title' not in detail
     response = client.patch(base, json={'expected_version': version(client, base), 'details': fixture_data()['details']})
     assert response.status_code == 200
     assert event.event_date == date(2026, 10, 28) and event.start_time.hour == 8

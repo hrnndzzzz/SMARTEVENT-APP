@@ -8,6 +8,8 @@ PUBLIC_AUTH_PATHS = {
     "/auth/login", "/auth/register", "/auth/verify-otp", "/auth/resend-otp",
     "/auth/forgot-password", "/auth/reset-password",
 }
+# /auth/refresh is left out on purpose: its 384-bit key cannot be guessed, and a
+# campus behind one address would otherwise be sent back to the sign-in screen.
 
 
 class RequestSecurityMiddleware:

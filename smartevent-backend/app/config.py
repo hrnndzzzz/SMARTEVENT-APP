@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(min_length=1, repr=False)
     jwt_algorithm: Literal["HS256"] = "HS256"
     jwt_expire_minutes: int = Field(default=60, ge=1, le=1440)
+    # A renewal key lasts this long after it was last used, so a phone that
+    # goes offline renews without the password when it comes back.
+    refresh_token_days: int = Field(default=30, ge=1, le=90)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True,

@@ -14,7 +14,7 @@ from app.database import get_db
 from app.dependencies import require_active_account
 from app.models import User, DocumentRouting, Approval
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation, SAPAttachment, SAPReview
-from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, DecisionWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance
+from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, DecisionWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance, plain_error
 from app.schemas_sap import (SAPProposalOut, SAPWorkflowOut, SAPAttachmentOut,
                              SAPDownloadOut, SAPVerificationOut)
 from app.services import sap, storage
@@ -245,7 +245,7 @@ def sign_revision(event_id: UUID, payload: SDSReviewWrite, db: Session = Depends
     try:
         validate_clearance(snapshot['clearance'], snapshot['collections'])
     except ValueError as exc:
-        raise HTTPException(422, f'Complete Part 4 before signing: {exc}') from None
+        raise HTTPException(422, f'Complete Part 4 before signing. {plain_error(exc)}') from None
     overall = payload.overall_remarks if 'overall_remarks' in payload.model_fields_set else (row.overall_remarks if row else '')
     sections = payload.section_remarks if 'section_remarks' in payload.model_fields_set else (row.section_remarks if row else {})
     signer = user.full_name.strip() or user.email
@@ -439,7 +439,7 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
             Details.model_validate(proposal.details)
             data, number = _printout(proposal, 'draft', False, lambda: render_proposal(sap.snapshot(db, proposal), 'DRAFT')), 'draft'
         except ValueError as exc:
-            raise HTTPException(422, str(exc)) from None
+            raise HTTPException(422, plain_error(exc)) from None
     return Response(data, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="SAP-{event_id}-r{number}{"-comments" if comments else ""}.pdf"', 'Cache-Control': 'private, no-store'})
 
 

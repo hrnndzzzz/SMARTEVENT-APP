@@ -155,6 +155,13 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     must_change_password: bool = False
+    # The device's renewal key. None for an account still on a temporary password.
+    refresh_token: str | None = None
+
+
+class RefreshRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    refresh_token: str = Field(min_length=1, max_length=200)
 
 
 class CategoryCreate(BaseModel):

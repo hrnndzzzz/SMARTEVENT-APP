@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 from copy import copy
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator, create_model
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator, create_model
 
 
 class StrictModel(BaseModel):
@@ -155,6 +155,40 @@ class EvaluationWrite(Version):
 
 COLLECTIONS = {'program-flow': ProgramItem, 'budget-items': BudgetItem,
                'support-requests': SupportRequest, 'affected-classes': AffectedClass}
+
+
+# The labels Part 1 of the app shows, so a message names the field the proposer sees.
+LABELS = {
+    'title': 'Activity title', 'organization_name': 'Organization', 'school_year': 'School year',
+    'department_type': 'Department type', 'department': 'Department', 'course': 'Program / course',
+    'proposal_date': 'Date of proposal', 'activity_date': 'Activity date', 'start_time': 'Start time',
+    'end_time': 'End time', 'setting': 'Setting', 'off_campus_agreement': 'Off-campus agreement',
+    'modality': 'Modality', 'venue': 'Venue', 'persons_in_charge': 'Personnel-in-charge', 'attire': 'Attire',
+    'activity_types': 'Activity type', 'scope': 'Scope', 'expected_students': 'Number of students',
+    'program_types': 'Program', 'rationale': 'Rationale', 'objectives': 'Objectives',
+    'core_values': 'Augustinian core values', 'egas': 'Expected graduate attributes',
+    'emergency_plan': 'Emergency plan', 'total_budget': 'Budget', 'funding_source': 'Source of budget',
+    'additional_information': 'Additional information', 'excuse_arrangement': 'Excuse letter arrangement',
+}
+
+
+def plain_error(exc):
+    """A refusal in words a proposer can act on, never Pydantic's field dump."""
+    if not isinstance(exc, ValidationError):
+        return str(exc)
+    missing, other = [], []
+    for error in exc.errors():
+        field = next((part for part in error['loc'] if isinstance(part, str)), '')
+        label = LABELS.get(field) or field.replace('_', ' ').capitalize()
+        if error['type'] == 'missing' or error.get('input') in (None, '', []):
+            missing.append(label)
+        elif error['type'] == 'string_pattern_mismatch':
+            other.append(f'{label} is not in the right format')
+        else:
+            message = error['msg'].removeprefix('Value error, ')
+            other.append(f'{label}: {message}' if label else message)
+    first = ['Fill in these first: ' + ', '.join(dict.fromkeys(missing))] if missing else []
+    return '\n'.join(first + other)
 
 
 def validate_clearance(clearance, collections):

@@ -7,16 +7,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.database import get_db
 from app.dependencies import VALID_ROLES, get_current_user, require_active_account, require_role, resolve_organization_id
-from app.models import CiteMember, Department, OtpToken, User
+from app.config import settings
+from app.models import CiteMember, Department, OtpToken, RefreshToken, User
 from app.schemas import (
     AdminRegisterRequest,
     ChangePasswordRequest,
     CiteSelfRegisterRequest,
     ForgotPasswordRequest,
+    RefreshRequest,
     ResetPasswordRequest,
     SdsRegisterRequest,
     SignatoryRegisterRequest,
@@ -25,7 +27,7 @@ from app.schemas import (
     VerifyOtpRequest,
     RegistrationVerificationOut,
 )
-from app.security import create_access_token, hash_password, verify_password
+from app.security import create_access_token, hash_password, hash_refresh_token, new_refresh_token, verify_password
 from app.services.account_provisioning import (
     create_unverified_user_with_otp,
     create_user_with_temp_password,
@@ -295,9 +297,67 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
     user.login_failed_attempts = 0
     user.login_locked_until = None
+    # A temporary password gets no renewal key: that session stays short.
+    renewal = None if user.must_change_password else _issue_refresh_token(db, user)
     db.commit()
     access_token = create_access_token(subject=str(user.id))
-    return Token(access_token=access_token, must_change_password=user.must_change_password)
+    return Token(access_token=access_token, must_change_password=user.must_change_password, refresh_token=renewal)
+
+
+def _issue_refresh_token(db, user) -> str | None:
+    token, digest = new_refresh_token()
+    try:
+        with db.begin_nested():
+            db.add(RefreshToken(user_id=user.id, token_hash=digest,
+                                expires_at=datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_days)))
+    except SQLAlchemyError:
+        # Deployed before its migration: signing in still works, only without renewal.
+        logger.warning("Could not issue a renewal key; apply pending database migrations")
+        return None
+    return token
+
+
+def _revoke_refresh_tokens(db, user_id) -> None:
+    try:
+        with db.begin_nested():
+            db.query(RefreshToken).filter(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)).update(
+                {RefreshToken.revoked_at: datetime.now(timezone.utc)}, synchronize_session=False)
+    except SQLAlchemyError:
+        # No table yet means no keys were ever issued, so there are none to end.
+        logger.warning("Could not end renewal keys; apply pending database migrations")
+
+
+@router.post("/refresh", response_model=Token)
+def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
+    """Swaps the device's renewal key for a fresh access token, without the password.
+
+    The key is not rotated: a reply lost on a weak connection must not cost the
+    device its session. Its expiry moves forward instead. Signing out, a password
+    change or reset, and a suspended or deactivated account all end it."""
+    refused = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in again",
+                            headers={"WWW-Authenticate": "Bearer"})
+    row = db.query(RefreshToken).filter(
+        RefreshToken.token_hash == hash_refresh_token(payload.refresh_token)).with_for_update().first()
+    if row is None or row.revoked_at is not None or is_expired(row.expires_at):
+        raise refused
+    user = db.get(User, row.user_id)
+    if (user is None or not user.is_active or user.is_suspended or user.must_change_password
+            or user.role not in VALID_ROLES):
+        row.revoked_at = datetime.now(timezone.utc)
+        db.commit()
+        raise refused
+    row.expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_days)
+    db.commit()
+    return Token(access_token=create_access_token(subject=str(user.id)), refresh_token=payload.refresh_token)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(payload: RefreshRequest, db: Session = Depends(get_db)):
+    """Ends this device's renewal key. Holding the key is the proof; an unknown one is a no-op."""
+    db.query(RefreshToken).filter(RefreshToken.token_hash == hash_refresh_token(payload.refresh_token),
+                                  RefreshToken.revoked_at.is_(None)).update(
+        {RefreshToken.revoked_at: datetime.now(timezone.utc)}, synchronize_session=False)
+    db.commit()
 
 
 @router.get("/me", response_model=UserOut)
@@ -332,6 +392,7 @@ def change_password(
     current_user.login_failed_attempts = 0
     current_user.login_locked_until = None
     invalidate_otp_tokens(db, current_user.id)
+    _revoke_refresh_tokens(db, current_user.id)  # every device signs in again with the new password
     record_access_change(db, current_user, "user.password_changed", current_user)
 
     db.commit()
@@ -385,6 +446,7 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     user.login_failed_attempts = 0
     user.login_locked_until = None
     invalidate_otp_tokens(db, user.id)
+    _revoke_refresh_tokens(db, user.id)
     record_access_change(db, user, "user.password_reset", user)
     db.commit()
 

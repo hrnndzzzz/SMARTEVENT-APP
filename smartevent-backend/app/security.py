@@ -1,6 +1,8 @@
 ﻿"""Argon2 password hashing and signed, expiring access tokens."""
 
+import hashlib
 import math
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -37,6 +39,16 @@ def create_access_token(subject: str, expires_minutes: int | None = None) -> str
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )
+
+
+def new_refresh_token() -> tuple[str, str]:
+    """A renewal key for the device, and the hash the database keeps instead of it."""
+    token = secrets.token_urlsafe(48)
+    return token, hash_refresh_token(token)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def decode_access_token(token: str) -> dict | None:

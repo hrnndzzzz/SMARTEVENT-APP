@@ -9,7 +9,7 @@ from app.rbac_policy import can_propose_events
 from app.models import Event, User, Notification
 from app.models_compliance import EventLogistics
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPEvaluation, SAPAttachment, SAPReview
-from app.schemas_sap import validate_submission
+from app.schemas_sap import plain_error, validate_submission
 from app.services.sap_pdf import signature_slots, render_proposal
 from app.services.access_audit import record_access_change
 from app.services.approvals import record_decision
@@ -172,7 +172,7 @@ def submit(db, event, proposal, user, verification_base):
         number = proposal.revision_no + 1
         pdf = render_proposal(data, number, verification_base.rstrip('/') + '/' + token)
     except (ValueError, TypeError) as exc:
-        raise HTTPException(422, str(exc)) from None
+        raise HTTPException(422, plain_error(exc)) from None
     sync_event(db, event, d)
     db.flush()
     require_pre_activity_clearance(db, event)

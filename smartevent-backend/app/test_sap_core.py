@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.test_sap import sap_system, fixture_data, populate, version
 from app.test_access_management import system
-from app.schemas_sap import Details, BudgetItem, validate_submission
+from app.schemas_sap import Details, BudgetItem, plain_error, validate_submission
 from app.models_sap import SAPRevision
 from app.services.sap_pdf import render_proposal
 from app.main import app
@@ -43,6 +43,20 @@ def test_information_over_limit_rejected_by_draft_and_submission(sap_system):
     data = fixture_data()['details'] | {'additional_information': info}
     with pytest.raises(ValidationError):
         Details.model_validate(data)
+
+
+def test_plain_error_names_fields_and_keeps_rule_messages():
+    with pytest.raises(ValidationError) as missing:
+        Details.model_validate({'title': 'Partial', 'venue': '', 'school_year': '2026'})
+    text = plain_error(missing.value)
+    assert text.splitlines()[0].startswith('Fill in these first: Organization, ')
+    assert 'Venue' in text and 'School year is not in the right format' in text
+    assert 'pydantic' not in text and 'Activity title' not in text
+    late = fixture_data()['details'] | {'start_time': '12:00:00'}
+    with pytest.raises(ValidationError) as rule:
+        Details.model_validate(late)
+    assert plain_error(rule.value) == 'Use same-day local times; end must follow start'
+    assert plain_error(ValueError('Program flow is required')) == 'Program flow is required'
 
 
 def test_budget_quantity_and_cost_round_trip_without_recalculating_amount(sap_system):

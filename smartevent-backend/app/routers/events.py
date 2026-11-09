@@ -1,3 +1,4 @@
+import logging
 import uuid
 from decimal import Decimal
 
@@ -19,7 +20,8 @@ from app.dependencies import (
 )
 from app.models import Approval, Category, DocumentRouting, Event, EventParticipant, EventRequirement, RequirementPreset, User
 from app.models_compliance import EventLogistics, EventPersonnel, EventVehicle, EventComplianceDocument
-from app.models_sap import SAPProposal
+from app.models_sap import SAPAttachment, SAPItem, SAPProposal, SAPRevision
+from app.services import storage
 from app.services.compliance import invalidate_clearance
 from app.schemas import (
     ApprovalDecision,
@@ -42,6 +44,7 @@ from app.services.event_routing import (
 )
 
 router = APIRouter(prefix="/events", tags=["events"])
+logger = logging.getLogger(__name__)
 ADVISER_PENDING_STATUSES = {"pending", "pending_adviser"}
 
 
@@ -462,7 +465,8 @@ def delete_event(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_event_proposer),
 ):
-    event = _get_event_or_404(db, event_id, lock=True)
+    # A SAP draft is let through: its never-sent proposal is removed below.
+    event = _get_event_or_404(db, event_id, lock=True, allow_sap=True)
     _assert_event_owner_scope(event, current_user, "delete")
 
     if event.status != "draft":
@@ -477,6 +481,19 @@ def delete_event(
     if any(db.query(model).filter_by(event_id=event.id).first() for model in
            (EventParticipant, EventRequirement, EventPersonnel, EventVehicle, EventComplianceDocument)):
         raise HTTPException(409, "This draft has compliance records; retain it to preserve the paper trail")
+    # Every draft made in the app carries a proposal. One that was never sent goes with it;
+    # one sent for review even once is part of the paper trail and stays.
+    files = []
+    proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
+    if proposal:
+        if proposal.revision_no or db.query(SAPRevision.id).filter_by(proposal_id=proposal.id).first():
+            raise HTTPException(409, "This proposal has been sent for review before, so its record is kept")
+        attachments = db.query(SAPAttachment).filter_by(proposal_id=proposal.id).all()
+        files = [row.storage_ref for row in attachments]
+        for row in attachments + db.query(SAPItem).filter_by(proposal_id=proposal.id).all():
+            db.delete(row)
+        db.flush()  # the rows before the proposal they point at
+        db.delete(proposal)
     logistics = db.get(EventLogistics, event.id)
     if logistics:
         db.delete(logistics)
@@ -491,4 +508,9 @@ def delete_event(
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail="This draft is referenced by other records and cannot be deleted") from exc
+    if files:
+        try:
+            storage.delete_uploaded_file(files)
+        except Exception:
+            logger.warning("Could not remove a deleted draft's attachments from storage")
     return None

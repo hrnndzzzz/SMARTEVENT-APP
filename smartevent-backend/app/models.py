@@ -441,6 +441,19 @@ class OtpToken(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class RefreshToken(Base):
+    """A device's renewal key, kept only as a hash. Swapped for a fresh access
+    token without the password; its expiry moves forward each time it is used."""
+    __tablename__ = "refresh_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class EventProposalLetter(Base):
     __tablename__ = "event_proposal_letters"
 
