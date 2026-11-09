@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_areas.dart';
@@ -126,133 +127,93 @@ class HomeScreen extends StatelessWidget {
           ],
           const SizedBox(height: AppLayout.section),
 
-          // ── Events ────────────────────────────────────────────────
-          // First under the greeting, because "has my event moved?" is
-          // the first question anyone opening this app has. What needs
-          // attention now lives on the bell, where the count already was.
-          BrutSectionTitle(
-            'Events',
-            aside: _SeeAll(onTap: () => _open(context, 'events')),
-          ),
-          const SizedBox(height: AppLayout.between),
-          if (_nextEvent(app) case final next?) ...[
-            _NextUp(
-              event: next,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => EventDetailScreen(event: next),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppLayout.between),
-          ],
-          EventProgressList(
-            events: app.events,
-            onOpen: (event) => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => EventDetailScreen(event: event),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppLayout.section),
-
-          // ── Finance ───────────────────────────────────────────────
-          BrutSectionTitle(
-            'Finance',
-            aside: _SeeAll(onTap: () => _open(context, 'money')),
-          ),
-          const SizedBox(height: AppLayout.between),
-
-          // The hero: what is left, beside the two numbers that explain it.
+          // Four figures in a grid, then one bar, then the lists.
           //
-          // No fixed height. It used to be pinned at 168, which fitted at
-          // 100% text and overflowed by three pixels on a phone with
-          // larger system type — a bug nobody sees until it is on someone
-          // else's device. IntrinsicHeight lets the tiles size themselves
-          // and the card match them.
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: BrutCard(
-                    onTap: () => _open(context, 'money'),
-                    // Blue, not black. The figure people open the app for
-                    // should wear one of the department's two colours
-                    // rather than a neutral that belongs to neither.
-                    tone: BrutTone.brand,
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${peso(remaining, decimals: 0)}',
-                            style: AppText.heroNumber.copyWith(fontSize: 40),
-                          ),
-                        ),
-                        const SizedBox(height: AppLayout.section),
-                        const MonoLabel('Remaining budget'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppLayout.between),
-                Expanded(
-                  flex: 2,
-                  // One tile standing beside the card, so it takes the
-                  // card's height rather than shrinking to its own text
-                  // and leaving the pair looking mismatched.
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _Tile(
-                          value: '${app.pendingExpenses.length}',
-                          label: 'Awaiting review',
-                          tone: app.pendingExpenses.isEmpty
-                              ? BrutTone.neutral
-                              : BrutTone.orange,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ExpensesScreen(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppLayout.between),
-
+          // There were nine blocks here: a hero card, four tiles, two
+          // stats, a bar and a chart. The people who tried it said the
+          // same thing they said about the proposal form — too much
+          // happening. These are the four numbers worth opening the app
+          // for, and each one is a way into the module behind it.
+          //
+          // Long-press any of them to look without leaving the page.
           Row(
             children: [
               Expanded(
-                child: _Stat(
-                  value: '${peso(allocated, decimals: 0)}',
-                  label: 'Allocated',
-                  onTap: () => _open(context, 'money'),
+                child: _StatTile(
+                  icon: Icons.inventory_2_outlined,
+                  value: '${app.events.length}',
+                  label: 'Events',
+                  opens: 'events',
+                  trend: _Trend.up,
+                  onTap: () => _open(context, 'events'),
+                  peek: _eventsPeek(app),
                 ),
               ),
               const SizedBox(width: AppLayout.between),
               Expanded(
-                child: _Stat(
-                  value: '${peso(spent, decimals: 0)}',
-                  label: 'Approved spending',
+                child: _StatTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  value: peso(remaining, decimals: 0),
+                  label: 'Left to spend',
+                  opens: 'money',
+                  trend: used >= 0.9 ? _Trend.down : _Trend.up,
                   onTap: () => _open(context, 'money'),
+                  peek:
+                      '${peso(allocated, decimals: 0)} allocated, '
+                      '${peso(spent, decimals: 0)} approved.\n'
+                      '${(used * 100).round()}% of the budget is used.',
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppLayout.between),
+          Row(
+            children: [
+              Expanded(
+                child: _StatTile(
+                  icon: Icons.fact_check_outlined,
+                  value: '${app.pendingExpenses.length}',
+                  label: 'Awaiting review',
+                  opens: 'expenses',
+                  trend: app.pendingExpenses.isEmpty
+                      ? _Trend.flat
+                      : _Trend.down,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+                  ),
+                  peek: app.pendingExpenses.isEmpty
+                      ? 'Nothing is waiting on a decision.'
+                      : '${app.pendingExpenses.length} expense'
+                            '${app.pendingExpenses.length == 1 ? '' : 's'} '
+                            'waiting on a decision.',
+                ),
+              ),
+              const SizedBox(width: AppLayout.between),
+              Expanded(
+                child: _StatTile(
+                  icon: Icons.warehouse_outlined,
+                  value: '${app.dashboard?.lowStockItemCount ?? 0}',
+                  label: 'Low stock',
+                  opens: 'inventory',
+                  trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
+                      ? _Trend.flat
+                      : _Trend.down,
+                  onTap: () => _open(context, 'inventory'),
+                  peek: app.dashboard == null
+                      ? 'The figures have not loaded yet.'
+                      : '${app.dashboard!.lowStockItemCount} item(s) at or '
+                            'below their threshold, '
+                            '${app.dashboard!.draftInventoryCount} draft '
+                            'waiting to be confirmed.',
+                ),
+              ),
+            ],
+          ),
 
+          // The one bar. Budget used is the only figure here that is a
+          // proportion rather than a count, so it is the only one worth
+          // drawing rather than printing.
+          const SizedBox(height: AppLayout.between),
           BrutCard(
             onTap: () => _open(context, 'money'),
             radius: AppRadius.rowAll,
@@ -279,62 +240,57 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppLayout.section),
 
-          // ── Analytics ─────────────────────────────────────────────
-          // What the server has already counted. Shown only when it has
-          // been loaded: three zeroes while a request is in flight read
-          // as "nothing is wrong", which is the one thing this section
-          // must never say by accident.
-          if (app.dashboard case final summary?) ...[
+          // ── Your events ──────────────────────────────────────────
+          // No heading of its own: EventProgressList draws one, with a
+          // count and a collapse, and a second one above it said the
+          // same thing twice.
+          if (_nextEvent(app) case final next?) ...[
+            _NextUp(
+              event: next,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => EventDetailScreen(event: next),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayout.between),
+          ],
+          EventProgressList(
+            events: app.events,
+            onOpen: (event) => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => EventDetailScreen(event: event),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppLayout.section),
+
+          // ── Analytics ────────────────────────────────────────────
+          // The chart only. The three counts it used to sit under are
+          // in the grid at the top now.
+          if (app.spendingTrends.length > 1) ...[
             BrutSectionTitle(
               'Analytics',
               aside: _SeeAll(onTap: () => _open(context, 'reports')),
             ),
             const SizedBox(height: AppLayout.between),
-            Row(
-              children: [
-                Expanded(
-                  child: _Tile(
-                    value: '${summary.flaggedExpenseCount}',
-                    label: 'Flagged',
-                    tone: summary.flaggedExpenseCount == 0
-                        ? BrutTone.neutral
-                        : BrutTone.coral,
-                    onTap: () => _open(context, 'reports'),
-                  ),
-                ),
-                const SizedBox(width: AppLayout.between),
-                Expanded(
-                  child: _Tile(
-                    value: '${summary.lowStockItemCount}',
-                    label: 'Low stock',
-                    tone: summary.lowStockItemCount == 0
-                        ? BrutTone.neutral
-                        : BrutTone.orange,
-                    onTap: () => _open(context, 'inventory'),
-                  ),
-                ),
-                const SizedBox(width: AppLayout.between),
-                Expanded(
-                  child: _Tile(
-                    value: '${summary.draftInventoryCount}',
-                    label: 'Draft items',
-                    tone: summary.draftInventoryCount == 0
-                        ? BrutTone.neutral
-                        : BrutTone.neutral,
-                    onTap: () => _open(context, 'inventory'),
-                  ),
-                ),
-              ],
-            ),
-            if (app.spendingTrends.length > 1) ...[
-              const SizedBox(height: AppLayout.between),
-              _SpendingTrend(points: app.spendingTrends),
-            ],
+            _SpendingTrend(points: app.spendingTrends),
             const SizedBox(height: AppLayout.section),
           ],
         ],
       ),
     );
+  }
+
+  /// What the Events tile says when it is held.
+  static String _eventsPeek(AppState app) {
+    if (app.events.isEmpty) return 'No events on record yet.';
+    final waiting = app.events.where((e) => e.status.isPending).length;
+    final next = _nextEvent(app);
+    return [
+      '${app.events.length} on record, $waiting waiting on a decision.',
+      if (next != null) 'Next up: ${next.title}.',
+    ].join('\n');
   }
 
   /// The soonest event still ahead of us, or null when there is none.
@@ -355,6 +311,138 @@ class HomeScreen extends StatelessWidget {
             .toList()
           ..sort((a, b) => a.on!.compareTo(b.on!));
     return ahead.isEmpty ? null : ahead.first;
+  }
+}
+
+/// Which way a figure is going, for the badge beside it.
+enum _Trend { up, down, flat }
+
+/// One figure, as a square.
+///
+/// Icon, the number, where it is heading, and what it is — in that
+/// order, because the number is what the eye is looking for and the
+/// label only matters once it has found it.
+///
+/// Tapping opens the module. Holding shows [peek]: enough to answer
+/// "should I go there?" without going there, which is the whole reason
+/// for a dashboard.
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.trend,
+    required this.onTap,
+    required this.peek,
+    required this.opens,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final _Trend trend;
+  final VoidCallback onTap;
+  final String peek;
+
+  /// Where tapping goes, for the sheet's button. The tile's own label
+  /// names a figure, not a place: "Open Left to spend" is not English.
+  final String opens;
+
+  void _showPeek(BuildContext context) {
+    HapticFeedback.mediumImpact();
+    BrutSheet.show<void>(
+      context,
+      builder: (sheetContext) => BrutSheet(
+        title: label,
+        subtitle: value,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(peek, style: AppText.body),
+            const SizedBox(height: AppLayout.section),
+            BrutButton(
+              label: 'Open $opens',
+              icon: Icons.arrow_forward,
+              onPressed: () {
+                Navigator.of(sheetContext).pop();
+                onTap();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return BrutCard(
+      onTap: onTap,
+      onLongPress: () => _showPeek(context),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: p.brandTint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 17, color: p.ink),
+              ),
+              const Spacer(),
+              _TrendBadge(trend: trend),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: AppText.heroNumber.copyWith(fontSize: 26),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.caption.copyWith(color: p.muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The small round arrow beside a figure.
+class _TrendBadge extends StatelessWidget {
+  const _TrendBadge({required this.trend});
+
+  final _Trend trend;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final (icon, fill) = switch (trend) {
+      _Trend.up => (Icons.trending_up, p.mintTint),
+      _Trend.down => (Icons.trending_down, p.coralTint),
+      // Nothing to report is not good news or bad: a flat dash in the
+      // neutral tint, rather than a green arrow saying all is well.
+      _Trend.flat => (Icons.trending_flat, p.line),
+    };
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+      child: Icon(icon, size: 14, color: p.ink),
+    );
   }
 }
 

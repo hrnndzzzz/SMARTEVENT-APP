@@ -382,6 +382,7 @@ class BrutCard extends StatelessWidget {
     this.shadow = AppShadows.base,
     this.radius = AppRadius.cardAll,
     this.onTap,
+    this.onLongPress,
   });
 
   final Widget child;
@@ -394,10 +395,15 @@ class BrutCard extends StatelessWidget {
   final BorderRadius radius;
   final VoidCallback? onTap;
 
+  /// Holding the card. BrutSurface has taken this all along; the card
+  /// simply never passed it through.
+  final VoidCallback? onLongPress;
+
   @override
   Widget build(BuildContext context) {
     return BrutSurface(
       onTap: onTap,
+      onLongPress: onLongPress,
       fill: tinted ? tone.tint(context) : tone.fill(context),
       radius: radius,
       shadow: shadow,
