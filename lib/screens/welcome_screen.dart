@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import 'package:provider/provider.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import '../widgets/brand_mark.dart';
 import 'signin_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -100,18 +100,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      BrutSurface(
-                        fill: AppColors.brand,
-                        radius: AppRadius.cardAll,
-                        width: 72,
-                        height: 72,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.groups_outlined,
-                          color: context.palette.ink,
-                          size: 34,
-                        ),
-                      ),
+                      const BrandMark(size: 72),
                       const SizedBox(height: 22),
                       const MonoLabel('LCUP · Student organisations'),
                       const SizedBox(height: 8),

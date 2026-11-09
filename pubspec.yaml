@@ -101,6 +101,10 @@ flutter:
 
   assets:
     - assets/sfx/
+    # Two grounds for one mark: the phone outline is white on the navy
+    # version and navy on the white one, so neither reads on the other's
+    # background. BrandMark picks for you.
+    - assets/brand/
 
   # To add assets to your application, add an assets section, like this:
   #   - images/a_dot_burr.jpeg
