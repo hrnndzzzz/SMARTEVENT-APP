@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_areas.dart';
@@ -722,82 +721,6 @@ class _SpendingTrend extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  const _Tile({
-    required this.value,
-    required this.label,
-    required this.tone,
-    this.onTap,
-  });
-
-  final String value;
-  final String label;
-  final BrutTone tone;
-
-  /// Where the figure came from. A number with no way through to the
-  /// records behind it is a dead end on the screen people open most.
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return BrutCard(
-      onTap: onTap,
-      tone: tone,
-      radius: AppRadius.rowAll,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: AppText.moneyLarge.copyWith(fontSize: 24),
-            ),
-          ),
-          const SizedBox(height: 6),
-          MonoLabel(label, fontSize: 9),
-        ],
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, this.onTap});
-
-  final String value;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return BrutCard(
-      onTap: onTap,
-      radius: AppRadius.rowAll,
-      padding: const EdgeInsets.all(12),
-      shadow: AppShadows.sm,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: AppText.moneyLarge.copyWith(fontSize: 19),
-            ),
-          ),
-          const SizedBox(height: 4),
-          MonoLabel(label, fontSize: 9),
         ],
       ),
     );

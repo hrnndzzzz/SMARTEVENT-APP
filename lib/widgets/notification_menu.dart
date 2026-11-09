@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../state/notice_shelf.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';

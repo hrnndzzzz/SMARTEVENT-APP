@@ -67,7 +67,7 @@ class PopoverFrame extends StatelessWidget {
     } else {
       // Hangs below the control, with its right edge on the control's
       // right edge, so the panel reads as having come out of it.
-      top = (rect!.bottom + AppLayout.popoverGap).clamp(
+      top = (rect.bottom + AppLayout.popoverGap).clamp(
         media.padding.top + 4,
         // Guaranteed above the minimum by the usability check.
         size.height - _minRoomBelow,
