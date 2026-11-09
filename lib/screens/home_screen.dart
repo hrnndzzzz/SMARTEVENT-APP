@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_areas.dart';
+import '../state/app_settings.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
@@ -13,6 +14,7 @@ import '../widgets/account_menu.dart';
 import '../widgets/event_calendar.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_progress_bar.dart';
+import '../widgets/floating_peek.dart';
 import 'event_detail_screen.dart';
 import 'events_screen.dart';
 import 'expenses_screen.dart';
@@ -127,6 +129,21 @@ class HomeScreen extends StatelessWidget {
           ],
           const SizedBox(height: AppLayout.section),
 
+          // The next activity, first. It is the one thing on this
+          // screen with a deadline attached, and it was below the
+          // figures where it read as an afterthought.
+          if (_nextEvent(app) case final next?) ...[
+            _NextUp(
+              event: next,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => EventDetailScreen(event: next),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayout.between),
+          ],
+
           // Four figures in a grid, then one bar, then the lists.
           //
           // There were nine blocks here: a hero card, four tiles, two
@@ -147,6 +164,16 @@ class HomeScreen extends StatelessWidget {
                   trend: _Trend.up,
                   onTap: () => _open(context, 'events'),
                   peek: _eventsPeek(app),
+                  // Not a sentence: the same bars the list below draws,
+                  // so a hold answers "where has everything got to?".
+                  peekChild: EventProgressPeek(
+                    events: app.events,
+                    onOpen: (event) => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => EventDetailScreen(event: event),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: AppLayout.between),
@@ -154,8 +181,12 @@ class HomeScreen extends StatelessWidget {
                 child: _StatTile(
                   icon: Icons.account_balance_wallet_outlined,
                   value: peso(remaining, decimals: 0),
-                  label: 'Left to spend',
+                  label: 'of ${peso(allocated, decimals: 0)} left',
                   opens: 'money',
+                  // The box fills as the budget goes, so the tile says
+                  // how much is left and shows it at the same time.
+                  // The bar that used to do this is gone.
+                  fill: used,
                   trend: used >= 0.9 ? _Trend.down : _Trend.up,
                   onTap: () => _open(context, 'money'),
                   peek:
@@ -210,51 +241,10 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
 
-          // The one bar. Budget used is the only figure here that is a
-          // proportion rather than a count, so it is the only one worth
-          // drawing rather than printing.
-          const SizedBox(height: AppLayout.between),
-          BrutCard(
-            onTap: () => _open(context, 'money'),
-            radius: AppRadius.rowAll,
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(child: MonoLabel('Budget used')),
-                    Text(
-                      '${(used * 100).round()}%',
-                      style: AppText.number.copyWith(fontSize: 12),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                BrutProgressBar(
-                  value: used,
-                  tone: used >= 1 ? BrutTone.coral : BrutTone.orange,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppLayout.section),
-
           // ── Your events ──────────────────────────────────────────
           // No heading of its own: EventProgressList draws one, with a
           // count and a collapse, and a second one above it said the
           // same thing twice.
-          if (_nextEvent(app) case final next?) ...[
-            _NextUp(
-              event: next,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => EventDetailScreen(event: next),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppLayout.between),
-          ],
           EventProgressList(
             events: app.events,
             onOpen: (event) => Navigator.of(context).push(
@@ -335,6 +325,8 @@ class _StatTile extends StatelessWidget {
     required this.onTap,
     required this.peek,
     required this.opens,
+    this.fill,
+    this.peekChild,
   });
 
   final IconData icon;
@@ -344,77 +336,96 @@ class _StatTile extends StatelessWidget {
   final VoidCallback onTap;
   final String peek;
 
-  /// Where tapping goes, for the sheet's button. The tile's own label
+  /// Where tapping goes, for the peek's button. The tile's own label
   /// names a figure, not a place: "Open Left to spend" is not English.
   final String opens;
 
-  void _showPeek(BuildContext context) {
-    HapticFeedback.mediumImpact();
-    BrutSheet.show<void>(
-      context,
-      builder: (sheetContext) => BrutSheet(
-        title: label,
-        subtitle: value,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(peek, style: AppText.body),
-            const SizedBox(height: AppLayout.section),
-            BrutButton(
-              label: 'Open $opens',
-              icon: Icons.arrow_forward,
-              onPressed: () {
-                Navigator.of(sheetContext).pop();
-                onTap();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  /// 0 to 1. Fills the card behind the figure by that much, so a tile
+  /// about a proportion shows it rather than printing it twice.
+  final double? fill;
+
+  /// Shown in the peek instead of [peek], when the honest answer is a
+  /// picture rather than a sentence.
+  final Widget? peekChild;
+
+  void _showPeek(BuildContext context) => showFloatingPeek(
+    context,
+    title: label,
+    subtitle: value,
+    openLabel: 'Open $opens',
+    onOpen: onTap,
+    child: peekChild ?? Text(peek, style: AppText.body),
+  );
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final amount = fill;
     return BrutCard(
       onTap: onTap,
       onLongPress: () => _showPeek(context),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.zero,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: p.brandTint,
-                  borderRadius: BorderRadius.circular(10),
+          if (amount != null)
+            // Rises from the bottom as the budget goes. Orange while
+            // there is room, coral once there is not — the same two
+            // tones the bar it replaces used.
+            Positioned.fill(
+              child: FractionallySizedBox(
+                alignment: Alignment.bottomCenter,
+                heightFactor: amount.clamp(0.0, 1.0),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: amount >= 1 ? p.coralTint : p.orangeTint,
+                  ),
                 ),
-                child: Icon(icon, size: 17, color: p.ink),
               ),
-              const Spacer(),
-              _TrendBadge(trend: trend),
-            ],
-          ),
-          const SizedBox(height: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              maxLines: 1,
-              style: AppText.heroNumber.copyWith(fontSize: 26),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.caption.copyWith(color: p.muted),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: p.brandTint,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, size: 17, color: p.ink),
+                    ),
+                    const Spacer(),
+                    _TrendBadge(trend: trend),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: AppText.heroNumber.copyWith(fontSize: 26),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  // Full ink where a fill sits behind it: muted grey
+                  // on the orange was legible but only just, and this
+                  // label carries the other half of the figure above.
+                  style: AppText.caption.copyWith(
+                    color: amount == null ? p.muted : p.ink,
+                    fontWeight: amount == null ? null : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -481,14 +492,40 @@ class _SeeAll extends StatelessWidget {
 
 /// How long until the next activity. Counting in days is what anyone
 /// actually asks; a date alone makes them do the subtraction.
-class _NextUp extends StatelessWidget {
+/// The next activity, at the top, with the light moving across it.
+///
+/// Everything else on this screen is a standing figure. This one has a
+/// date coming, so it is the only thing here that moves: a slow drift
+/// between the brand blue and the department orange, which says "this
+/// one is live" without a badge shouting it.
+class _NextUp extends StatefulWidget {
   const _NextUp({required this.event, required this.onTap});
 
   final EventItem event;
   final VoidCallback onTap;
 
   @override
+  State<_NextUp> createState() => _NextUpState();
+}
+
+class _NextUpState extends State<_NextUp> with SingleTickerProviderStateMixin {
+  late final AnimationController _drift = AnimationController(
+    vsync: this,
+    // Slow on purpose. Fast enough to notice on a second glance,
+    // slow enough that nobody watching a demo finds it distracting.
+    duration: const Duration(seconds: 6),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _drift.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final event = widget.event;
+    final onTap = widget.onTap;
     final today = DateUtils.dateOnly(DateTime.now());
     final days = DateUtils.dateOnly(event.on!).difference(today).inDays;
     final when = switch (days) {
@@ -497,29 +534,70 @@ class _NextUp extends StatelessWidget {
       _ => 'In $days days',
     };
 
+    // Reduce-motion holds it still rather than removing the colour:
+    // the gradient is what marks this card out, the movement is only
+    // how it draws the eye.
+    var still = MediaQuery.disableAnimationsOf(context);
+    try {
+      still = still || context.watch<AppSettings>().reduceMotion;
+    } on ProviderNotFoundException {
+      // A test host without the settings provider still gets a card.
+    }
+
     return BrutCard(
       onTap: onTap,
-      tone: days <= 1 ? BrutTone.orange : BrutTone.neutral,
-      padding: const EdgeInsets.all(14),
-      child: Row(
+      padding: EdgeInsets.zero,
+      child: Stack(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Inside the card rather than behind it, so it takes the
+          // card's own corners and sits under its border.
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: AppRadius.cardAll,
+              child: AnimatedBuilder(
+                animation: _drift,
+                builder: (context, _) {
+                  final t = still ? 0.5 : _drift.value;
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        // The ends travel rather than the colours
+                        // changing, so it reads as light moving across
+                        // the card rather than the card changing colour.
+                        begin: Alignment(-1 - t, -1),
+                        end: Alignment(1 + t, 1),
+                        colors: const [AppColors.brand, AppColors.orange],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
               children: [
-                const MonoLabel('Next up'),
-                const SizedBox(height: 6),
-                Text(
-                  event.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.titleBig.copyWith(fontSize: 17),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const MonoLabel('Next up'),
+                      const SizedBox(height: 6),
+                      Text(
+                        event.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.titleBig.copyWith(fontSize: 17),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
+                Text(when, style: AppText.number.copyWith(fontSize: 14)),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Text(when, style: AppText.number.copyWith(fontSize: 14)),
         ],
       ),
     );

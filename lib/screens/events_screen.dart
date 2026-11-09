@@ -7,6 +7,8 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import '../widgets/event_progress_bar.dart';
+import '../widgets/floating_peek.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_calendar.dart';
 import '../widgets/event_status.dart';
@@ -31,6 +33,10 @@ class _EventsScreenState extends State<EventsScreen> {
   bool _calendar = false;
   _StatusFilter _status = _StatusFilter.all;
 
+  /// Soonest first by default: the list is read to find out what is
+  /// coming, not to browse the archive.
+  _EventSort _sort = _EventSort.dateAsc;
+
   void _open(EventItem event) {
     Navigator.of(
       context,
@@ -49,6 +55,11 @@ class _EventsScreenState extends State<EventsScreen> {
           Row(
             children: [
               const Expanded(child: Text('Events', style: AppText.display)),
+              _SortButton(
+                sort: _sort,
+                onChanged: (v) => setState(() => _sort = v),
+              ),
+              const SizedBox(width: AppLayout.tight),
               _ViewToggle(
                 calendar: _calendar,
                 onChanged: (v) => setState(() => _calendar = v),
@@ -128,7 +139,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 final events = [
                   for (final event in app.events)
                     if (_status.matches(event.status)) event,
-                ];
+                ]..sort(_sort.compare);
                 if (_calendar) {
                   return EventCalendar(events: events, onOpen: _open);
                 }
@@ -169,6 +180,65 @@ class _EventsScreenState extends State<EventsScreen> {
 /// List or month. Two states, so a segmented pair rather than a menu —
 /// and the selected one is filled rather than merely outlined, because an
 /// outline is what every other control on this screen already wears.
+/// Picks the order. A menu rather than a row of buttons: four orders
+/// would take as much of the header as the title, and only one of them
+/// is in force at a time.
+class _SortButton extends StatelessWidget {
+  const _SortButton({required this.sort, required this.onChanged});
+
+  final _EventSort sort;
+  final ValueChanged<_EventSort> onChanged;
+
+  Future<void> _choose(BuildContext context) async {
+    final picked = await showFloatingPeek<_EventSort>(
+      context,
+      title: 'Sort events',
+      subtitle: sort.label,
+      child: _SortChoices(current: sort),
+    );
+    if (picked != null) onChanged(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutIconButton(
+      icon: Icons.swap_vert,
+      label: 'Sort events, currently ${sort.label}',
+      // Marked when it is not the default, so a list in an unexpected
+      // order says so rather than looking wrong.
+      tone: sort == _EventSort.dateAsc ? BrutTone.neutral : BrutTone.dark,
+      size: 36,
+      onPressed: () => _choose(context),
+    );
+  }
+}
+
+class _SortChoices extends StatelessWidget {
+  const _SortChoices({required this.current});
+
+  final _EventSort current;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final option in _EventSort.values) ...[
+          BrutButton(
+            label: option.label,
+            icon: option == current ? Icons.check : option.icon,
+            tone: option == current ? BrutTone.brand : BrutTone.neutral,
+            onPressed: () => Navigator.of(context).pop(option),
+          ),
+          if (option != _EventSort.values.last)
+            const SizedBox(height: AppLayout.tight),
+        ],
+      ],
+    );
+  }
+}
+
 class _ViewToggle extends StatelessWidget {
   const _ViewToggle({required this.calendar, required this.onChanged});
 
@@ -215,6 +285,18 @@ class _EventCard extends StatelessWidget {
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
       ),
+      // The same hold-to-look the dashboard tile has: where this one
+      // has got to, without opening it.
+      onLongPress: () => showFloatingPeek(
+        context,
+        title: event.title,
+        subtitle: event.statusLabel,
+        openLabel: 'Open this event',
+        onOpen: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+        ),
+        child: EventProgressPeek(events: [event]),
+      ),
       // The stripe stretches, so the row needs a height before it is laid
       // out — inside a list it has none, and `stretch` alone asks for an
       // infinite one.
@@ -240,9 +322,21 @@ class _EventCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Both of these are as long as their content, and
+                    // "Waiting on the SDS Office" beside a full date
+                    // ran off the right of a 411pt phone. The badge
+                    // gives way first: the date is short and fixed,
+                    // and a clipped date is worse than a clipped
+                    // status that the colour already tells you.
                     Row(
                       children: [
-                        BrutBadge(label: event.statusLabel, tone: tone),
+                        Flexible(
+                          child: BrutBadge(
+                            label: event.statusLabel,
+                            tone: tone,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         const Spacer(),
                         Text(event.date, style: AppText.moneySmall),
                       ],
@@ -362,6 +456,38 @@ class _EventFilterBar extends StatelessWidget {
 /// The colours the list is already sorted by, as something you can ask
 /// for. Pending covers all three waiting stages: to the person reading
 /// the list they mean one thing, and the badge says which desk.
+/// How the list is ordered.
+///
+/// Only the list: the month view is already ordered by the calendar,
+/// and sorting it would mean nothing.
+enum _EventSort {
+  dateAsc('Soonest first', Icons.arrow_upward),
+  dateDesc('Latest first', Icons.arrow_downward),
+  title('By name', Icons.sort_by_alpha),
+  status('By status', Icons.flag_outlined);
+
+  const _EventSort(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+
+  /// An event with no date sorts to the end either way round, rather
+  /// than to whichever end null happens to fall on.
+  int compare(EventItem a, EventItem b) => switch (this) {
+    _EventSort.dateAsc => _byDate(a, b),
+    _EventSort.dateDesc => -_byDate(a, b),
+    _EventSort.title => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+    _EventSort.status => a.status.index.compareTo(b.status.index),
+  };
+
+  static int _byDate(EventItem a, EventItem b) {
+    if (a.on == null && b.on == null) return 0;
+    if (a.on == null) return 1;
+    if (b.on == null) return -1;
+    return a.on!.compareTo(b.on!);
+  }
+}
+
 enum _StatusFilter {
   all('All', null),
   pending('Waiting', BrutTone.sun),

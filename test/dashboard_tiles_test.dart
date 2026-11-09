@@ -6,6 +6,7 @@ import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/notice_shelf.dart';
 import 'package:smartevent/state/reachability.dart';
+import 'package:smartevent/widgets/event_progress_bar.dart';
 
 /// The dashboard, as four figures and a bar.
 ///
@@ -45,7 +46,9 @@ void main() {
       await open(tester);
 
       expect(find.text('Events'), findsOneWidget);
-      expect(find.text('Left to spend'), findsOneWidget);
+      // The tile says what is left and what of, so the figure above it
+      // needs no second line explaining itself.
+      expect(find.textContaining('left'), findsWidgets);
       expect(find.text('Awaiting review'), findsOneWidget);
       expect(find.text('Low stock'), findsOneWidget);
     });
@@ -64,11 +67,28 @@ void main() {
       expect(find.text('Draft items'), findsNothing);
     });
 
-    testWidgets('one bar is kept, because it is a proportion', (tester) async {
+    testWidgets('the budget bar is gone, the tile carries it instead', (
+      tester,
+    ) async {
       await open(tester);
 
       // MonoLabel renders its text uppercased.
-      expect(find.text('BUDGET USED'), findsOneWidget);
+      expect(
+        find.text('BUDGET USED'),
+        findsNothing,
+        reason: 'the tile fills as the budget goes; a bar as well said '
+            'the same thing twice',
+      );
+    });
+
+    testWidgets('the next activity is above the figures', (tester) async {
+      await open(tester);
+
+      expect(
+        tester.getTopLeft(find.text('NEXT UP')).dy,
+        lessThan(tester.getTopLeft(find.text('Events')).dy),
+        reason: 'it is the only thing here with a deadline attached',
+      );
     });
   });
 
@@ -110,7 +130,7 @@ void main() {
       );
     });
 
-    testWidgets('the peek says something true about the figure', (
+    testWidgets('the events peek shows the progress bars themselves', (
       tester,
     ) async {
       final app = await open(tester);
@@ -118,10 +138,22 @@ void main() {
       await tester.longPress(find.text('Events'));
       await tester.pump(const Duration(milliseconds: 400));
 
+      // Not a sentence about the events — the bars, one per live one.
+      expect(find.byType(EventProgressPeek), findsOneWidget);
+      final live = app.events
+          .where((e) => e.status != EventApprovalStatus.completed)
+          .length;
+      // Scoped to the peek: the list below is still on screen behind
+      // it, drawing its own three.
       expect(
-        find.textContaining('${app.events.length} on record'),
-        findsOneWidget,
+        find.descendant(
+          of: find.byType(EventProgressPeek),
+          matching: find.byType(EventProgressBar),
+        ),
+        findsNWidgets(live),
+        reason: 'the peek shows every live one, not the list\'s three',
       );
+      expect(live, greaterThan(3), reason: 'otherwise this proves nothing');
     });
 
     testWidgets('and a plain tap still opens the module', (tester) async {

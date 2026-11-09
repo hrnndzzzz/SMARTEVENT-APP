@@ -178,3 +178,44 @@ class EventProgressList extends StatelessWidget {
     );
   }
 }
+
+/// Every live event's progress, for a peek.
+///
+/// The same bars [EventProgressList] draws, without the fold or the
+/// three-item cut: a glance is where you want all of them, because the
+/// reason for holding is to see where everything has got to at once.
+class EventProgressPeek extends StatelessWidget {
+  const EventProgressPeek({super.key, required this.events, this.onOpen});
+
+  final List<EventItem> events;
+  final void Function(EventItem)? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final live = [
+      for (final e in events)
+        if (EventStage.of(e.status) != EventStage.completed) e,
+    ];
+    if (live.isEmpty) {
+      return const Text(
+        'Nothing is in progress. Everything on record is finished.',
+        style: AppText.body,
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < live.length; i++) ...[
+          EventProgressBar(
+            title: live[i].title,
+            stage: EventStage.of(live[i].status),
+            onTap: onOpen == null ? null : () => onOpen!(live[i]),
+          ),
+          if (i != live.length - 1) const SizedBox(height: AppLayout.tight),
+        ],
+      ],
+    );
+  }
+}
