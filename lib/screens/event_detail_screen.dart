@@ -212,7 +212,14 @@ class EventDetailScreen extends StatelessWidget {
                       ),
                 ),
               ],
-              const SizedBox(height: 14),
+              // The page used to run status, facts, an action, the
+              // history and two more actions together as equal cards,
+              // so finding what you could do meant scrolling past
+              // everything else. Three headings now, and every action
+              // gathered under the last of them.
+              const SizedBox(height: 18),
+              const BrutSectionTitle('The activity'),
+              const SizedBox(height: 10),
               BrutCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,33 +245,13 @@ class EventDetailScreen extends StatelessWidget {
                 _ReadinessNotice(event: event),
               ],
 
-              // Taking your own proposal back, while it is still anyone's
-              // to decide on. Once it has been approved or returned the
-              // decision is the record, and withdrawing it would erase
-              // someone else's.
-              //
-              // Your own: this asked only whether the account may propose
-              // at all, so a reviewer opening someone else's submission
-              // was offered the withdrawal — which the server refuses,
-              // since the route is the proposer's. Where the proposer is
-              // not known at all the capability is still the best guess,
-              // rather than hiding the action from the person whose
-              // proposal it is.
-              if ((isOwnProposal || event.proposedBy == null) &&
-                  app.mayProposeEvents &&
-                  event.status.isPending) ...[
-                const SizedBox(height: 14),
-                BrutButton(
-                  label: 'Cancel this proposal',
-                  icon: Icons.undo,
-                  tone: BrutTone.coral,
-                  onPressed: app.isOfflineViewing
-                      ? null
-                      : () => _cancelProposal(context, event),
-                ),
-              ],
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
+              const BrutSectionTitle('What happened'),
+              const SizedBox(height: 10),
               _ApprovalTimelineCard(event: event),
+
+              const SizedBox(height: 18),
+              const BrutSectionTitle('What you can do'),
               // The SAS-SDS-FO-020 form. Offered on any event the backend
               // knows about: the proposer fills Parts 1 to 3 and the SDS
               // Office the rest, and which of those a given person may do
@@ -318,7 +305,9 @@ class EventDetailScreen extends StatelessWidget {
                     // only ever fills the first three, and a six-part
                     // list hands them three they cannot touch.
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => SapFormScreen(form: form)),
+                      MaterialPageRoute(
+                        builder: (_) => SapFormScreen(form: form),
+                      ),
                     );
                   },
                 ),
@@ -339,6 +328,32 @@ class EventDetailScreen extends StatelessWidget {
                       builder: (_) => EventReportScreen(event: event),
                     ),
                   ),
+                ),
+              ],
+
+              // Taking your own proposal back, while it is still anyone's
+              // to decide on. Once it has been approved or returned the
+              // decision is the record, and withdrawing it would erase
+              // someone else's.
+              //
+              // Your own: this asked only whether the account may propose
+              // at all, so a reviewer opening someone else's submission
+              // was offered the withdrawal — which the server refuses,
+              // since the route is the proposer's. Where the proposer is
+              // not known at all the capability is still the best guess,
+              // rather than hiding the action from the person whose
+              // proposal it is.
+              if ((isOwnProposal || event.proposedBy == null) &&
+                  app.mayProposeEvents &&
+                  event.status.isPending) ...[
+                const SizedBox(height: 14),
+                BrutButton(
+                  label: 'Cancel this proposal',
+                  icon: Icons.undo,
+                  tone: BrutTone.coral,
+                  onPressed: app.isOfflineViewing
+                      ? null
+                      : () => _cancelProposal(context, event),
                 ),
               ],
             ],
@@ -695,6 +710,11 @@ class _ApprovalTimelineCardState extends State<_ApprovalTimelineCard> {
   String? _error;
   bool _loading = false;
 
+  /// The nine signature steps make this the longest thing on the page,
+  /// and the ones that matter are the latest. The rest are a tap away.
+  bool _showAll = false;
+  static const int _collapsedCount = 3;
+
   @override
   void initState() {
     super.initState();
@@ -768,12 +788,31 @@ class _ApprovalTimelineCardState extends State<_ApprovalTimelineCard> {
     final ordered = [...records]
       ..sort((a, b) => a.stepOrder.compareTo(b.stepOrder));
 
+    // Newest first when collapsed: the last thing that happened is
+    // what anyone opening this came to see, and showing the first
+    // three of nine would show the oldest.
+    final shown = (_showAll || ordered.length <= _collapsedCount)
+        ? ordered
+        : ordered.reversed.take(_collapsedCount).toList().reversed.toList();
+    final hidden = ordered.length - shown.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final record in ordered) ...[
+        for (final record in shown) ...[
           _ApprovalRow(record: record),
-          if (record != ordered.last) const SizedBox(height: 10),
+          if (record != shown.last) const SizedBox(height: 10),
+        ],
+        if (hidden > 0 || _showAll) ...[
+          const SizedBox(height: 10),
+          BrutButton(
+            label: _showAll
+                ? 'Show the latest only'
+                : 'Show all ${ordered.length} steps',
+            icon: _showAll ? Icons.expand_less : Icons.expand_more,
+            tone: BrutTone.neutral,
+            onPressed: () => setState(() => _showAll = !_showAll),
+          ),
         ],
       ],
     );
