@@ -636,11 +636,15 @@ class _UserCard extends StatelessWidget {
               const SizedBox(width: 8),
               BrutBadge(
                 label: user.statusLabel,
+                // mustChangePassword is tested before isUsable because
+                // an invited account is both: active, not suspended,
+                // and therefore green — which made "Awaiting password
+                // setup" read as a finished state. It is a waiting one.
                 tone: user.isSuspended
                     ? BrutTone.coral
-                    : user.isUsable
-                    ? BrutTone.mint
-                    : BrutTone.sun,
+                    : user.mustChangePassword || !user.isActive
+                    ? BrutTone.sun
+                    : BrutTone.mint,
               ),
             ],
           ),
@@ -748,6 +752,12 @@ class _AuditRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final at = entry.createdAt.toLocal();
+    final by = context
+        .watch<AppState>()
+        .managedUsers
+        .where((u) => u.id == entry.userId)
+        .map((u) => u.fullName)
+        .firstOrNull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -765,9 +775,14 @@ class _AuditRow extends StatelessWidget {
         ),
         if (entry.userId != null) ...[
           const SizedBox(height: 4),
-          // An id, not a name — the backend does not resolve them.
+          // The backend records who, as an id, and does not resolve it.
+          // This screen has already loaded the accounts, so the name is
+          // usually sitting right there — "By demo-user-2" told a
+          // reader nothing. Anyone outside that list, which is anyone
+          // outside the reader's own scope, still shows as the id
+          // rather than as a guess.
           Text(
-            'By ${entry.userId}',
+            'By ${by ?? entry.userId}',
             style: AppText.caption.copyWith(fontSize: 10),
           ),
         ],

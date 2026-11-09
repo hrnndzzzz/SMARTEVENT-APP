@@ -820,6 +820,22 @@ class AppState extends ChangeNotifier {
   List<AuditEntry> auditLog = [];
   final LoadState auditLoad = LoadState();
 
+  // Administration in demo mode.
+  //
+  // Everything below has a seeded branch for the same reason the rest of
+  // the app does: without one these call a backend the demo has no token
+  // for, and the administrator's screens — the ones a panel is most
+  // likely to ask to see, because they are where the permissions live —
+  // fill with errors. The branches mutate the in-memory lists rather
+  // than no-opping, so suspending an account in the demo actually shows
+  // the account suspended.
+
+  // The three loaders below need no demo branch: _runLoad returns
+  // early in the demo without calling them at all. Their lists are
+  // seeded in enterDemo alongside every other collection, which is why
+  // they were empty rather than failing — the screens showed "nothing
+  // here yet" and looked, reasonably, like a feature nobody built.
+
   Future<void> loadRoster() => _runLoad(rosterLoad, () async {
     roster = await _adminService.roster();
   });
@@ -845,6 +861,27 @@ class AppState extends ChangeNotifier {
     String? departmentId,
     String? organizationId,
   }) async {
+    if (_demoMode) {
+      roster = [
+        RosterEntry(
+          id: 'demo-roster-${DateTime.now().microsecondsSinceEpoch}',
+          fullName: fullName,
+          email: email,
+          role: role,
+          position: position,
+          departmentId: departmentId,
+          organizationId: organizationId,
+          // Nobody has registered against a row made a second ago, so
+          // it is unclaimed and still editable — which is the state the
+          // screen most needs to be able to show.
+          claimedByUserId: null,
+          createdAt: DateTime.now(),
+        ),
+        ...roster,
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _adminService.addToRoster(
         fullName: fullName,
@@ -875,6 +912,17 @@ class AppState extends ChangeNotifier {
     required List<int> bytes,
     required String filename,
   }) async {
+    if (_demoMode) {
+      // A workbook picked in the demo is a real file with real names in
+      // it, and parsing it here would mean shipping a second, divergent
+      // importer whose only job is to be plausible. The honest demo is
+      // one that says plainly that nothing was read.
+      return const RosterImportResult(
+        filename: 'Not imported in demo mode',
+        insertedCount: 0,
+        emails: [],
+      );
+    }
     final result = await _adminService.importRoster(
       bytes: bytes,
       filename: filename,
@@ -889,6 +937,27 @@ class AppState extends ChangeNotifier {
     String? position,
     String? organizationId,
   }) async {
+    if (_demoMode) {
+      roster = [
+        for (final r in roster)
+          if (r.id == entry.id)
+            RosterEntry(
+              id: r.id,
+              fullName: r.fullName,
+              email: r.email,
+              role: role ?? r.role,
+              position: position ?? r.position,
+              departmentId: r.departmentId,
+              organizationId: organizationId ?? r.organizationId,
+              claimedByUserId: r.claimedByUserId,
+              createdAt: r.createdAt,
+            )
+          else
+            r,
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final updated = await _adminService.updateRosterEntry(
         entry.id,
@@ -912,6 +981,11 @@ class AppState extends ChangeNotifier {
       return 'That entry has already been claimed. Manage the account it '
           'created instead.';
     }
+    if (_demoMode) {
+      roster = roster.where((r) => r.id != entry.id).toList();
+      notifyListeners();
+      return null;
+    }
     try {
       await _adminService.removeRosterEntry(entry.id);
       roster = roster.where((r) => r.id != entry.id).toList();
@@ -928,6 +1002,7 @@ class AppState extends ChangeNotifier {
     if (user.id == currentAccount?.id) {
       return 'You cannot change your own access.';
     }
+    if (_demoMode) return _demoUserChange(user, suspended: suspended);
     try {
       final updated = await _adminService.updateAccess(
         user.id,
@@ -949,6 +1024,14 @@ class AppState extends ChangeNotifier {
     if (user.id == currentAccount?.id) {
       return 'You cannot change your own access.';
     }
+    if (_demoMode) {
+      return _demoUserChange(
+        user,
+        role: role,
+        position: position,
+        organizationId: organizationId,
+      );
+    }
     try {
       final updated = await _adminService.updateAccess(
         user.id,
@@ -968,6 +1051,19 @@ class AppState extends ChangeNotifier {
     required String name,
     String? description,
   }) async {
+    if (_demoMode) {
+      departments = [
+        ...departments,
+        RemoteDepartment(
+          id: 'demo-dept-${DateTime.now().microsecondsSinceEpoch}',
+          code: code,
+          name: name,
+          description: description,
+        ),
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _adminService.createDepartment(
         code: code,
@@ -987,6 +1083,19 @@ class AppState extends ChangeNotifier {
     required String name,
     required String departmentId,
   }) async {
+    if (_demoMode) {
+      organizations = [
+        ...organizations,
+        RemoteOrganization(
+          id: 'demo-org-${DateTime.now().microsecondsSinceEpoch}',
+          code: code,
+          name: name,
+          departmentId: departmentId,
+        ),
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       final created = await _adminService.createOrganization(
         code: code,
@@ -1012,6 +1121,35 @@ class AppState extends ChangeNotifier {
     String? organizationId,
     String? departmentId,
   }) async {
+    if (role == UserRole.admin &&
+        (organizationId == null || departmentId == null)) {
+      return 'An Admin needs both a department and an organization.';
+    }
+    if (_demoMode) {
+      // No email leaves the device in the demo, so the account lands in
+      // exactly the state a real one does before its holder has opened
+      // the invitation: present, and awaiting a password. The list says
+      // so itself through statusLabel, which is better than a success
+      // message that implies something was sent.
+      managedUsers = [
+        ...managedUsers,
+        ManagedUser(
+          id: 'demo-user-${DateTime.now().microsecondsSinceEpoch}',
+          fullName: fullName,
+          email: email,
+          role: role,
+          position: position,
+          departmentId: departmentId,
+          organizationId: organizationId,
+          isActive: true,
+          isSuspended: false,
+          mustChangePassword: true,
+          createdAt: DateTime.now(),
+        ),
+      ];
+      notifyListeners();
+      return null;
+    }
     try {
       if (role == UserRole.admin) {
         if (organizationId == null || departmentId == null) {
@@ -1037,6 +1175,35 @@ class AppState extends ChangeNotifier {
     } catch (error) {
       return _messageForFailure(error);
     }
+  }
+
+  /// The one field an access change touches, replaced in place.
+  ///
+  /// Shared by the two demo branches below so suspending and re-roling
+  /// an account cannot drift apart in what they leave behind.
+  String? _demoUserChange(
+    ManagedUser user, {
+    UserRole? role,
+    String? position,
+    String? organizationId,
+    bool? suspended,
+  }) {
+    _replaceUser(
+      ManagedUser(
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: role ?? user.role,
+        position: position ?? user.position,
+        departmentId: user.departmentId,
+        organizationId: organizationId ?? user.organizationId,
+        isActive: user.isActive,
+        isSuspended: suspended ?? user.isSuspended,
+        mustChangePassword: user.mustChangePassword,
+        createdAt: user.createdAt,
+      ),
+    );
+    return null;
   }
 
   void _replaceUser(ManagedUser updated) {
@@ -3681,6 +3848,9 @@ class AppState extends ChangeNotifier {
     spendingTrends = DemoData.spendingTrends();
     notices = DemoData.notices();
     unreadNoticeCount = notices.where((n) => n.isUnread).length;
+    roster = DemoData.roster();
+    managedUsers = DemoData.managedUsers();
+    auditLog = DemoData.auditLog();
 
     // Every module reads as loaded, so no screen shows a spinner waiting
     // on a request that will never be made.

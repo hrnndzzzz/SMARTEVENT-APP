@@ -1,4 +1,5 @@
 import '../api/models/academic.dart';
+import '../api/models/admin.dart';
 import '../api/models/income.dart';
 import '../api/models/inventory.dart';
 import '../api/models/receipt.dart';
@@ -83,6 +84,168 @@ abstract final class DemoData {
       name:
           'Junior Philippine Student Society for Information Technology',
       departmentId: 'demo-cite',
+    ),
+  ];
+
+  /// What an administrator sees: a roster, the accounts that grew out
+  /// of it, and a log of what was done to them.
+  ///
+  /// Two of these entries are claimed and two are not, because the only
+  /// interesting rule on this screen is that a claimed entry can no
+  /// longer be edited or removed. A roster where every row behaved the
+  /// same would demonstrate nothing.
+  static List<RosterEntry> roster() => [
+    RosterEntry(
+      id: 'demo-roster-1',
+      fullName: 'Althea Mariano',
+      email: 'althea.mariano@lcup.edu.ph',
+      role: UserRole.officer,
+      position: 'ACPES Secretary',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-acpes',
+      claimedByUserId: null,
+      createdAt: _seedDate,
+    ),
+    RosterEntry(
+      id: 'demo-roster-2',
+      fullName: 'Benedict Oliveros',
+      email: 'benedict.oliveros@lcup.edu.ph',
+      role: UserRole.treasurer,
+      position: 'JPSSITE Treasurer',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-jpssite',
+      claimedByUserId: null,
+      createdAt: _seedDate,
+    ),
+    RosterEntry(
+      id: 'demo-roster-3',
+      fullName: 'Demo Treasurer',
+      email: 'demo@lcup.edu.ph',
+      role: UserRole.treasurer,
+      position: 'ACPES Treasurer',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-acpes',
+      claimedByUserId: 'demo-user-1',
+      createdAt: _seedDate,
+    ),
+    RosterEntry(
+      id: 'demo-roster-4',
+      fullName: 'Ruth Sandoval',
+      email: 'ruth.sandoval@lcup.edu.ph',
+      role: UserRole.adviser,
+      position: 'ACPES Moderator',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-acpes',
+      claimedByUserId: 'demo-user-2',
+      createdAt: _seedDate,
+    ),
+  ];
+
+  /// One account per state the list can show — active, suspended, and
+  /// one that has been invited but has not set a password yet — so the
+  /// status column has something to say on every row.
+  static List<ManagedUser> managedUsers() => [
+    ManagedUser(
+      id: 'demo-user-1',
+      fullName: 'Demo Treasurer',
+      email: 'demo@lcup.edu.ph',
+      role: UserRole.treasurer,
+      position: 'ACPES Treasurer',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-acpes',
+      isActive: true,
+      isSuspended: false,
+      mustChangePassword: false,
+      createdAt: _seedDate,
+    ),
+    ManagedUser(
+      id: 'demo-user-2',
+      fullName: 'Ruth Sandoval',
+      email: 'ruth.sandoval@lcup.edu.ph',
+      role: UserRole.adviser,
+      position: 'ACPES Moderator',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-acpes',
+      isActive: true,
+      isSuspended: false,
+      mustChangePassword: false,
+      createdAt: _seedDate,
+    ),
+    ManagedUser(
+      id: 'demo-user-3',
+      fullName: 'Jomar Dela Peña',
+      email: 'jomar.delapena@lcup.edu.ph',
+      role: UserRole.officer,
+      position: 'JPSSITE President',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-jpssite',
+      isActive: true,
+      isSuspended: false,
+      mustChangePassword: true,
+      createdAt: _seedDate,
+    ),
+    ManagedUser(
+      id: 'demo-user-4',
+      fullName: 'Carmela Tiongson',
+      email: 'carmela.tiongson@lcup.edu.ph',
+      role: UserRole.officer,
+      position: 'ACPES Auditor',
+      departmentId: 'demo-cite',
+      organizationId: 'demo-acpes',
+      isActive: true,
+      isSuspended: true,
+      mustChangePassword: false,
+      createdAt: _seedDate,
+    ),
+    ManagedUser(
+      id: 'demo-user-5',
+      fullName: 'Fr. Ignacio Rivera',
+      email: 'ignacio.rivera@lcup.edu.ph',
+      role: UserRole.sdsStaff,
+      position: 'SDS Office',
+      departmentId: null,
+      organizationId: null,
+      isActive: true,
+      isSuspended: false,
+      mustChangePassword: false,
+      createdAt: _seedDate,
+    ),
+  ];
+
+  /// Newest first, which is the order the screen shows them in.
+  static List<AuditEntry> auditLog() => [
+    AuditEntry(
+      id: 'demo-audit-1',
+      userId: 'demo-user-2',
+      organizationId: 'demo-acpes',
+      departmentId: 'demo-cite',
+      action: 'suspend_user',
+      entityType: 'user',
+      entityId: 'demo-user-4',
+      details: {'reason': 'Graduated, account retained for records'},
+      createdAt: _seedDate.add(const Duration(days: 54)),
+    ),
+    AuditEntry(
+      id: 'demo-audit-2',
+      userId: 'demo-user-2',
+      organizationId: 'demo-acpes',
+      departmentId: 'demo-cite',
+      action: 'approve_proposal',
+      entityType: 'sap_proposal',
+      entityId: 'demo-ev-2',
+      details: {'stage': 'department_review'},
+      createdAt: _seedDate.add(const Duration(days: 41)),
+    ),
+    AuditEntry(
+      id: 'demo-audit-3',
+      userId: 'demo-user-1',
+      organizationId: 'demo-acpes',
+      departmentId: 'demo-cite',
+      action: 'create_roster_entry',
+      entityType: 'roster_entry',
+      entityId: 'demo-roster-1',
+      details: {'full_name': 'Althea Mariano'},
+      createdAt: _seedDate.add(const Duration(days: 12)),
     ),
   ];
 
