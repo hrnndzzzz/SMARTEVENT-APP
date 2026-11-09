@@ -12,6 +12,7 @@ import 'theme/app_theme.dart';
 import 'theme/brut.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/change_password_screen.dart';
+import 'screens/lock_screen.dart';
 import 'screens/home_screen.dart';
 import 'api/api_config.dart';
 import 'state/notice_shelf.dart';
@@ -183,6 +184,14 @@ class _StartupGate extends StatelessWidget {
     if (!app.sessionChecked) {
       return const Scaffold(body: Center(child: BrutSpinner()));
     }
+
+    // Before everything else: there is a session on this phone, and
+    // the account has asked that it not be opened without them. The
+    // role is still null at this point, so testing it first would send
+    // a locked phone to the welcome screen as though it were signed
+    // out — and offer the password route the lock exists to stand in
+    // front of.
+    if (app.isLocked) return const LockScreen();
 
     // Checked before the role, not after: an account that still owes a
     // password change has no readable profile, so its role is null even

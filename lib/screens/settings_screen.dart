@@ -25,7 +25,46 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricLogin = false;
+  bool _biometricAvailable = false;
+  bool _biometricBusy = false;
   bool _dataSaver = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _readBiometric();
+  }
+
+  Future<void> _readBiometric() async {
+    final lock = context.read<AppState>().biometricLock;
+    final available = await lock.isAvailable;
+    final enabled = available && await lock.isEnabled;
+    if (!mounted) return;
+    setState(() {
+      _biometricAvailable = available;
+      _biometricLogin = enabled;
+    });
+  }
+
+  /// The switch shows what the device agreed to, not what was asked:
+  /// turning it on prompts first, and a refused prompt leaves it off.
+  Future<void> _setBiometric(bool wanted) async {
+    if (_biometricBusy) return;
+    setState(() => _biometricBusy = true);
+    final settled = await context.read<AppState>().biometricLock.setEnabled(
+      wanted,
+    );
+    if (!mounted) return;
+    setState(() {
+      _biometricLogin = settled;
+      _biometricBusy = false;
+    });
+    if (wanted && !settled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not turned on: that was not confirmed.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,14 +140,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 20),
           const BrutSectionTitle('This device'),
           const SizedBox(height: 10),
-          _SwitchTile(
-            label: 'Biometric login',
-            subtitle:
-                'Unlock with your fingerprint or face instead '
-                'of your password.',
-            value: _biometricLogin,
-            onChanged: (v) => setState(() => _biometricLogin = v),
-          ),
+          // Only where the hardware is there and enrolled. A switch
+          // that cannot work is worse than no switch, and this one
+          // used to be offered on every phone while doing nothing at
+          // all on any of them.
+          if (_biometricAvailable)
+            _SwitchTile(
+              label: 'Biometric login',
+              subtitle:
+                  'Ask for your fingerprint or face before opening a '
+                  'saved session on this phone.',
+              value: _biometricLogin,
+              onChanged: _biometricBusy ? null : _setBiometric,
+            )
+          else
+            const BrutInlineMessage(
+              tone: BrutTone.neutral,
+              icon: Icons.fingerprint,
+              text:
+                  'Biometric login needs a fingerprint or face enrolled on '
+                  'this phone. Add one in the system settings and it will '
+                  'be offered here.',
+            ),
           const SizedBox(height: 10),
           _SwitchTile(
             label: 'Data saver',

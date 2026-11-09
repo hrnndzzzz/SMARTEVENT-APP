@@ -7,6 +7,7 @@ import '../offline/offline_sync.dart';
 import '../api/api_config.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
+import '../api/biometric_lock.dart';
 import '../api/category_service.dart';
 import '../api/models/academic.dart';
 import '../api/models/account_permissions.dart';
@@ -549,6 +550,7 @@ class AppState extends ChangeNotifier {
   }
 
   bool get isOfflineViewing => !_demoMode && _apiClient.readOnly;
+
   /// Only the password can bring this session back: it expired, and there
   /// is no renewal key left to swap for a new one.
   bool get requiresOnlineSignIn =>
@@ -1179,9 +1181,7 @@ class AppState extends ChangeNotifier {
   ) async {
     if (_demoMode) {
       final event = events.where((e) => e.remoteId == eventId).firstOrNull;
-      final seeded = event == null
-          ? null
-          : DemoData.eventReportFor(event);
+      final seeded = event == null ? null : DemoData.eventReportFor(event);
       return seeded == null
           ? (report: null, error: 'The demo has no figures for this event.')
           : (report: seeded, error: null);
@@ -1595,11 +1595,8 @@ class AppState extends ChangeNotifier {
   /// recorded during a walkthrough stays on the list below it.
   final Map<String, List<InventoryMovement>> _demoMovements = {};
 
-  List<InventoryMovement> _demoLedger(String inventoryId) =>
-      _demoMovements.putIfAbsent(
-        inventoryId,
-        () => [...DemoData.movementsFor(inventoryId)],
-      );
+  List<InventoryMovement> _demoLedger(String inventoryId) => _demoMovements
+      .putIfAbsent(inventoryId, () => [...DemoData.movementsFor(inventoryId)]);
 
   /// The model holds its quantity final — only a movement changes it —
   /// so moving stock in the demo means rebuilding the row.
@@ -1651,8 +1648,7 @@ class AppState extends ChangeNotifier {
   /// row recorded during a walkthrough survives the event filter.
   List<Income>? _demoIncomesHeld;
 
-  List<Income> get _demoIncomes =>
-      _demoIncomesHeld ??= [...DemoData.incomes()];
+  List<Income> get _demoIncomes => _demoIncomesHeld ??= [...DemoData.incomes()];
 
   Future<void> loadIncomes() {
     // Outside _runLoad, which returns early in demo: a branch written
@@ -2085,7 +2081,8 @@ class AppState extends ChangeNotifier {
         // is server-owned and only moves when money is spent. Inventing
         // a new remaining here would teach the opposite.
         remainingBudget: category.remainingBudget,
-        lowBalanceThreshold: lowBalanceThreshold ?? category.lowBalanceThreshold,
+        lowBalanceThreshold:
+            lowBalanceThreshold ?? category.lowBalanceThreshold,
         createdBy: category.createdBy,
         createdAt: category.createdAt,
         updatedAt: DateTime.now(),
@@ -2308,7 +2305,11 @@ class AppState extends ChangeNotifier {
       };
       if (stoppedAt == null) {
         return [
-          record(1, 'rejected', event.adviserApprovalNote ?? event.adminApprovalNote),
+          record(
+            1,
+            'rejected',
+            event.adviserApprovalNote ?? event.adminApprovalNote,
+          ),
         ];
       }
       return [
@@ -2333,7 +2334,11 @@ class AppState extends ChangeNotifier {
     };
 
     /// One stage's row, or none when the proposal never reached it.
-    ApprovalRecord? stage(int step, {required bool past, required bool awaiting}) {
+    ApprovalRecord? stage(
+      int step, {
+      required bool past,
+      required bool awaiting,
+    }) {
       if (past) return record(step, 'approved', noteFor(step));
       if (awaiting) return record(step, 'pending', null);
       // Back with the organization, and this stage is the one that sent
@@ -2346,11 +2351,16 @@ class AppState extends ChangeNotifier {
     }
 
     return [
-      ?stage(1,
-          past: pastAdviser,
-          awaiting: status == EventApprovalStatus.pendingAdviser),
-      ?stage(2,
-          past: pastAdmin, awaiting: status == EventApprovalStatus.pendingAdmin),
+      ?stage(
+        1,
+        past: pastAdviser,
+        awaiting: status == EventApprovalStatus.pendingAdviser,
+      ),
+      ?stage(
+        2,
+        past: pastAdmin,
+        awaiting: status == EventApprovalStatus.pendingAdmin,
+      ),
       // The signatories sign in sequence after the admin; the demo knows
       // only whether that stage is open or done.
       if (status == EventApprovalStatus.pendingInstitutional)
@@ -2639,7 +2649,10 @@ class AppState extends ChangeNotifier {
       return 'An expense must be approved before purchase completion.';
     }
     final lines = _demoLines(remoteId);
-    final assets = [for (final line in lines) if (line.isAsset) line];
+    final assets = [
+      for (final line in lines)
+        if (line.isAsset) line,
+    ];
     if (assets.isEmpty) {
       return 'This expense has no asset items to receive into inventory.';
     }
@@ -3838,6 +3851,33 @@ class AppState extends ChangeNotifier {
   /// A stored token is not proof of a live session — it may have expired,
   /// or the account may have been suspended since — so `GET /auth/me` is
   /// what actually decides. Called once at startup.
+  /// The fingerprint gate in front of the stored session. Exposed so
+  /// Settings can offer the switch and so a test can supply its own.
+  BiometricLock biometricLock = BiometricLock();
+
+  /// True when the session is stored but still behind the unlock, so
+  /// the shell shows the lock screen rather than the app or sign-in.
+  bool get isLocked => _locked;
+  bool _locked = false;
+
+  /// Tries the unlock again, for the Unlock button on the lock screen.
+  Future<void> unlock() async {
+    if (!_locked) return;
+    if (!await biometricLock.prompt(reason: 'Unlock SmartEvent')) {
+      return;
+    }
+    _locked = false;
+    notifyListeners();
+    await restoreSession();
+  }
+
+  /// Abandons the unlock and signs out, for the other button. The
+  /// stored session goes with it, so the password is the way back.
+  Future<void> cancelUnlock() async {
+    _locked = false;
+    await signOut();
+  }
+
   Future<void> restoreSession() async {
     _restoringSession = true;
     final generation = _sessionGeneration;
@@ -3850,6 +3890,21 @@ class AppState extends ChangeNotifier {
       }
       final token = await _apiClient.restoreToken();
       if (generation != _sessionGeneration) return;
+
+      // The gate. Only where there is a session to protect: asking a
+      // signed-out phone for a fingerprint protects nothing and only
+      // stands between someone and the sign-in screen.
+      if (token != null && !_locked && await biometricLock.isEnabled) {
+        if (!await biometricLock.prompt(reason: 'Unlock SmartEvent')) {
+          if (generation != _sessionGeneration) return;
+          // Held, not discarded. A wrong finger is not a sign-out, and
+          // the key stays in secure storage for the next attempt.
+          _locked = true;
+          sessionChecked = true;
+          notifyListeners();
+          return;
+        }
+      }
       if (await _restoreOfflineViewer()) {
         if (generation != _sessionGeneration) return;
         sessionChecked = true;
@@ -4047,6 +4102,10 @@ class AppState extends ChangeNotifier {
   /// being held.
   Future<void> signOut() async {
     _sessionGeneration++;
+    // The next account on this phone should not inherit the last
+    // one's unlock, and there is no session left to stand in front of.
+    _locked = false;
+    unawaited(biometricLock.forget());
     offlineSync.cancel();
     _apiClient.invalidateSession();
     offlineSync.lastCompleted = null;

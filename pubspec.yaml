@@ -48,6 +48,9 @@ dependencies:
   provider: ^6.1.5+1
   http: ^1.6.0
   flutter_secure_storage: ^11.2.0
+  # Fingerprint and face unlock. Gates the renewal key that already
+  # lives in secure storage, rather than holding a secret of its own.
+  local_auth: ^2.3.0
   http_parser: ^4.1.2
   share_plus: ^13.3.0
   shared_preferences: ^2.5.5
