@@ -206,6 +206,7 @@ class HomeScreen extends StatelessWidget {
                   value: '${app.pendingExpenses.length}',
                   label: 'Awaiting review',
                   opens: 'expenses',
+                  accent: AppColors.orange,
                   trend: app.pendingExpenses.isEmpty
                       ? _Trend.flat
                       : _Trend.down,
@@ -226,6 +227,7 @@ class HomeScreen extends StatelessWidget {
                   value: '${app.dashboard?.lowStockItemCount ?? 0}',
                   label: 'Low stock',
                   opens: 'inventory',
+                  accent: AppColors.orange,
                   trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
                       ? _Trend.flat
                       : _Trend.down,
@@ -245,16 +247,9 @@ class HomeScreen extends StatelessWidget {
           // No heading of its own: EventProgressList draws one, with a
           // count and a collapse, and a second one above it said the
           // same thing twice.
-          EventProgressList(
-            events: app.events,
-            onOpen: (event) => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => EventDetailScreen(event: event),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppLayout.section),
-
+          // The list that used to sit here is gone. Holding the
+          // Events tile shows all of it, which is what it was for, and
+          // the Events tab is one tap away.
           // ── Analytics ────────────────────────────────────────────
           // The chart only. The three counts it used to sit under are
           // in the grid at the top now.
@@ -327,6 +322,7 @@ class _StatTile extends StatelessWidget {
     required this.opens,
     this.fill,
     this.peekChild,
+    this.accent = AppColors.brand,
   });
 
   final IconData icon;
@@ -347,6 +343,12 @@ class _StatTile extends StatelessWidget {
   /// Shown in the peek instead of [peek], when the honest answer is a
   /// picture rather than a sentence.
   final Widget? peekChild;
+
+  /// Blue or orange, the department's two. Events and money are the
+  /// brand's; the two that are asking for something are orange, so the
+  /// grid splits into "here is where you stand" and "here is what
+  /// wants doing" without a word being added.
+  final Color accent;
 
   void _showPeek(BuildContext context) => showFloatingPeek(
     context,
@@ -373,8 +375,10 @@ class _StatTile extends StatelessWidget {
             // tones the bar it replaces used.
             Positioned.fill(
               child: FractionallySizedBox(
-                alignment: Alignment.bottomCenter,
-                heightFactor: amount.clamp(0.0, 1.0),
+                // Left to right, the way a bar reads, rather than
+                // rising up the card.
+                alignment: Alignment.centerLeft,
+                widthFactor: amount.clamp(0.0, 1.0),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: amount >= 1 ? p.coralTint : p.orangeTint,
@@ -392,10 +396,10 @@ class _StatTile extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: p.brandTint,
+                        color: accent.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(icon, size: 17, color: p.ink),
+                      child: Icon(icon, size: 17, color: accent),
                     ),
                     const Spacer(),
                     _TrendBadge(trend: trend),
@@ -549,24 +553,42 @@ class _NextUpState extends State<_NextUp> with SingleTickerProviderStateMixin {
       padding: EdgeInsets.zero,
       child: Stack(
         children: [
-          // Inside the card rather than behind it, so it takes the
-          // card's own corners and sits under its border.
+          // The border carries it, not the fill: a card washed in
+          // gradient fights the text on it, and an edge that moves
+          // draws the eye just as well.
           Positioned.fill(
-            child: ClipRRect(
-              borderRadius: AppRadius.cardAll,
+            child: IgnorePointer(
               child: AnimatedBuilder(
                 animation: _drift,
                 builder: (context, _) {
                   final t = still ? 0.5 : _drift.value;
                   return DecoratedBox(
                     decoration: BoxDecoration(
+                      borderRadius: AppRadius.cardAll,
                       gradient: LinearGradient(
                         // The ends travel rather than the colours
-                        // changing, so it reads as light moving across
-                        // the card rather than the card changing colour.
-                        begin: Alignment(-1 - t, -1),
-                        end: Alignment(1 + t, 1),
-                        colors: const [AppColors.brand, AppColors.orange],
+                        // changing, so it reads as light running round
+                        // the edge rather than the card changing colour.
+                        begin: Alignment(-1 - t * 2, -1),
+                        end: Alignment(1 + t * 2, 1),
+                        colors: const [
+                          AppColors.brand,
+                          AppColors.orange,
+                          AppColors.brand,
+                        ],
+                      ),
+                    ),
+                    // Punches the middle out, leaving the gradient as a
+                    // ring. Cheaper and sharper than two stacked cards.
+                    child: Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: context.palette.surface,
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.card - 3,
+                          ),
+                        ),
                       ),
                     ),
                   );

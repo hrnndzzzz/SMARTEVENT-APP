@@ -55,17 +55,10 @@ class MenuPanel extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        MonoLabel('Menu'),
-                        SizedBox(height: 2),
-                        Text('Everywhere else', style: AppText.titleBig),
-                      ],
-                    ),
-                  ),
+                  // Just the word, at page size. "Everywhere else" under
+                  // a MENU eyebrow was two labels for one screen, and
+                  // the screen is plainly the menu.
+                  const Expanded(child: Text('Menu', style: AppText.display)),
                   if (onClose != null)
                     BrutIconButton(
                       icon: Icons.close,
@@ -199,48 +192,57 @@ class _Band extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // The number is the position in the list, which is the one
-          // thing about a band that is true regardless of role.
+          // The area's own icon, where its position in the list used to
+          // be. The position was true but useless: nobody looks for
+          // "the fourth one", they look for the money.
           Container(
-            width: 30,
-            height: 30,
+            width: 34,
+            height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: accent,
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.ink, width: 2),
             ),
-            child: Text(
-              '$index',
-              style: AppText.number.copyWith(fontSize: 12, color: onAccent),
-            ),
+            child: Icon(area.icon, size: 18, color: onAccent),
           ),
           const SizedBox(width: AppLayout.between),
+          // The name alone, at full size. The blurb under it said in a
+          // sentence what the name already said in a word, on every
+          // band, which is most of what made this screen busy.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  area.title,
-                  style: AppText.display.copyWith(
-                    fontSize: 26,
-                    color: on,
-                    height: 1.05,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  area.blurb,
-                  style: AppText.caption.copyWith(color: on),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: Text(
+              area.title,
+              style: AppText.display.copyWith(
+                fontSize: 26,
+                color: on,
+                height: 1.05,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+          // The figure itself, beside the glow. The pulse says
+          // something here wants attention; without a number it never
+          // said how much, and the band had to be opened to find out.
+          if (count != null && count > 0) ...[
+            const SizedBox(width: AppLayout.tight),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: BrutTone.coral.fill(context),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: AppColors.ink, width: 2),
+              ),
+              child: Text(
+                '$count',
+                style: AppText.number.copyWith(
+                  fontSize: 12,
+                  color: context.foregroundOn(BrutTone.coral.fill(context)),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(width: AppLayout.tight),
           Icon(Icons.arrow_outward, size: 22, color: on),
         ],

@@ -93,19 +93,18 @@ void main() {
   });
 
   group('the lists below', () {
-    testWidgets('Your events survives, with the analytics after it', (
+    testWidgets('the events list is gone; the hold carries it', (
       tester,
     ) async {
       final app = await open(tester);
 
-      // Exactly one: the module draws its own heading, and the
-      // dashboard must not add a second above it.
-      expect(find.text('Your events'), findsOneWidget);
-      expect(find.text('Analytics'), findsOneWidget);
       expect(
-        tester.getTopLeft(find.text('Your events')).dy,
-        lessThan(tester.getTopLeft(find.text('Analytics')).dy),
+        find.text('Your events'),
+        findsNothing,
+        reason: 'holding the Events tile shows all of them, and the '
+            'Events tab is one tap away',
       );
+      expect(find.text('Analytics'), findsOneWidget);
       expect(app.spendingTrends, isNotEmpty);
     });
   });
