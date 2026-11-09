@@ -192,10 +192,24 @@ class EventProgressPeek extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final live = [
-      for (final e in events)
-        if (EventStage.of(e.status) != EventStage.completed) e,
-    ];
+    // Grouped by where they have got to, furthest along last, so the
+    // ones still needing something sit together at the top rather than
+    // being scattered through whatever order the list arrived in.
+    final live =
+        [
+          for (final e in events)
+            if (EventStage.of(e.status) != EventStage.completed) e,
+        ]..sort((a, b) {
+          final byStage = EventStage.of(
+            a.status,
+          ).index.compareTo(EventStage.of(b.status).index);
+          // Same stage: soonest first, so the group reads as a queue.
+          if (byStage != 0) return byStage;
+          if (a.on == null && b.on == null) return 0;
+          if (a.on == null) return 1;
+          if (b.on == null) return -1;
+          return a.on!.compareTo(b.on!);
+        });
     if (live.isEmpty) {
       return const Text(
         'Nothing is in progress. Everything on record is finished.',

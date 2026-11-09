@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +15,7 @@ import '../theme/palette.dart';
 import '../widgets/account_menu.dart';
 import '../widgets/event_calendar.dart';
 import '../widgets/app_header.dart';
+import '../widgets/budget_peek.dart';
 import '../widgets/event_progress_bar.dart';
 import '../widgets/floating_peek.dart';
 import 'event_detail_screen.dart';
@@ -71,6 +74,11 @@ class HomeScreen extends StatelessWidget {
     return BrutScreen(
       onRefresh: app.refreshAll,
       topBar: AppHeader(),
+      // Fixed, not scrolling. Everything here is meant to be taken in
+      // at a glance, and a dashboard you have to scroll has already
+      // failed at that. What used to be below the fold is either gone
+      // or behind a hold now, and the chart takes whatever is left.
+      scrollable: false,
       // The record button is docked above the navigation bar by the
       // shell now, so this screen no longer reserves room for a button
       // floating over its own content.
@@ -114,20 +122,25 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+          // One line, not two. "Good afternoon," above the name took a
+          // third of the height above the fold to say nothing the
+          // second line did not.
           Text(
-            '${_greeting(now.hour)},\n$name.',
-            style: AppText.display.copyWith(height: 1.1),
+            '${_greeting(now.hour)}, $name.',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.display.copyWith(fontSize: 24, height: 1.1),
           ),
           if (AppHeader.scopeLineFor(app) case final scope?) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             _HeaderLine(
               label: scope,
               icon: Icons.badge_outlined,
               onTap: () => AccountMenu.show(context),
             ),
           ],
-          const SizedBox(height: AppLayout.section),
+          const SizedBox(height: AppLayout.between),
 
           // The next activity, first. It is the one thing on this
           // screen with a deadline attached, and it was below the
@@ -182,11 +195,16 @@ class HomeScreen extends StatelessWidget {
                   icon: Icons.account_balance_wallet_outlined,
                   value: peso(remaining, decimals: 0),
                   label: 'of ${peso(allocated, decimals: 0)} left',
+                  peekTitle: 'Budget',
                   opens: 'money',
                   // The box fills as the budget goes, so the tile says
                   // how much is left and shows it at the same time.
                   // The bar that used to do this is gone.
                   fill: used,
+                  // Held, it breaks into categories — the same shape
+                  // the events peek takes, so a hold reads the same
+                  // way wherever it is done.
+                  peekChild: BudgetPeek(categories: app.categories),
                   trend: used >= 0.9 ? _Trend.down : _Trend.up,
                   onTap: () => _open(context, 'money'),
                   peek:
@@ -258,9 +276,10 @@ class HomeScreen extends StatelessWidget {
               'Analytics',
               aside: _SeeAll(onTap: () => _open(context, 'reports')),
             ),
-            const SizedBox(height: AppLayout.between),
-            _SpendingTrend(points: app.spendingTrends),
-            const SizedBox(height: AppLayout.section),
+            const SizedBox(height: AppLayout.tight),
+            // Whatever is left over, so the page ends exactly at the
+            // bottom instead of running past it.
+            Expanded(child: _SpendingTrend(points: app.spendingTrends)),
           ],
         ],
       ),
@@ -323,6 +342,7 @@ class _StatTile extends StatelessWidget {
     this.fill,
     this.peekChild,
     this.accent = AppColors.brand,
+    this.peekTitle,
   });
 
   final IconData icon;
@@ -344,6 +364,11 @@ class _StatTile extends StatelessWidget {
   /// picture rather than a sentence.
   final Widget? peekChild;
 
+  /// What the peek calls itself, when the tile's label does not read
+  /// as a heading on its own. "of P50,000 left" names the figure
+  /// beside it, not the panel.
+  final String? peekTitle;
+
   /// Blue or orange, the department's two. Events and money are the
   /// brand's; the two that are asking for something are orange, so the
   /// grid splits into "here is where you stand" and "here is what
@@ -352,7 +377,7 @@ class _StatTile extends StatelessWidget {
 
   void _showPeek(BuildContext context) => showFloatingPeek(
     context,
-    title: label,
+    title: peekTitle ?? label,
     subtitle: value,
     openLabel: 'Open $opens',
     onOpen: onTap,
@@ -373,7 +398,13 @@ class _StatTile extends StatelessWidget {
             // Rises from the bottom as the budget goes. Orange while
             // there is room, coral once there is not — the same two
             // tones the bar it replaces used.
-            Positioned.fill(
+            // Below the icon row, not behind it: the fill passing
+            // under the icon's own tinted chip muddied both colours.
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 48,
+              bottom: 0,
               child: FractionallySizedBox(
                 // Left to right, the way a bar reads, rather than
                 // rising up the card.
@@ -517,8 +548,9 @@ class _NextUpState extends State<_NextUp> with SingleTickerProviderStateMixin {
     vsync: this,
     // Slow on purpose. Fast enough to notice on a second glance,
     // slow enough that nobody watching a demo finds it distracting.
-    duration: const Duration(seconds: 6),
-  )..repeat(reverse: true);
+    // One full turn of the ring.
+    duration: const Duration(seconds: 5),
+  )..repeat();
 
   @override
   void dispose() {
@@ -556,25 +588,35 @@ class _NextUpState extends State<_NextUp> with SingleTickerProviderStateMixin {
           // The border carries it, not the fill: a card washed in
           // gradient fights the text on it, and an edge that moves
           // draws the eye just as well.
+          //
+          // The ring both spins and breathes. Spinning alone reads as
+          // a loading spinner; breathing alone reads as a warning
+          // light. Together they read as something coming up.
           Positioned.fill(
             child: IgnorePointer(
               child: AnimatedBuilder(
                 animation: _drift,
                 builder: (context, _) {
-                  final t = still ? 0.5 : _drift.value;
+                  final turn = still ? 0.0 : _drift.value * 2 * math.pi;
+                  // Out of phase with the turn, so the brightest moment
+                  // is not always in the same corner.
+                  final breath = still
+                      ? 0.75
+                      : 0.55 + 0.45 * (0.5 + 0.5 * math.sin(turn * 2));
                   return DecoratedBox(
                     decoration: BoxDecoration(
                       borderRadius: AppRadius.cardAll,
-                      gradient: LinearGradient(
-                        // The ends travel rather than the colours
-                        // changing, so it reads as light running round
-                        // the edge rather than the card changing colour.
-                        begin: Alignment(-1 - t * 2, -1),
-                        end: Alignment(1 + t * 2, 1),
-                        colors: const [
-                          AppColors.brand,
-                          AppColors.orange,
-                          AppColors.brand,
+                      gradient: SweepGradient(
+                        // A sweep, not a linear one: a linear gradient
+                        // can only slide, and an edge that slides off
+                        // one side reads as broken rather than turning.
+                        transform: GradientRotation(turn),
+                        colors: [
+                          AppColors.brand.withValues(alpha: breath),
+                          AppColors.orange.withValues(alpha: breath),
+                          AppColors.brand.withValues(alpha: breath),
+                          AppColors.orange.withValues(alpha: breath),
+                          AppColors.brand.withValues(alpha: breath),
                         ],
                       ),
                     ),
@@ -650,8 +692,10 @@ class _SpendingTrend extends StatelessWidget {
         children: [
           const MonoLabel('Spending, last 6 months'),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 56,
+          // Takes the height it is given rather than a fixed 56: the
+          // card is the last thing on a page that no longer scrolls,
+          // so its share is whatever the rest did not use.
+          Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
