@@ -27,7 +27,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricLogin = false;
   bool _biometricAvailable = false;
   bool _biometricBusy = false;
-  bool _dataSaver = false;
 
   @override
   void initState() {
@@ -162,13 +161,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'this phone. Add one in the system settings and it will '
                   'be offered here.',
             ),
-          const SizedBox(height: 10),
-          _SwitchTile(
-            label: 'Data saver',
-            subtitle: 'Load receipt images at a lower resolution.',
-            value: _dataSaver,
-            onChanged: (v) => setState(() => _dataSaver = v),
-          ),
         ],
       ),
     );
