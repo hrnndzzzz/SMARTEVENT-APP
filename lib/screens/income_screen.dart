@@ -81,6 +81,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
               _ => RefreshIndicator(
                 onRefresh: app.loadIncomes,
                 child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 96),
                   itemCount: app.incomes.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),

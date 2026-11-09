@@ -113,6 +113,7 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
               _ => RefreshIndicator(
                 onRefresh: app.loadLetters,
                 child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 96),
                   itemCount: app.letters.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),

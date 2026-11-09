@@ -3732,6 +3732,17 @@ class AppState extends ChangeNotifier {
   /// Categories first: expense rows resolve their category name against
   /// the loaded category list, so loading them in the other order would
   /// label every expense "Unknown".
+  /// Reloads everything this account can see.
+  ///
+  /// What a pull-to-refresh is actually asking for: not one list, but
+  /// the figures behind the whole screen. Role-aware, because the
+  /// private call it wraps already is.
+  Future<void> refreshAll() async {
+    // There is no server to ask, and the seed is already in memory.
+    if (_demoMode) return;
+    await _loadSignedInData();
+  }
+
   Future<void> _loadSignedInData() async {
     // SDS Staff is restricted to proposal letters. Calling the operational
     // endpoints would just collect 403s and surface them as failures on

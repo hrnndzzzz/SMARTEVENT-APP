@@ -141,14 +141,21 @@ class _EventsScreenState extends State<EventsScreen> {
                     ),
                   );
                 }
-                return ListView(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  children: [
-                    for (final event in events) ...[
-                      _EventCard(event: event),
-                      const SizedBox(height: 10),
+                return RefreshIndicator(
+                  onRefresh: app.loadEvents,
+                  child: ListView(
+                    // Always scrollable, so a short list can still be
+                    // pulled: a one-event list is exactly when someone
+                    // wonders whether anything has arrived.
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    children: [
+                      for (final event in events) ...[
+                        _EventCard(event: event),
+                        const SizedBox(height: 10),
+                      ],
                     ],
-                  ],
+                  ),
                 );
               },
             ),

@@ -66,6 +66,7 @@ class HomeScreen extends StatelessWidget {
     final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
 
     return BrutScreen(
+      onRefresh: app.refreshAll,
       topBar: AppHeader(),
       // The record button is docked above the navigation bar by the
       // shell now, so this screen no longer reserves room for a button
@@ -707,7 +708,6 @@ class AlertWidget extends StatelessWidget {
     );
   }
 }
-
 
 /// One of the two lines framing the greeting.
 ///

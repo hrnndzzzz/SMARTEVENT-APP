@@ -31,6 +31,7 @@ class MoneyScreen extends StatelessWidget {
     final canRecord = app.mayRecordFinance;
 
     return BrutScreen(
+      onRefresh: context.read<AppState>().refreshAll,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -65,6 +65,7 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
               _ => RefreshIndicator(
                 onRefresh: app.loadReceipts,
                 child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 16),
                   itemCount: app.receipts.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),

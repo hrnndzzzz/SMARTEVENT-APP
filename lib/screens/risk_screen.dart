@@ -130,6 +130,7 @@ class _RiskScreenState extends State<RiskScreen> {
               _ => RefreshIndicator(
                 onRefresh: app.loadFlaggedExpenses,
                 child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 16),
                   itemCount: flagged.length + 1,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),

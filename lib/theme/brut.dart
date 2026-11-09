@@ -1098,6 +1098,7 @@ class BrutScreen extends StatelessWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.scrollable = true,
+    this.onRefresh,
     this.bottomPadding = AppLayout.contentPadding,
   });
 
@@ -1120,6 +1121,15 @@ class BrutScreen extends StatelessWidget {
   /// one unmistakable action centres it instead.
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final bool scrollable;
+
+  /// Pull down to reload. Given here rather than per screen so the
+  /// gesture means the same thing everywhere: six screens had it and
+  /// the rest did not, including the dashboard, which is the one people
+  /// reach for first when a figure looks stale.
+  ///
+  /// Only applies when [scrollable]; a screen holding its own list wraps
+  /// that list in a RefreshIndicator itself.
+  final Future<void> Function()? onRefresh;
 
   /// Room under the content, for a screen with a floating button over it.
   final double bottomPadding;
@@ -1155,7 +1165,7 @@ class BrutScreen extends StatelessWidget {
               ),
             Expanded(
               child: scrollable
-                  ? SingleChildScrollView(padding: gutters, child: child)
+                  ? _scroller(gutters)
                   : Padding(padding: gutters.copyWith(bottom: 0), child: child),
             ),
             ?footer,
@@ -1163,6 +1173,21 @@ class BrutScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _scroller(EdgeInsets gutters) {
+    final view = SingleChildScrollView(
+      // Without this a short page refuses to move, so the gesture is
+      // there on a full list and missing on an empty one — which is
+      // exactly when someone wants to pull.
+      physics: onRefresh == null
+          ? null
+          : const AlwaysScrollableScrollPhysics(),
+      padding: gutters,
+      child: child,
+    );
+    if (onRefresh == null) return view;
+    return RefreshIndicator(onRefresh: onRefresh!, child: view);
   }
 }
 
