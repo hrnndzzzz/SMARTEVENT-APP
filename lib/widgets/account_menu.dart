@@ -6,7 +6,6 @@ import '../screens/about_screen.dart';
 import '../screens/admin_screen.dart';
 import '../screens/edit_profile_screen.dart';
 import '../screens/help_screen.dart';
-import '../screens/notification_prefs_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/welcome_screen.dart';
 import '../state/app_state.dart';
@@ -183,13 +182,7 @@ class _AccountMenu extends StatelessWidget {
             hint: 'Theme and motion on this device',
             onTap: () => _go(context, const SettingsScreen()),
           ),
-          const SizedBox(height: 6),
-          _MenuRow(
-            icon: Icons.notifications_none,
-            title: 'Notification preferences',
-            hint: 'What you want to be told about',
-            onTap: () => _go(context, const NotificationPrefsScreen()),
-          ),
+
           const SizedBox(height: 6),
           _MenuRow(
             icon: Icons.help_outline,
