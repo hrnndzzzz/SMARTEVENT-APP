@@ -16,7 +16,8 @@ class Details(StrictModel):
     organization_name: str = Field(min_length=1, max_length=150)
     school_year: str = Field(pattern=r'^\d{4}-\d{4}$', max_length=9)
     department_type: str = Field(min_length=1, max_length=80)
-    department: str = Field(min_length=1, max_length=100)
+    # Blank only for an organization that belongs to no department; submit checks which.
+    department: str = Field(default='', max_length=100)
     course: str = Field(default='', max_length=100)
     proposal_date: date
     activity_date: date

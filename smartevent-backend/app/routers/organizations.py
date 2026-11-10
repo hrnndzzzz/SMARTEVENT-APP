@@ -22,7 +22,7 @@ def list_organizations(db: Session = Depends(get_db), current_user: User = Depen
 
 @router.post("", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED)
 def create_organization(payload: OrganizationCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role("super_admin"))):
-    if db.query(Department).filter(Department.id == payload.department_id).first() is None:
+    if payload.department_id is not None and db.query(Department).filter(Department.id == payload.department_id).first() is None:
         raise HTTPException(status_code=400, detail="Department does not exist")
     code = payload.code.strip().upper()
     name = payload.name.strip()

@@ -71,7 +71,9 @@ def validate_signatories(db, event, signatory_ids):
 def begin_institutional_review(db, event):
     steps = routing_steps(db, event)
     if not steps:
-        raise HTTPException(409, "Configure at least one institutional signatory before Admin approval")
+        raise HTTPException(409, "Configure at least one institutional signatory before Admin approval"
+                            if event.department_id is not None else
+                            "Ask the Super Admin to assign institutional signatories to this event first")
     if any(step.status != "pending" for step in steps):
         raise HTTPException(409, "Institutional routing already contains decisions for this round")
     validate_signatories(db, event, [step.signatory_id for step in steps])

@@ -11,7 +11,7 @@ Save as `.xlsx`. Put headers on row 1 of the first worksheet. All six headers ar
 | CITE | Organization A | Maria Santos | maria@example.com | Officer | Secretary |
 | CITE | Organization A | Juan Reyes | juan@example.com | Treasurer | Treasurer |
 
-Replace example department/organization names with existing names from `GET /departments` and `GET /organizations`. Names are matched after trimming spaces and ignoring capitalization. Unknown or ambiguous names are rejected. Organizations must belong to the specified department. An Admin can import multiple organizations within their assigned department; Super Admin can import multiple existing department/organization pairs in one file.
+Replace example department/organization names with existing names from `GET /departments` and `GET /organizations`. Names are matched after trimming spaces and ignoring capitalization. Unknown or ambiguous names are rejected. Organizations must belong to the specified department. Leave Department blank only for an organization that belongs to no department; a blank Department beside an organization that has one is rejected, so a member can never be added without the department their organization belongs to. An Admin can import multiple organizations within their assigned department; Super Admin can import multiple existing department/organization pairs in one file.
 
 - Use plain text in roster cells. Formulas, Excel errors, and numeric/date cells are rejected. Paste formula results as text values first.
 - Full Name: required, up to 150 characters. Email: required, valid, up to 150 characters; saved lowercase.

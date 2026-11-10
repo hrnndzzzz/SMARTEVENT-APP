@@ -120,10 +120,48 @@ void main() {
       test('${role.name} without one is stopped before the form', () {
         expect(signedIn(role, organizationId: null).lacksProposerAssignment,
             isTrue);
+        // A member with an organization and no department may belong to an
+        // organization outside any; the server checks which. An Admin is a
+        // Dean, so it always needs one.
         expect(signedIn(role, departmentId: null).lacksProposerAssignment,
-            isTrue);
+            role == UserRole.admin);
       });
     }
+  });
+
+  group('an organization outside any department', () {
+    AppState withOrganizations() => AppState()
+      ..organizations = [
+        RemoteOrganization(id: 'o1', code: 'ACPES', name: 'A', departmentId: 'd1'),
+        RemoteOrganization(id: 'o2', code: 'SSC', name: 'S', departmentId: null),
+      ];
+
+    test('"No department" lists only the organizations outside one', () {
+      final app = withOrganizations();
+      expect(app.organizationsIn(kNoDepartment).map((o) => o.id), ['o2']);
+      expect(app.organizationsIn('d1').map((o) => o.id), ['o1']);
+      expect(app.organizationsIn(null), isEmpty);
+    });
+
+    test('a member carries its organization\'s own department', () {
+      final app = withOrganizations();
+      expect(app.departmentOfOrganization('o1'), 'd1');
+      expect(app.departmentOfOrganization('o2'), isNull);
+      expect(departmentOrNull(kNoDepartment), isNull);
+    });
+
+    test('its member is not told they are unassigned', () {
+      final app = AppState()
+        ..currentRole = UserRole.treasurer
+        ..currentAccount = Account(
+          name: 'T',
+          email: 't@example.test',
+          role: UserRole.treasurer,
+          organizationId: 'o2',
+        );
+      expect(app.isDepartmentless, isTrue);
+      expect(app.mustChooseScope, isFalse);
+    });
   });
 
   group('the cover asks a Super Admin whose activity it is', () {

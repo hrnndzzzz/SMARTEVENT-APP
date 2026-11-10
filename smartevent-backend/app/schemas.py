@@ -114,7 +114,8 @@ class OrganizationCreate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     code: str = Field(min_length=1, max_length=30)
     name: str = Field(min_length=1, max_length=150)
-    department_id: uuid.UUID
+    department_id: uuid.UUID | None = Field(
+        default=None, description="Leave blank for an organization outside any department.")
 
 
 class DepartmentCreate(BaseModel):
@@ -441,7 +442,7 @@ class ReceiptOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     organization_id: uuid.UUID
-    department_id: uuid.UUID
+    department_id: uuid.UUID | None
     event_id: uuid.UUID
     expense_id: uuid.UUID | None
     income_id: uuid.UUID | None

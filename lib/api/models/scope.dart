@@ -35,14 +35,24 @@ class RemoteDepartment {
   }
 }
 
-/// An organization always belongs to exactly one department, and
-/// organizations inside the same department cannot see each other's
-/// records — so picking one is not a formality.
+/// The picker value for "No department": a choice, unlike null, which is
+/// "not chosen yet". Never sent — [departmentOrNull] turns it back into null.
+const String kNoDepartment = '';
+
+String? departmentOrNull(String? departmentId) =>
+    departmentId == kNoDepartment ? null : departmentId;
+
+/// An organization belongs to one department or, for the few outside any,
+/// to none — and organizations cannot see each other's records, so picking
+/// one is not a formality.
 class RemoteOrganization {
   final String id;
   final String code;
   final String name;
-  final String departmentId;
+
+  /// Null for an organization outside any department. Its members have
+  /// none either, and its proposals skip the Dean.
+  final String? departmentId;
 
   RemoteOrganization({
     required this.id,
@@ -58,7 +68,7 @@ class RemoteOrganization {
       id: json['id'] as String,
       code: json['code'] as String,
       name: json['name'] as String,
-      departmentId: json['department_id'] as String,
+      departmentId: json['department_id'] as String?,
     );
   }
 }

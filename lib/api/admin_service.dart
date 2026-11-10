@@ -194,14 +194,19 @@ class AdminService {
     return RemoteDepartment.fromJson(response as Map<String, dynamic>);
   }
 
+  /// [departmentId] null for an organization outside any department.
   Future<RemoteOrganization> createOrganization({
     required String code,
     required String name,
-    required String departmentId,
+    String? departmentId,
   }) async {
     final response = await _client.post(
       '/organizations',
-      body: {'code': code, 'name': name, 'department_id': departmentId},
+      body: {
+        'code': code,
+        'name': name,
+        if (departmentId != null) 'department_id': departmentId,
+      },
     );
     return RemoteOrganization.fromJson(response as Map<String, dynamic>);
   }

@@ -90,6 +90,11 @@ class SapForm extends ChangeNotifier {
   String? get scopeDepartmentId => _scopeDepartmentId;
   String? get scopeOrganizationId => _scopeOrganizationId;
 
+  /// The organization belongs to no department, so the form names none and
+  /// its proposal skips the Dean. Set from the account, or from a Super
+  /// Admin choosing "No department" (`kNoDepartment`, an empty id).
+  bool noDepartment = false;
+
   /// Records the chosen department and organization, and prints their
   /// names on the form the way an assigned proposer's own are.
   void chooseScope({
@@ -100,6 +105,7 @@ class SapForm extends ChangeNotifier {
   }) {
     _scopeDepartmentId = departmentId;
     _scopeOrganizationId = organizationId;
+    noDepartment = departmentId == '';
     updateDetails(
       (d) => d.copyWith(
         department: departmentName,
@@ -518,7 +524,7 @@ class SapForm extends ChangeNotifier {
       if (blank(d.title)) 'Activity title',
       if (blank(d.organizationName)) 'Organization',
       if (blank(d.departmentType)) 'Department type',
-      if (blank(d.department)) 'Department',
+      if (blank(d.department) && !noDepartment) 'Department',
       if (blank(d.schoolYear)) 'School year',
       if (d.proposalDate == null) 'Date of proposal',
       if (d.activityDate == null) 'Activity date',

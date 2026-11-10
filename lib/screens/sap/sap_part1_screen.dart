@@ -79,7 +79,8 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     _form.loadAttachments();
     // Only an Admin can turn the account's department into a name, so
     // everyone else is asked for it rather than sending it blank.
-    _asksDepartment = (_d.department ?? '').isEmpty;
+    // An organization in no department names none on the paper.
+    _asksDepartment = (_d.department ?? '').isEmpty && !_form.noDepartment;
     // The six-part list opens this without the cover, which is where the
     // setting is normally chosen, and the server will not take a form
     // without one.
@@ -225,7 +226,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     final missing = [
       if (_d.setting == null) 'setting',
       if ((_d.departmentType ?? '').isEmpty) 'department type',
-      if ((_d.department ?? '').isEmpty) 'department',
+      if ((_d.department ?? '').isEmpty && !_form.noDepartment) 'department',
     ];
     if (missing.isEmpty) return true;
 

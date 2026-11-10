@@ -10,9 +10,12 @@ import '../theme/brut.dart';
 /// would invite picking something the API then refuses. Show it behind
 /// `AppState.mustChooseScope`.
 ///
-/// An organization belongs to exactly one department, so changing the
+/// An organization belongs to one department or to none, so changing the
 /// department has to clear the organization — that is the caller's job via
-/// [onDepartmentChanged], since the caller owns the state.
+/// [onDepartmentChanged], since the caller owns the state. What is sent is
+/// the chosen organization's own department
+/// (`AppState.departmentOfOrganization`), never this picker's value, so the
+/// two cannot disagree.
 class ScopePicker extends StatelessWidget {
   const ScopePicker({
     super.key,
@@ -23,7 +26,12 @@ class ScopePicker extends StatelessWidget {
     required this.organizationId,
     required this.onOrganizationChanged,
     this.explanation,
+    this.allowNoDepartment = true,
   });
+
+  /// Offers "No department" ([kNoDepartment]) for the organizations outside
+  /// any. Off where a department is required, such as for an Admin.
+  final bool allowNoDepartment;
 
   final List<RemoteDepartment> departments;
   final String? departmentId;
@@ -64,6 +72,11 @@ class ScopePicker extends StatelessWidget {
             items: [
               for (final d in departments)
                 DropdownMenuItem(value: d.id, child: Text(d.label)),
+              if (allowNoDepartment)
+                const DropdownMenuItem(
+                  value: kNoDepartment,
+                  child: Text('No department'),
+                ),
             ],
             onChanged: onDepartmentChanged,
           ),
@@ -74,7 +87,9 @@ class ScopePicker extends StatelessWidget {
             hint: departmentId == null
                 ? 'Choose a department first'
                 : organizations.isEmpty
-                ? 'No organizations in that department'
+                ? (departmentId == kNoDepartment
+                      ? 'No organizations outside a department'
+                      : 'No organizations in that department')
                 : 'Select an organization',
             items: [
               for (final o in organizations)

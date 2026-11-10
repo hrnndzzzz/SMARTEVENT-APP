@@ -9,6 +9,7 @@ from app.database import get_db
 from app.dependencies import assert_record_scope, require_role, resolve_organization_id, scope_query_by_department
 from app.models import CiteMember, Department, Organization, User
 from app.rbac_policy import manageable_roles
+from app.routers.cite_members import ADMIN_NEEDS_DEPARTMENT
 from app.schemas import SignatoryOut, UserAccessUpdate, UserDepartmentUpdate, UserOut
 from app.services.access_audit import record_access_change
 
@@ -137,6 +138,8 @@ def update_user_access(
         organization = db.query(Organization).filter(Organization.id == organization_id).first()
         if organization is None:
             raise HTTPException(status_code=400, detail="Assign a valid organization")
+        if new_role == "admin" and organization.department_id is None:
+            raise HTTPException(status_code=422, detail=ADMIN_NEEDS_DEPARTMENT)
         updates["department_id"] = organization.department_id
         updates["organization_id"] = organization.id
     before = {

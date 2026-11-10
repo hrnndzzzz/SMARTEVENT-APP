@@ -31,7 +31,9 @@ def signature_slots(details):
     return (
         (details['organization_name'] + ' President', 'Prepared by'),
         (details['organization_name'] + ' Moderator', 'Reviewed by'),
-        (details['department'] + ' Dean', 'Reviewed by'),
+        # An organization outside any department has no Dean; the line stays on the paper.
+        ((details.get('department') or '') + ' Dean' if details.get('department')
+         else 'Dean (not applicable: no department)', 'Reviewed by'),
         ('SDS Coordinator/Activity Officer', 'Reviewed by'),
         ('Director, SAS', 'Noted by'),
         ('Assistant VPAA', 'Endorsed by'),

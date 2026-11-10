@@ -85,6 +85,13 @@ abstract final class DemoData {
           'Junior Philippine Student Society for Information Technology',
       departmentId: 'demo-cite',
     ),
+    // Outside any college, so its proposals skip the Dean.
+    RemoteOrganization(
+      id: 'demo-ssc',
+      code: 'SSC',
+      name: 'Supreme Student Council',
+      departmentId: null,
+    ),
   ];
 
   /// What an administrator sees: a roster, the accounts that grew out

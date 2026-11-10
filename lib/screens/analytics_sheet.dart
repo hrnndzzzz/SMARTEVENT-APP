@@ -25,35 +25,101 @@ class AnalyticsSheetState extends State<AnalyticsSheet> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<AppState>().loadDashboard();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  void _load() {
+    if (!mounted) return;
+    final app = context.read<AppState>();
+    app.reportOrganizationId == null
+        ? app.loadDashboard()
+        : app.loadOrganizationDashboard();
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final load = app.dashboardLoad;
-    final data = app.dashboard;
+    // One organization's figures sit apart from the whole-scope ones,
+    // which Home shows and must not change under it.
+    final filtered = app.reportOrganizationId != null;
+    final load = filtered ? app.organizationDashboardLoad : app.dashboardLoad;
+    final data = filtered ? app.organizationDashboard : app.dashboard;
 
     return BrutSheet(
       title: 'Organization analytics',
       subtitle: 'Straight from the server, so these agree with the reports.',
-      child: switch (load) {
-        _ when load.isLoading && data == null => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 32),
-          child: Center(child: BrutSpinner()),
-        ),
-        _ when load.hasFailed && data == null => BrutInlineMessage(
-          text: load.error!,
-          tone: BrutTone.coral,
-        ),
-        _ when data == null => const BrutEmptyState(
-          title: 'Nothing to show yet',
-          hint: 'The server returned no figures.',
-          icon: Icons.bar_chart_outlined,
-        ),
-        _ => _Figures(data: data),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ReportOrganizationPicker(onChanged: _load),
+          const SizedBox(height: AppLayout.between),
+          switch (load) {
+            _ when load.isLoading && data == null => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: BrutSpinner()),
+            ),
+            _ when load.hasFailed && data == null => BrutInlineMessage(
+              text: load.error!,
+              tone: BrutTone.coral,
+            ),
+            _ when data == null => const BrutEmptyState(
+              title: 'Nothing to show yet',
+              hint: 'The server returned no figures.',
+              icon: Icons.bar_chart_outlined,
+            ),
+            _ => _Figures(data: data),
+          },
+        ],
+      ),
+    );
+  }
+}
+
+/// Which organization the reports cover: all the account can see, or one,
+/// such as JPSSITE. Shared by the financial report and this sheet, so the
+/// two and their exports always cover the same organizations.
+///
+/// Only Admins and the Super Admin choose. An Adviser or officer sees only
+/// their own organization anyway, so they are shown its name instead.
+class ReportOrganizationPicker extends StatelessWidget {
+  const ReportOrganizationPicker({super.key, this.onChanged});
+
+  /// Called after the choice changes, to reload whatever shows it.
+  final VoidCallback? onChanged;
+
+  // "All organizations" is a choice, so it needs a value null is not.
+  static const _all = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    if (!app.choosesReportOrganization) {
+      final own = app.currentAccount?.organizationName;
+      if (own == null || own.isEmpty) return const SizedBox.shrink();
+      return Row(
+        children: [
+          const MonoLabel('Organization'),
+          const SizedBox(width: AppLayout.tight),
+          Flexible(child: BrutBadge(label: own, tone: BrutTone.brand)),
+        ],
+      );
+    }
+    return BrutDropdown<String>(
+      label: 'Organization',
+      value: app.reportOrganizationId ?? _all,
+      hint: 'All organizations',
+      items: [
+        const DropdownMenuItem(value: _all, child: Text('All organizations')),
+        for (final o in app.organizations)
+          DropdownMenuItem(value: o.id, child: Text(o.label)),
+      ],
+      onChanged: (id) {
+        if (id == null || id == (app.reportOrganizationId ?? _all)) return;
+        id == _all
+            ? app.setReportFilters(clearOrganization: true)
+            : app.setReportFilters(organizationId: id);
+        onChanged?.call();
       },
     );
   }

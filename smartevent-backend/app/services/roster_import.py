@@ -115,6 +115,14 @@ def validate_roster_workbook(db, current_user, content: bytes, filename: str) ->
             for column in ("Department", "Organization Full Name"):
                 if row[column]:
                     error(column, "Leave blank: SDS Staff and Signatory accounts are school-wide")
+        elif not row["Department"]:
+            # Blank only for an organization that belongs to no department.
+            organization_matches = organizations[(None, row["Organization Full Name"].casefold())]
+            organization = organization_matches[0] if len(organization_matches) == 1 else None
+            if organization is None:
+                error("Department", "Department is required unless the organization belongs to no department")
+            elif role == "admin":
+                error("Role", "An Admin manages a department; this organization belongs to none")
         else:
             department_matches = departments[row["Department"].casefold()]
             department = department_matches[0] if len(department_matches) == 1 else None

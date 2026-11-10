@@ -14,6 +14,7 @@ from app.services.access_audit import record_access_change
 from app.services.roster_import import MAX_FILE_BYTES, commit_roster_import, validate_roster_workbook
 
 router = APIRouter(prefix="/cite-members", tags=["cite-members"])
+ADMIN_NEEDS_DEPARTMENT = "An Admin manages a department. Choose an organization that belongs to one."
 
 
 def assert_can_manage_role(current_user: User, role: str) -> None:
@@ -55,6 +56,8 @@ def add_cite_member(
             require_for_admin=True,
         )
         organization_id = resolve_organization_id(db, current_user, payload.organization_id, department_id)
+        if payload.role == "admin" and department_id is None:
+            raise HTTPException(status_code=422, detail=ADMIN_NEEDS_DEPARTMENT)
     existing = db.query(CiteMember).filter(CiteMember.email == payload.email).first()
     if existing:
         raise HTTPException(
@@ -149,7 +152,9 @@ def update_cite_member(
         updates["department_id"] = organization.department_id
     elif member.organization_id is None:
         raise HTTPException(status_code=422, detail="Assign an organization for this role")
-    before = {"role": member.role, "position": member.position, "organization_id": str(member.organization_id)}
+    if new_role == "admin" and updates.get("department_id", member.department_id) is None:
+        raise HTTPException(status_code=422, detail=ADMIN_NEEDS_DEPARTMENT)
+    before ={"role": member.role, "position": member.position, "organization_id": str(member.organization_id)}
     for field, value in updates.items():
         setattr(member, field, value)
     record_access_change(db, current_user, "roster.updated", member, {

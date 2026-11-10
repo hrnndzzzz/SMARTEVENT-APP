@@ -201,6 +201,22 @@ def require_operational_read(
     return user
 
 
+def is_departmentless(user) -> bool:
+    """A member of an organization that belongs to no department.
+
+    Both sides must be blank: an account left without a department in an
+    organization that has one is unassigned, not department-less.
+    """
+    organization = getattr(user, "organization", None)
+    return (
+        getattr(user, "role", None) in SCOPED_READ_ROLES
+        and getattr(user, "department_id", None) is None
+        and getattr(user, "organization_id", None) is not None
+        and organization is not None
+        and organization.department_id is None
+    )
+
+
 def assert_department_scope(
     user: User,
     record_department_id: uuid.UUID | None,
@@ -216,6 +232,14 @@ def assert_department_scope(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Role '{user.role}' is not permitted to access this scoped record",
         )
+
+    if is_departmentless(user):
+        if record_department_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only access records belonging to your own organization.",
+            )
+        return
 
     if user.department_id is None:
         raise HTTPException(
@@ -290,6 +314,11 @@ def scope_query_by_department(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Role '{current_user.role}' is not permitted to access scoped data",
         )
+    if is_departmentless(current_user):
+        return query.filter(
+            department_column.is_(None),
+            department_column.class_.organization_id == current_user.organization_id,
+        )
     if current_user.department_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -324,10 +353,15 @@ def assert_record_scope(user: User, record, *, allow_officer_read: bool = False)
 
 
 def ensure_operational_assignment(user: User) -> None:
-    if user.role in {"admin", "adviser", "treasurer", "officer"} and (
-        getattr(user, "department_id", None) is None
-        or getattr(user, "organization_id", None) is None
+    if user.role not in {"admin", "adviser", "treasurer", "officer"}:
+        return
+    if getattr(user, "organization_id", None) is None or (
+        getattr(user, "department_id", None) is None and not is_departmentless(user)
     ):
+        raise HTTPException(status_code=403, detail="An administrator must assign your department and organization")
+    # Failsafe: the account's department must be its organization's, never blank beside one.
+    organization = getattr(user, "organization", None)
+    if organization is not None and organization.department_id != user.department_id:
         raise HTTPException(status_code=403, detail="An administrator must assign your department and organization")
 
 
@@ -350,6 +384,8 @@ def resolve_organization_id(
     organization = db.query(Organization).filter(Organization.id == requested_id).first()
     if organization is not None and user.role == "admin" and organization.department_id != user.department_id:
         raise HTTPException(status_code=403, detail="Use an organization in your assigned department")
+    if organization is not None and department_id is None and organization.department_id is not None:
+        raise HTTPException(status_code=400, detail="This organization belongs to a department. Select it.")
     if organization is None or organization.department_id != department_id:
         raise HTTPException(status_code=400, detail="Organization must exist in the selected department")
     return organization.id
@@ -363,12 +399,17 @@ def resolve_department_id(
 ) -> uuid.UUID | None:
     current_user = ensure_account_ready_for_app(current_user)
     if current_user.role == "super_admin":
-        if require_for_admin and requested_department_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="department_id is required when an admin creates this record.",
-            )
+        # Blank is allowed: resolve_organization_id, which every caller runs next,
+        # refuses it unless the chosen organization has no department.
         return requested_department_id
+
+    if is_departmentless(current_user):
+        if requested_department_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your organization belongs to no department.",
+            )
+        return None
 
     if current_user.department_id is None:
         raise HTTPException(
