@@ -7,6 +7,27 @@ import 'package:http/http.dart' as http;
 
 import 'apk_file.dart';
 
+/// What a manual check found. See [AppUpdate.check].
+enum UpdateCheck {
+  /// A later release exists, and its tag came back with this.
+  available,
+
+  /// GitHub answered, and this build is the latest.
+  upToDate,
+
+  /// GitHub did not answer, or answered something unreadable. Not the
+  /// same as being up to date, and must never be reported as it.
+  unreachable,
+
+  /// This build carries no release tag — a `flutter run`, or a build
+  /// made without --dart-define=SMARTEVENT_RELEASE_TAG. There is
+  /// nothing to compare against, so no answer is possible.
+  untagged,
+
+  /// Not Android. Nothing here can install anything anywhere else.
+  unsupported,
+}
+
 /// Keeps the installed app on the latest GitHub release.
 ///
 /// An app installed from a download cannot replace itself silently: Android
@@ -21,6 +42,19 @@ class AppUpdate {
   /// `flutter run`) never checks.
   static const currentTag = String.fromEnvironment('SMARTEVENT_RELEASE_TAG');
 
+  /// How a build names itself on the About screen.
+  ///
+  /// A separate function because [currentTag] is a compile-time
+  /// constant: a widget test cannot set it, so the tagged case would
+  /// otherwise go untested — which is how "Version 1.0" sat in About
+  /// through seven releases without anyone noticing.
+  /// The leading `v` is dropped because the label already says
+  /// "Version", and the screen uppercases it: the tag as written gave
+  /// "VERSION V1.0.7".
+  static String versionLabel([String tag = currentTag]) => tag.isEmpty
+      ? 'Development build'
+      : 'Version ${tag.startsWith('v') ? tag.substring(1) : tag}';
+
   static const _repo = 'https://github.com/hrnndzzzz/SMARTEVENT-APP';
   static const _channel = MethodChannel('smartevent/update');
 
@@ -31,10 +65,27 @@ class AppUpdate {
     String current = currentTag,
     http.Client? client,
   }) async {
-    if (current.isEmpty ||
-        kIsWeb ||
-        defaultTargetPlatform != TargetPlatform.android) {
-      return null;
+    final found = await check(current: current, client: client);
+    return found.state == UpdateCheck.available ? found.tag : null;
+  }
+
+  /// The same question, with the answers kept apart.
+  ///
+  /// [newerRelease] collapses "up to date", "cannot check" and "did not
+  /// reach GitHub" into null, which is right at launch: nobody asked, and
+  /// a bad connection must never block the app. It is wrong for a button.
+  /// Someone who pressed Check for updates and is told they are up to
+  /// date has been told something nobody verified, and will go on
+  /// believing it. So the manual path gets the difference.
+  static Future<({UpdateCheck state, String? tag})> check({
+    String current = currentTag,
+    http.Client? client,
+  }) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return (state: UpdateCheck.unsupported, tag: null);
+    }
+    if (current.isEmpty) {
+      return (state: UpdateCheck.untagged, tag: null);
     }
     final c = client ?? http.Client();
     try {
@@ -46,9 +97,12 @@ class AppUpdate {
           .send(request)
           .timeout(const Duration(seconds: 10));
       final latest = tagFromLocation(response.headers['location']);
-      return latest != null && isNewer(latest, current) ? latest : null;
+      if (latest == null) return (state: UpdateCheck.unreachable, tag: null);
+      return isNewer(latest, current)
+          ? (state: UpdateCheck.available, tag: latest)
+          : (state: UpdateCheck.upToDate, tag: latest);
     } catch (_) {
-      return null;
+      return (state: UpdateCheck.unreachable, tag: null);
     } finally {
       if (client == null) c.close();
     }
@@ -186,10 +240,7 @@ class _RequiredUpdateState extends State<_RequiredUpdate> {
               const SizedBox(height: 16),
               LinearProgressIndicator(value: _progress),
             ],
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!),
-            ],
+            if (_error != null) ...[const SizedBox(height: 12), Text(_error!)],
           ],
         ),
         actions: [
