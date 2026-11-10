@@ -16,6 +16,7 @@ from app.dependencies import (
     scope_query_by_department,
 )
 from app.models import Category, Event, Expense, IncomeRecord, Receipt, User
+from app.routers.analytics import for_organization
 from app.services.academic_year import institution_today, validate_school_year
 from app.schemas import (
     CategoryReport,
@@ -154,6 +155,7 @@ def get_consolidated_financial_report(
     school_year: str | None = Query(default=None, pattern=r"^\d{4}-\d{4}$"),
     semester: Semester | None = None,
     event_scope: EventScope | None = None,
+    organization_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_operational_read),
 ):
@@ -177,9 +179,9 @@ def get_consolidated_financial_report(
     if period in {"weekly", "monthly"}:
         start_date, end_date = _calendar_window(period, reference_date or institution_today())
 
-    event_query = scope_query_by_department(
+    event_query = for_organization(scope_query_by_department(
         db.query(Event), Event.department_id, current_user
-    )
+    ), Event, organization_id)
     if school_year is not None:
         event_query = event_query.filter(Event.school_year == school_year)
     if semester is not None:
@@ -249,9 +251,9 @@ def get_consolidated_financial_report(
         and semester is None
         and event_scope is None
     ):
-        unassigned_query = scope_query_by_department(
+        unassigned_query = for_organization(scope_query_by_department(
             db.query(Expense), Expense.department_id, current_user
-        )
+        ), Expense, organization_id)
         unassigned_expense_total = float(
             unassigned_query.with_entities(func.coalesce(func.sum(Expense.amount), 0))
             .filter(

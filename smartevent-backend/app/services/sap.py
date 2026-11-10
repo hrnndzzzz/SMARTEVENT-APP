@@ -120,7 +120,7 @@ def save(db, event, proposal, user, action, *, notify=False, details=None, notif
             'sap_evaluated': ('SAP evaluation completed', 'The SDS Office recorded the final evaluation for {title}.'),
             'sap_withdrawn': ('SAP proposal withdrawn', '{title} was withdrawn by its proposer for editing.'),
             'sap_checkpoint_recorded': ('SAP signature checkpoint recorded', 'A physical signature checkpoint was recorded for {title}.'),
-            'sap_dean_approved': ('SAP proposal sent to the SDS Office', 'The Dean approved {title}. It is now with the SDS Office.'),
+            'sap_dean_approved': ('SAP proposal sent to the SDS Office', '{title} was approved and is now with the SDS Office.'),
             'sap_department_returned': ('SAP proposal returned', '{title} was returned for changes.'),
             'sap_rejected': ('SAP proposal rejected', 'The SDS Office rejected {title}.'),
         }.get(action, ('SAP proposal updated', '{title} has been updated.'))
@@ -165,6 +165,8 @@ def submit(db, event, proposal, user, verification_base):
             raise ValueError('Off-campus activities require an ROC/COC attachment for this revision')
         if event.semester not in {'1st', '2nd', 'summer'}:
             raise ValueError('Set the event semester before submission')
+        if event.department_id is not None and not d.department:
+            raise ValueError('Name the department on the form')
         # Allocation remains controlled by the existing financial workflow.
         if d.total_budget > Decimal(event.allocated_budget or 0):
             raise ValueError('Proposal budget exceeds the event allocation; update allocation through the budget workflow first')
@@ -185,7 +187,12 @@ def submit(db, event, proposal, user, verification_base):
     proposal.revision_no, proposal.state, proposal.return_remarks, proposal.returned_by = number, 'pending_department_review', None, None
     # A Moderator does not approve their own proposal, so one they sent or created starts with the Dean.
     creator = db.get(User, event.proposed_by)
-    event.status = 'pending_admin' if 'adviser' in (user.role, creator.role) else 'pending_adviser'
+    if 'adviser' in (user.role, creator.role):
+        if event.department_id is None:  # no Dean either: straight to the SDS Office
+            return send_to_sds(db, event, proposal, user)
+        event.status = 'pending_admin'
+    else:
+        event.status = 'pending_adviser'
     return save(db, event, proposal, user, 'sap_submitted', notify=True, notify_sds=False)
 
 
@@ -243,13 +250,19 @@ def department_review(db, event, proposal, user, decision, remarks, expected_ver
         record_decision(db, 'event', event.id, 'returned', user, remarks)
         return save(db, event, proposal, user, 'sap_department_returned', notify=True, notify_sds=False,
                     details={'revision': proposal.revision_no, 'remarks': remarks, 'returned_by': proposal.returned_by})
-    if user.role == 'adviser':
+    if user.role == 'adviser' and event.department_id is not None:
         record_decision(db, 'event', event.id, 'approved', user, remarks)
         event.status = 'pending_admin'
         return save(db, event, proposal, user, 'sap_moderator_approved')
+    # The Dean, or the Moderator of an organization in no department.
     # Compliance stays open during department review, so check readiness again before the SDS Office gets it.
     require_pre_activity_clearance(db, event)
     record_decision(db, 'event', event.id, 'approved', user, remarks)
+    return send_to_sds(db, event, proposal, user)
+
+
+def send_to_sds(db, event, proposal, user):
+    """Hand a proposal to the SDS Office. Caller holds the event lock and has checked readiness."""
     proposal.state, event.status = 'pending_sap_review', 'pending_institutional_review'
     result = save(db, event, proposal, user, 'sap_dean_approved', notify=True)
     # Email the SDS Office now, with the form attached; a failure stays queued for scripts.deliver_notifications.

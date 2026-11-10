@@ -71,8 +71,8 @@ def save_receipt(db, transaction, details, current_user, *, file_sha256=None, al
     if event is None:
         raise HTTPException(422, "Every receipt requires a transaction linked to an existing event")
     assert_record_scope(current_user, event, allow_officer_read=True)
-    if not event.organization_id or not event.department_id:
-        raise HTTPException(409, "Assign the event to an organization and department first")
+    if not event.organization_id:
+        raise HTTPException(409, "Assign the event to an organization first")
     if isinstance(transaction, Expense):
         assert_record_scope(current_user, transaction, allow_officer_read=True)
         if transaction.status != "pending" and not (allow_historical and current_user.role == "super_admin"):

@@ -24,7 +24,8 @@ class Organization(Base):
     __tablename__ = "organizations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=False)
+    # Blank for an organization outside any department; its proposals skip the Dean.
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
     code = Column(String(30), nullable=False, unique=True)
     name = Column(String(150), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -323,7 +324,7 @@ class Receipt(OrganizationScoped, Base):
         UniqueConstraint("organization_id", "reference_key", name="uq_receipt_reference"),
     )
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=False)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
     event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
     expense_id = Column(UUID(as_uuid=True), ForeignKey("expenses.id"), nullable=True)
     income_id = Column(UUID(as_uuid=True), ForeignKey("income_records.id"), nullable=True)

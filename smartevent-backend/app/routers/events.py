@@ -366,6 +366,8 @@ def submit_event(
             db, "event", event.id, "resubmitted", current_user,
             "Event revised and resubmitted for review.",
         )
+    if event.status == "pending_admin" and event.department_id is None:
+        begin_institutional_review(db, event)  # no Dean for an organization in no department
     record_access_change(db, current_user, "event.submitted", event)
 
     db.commit()
@@ -401,7 +403,10 @@ def approve_event(
                 detail=f"Event is '{event.status}' — advisers can only act while it's pending adviser review",
             )
         record_decision(db, "event", event.id, "approved", current_user, payload.remarks)
-        event.status = "pending_admin"
+        if event.department_id is None:
+            begin_institutional_review(db, event)  # no Dean for an organization in no department
+        else:
+            event.status = "pending_admin"
 
     else:
         if event.status != "pending_admin":

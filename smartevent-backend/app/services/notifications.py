@@ -17,8 +17,10 @@ def check_registration_assignment(db, member, user=None):
         valid = member.department_id is None and member.organization_id is None
     else:
         organization = db.query(Organization).filter(Organization.id == member.organization_id).first()
-        valid = (member.role in ROSTER_ROLES and member.department_id is not None
-                 and organization is not None and organization.department_id == member.department_id)
+        # Blank department only where the organization has none; an Admin always needs one.
+        valid = (member.role in ROSTER_ROLES and organization is not None
+                 and organization.department_id == member.department_id
+                 and (member.department_id is not None or member.role != "admin"))
     if not valid:
         raise HTTPException(403, "An administrator must provide a valid roster role and organization assignment")
     if user is not None and (member.claimed_by_user_id != user.id

@@ -22,9 +22,9 @@ EXPORT_RESPONSES = {200: {"description": "Downloadable report or print-ready HTM
 
 
 @router.get("/dashboard/export", response_class=Response, responses=EXPORT_RESPONSES)
-def export_dashboard(format: ExportFormat = "pdf", db: Session = Depends(get_db),
-                     current_user: User = Depends(require_operational_read)):
-    report = get_dashboard(db=db, current_user=current_user)
+def export_dashboard(format: ExportFormat = "pdf", organization_id: uuid.UUID | None = None,
+                     db: Session = Depends(get_db), current_user: User = Depends(require_operational_read)):
+    report = get_dashboard(organization_id=organization_id, db=db, current_user=current_user)
     sections = [summary_section(report)]
     sections += [(name.replace("_", " ").title(), ["Status", "Count"], list(values.items()))
                  for name, values in report.model_dump().items() if isinstance(values, dict)]
@@ -58,8 +58,9 @@ def export_category(category_id: uuid.UUID, format: ExportFormat = "pdf", db: Se
 def export_financial(period: Literal["weekly", "monthly", "school_year", "semester"],
                      format: ExportFormat = "pdf", reference_date: date | None = None,
                      school_year: str | None = None, semester: Semester | None = None,
-                     event_scope: EventScope | None = None, db: Session = Depends(get_db),
-                     current_user: User = Depends(require_operational_read)):
+                     event_scope: EventScope | None = None, organization_id: uuid.UUID | None = None,
+                     db: Session = Depends(get_db), current_user: User = Depends(require_operational_read)):
     report = get_consolidated_financial_report(period=period, reference_date=reference_date,
-        school_year=school_year, semester=semester, event_scope=event_scope, db=db, current_user=current_user)
+        school_year=school_year, semester=semester, event_scope=event_scope, organization_id=organization_id,
+        db=db, current_user=current_user)
     return render_export("SMARTEVENT Financial Report", financial_sections(report), format, "smartevent-financial-report")

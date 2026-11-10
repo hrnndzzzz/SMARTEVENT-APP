@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -19,25 +21,29 @@ def dashboard_exports(current_user: User = Depends(require_operational_read)):
         "event_url_template": "/reports/event/{event_id}/export?format={format}",
         "category_url_template": "/reports/category/{category_id}/export?format={format}",
         "financial_url_template": "/reports/financial/export?period={period}&format={format}",
-        "financial_filters": ["reference_date", "school_year", "semester", "event_scope"],
+        "financial_filters": ["reference_date", "school_year", "semester", "event_scope", "organization_id"],
         "authorization": "Bearer token required on every export request; do not put tokens in URLs",
     }
 
 
+def for_organization(query, model, organization_id: uuid.UUID | None):
+    """Narrow an already-scoped query; an organization outside the caller's scope yields nothing."""
+    return query if organization_id is None else query.filter(model.organization_id == organization_id)
+
+
 @router.get("/dashboard", response_model=DashboardSummary)
 def get_dashboard(
+    organization_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_operational_read),
 ):
-    category_query = scope_query_by_department(
-        db.query(Category), Category.department_id, current_user
-    )
-    event_query = scope_query_by_department(
-        db.query(Event), Event.department_id, current_user
-    )
-    expense_query = scope_query_by_department(
-        db.query(Expense), Expense.department_id, current_user
-    )
+    def scoped(model):
+        query = scope_query_by_department(db.query(model), model.department_id, current_user)
+        return for_organization(query, model, organization_id)
+
+    category_query = scoped(Category)
+    event_query = scoped(Event)
+    expense_query = scoped(Expense)
 
     total_categories = category_query.count()
     allocated_sum, remaining_sum = category_query.with_entities(
@@ -53,9 +59,7 @@ def get_dashboard(
     )
 
     flagged_expense_count = expense_query.filter(Expense.is_flagged.is_(True)).count()
-    inventory_query = scope_query_by_department(
-        db.query(Inventory), Inventory.department_id, current_user
-    ).filter(Inventory.is_archived.is_(False))
+    inventory_query = scoped(Inventory).filter(Inventory.is_archived.is_(False))
     low_stock_item_count = inventory_query.filter(
         Inventory.quantity <= Inventory.low_stock_threshold
     ).count()
