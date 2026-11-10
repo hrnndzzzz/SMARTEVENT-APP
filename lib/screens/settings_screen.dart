@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../api/api_config.dart';
+import '../state/app_icon.dart';
 import '../state/app_settings.dart';
 import '../state/app_state.dart';
 import '../state/user_role.dart';
 import 'sap/sap_review_demo_screen.dart';
 import '../state/sfx.dart';
 import '../widgets/backend_address_card.dart';
+import '../widgets/brand_mark.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// Device settings.
@@ -88,6 +92,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const BrutSectionTitle('Appearance'),
           const SizedBox(height: 10),
           const _ThemePicker(),
+          const SizedBox(height: 16),
+          const _AccentPicker(),
+          // Only on Android: the swap is two manifest components being
+          // enabled and disabled, and there is nothing behind it
+          // anywhere else.
+          if (AppIcons.isSupported) ...[
+            const SizedBox(height: 18),
+            const BrutSectionTitle('App icon'),
+            const SizedBox(height: 10),
+            const _IconPicker(),
+          ],
           const SizedBox(height: 18),
           _SwitchTile(
             label: 'Sound and vibration',
@@ -331,6 +346,204 @@ class _DemoRolePicker extends StatelessWidget {
           text:
               'Looking at the same seeded records as '
               '${current?.label ?? 'nobody'}. Nothing is sent anywhere.',
+        ),
+      ],
+    );
+  }
+}
+
+/// Which colour the app wears.
+///
+/// The accent comes from the account's department, and for a CITE
+/// account that is orange whether or not anyone likes orange. This
+/// overrides it on this phone without touching the account: the
+/// department is still what the records belong to, and still what the
+/// brand pill says — this only changes the paint.
+///
+/// The swatches are the departments' own palette rather than a colour
+/// wheel. Each one was chosen to carry ink on top in both themes, and
+/// none of them is coral, which means "a problem" everywhere else in
+/// the app. A free picker would be a way to make the app unreadable.
+class _AccentPicker extends StatelessWidget {
+  const _AccentPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<AppSettings>();
+    final own = context.watch<AppState>().themeDepartment;
+    final chosen = settings.accent;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final option in Department.values)
+              BrutSurface(
+                onTap: () => settings.setAccent(
+                  // Picking the department's own colour is the same
+                  // thing as not having picked, and storing it as a
+                  // choice would freeze the app on today's department
+                  // if the account ever moved.
+                  option == own ? null : option,
+                ),
+                semanticLabel: option.label,
+                radius: AppRadius.controlAll,
+                shadow: chosen == option || (chosen == null && option == own)
+                    ? AppShadows.base
+                    : AppShadows.none,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: option.color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: context.palette.ink,
+                          width: AppBorders.width,
+                        ),
+                      ),
+                      child:
+                          chosen == option || (chosen == null && option == own)
+                          ? Icon(Icons.check, size: 12, color: AppColors.ink)
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      option == own ? '${option.label} · yours' : option.label,
+                      style: AppText.buttonLabel.copyWith(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          chosen == null
+              ? 'Following ${own.label}, the department on your account.'
+              : 'Chosen on this phone. ${own.label} is still the department '
+                    'your records belong to.',
+          style: AppText.caption,
+        ),
+        if (chosen != null) ...[
+          const SizedBox(height: 10),
+          BrutButton(
+            label: 'Use my department\'s colour',
+            icon: Icons.restart_alt,
+            tone: BrutTone.neutral,
+            onPressed: () => settings.setAccent(null),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Which icon the phone shows on its home screen.
+///
+/// Offered only where it can work: the swap is two Android components
+/// being enabled and disabled, and there is nothing behind it anywhere
+/// else. A switch that cannot work is worse than no switch.
+class _IconPicker extends StatefulWidget {
+  const _IconPicker();
+
+  @override
+  State<_IconPicker> createState() => _IconPickerState();
+}
+
+class _IconPickerState extends State<_IconPicker> {
+  static const AppIcons _icons = AppIcons();
+
+  AppIcon? _current;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _icons.current().then((icon) {
+      if (mounted) setState(() => _current = icon);
+    });
+  }
+
+  Future<void> _choose(AppIcon icon) async {
+    if (_busy || icon == _current) return;
+    setState(() => _busy = true);
+    final done = await _icons.set(icon);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (done) _current = icon;
+    });
+    if (!done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The icon could not be changed.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            for (final icon in AppIcon.values) ...[
+              Expanded(
+                child: BrutSurface(
+                  onTap: _busy ? null : () => _choose(icon),
+                  semanticLabel: icon.label,
+                  fill: _current == icon
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                  radius: AppRadius.controlAll,
+                  shadow: _current == icon ? AppShadows.base : AppShadows.none,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    children: [
+                      // The icon as it will actually look, rather than a
+                      // swatch standing in for it.
+                      BrandMark(
+                        size: 40,
+                        ground: icon == AppIcon.navy
+                            ? BrandMark.navy
+                            : Colors.white,
+                        asset: icon == AppIcon.navy
+                            ? 'assets/brand/mark-on-dark.png'
+                            : 'assets/brand/mark-on-light.png',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        icon.label,
+                        style: AppText.buttonLabel.copyWith(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (icon != AppIcon.values.last) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _current == null
+              ? 'Reading the current icon…'
+              : '${_current!.explanation} The launcher decides what to do '
+                    'next: some redraw at once, some only when the home '
+                    'screen is next opened, and some bring the home screen '
+                    'forward. The app keeps running either way.',
+          style: AppText.caption,
         ),
       ],
     );

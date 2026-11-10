@@ -11,7 +11,13 @@ import '../theme/palette.dart';
 /// carries its own navy tile, which makes it correct in either theme
 /// without asking the caller to think about it.
 class BrandMark extends StatelessWidget {
-  const BrandMark({super.key, this.size = 72, this.radius});
+  const BrandMark({
+    super.key,
+    this.size = 72,
+    this.radius,
+    this.ground = navy,
+    this.asset = 'assets/brand/mark-on-dark.png',
+  });
 
   /// Side of the tile, not of the mark: the artwork is inset so the
   /// arrow's point does not touch the corner.
@@ -19,10 +25,17 @@ class BrandMark extends StatelessWidget {
 
   final BorderRadius? radius;
 
+  /// The ground this mark is drawn for. It has to match [asset]: the
+  /// phone outline is white in one file and navy in the other, so the
+  /// wrong pairing makes the phone disappear into its own background.
+  final Color ground;
+
+  final String asset;
+
   /// The navy the mark was drawn on. Deliberately not a palette colour
   /// — the palette is the app's, this is the logo's, and a theme change
   /// must not repaint someone else's artwork underneath the mark.
-  static const Color ground = Color(0xFF0C295A);
+  static const Color navy = Color(0xFF0C295A);
 
   @override
   Widget build(BuildContext context) {
@@ -36,18 +49,17 @@ class BrandMark extends StatelessWidget {
         // The palette's ink, not the constant: a border drawn in the
         // light theme's near-black disappears against the dark canvas,
         // and the tile loses the outline every other surface has.
-        border: Border.all(
-          color: context.palette.ink,
-          width: AppBorders.width,
-        ),
+        border: Border.all(color: context.palette.ink, width: AppBorders.width),
       ),
       child: Image.asset(
-        'assets/brand/mark-on-dark.png',
+        asset,
         fit: BoxFit.contain,
         filterQuality: FilterQuality.medium,
         // A missing asset should cost the logo, not the screen it is on.
-        errorBuilder: (_, _, _) =>
-            const Icon(Icons.event_available, color: Colors.white),
+        errorBuilder: (_, _, _) => Icon(
+          Icons.event_available,
+          color: ground == navy ? Colors.white : navy,
+        ),
       ),
     );
   }

@@ -2,4 +2,6 @@
 <resources>
     <!-- SmartEvent navy, the ground the mark was drawn on. -->
     <color name="ic_launcher_background">#0C295A</color>
+    <!-- The white ground, for the alternative launcher icon. -->
+    <color name="ic_launcher_background_light">#FFFFFF</color>
 </resources>

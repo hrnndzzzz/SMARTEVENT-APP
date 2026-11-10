@@ -83,16 +83,28 @@ blue.save(os.path.join(OUT, 'assets/brand/lockup-dark.png'))
 
 RES = os.path.join(OUT, 'android/app/src/main/res')
 DENSITIES = {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}
+WHITE = (255, 255, 255)
+
+# Two launcher icons, because the logo came on two grounds and nothing
+# else here is invented artwork. The orange that would have made a third
+# is the arrow's own colour, so an orange tile would lose the arrow.
+VARIANTS = [
+    ('ic_launcher', mark_dark, NAVY),
+    ('ic_launcher_light', mark_light, WHITE),
+]
+
 for name, s in DENSITIES.items():
     d = os.path.join(RES, 'mipmap-' + name)
     os.makedirs(d, exist_ok=True)
-    # Legacy icon: full-bleed navy, mark at 70%.
-    square(mark_dark, round(48 * s), NAVY + (255,), 0.70).convert('RGB').save(
-        os.path.join(d, 'ic_launcher.png'))
-    # Adaptive foreground: 108dp canvas. The fraction is set so the
-    # arrow's tail — the point furthest from centre — stays inside the
-    # 33dp radius Android guarantees every launcher mask will show. At
-    # 0.56 it reached 37.8dp and a circular mask cut the tail off.
-    square(mark_dark, round(108 * s), (0, 0, 0, 0), 0.48).save(
-        os.path.join(d, 'ic_launcher_foreground.png'))
-print('wrote icons for', ', '.join(DENSITIES))
+    for stem, mark, ground in VARIANTS:
+        # Legacy icon: full-bleed ground, mark at 70%.
+        square(mark, round(48 * s), ground + (255,), 0.70).convert('RGB').save(
+            os.path.join(d, stem + '.png'))
+        # Adaptive foreground: 108dp canvas. The fraction is set so the
+        # arrow's tail — the point furthest from centre — stays inside
+        # the 33dp radius Android guarantees every launcher mask will
+        # show. At 0.56 it reached 37.8dp and a circular mask cut the
+        # tail off.
+        square(mark, round(108 * s), (0, 0, 0, 0), 0.48).save(
+            os.path.join(d, stem + '_foreground.png'))
+print('wrote', len(VARIANTS), 'icons for', ', '.join(DENSITIES))

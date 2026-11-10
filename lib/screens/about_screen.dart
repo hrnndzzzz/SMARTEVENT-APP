@@ -69,7 +69,9 @@ class AboutScreen extends StatelessWidget {
             body:
                 'The app takes its accent colour from the '
                 'department your account belongs to, which is set '
-                'on the roster rather than chosen here. A real '
+                'on the roster. Settings can override the colour on '
+                'this phone; it changes the paint and nothing else — '
+                'your records still belong to your department. A real '
                 'campus-wide rollout would need its own data per '
                 'department.',
           ),

@@ -23,10 +23,17 @@ Needs Pillow. It writes, from the renders:
 
 - `assets/brand/` — the mark keyed to transparency on both grounds, plus
   the full lockups. `BrandMark` reads `mark-on-dark.png`.
-- `android/app/src/main/res/mipmap-*/ic_launcher.png` — the legacy tile,
-  full-bleed navy, for Android 7 and earlier.
-- `android/app/src/main/res/mipmap-*/ic_launcher_foreground.png` — the
-  adaptive layer for Android 8+, which also backs the launch splash.
+- `android/app/src/main/res/mipmap-*/ic_launcher*.png` — two launcher
+  icons, navy and white, each as a legacy tile for Android 7 and
+  earlier plus an adaptive foreground for Android 8+. The navy
+  foreground also backs the launch splash.
+
+Two icons rather than three because the logo came on two grounds and
+nothing here is invented artwork: an orange tile would lose the arrow,
+which is orange itself. Settings switches between them by enabling one
+of the `<activity-alias>` entries in `AndroidManifest.xml` and
+disabling the other — add a third icon there and in `AppIcon`, not
+only here.
 
 The mark is cropped out of the lockup on purpose: the wordmark is a grey
 smear at 48dp. The adaptive layer's scale is pinned to keep the arrow's

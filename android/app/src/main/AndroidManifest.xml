@@ -31,11 +31,42 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+        </activity>
+
+        <!-- The launcher entry lives on aliases, not on MainActivity.
+             Switching icons means enabling one component and disabling
+             another, and disabling MainActivity itself would stop the
+             app that is doing the switching. The aliases point at it
+             instead, so it is never touched.
+
+             Exactly one is ever enabled. Their names are written into
+             the launcher's own records, so renaming either one loses
+             whatever a person has pinned. -->
+        <activity-alias
+            android:name=".IconNavy"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:enabled="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="smartevent">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".IconLight"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_light"
+            android:label="smartevent">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
         <!-- Shares the downloaded update with the installer; see
              res/xml/update_paths.xml. -->
         <provider

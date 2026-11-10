@@ -132,40 +132,47 @@ class _SmartEventAppState extends State<SmartEventApp>
         ChangeNotifierProvider.value(value: _shelf),
       ],
       child: Consumer2<AppState, AppSettings>(
-        builder: (context, app, settings, _) => MaterialApp(
-          title: 'SmartEvent',
-          navigatorKey: _navigatorFor(app),
-          debugShowCheckedModeBanner: false,
-          // Primary actions are blue in every department — that is the
-          // one rule the palette is built on. The department shows itself
-          // in the brand pill, the avatar and the active nav tab, so a
-          // CITE account reads as orange and blue rather than either one
-          // on its own.
-          theme: AppTheme.light(accent: app.themeColor),
-          darkTheme: AppTheme.dark(accent: app.themeColor),
-          themeMode: settings.themeMode,
-          builder: (context, child) {
-            // Reduce motion is applied here rather than per widget, so it
-            // reaches screen transitions and Material's own animations as
-            // well as the press effect. The OS setting still wins on its
-            // own; this only ever adds.
-            final media = MediaQuery.of(context);
-            return MediaQuery(
-              data: settings.reduceMotion
-                  ? media.copyWith(disableAnimations: true)
-                  : media,
-              // One-hand layout, so it stays a phone-width column on a
-              // tablet or a desktop window instead of stretching across it.
-              child: AppColumn(
-                child: OfflineBanner(
-                  navigatorKey: _navigatorKey,
-                  child: ConnectionBanner(child: child!),
+        builder: (context, app, settings, _) {
+          final accent = settings.accent?.color ?? app.themeColor;
+          return MaterialApp(
+            title: 'SmartEvent',
+            navigatorKey: _navigatorFor(app),
+            debugShowCheckedModeBanner: false,
+            // Primary actions are blue in every department — that is the
+            // one rule the palette is built on. The department shows itself
+            // in the brand pill, the avatar and the active nav tab, so a
+            // CITE account reads as orange and blue rather than either one
+            // on its own.
+            // A colour chosen in Settings wins over the department's own.
+            // Resolved here rather than inside AppState because the
+            // choice belongs to the phone and the department belongs to
+            // the account: signing out must drop one and keep the other.
+            theme: AppTheme.light(accent: accent),
+            darkTheme: AppTheme.dark(accent: accent),
+            themeMode: settings.themeMode,
+            builder: (context, child) {
+              // Reduce motion is applied here rather than per widget, so it
+              // reaches screen transitions and Material's own animations as
+              // well as the press effect. The OS setting still wins on its
+              // own; this only ever adds.
+              final media = MediaQuery.of(context);
+              return MediaQuery(
+                data: settings.reduceMotion
+                    ? media.copyWith(disableAnimations: true)
+                    : media,
+                // One-hand layout, so it stays a phone-width column on a
+                // tablet or a desktop window instead of stretching across it.
+                child: AppColumn(
+                  child: OfflineBanner(
+                    navigatorKey: _navigatorKey,
+                    child: ConnectionBanner(child: child!),
+                  ),
                 ),
-              ),
-            );
-          },
-          home: const _StartupGate(),
-        ),
+              );
+            },
+            home: const _StartupGate(),
+          );
+        },
       ),
     );
   }
