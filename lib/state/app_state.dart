@@ -734,6 +734,7 @@ class AppState extends ChangeNotifier {
         }
         if (state == flaggedLoad) flaggedExpenses = [];
         if (state == financialReportLoad) financialReport = null;
+        if (state == organizationDashboardLoad) organizationDashboard = null;
         if (state == lettersLoad) letters = [];
         if (state == catalogLoad) catalog = [];
         if (state == incomesLoad) incomes = [];
@@ -1081,7 +1082,7 @@ class AppState extends ChangeNotifier {
   Future<String?> createOrganization({
     required String code,
     required String name,
-    required String departmentId,
+    String? departmentId,
   }) async {
     if (_demoMode) {
       organizations = [
@@ -1236,6 +1237,22 @@ class AppState extends ChangeNotifier {
     spendingTrends = await _reportsService.spendingTrends();
   });
 
+  /// The dashboard narrowed to [reportOrganizationId], for the analytics
+  /// sheet. Kept apart from [dashboard], which Home reads unfiltered.
+  DashboardSummary? organizationDashboard;
+  final LoadState organizationDashboardLoad = LoadState();
+
+  Future<void> loadOrganizationDashboard() {
+    // shortcut: the demo has one set of figures, so its filter changes
+    // nothing; filter DemoData too if the demo needs to show it.
+    if (_demoMode) organizationDashboard = dashboard;
+    return _runLoad(organizationDashboardLoad, () async {
+      organizationDashboard = await _reportsService.dashboard(
+        organizationId: reportOrganizationId,
+      );
+    });
+  }
+
   Future<void> loadFlaggedExpenses() => _runLoad(flaggedLoad, () async {
     flaggedExpenses = await _reportsService.flagged();
   });
@@ -1252,6 +1269,15 @@ class AppState extends ChangeNotifier {
   Semester? reportSemester;
   EventScope? reportEventScope;
 
+  /// One organization's figures only, such as JPSSITE's; null for every
+  /// organization the account can see. Shared by the financial report,
+  /// the analytics sheet and both exports.
+  String? reportOrganizationId;
+
+  /// Whether this account may pick [reportOrganizationId]. An Adviser and
+  /// the officers already see only their own organization.
+  bool get choosesReportOrganization => currentRole?.isAdministrator ?? false;
+
   /// Returns a message when the current filters are incomplete, or null.
   String? get reportFilterProblem => ReportsService.validateFinancialRequest(
     period: reportPeriod,
@@ -1266,7 +1292,14 @@ class AppState extends ChangeNotifier {
     Semester? semester,
     EventScope? eventScope,
     bool clearScope = false,
+    String? organizationId,
+    bool clearOrganization = false,
   }) {
+    if (clearOrganization) {
+      reportOrganizationId = null;
+    } else if (organizationId != null) {
+      reportOrganizationId = organizationId;
+    }
     if (period != null) reportPeriod = period;
     if (referenceDate != null) reportReferenceDate = referenceDate;
     if (schoolYear != null) reportSchoolYear = schoolYear;
@@ -1290,6 +1323,7 @@ class AppState extends ChangeNotifier {
         schoolYear: reportSchoolYear,
         semester: reportSemester,
         eventScope: reportEventScope,
+        organizationId: reportOrganizationId,
       );
     });
   }
@@ -1310,6 +1344,7 @@ class AppState extends ChangeNotifier {
         schoolYear: reportSchoolYear,
         semester: reportSemester,
         eventScope: reportEventScope,
+        organizationId: reportOrganizationId,
       );
       return (file: file, error: null);
     } catch (error) {
@@ -1321,7 +1356,13 @@ class AppState extends ChangeNotifier {
     ExportFormat format,
   ) async {
     try {
-      return (file: await _reportsService.exportDashboard(format), error: null);
+      return (
+        file: await _reportsService.exportDashboard(
+          format,
+          organizationId: reportOrganizationId,
+        ),
+        error: null,
+      );
     } catch (error) {
       return (file: null, error: _messageForFailure(error));
     }
@@ -2083,7 +2124,25 @@ class AppState extends ChangeNotifier {
   /// record" unless one is supplied.
   bool get mustChooseScope =>
       currentRole == UserRole.superAdmin ||
-      (currentAccount != null && currentAccount!.departmentId == null);
+      (currentAccount != null &&
+          currentAccount!.departmentId == null &&
+          !isDepartmentless);
+
+  /// A member of an organization that belongs to no department: blank on
+  /// purpose, not unassigned. Whether the organization really has none is
+  /// the server's to check — it locks out an account left blank beside an
+  /// organization that has one.
+  bool get isDepartmentless {
+    final account = currentAccount;
+    return account != null &&
+        account.departmentId == null &&
+        account.organizationId != null &&
+        const {
+          UserRole.adviser,
+          UserRole.treasurer,
+          UserRole.officer,
+        }.contains(currentRole);
+  }
 
   /// Whether proposing an event means choosing which organization it is for.
   ///
@@ -2100,7 +2159,8 @@ class AppState extends ChangeNotifier {
     final account = currentAccount;
     // Exploring has no server to refuse anything.
     if (account == null || _demoMode || choosesEventScope) return false;
-    return account.departmentId == null || account.organizationId == null;
+    return account.organizationId == null ||
+        (account.departmentId == null && !isDepartmentless);
   }
 
   /// Loads the lookups, but only for roles allowed to read them — calling
@@ -2119,11 +2179,21 @@ class AppState extends ChangeNotifier {
   }
 
   /// Organizations belonging to [departmentId], since an organization is
-  /// only valid within its own department.
+  /// only valid within its own department. [kNoDepartment] gives the ones
+  /// outside any; null, nothing chosen yet, gives none.
   List<RemoteOrganization> organizationsIn(String? departmentId) =>
       departmentId == null
       ? const []
-      : organizations.where((o) => o.departmentId == departmentId).toList();
+      : organizations
+            .where((o) => o.departmentId == departmentOrNull(departmentId))
+            .toList();
+
+  /// The department an organization belongs to, which is the only one a
+  /// member of it may carry. Null when it belongs to none.
+  String? departmentOfOrganization(String organizationId) => organizations
+      .where((o) => o.id == organizationId)
+      .map((o) => o.departmentId)
+      .firstOrNull;
 
   final LoadState categoriesLoad = LoadState();
   final LoadState eventsLoad = LoadState();
@@ -4302,6 +4372,8 @@ class AppState extends ChangeNotifier {
     managedUsers = [];
     auditLog = [];
     dashboard = null;
+    organizationDashboard = null;
+    reportOrganizationId = null;
     spendingTrends = [];
     flaggedExpenses = [];
     financialReport = null;

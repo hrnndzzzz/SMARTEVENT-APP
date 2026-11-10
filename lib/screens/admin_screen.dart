@@ -61,6 +61,41 @@ class _AdminScreenState extends State<AdminScreen> {
         children: [
           const SizedBox(height: AppLayout.contentPadding),
           const Text('Administration', style: AppText.titleBig),
+          // Departments and organizations were SQL-only before this.
+          if (context.watch<AppState>().currentRole == UserRole.superAdmin) ...[
+            const SizedBox(height: AppLayout.tight),
+            Wrap(
+              spacing: AppLayout.tight,
+              runSpacing: AppLayout.tight,
+              children: [
+                BrutButton(
+                  label: 'Add organization',
+                  icon: Icons.add_business_outlined,
+                  size: BrutSize.small,
+                  expand: false,
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final created = await _addOrganization(context);
+                    if (created == null) return;
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('${created.code} added.')),
+                    );
+                  },
+                ),
+                BrutButton(
+                  label: 'Add department',
+                  icon: Icons.account_balance_outlined,
+                  size: BrutSize.small,
+                  tone: BrutTone.neutral,
+                  expand: false,
+                  onPressed: () => BrutSheet.show<void>(
+                    context,
+                    builder: (_) => const _AddDepartmentSheet(),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: AppLayout.between),
           Row(
             children: [
@@ -459,12 +494,15 @@ class _AddSchoolAccountSheetState extends State<_AddSchoolAccountSheet> {
     });
 
     final position = _positionController.text.trim();
-    final error = await context.read<AppState>().createPrivilegedAccount(
+    final app = context.read<AppState>();
+    final error = await app.createPrivilegedAccount(
       role: _role,
       fullName: _nameController.text.trim(),
       email: _emailController.text.trim(),
       position: position.isEmpty ? null : position,
-      departmentId: _departmentId,
+      departmentId: _organizationId == null
+          ? null
+          : app.departmentOfOrganization(_organizationId!),
       organizationId: _organizationId,
     );
 
@@ -534,6 +572,16 @@ class _AddSchoolAccountSheetState extends State<_AddSchoolAccountSheet> {
               onOrganizationChanged: (id) =>
                   setState(() => _organizationId = id),
               explanation: 'An Admin manages one department.',
+              allowNoDepartment: false,
+            ),
+            const SizedBox(height: 8),
+            _NewOrganizationButton(
+              departmentId: _departmentId,
+              allowNoDepartment: false,
+              onCreated: (org) => setState(() {
+                _departmentId = org.departmentId ?? kNoDepartment;
+                _organizationId = org.id;
+              }),
             ),
             const SizedBox(height: 14),
           ],
@@ -831,9 +879,7 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
       return;
     }
     final schoolWide = _role.isSchoolWide;
-    if (app.mustChooseScope &&
-        !schoolWide &&
-        (_departmentId == null || _organizationId == null)) {
+    if (app.mustChooseScope && !schoolWide && _organizationId == null) {
       setState(() => _error = 'Choose a department and organization.');
       return;
     }
@@ -850,7 +896,10 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
       position: _positionController.text.trim().isEmpty
           ? null
           : _positionController.text.trim(),
-      departmentId: schoolWide ? null : _departmentId,
+      // The organization's own department, blank only where it has none.
+      departmentId: schoolWide || _organizationId == null
+          ? null
+          : app.departmentOfOrganization(_organizationId!),
       organizationId: schoolWide ? null : _organizationId,
     );
 
@@ -905,6 +954,14 @@ class _AddRosterSheetState extends State<_AddRosterSheet> {
               explanation:
                   'Your account is not tied to a department, so choose '
                   'where this member belongs.',
+            ),
+            const SizedBox(height: 8),
+            _NewOrganizationButton(
+              departmentId: _departmentId,
+              onCreated: (org) => setState(() {
+                _departmentId = org.departmentId ?? kNoDepartment;
+                _organizationId = org.id;
+              }),
             ),
             const SizedBox(height: 14),
           ],
@@ -1103,6 +1160,298 @@ class _AccessSheetState extends State<_AccessSheet> {
             hint: 'e.g. Treasurer, 3rd year',
             textCapitalization: TextCapitalization.words,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Opens [_AddOrganizationSheet]; the organization it made, or null.
+Future<RemoteOrganization?> _addOrganization(
+  BuildContext context, {
+  String? departmentId,
+  bool allowNoDepartment = true,
+}) => BrutSheet.show<RemoteOrganization>(
+  context,
+  builder: (_) => _AddOrganizationSheet(
+    departmentId: departmentId,
+    allowNoDepartment: allowNoDepartment,
+  ),
+);
+
+/// "New organization" under a scope picker, for the Super Admin, who
+/// alone may make one — so a roster entry need not wait for SQL.
+class _NewOrganizationButton extends StatelessWidget {
+  const _NewOrganizationButton({
+    required this.departmentId,
+    required this.onCreated,
+    this.allowNoDepartment = true,
+  });
+
+  final String? departmentId;
+  final bool allowNoDepartment;
+  final ValueChanged<RemoteOrganization> onCreated;
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.watch<AppState>().currentRole != UserRole.superAdmin) {
+      return const SizedBox.shrink();
+    }
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: BrutButton(
+        label: 'New organization',
+        icon: Icons.add,
+        size: BrutSize.small,
+        tone: BrutTone.neutral,
+        expand: false,
+        onPressed: () async {
+          final created = await _addOrganization(
+            context,
+            departmentId: departmentId,
+            allowNoDepartment: allowNoDepartment,
+          );
+          if (created != null) onCreated(created);
+        },
+      ),
+    );
+  }
+}
+
+/// A new organization, in a department or in none.
+///
+/// "No department" is a choice, not a default left blank: a member of an
+/// organization with a department must carry it, and the server refuses
+/// one sent without it.
+class _AddOrganizationSheet extends StatefulWidget {
+  const _AddOrganizationSheet({this.departmentId, this.allowNoDepartment = true});
+
+  final String? departmentId;
+  final bool allowNoDepartment;
+
+  @override
+  State<_AddOrganizationSheet> createState() => _AddOrganizationSheetState();
+}
+
+class _AddOrganizationSheetState extends State<_AddOrganizationSheet> {
+  final _code = TextEditingController();
+  final _name = TextEditingController();
+  late String? _departmentId = widget.departmentId;
+
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _code.text.trim().toUpperCase();
+    final name = _name.text.trim();
+    final problem = _departmentId == null
+        ? (widget.allowNoDepartment
+              ? 'Choose its department, or No department.'
+              : 'Choose its department.')
+        : code.isEmpty
+        ? 'Enter a short code, like JPSSITE.'
+        : name.isEmpty
+        ? 'Enter its full name.'
+        : null;
+    if (problem != null) {
+      setState(() => _error = problem);
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    final app = context.read<AppState>();
+    final error = await app.createOrganization(
+      code: code,
+      name: name,
+      departmentId: departmentOrNull(_departmentId),
+    );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _submitting = false;
+        _error = error;
+      });
+      return;
+    }
+    // createOrganization appends what the server made.
+    Navigator.of(context).pop(app.organizations.last);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+
+    return BrutSheet(
+      title: 'Add an organization',
+      subtitle:
+          'It appears in every organization picker at once. Its members are '
+          'added through the roster.',
+      footer: BrutButton(
+        label: 'Add organization',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Adding…',
+        onPressed: _submit,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutDropdown<String>(
+            label: 'Department',
+            value: _departmentId,
+            hint: 'Select a department',
+            items: [
+              for (final d in app.departments)
+                DropdownMenuItem(value: d.id, child: Text(d.label)),
+              if (widget.allowNoDepartment)
+                const DropdownMenuItem(
+                  value: kNoDepartment,
+                  child: Text('No department'),
+                ),
+            ],
+            onChanged: (id) => setState(() => _departmentId = id),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _departmentId == kNoDepartment
+                ? 'Its members have no department, and its proposals go '
+                      'from the Moderator straight to the SDS Office.'
+                : 'Its members carry this department, and its proposals '
+                      'go to that department\'s Dean.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Code',
+            controller: _code,
+            hint: 'JPSSITE',
+            maxLength: 30,
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Full name',
+            controller: _name,
+            hint: 'Junior Philippine Student Society for IT',
+            maxLength: 150,
+            textCapitalization: TextCapitalization.words,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AddDepartmentSheet extends StatefulWidget {
+  const _AddDepartmentSheet();
+
+  @override
+  State<_AddDepartmentSheet> createState() => _AddDepartmentSheetState();
+}
+
+class _AddDepartmentSheetState extends State<_AddDepartmentSheet> {
+  final _code = TextEditingController();
+  final _name = TextEditingController();
+  final _description = TextEditingController();
+
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    _name.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _code.text.trim().toUpperCase();
+    final name = _name.text.trim();
+    if (code.isEmpty || name.isEmpty) {
+      setState(() => _error = 'Enter a code and a full name.');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    final description = _description.text.trim();
+    final error = await context.read<AppState>().createDepartment(
+      code: code,
+      name: name,
+      description: description.isEmpty ? null : description,
+    );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _submitting = false;
+        _error = error;
+      });
+      return;
+    }
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$code added.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutSheet(
+      title: 'Add a department',
+      subtitle: 'Then add its organizations, and an Admin to act as its Dean.',
+      footer: BrutButton(
+        label: 'Add department',
+        size: BrutSize.large,
+        busy: _submitting,
+        busyLabel: 'Adding…',
+        onPressed: _submit,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BrutTextField(
+            label: 'Code',
+            controller: _code,
+            hint: 'CITE',
+            maxLength: 20,
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Full name',
+            controller: _name,
+            hint: 'College of Information Technology and Engineering',
+            maxLength: 150,
+            textCapitalization: TextCapitalization.words,
+          ),
+          const SizedBox(height: 14),
+          BrutTextField(
+            label: 'Description (optional)',
+            controller: _description,
+            maxLines: 3,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            BrutInlineMessage(text: _error!, tone: BrutTone.coral),
+          ],
         ],
       ),
     );

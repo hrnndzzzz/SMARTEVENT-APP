@@ -225,7 +225,7 @@ abstract final class SapProposalFlow {
       submitNow: false,
       // Null for every proposer but a Super Admin, whose own assignment
       // the server applies.
-      departmentId: form.scopeDepartmentId,
+      departmentId: departmentOrNull(form.scopeDepartmentId),
       organizationId: form.scopeOrganizationId,
     );
 
@@ -281,6 +281,7 @@ abstract final class SapProposalFlow {
 
     final account = app.currentAccount;
     if (account == null) return;
+    if (app.isDepartmentless) form.noDepartment = true;
 
     // The account's own names first; the lists are only a fallback for an
     // older backend that sends the ids alone.
@@ -328,6 +329,13 @@ class SapProposalStatus extends StatelessWidget {
       // The Moderator and Dean come before the SDS Office. Without this
       // it fell through to "Waiting on the SDS Office", which is not yet
       // true of it.
+      // An organization in no department has no Dean.
+      SapState.pendingDepartmentReview when form.noDepartment => (
+        'With the Moderator',
+        'They approve it before it goes to the SDS Office. If they return '
+            'it, it opens for you again with their remarks.',
+        BrutTone.sun,
+      ),
       SapState.pendingDepartmentReview => (
         'With the Moderator and Dean',
         'They approve it before it goes to the SDS Office. If one of them '

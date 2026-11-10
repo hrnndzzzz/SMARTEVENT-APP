@@ -13,8 +13,16 @@ class ReportsService {
   final ApiClient _client;
   ReportsService(this._client);
 
-  Future<DashboardSummary> dashboard() async {
-    final response = await _client.get('/analytics/dashboard');
+  /// [organizationId] narrows it to one organization. It never widens: the
+  /// server applies the account's own scope first, so an organization
+  /// outside it comes back as zeros.
+  Future<DashboardSummary> dashboard({String? organizationId}) async {
+    final response = await _client.get(
+      '/analytics/dashboard',
+      query: organizationId == null
+          ? null
+          : {'organization_id': organizationId},
+    );
     return DashboardSummary.fromJson(response as Map<String, dynamic>);
   }
 
@@ -66,6 +74,7 @@ class ReportsService {
     String? schoolYear,
     Semester? semester,
     EventScope? eventScope,
+    String? organizationId,
   }) async {
     final response = await _client.get(
       '/reports/financial',
@@ -75,6 +84,7 @@ class ReportsService {
         schoolYear: schoolYear,
         semester: semester,
         eventScope: eventScope,
+        organizationId: organizationId,
       ),
     );
     return ConsolidatedFinancialReport.fromJson(
@@ -92,10 +102,16 @@ class ReportsService {
 
   // ---- Exports -----------------------------------------------------------
 
-  Future<DownloadedFile> exportDashboard(ExportFormat format) {
+  Future<DownloadedFile> exportDashboard(
+    ExportFormat format, {
+    String? organizationId,
+  }) {
     return _client.download(
       '/reports/dashboard/export',
-      query: {'format': format.wireName},
+      query: {
+        'format': format.wireName,
+        if (organizationId != null) 'organization_id': organizationId,
+      },
       expectedContentType: format.expectedContentType,
       fallbackFilename: 'dashboard.${format.wireName}',
     );
@@ -131,6 +147,7 @@ class ReportsService {
     String? schoolYear,
     Semester? semester,
     EventScope? eventScope,
+    String? organizationId,
   }) {
     return _client.download(
       '/reports/financial/export',
@@ -141,6 +158,7 @@ class ReportsService {
           schoolYear: schoolYear,
           semester: semester,
           eventScope: eventScope,
+          organizationId: organizationId,
         ),
         'format': format.wireName,
       },
@@ -157,6 +175,7 @@ class ReportsService {
     String? schoolYear,
     Semester? semester,
     EventScope? eventScope,
+    String? organizationId,
   }) {
     final now = DateTime.now();
     final reference =
@@ -170,6 +189,7 @@ class ReportsService {
       if (schoolYear != null) 'school_year': schoolYear,
       if (semester != null) 'semester': semester.wireName,
       if (eventScope != null) 'event_scope': eventScope.wireName,
+      if (organizationId != null) 'organization_id': organizationId,
     };
   }
 

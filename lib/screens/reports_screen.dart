@@ -371,6 +371,8 @@ class _Filters extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
+          const ReportOrganizationPicker(),
+          const SizedBox(height: 14),
           const MonoLabel('Event scope'),
           const SizedBox(height: 8),
           Wrap(
