@@ -128,8 +128,8 @@ Where they are not already covered above.
 | G13 | Inventory records linked to the event they are for | **done** *(27 Oct)* — items carry an event and the list badges "No event link" |
 | G14 | Classify inventory transactions: acquisition, purchase, other | **done** *(31 Oct)* — `InventoryMovementType` |
 | G15 | Inventory updated only after a purchase completes | **done** *(27 Oct)* — purchase completion creates the item as an unconfirmed draft |
-| G16 | Reports split by department and organisation, with filters | **blocked** *(31 Oct)* — the reports routes scope by the caller's own department and take no filter. A backend ask, not client work |
-| G17 | A school year on every event record | partly — Part 1 asks for it |
+| G16 | Reports split by department and organisation, with filters | **done** *(10 Nov)* — the backend ask landed in #36. `ReportsService` takes an `organizationId`, the reports screen offers the picker, and organizations can now sit outside a department |
+| G17 | A school year on every event record | **done** — Part 1 asks for it, the event carries it, and both the list and the detail print it beside the semester and scope |
 | G18 | Financial reports by school year and semester | **done** *(31 Oct)* — school year and semester dropdowns appear when the period needs them |
 
 ---
