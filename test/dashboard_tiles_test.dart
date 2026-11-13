@@ -76,7 +76,8 @@ void main() {
       expect(
         find.text('BUDGET USED'),
         findsNothing,
-        reason: 'the tile fills as the budget goes; a bar as well said '
+        reason:
+            'the tile fills as the budget goes; a bar as well said '
             'the same thing twice',
       );
     });
@@ -93,15 +94,14 @@ void main() {
   });
 
   group('the lists below', () {
-    testWidgets('the events list is gone; the hold carries it', (
-      tester,
-    ) async {
+    testWidgets('the events list is gone; the hold carries it', (tester) async {
       final app = await open(tester);
 
       expect(
         find.text('Your events'),
         findsNothing,
-        reason: 'holding the Events tile shows all of them, and the '
+        reason:
+            'holding the Events tile shows all of them, and the '
             'Events tab is one tap away',
       );
       expect(find.text('Analytics'), findsOneWidget);
@@ -165,6 +165,47 @@ void main() {
       }
 
       expect(find.text('Expenses'), findsWidgets);
+    });
+  });
+
+  group('the Analytics heading has room', () {
+    // It had none. The heading sat flush against the tile row above and
+    // its text crossed the cards' drop shadow — caught on the phone,
+    // because a widget test that only asks "is it present?" cannot see
+    // two things touching.
+    testWidgets('it clears the tiles above it', (tester) async {
+      await open(tester);
+
+      final heading = find.text('Analytics');
+      expect(heading, findsOneWidget);
+
+      final tiles = tester
+          .widgetList<Widget>(find.text('Low stock'))
+          .isNotEmpty;
+      expect(tiles, isTrue, reason: 'the bottom-right tile anchors the row');
+
+      final tileBottom = tester.getBottomLeft(find.text('Low stock')).dy;
+      final headingTop = tester.getTopLeft(heading).dy;
+
+      expect(
+        headingTop - tileBottom,
+        greaterThan(24),
+        reason:
+            'a section heading needs more air than the gap between '
+            'two tiles, and the cards below their label still have '
+            'padding and a shadow to clear',
+      );
+    });
+
+    testWidgets('it sits above the chart, not on it', (tester) async {
+      await open(tester);
+
+      final headingBottom = tester.getBottomLeft(find.text('Analytics')).dy;
+      final chartTop = tester
+          .getTopLeft(find.text('SPENDING, LAST 6 MONTHS'))
+          .dy;
+
+      expect(chartTop, greaterThan(headingBottom));
     });
   });
 }

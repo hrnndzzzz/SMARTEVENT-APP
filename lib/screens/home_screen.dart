@@ -271,6 +271,12 @@ class HomeScreen extends StatelessWidget {
           // The chart only. The three counts it used to sit under are
           // in the grid at the top now.
           if (app.spendingTrends.length > 1) ...[
+            // A section gap, which this heading never had: it sat
+            // directly on the tile row above and its text overlapped
+            // the cards' drop shadow. Every other block on this screen
+            // is separated, and a heading needs more room than the
+            // gap between two tiles, not less.
+            const SizedBox(height: AppLayout.section),
             BrutSectionTitle(
               'Analytics',
               aside: _SeeAll(onTap: () => _open(context, 'reports')),
