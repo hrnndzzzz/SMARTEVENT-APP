@@ -157,7 +157,7 @@ extension BrutPaletteOf on BuildContext {
   /// The outline every container and control wears.
   /// The ordinary outline: a hairline that separates a card from the
   /// cream behind it and nothing more.
-  BorderSide get side => BorderSide(color: palette.line, width: 1);
+  BorderSide get side => BorderSide(color: palette.ink, width: 1);
 
   /// An outline that is carrying meaning rather than shape.
   ///

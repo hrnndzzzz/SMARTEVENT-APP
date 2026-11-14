@@ -15,37 +15,37 @@ class AppColors {
 
   // ── Canvas and ink ────────────────────────────────────────────────────
   /// Screen background.
-  static const Color canvas = Color(0xFFF2EDE7);
+  static const Color canvas = Color(0xFFF1E7D5);
 
   /// Cards, inputs, sheets, neutral buttons.
-  static const Color surface = Color(0xFFFBF8F5);
+  static const Color surface = Color(0xFFFCF4E4);
 
   /// Text, outlines, icons. Every border in the app is this colour.
-  static const Color ink = Color(0xFF2B2A27);
+  static const Color ink = Color(0xFF14110C);
 
   /// Hard shadows. Same value as [ink] — they are the same mark.
   static const Color shadow = Color(0xFF1A1A1A);
 
   // ── Accents ───────────────────────────────────────────────────────────
   /// The brand, and every primary action.
-  static const Color brand = Color(0xFF6B7F9E);
+  static const Color brand = Color(0xFFFFE24D);
 
   /// Needs attention, pending, waiting.
-  static const Color sun = Color(0xFFD9A441);
+  static const Color sun = Color(0xFFFFE24D);
 
   /// Done, approved, correct.
-  static const Color mint = Color(0xFF5F7142);
+  static const Color mint = Color(0xFF8FB46B);
 
   /// Small "on" signals only: a switch that is on, an online dot.
   static const Color leaf = Color(0xFF22C55E);
 
   /// Urgent, rejected, over budget, offline.
-  static const Color coral = Color(0xFFC25A4D);
+  static const Color coral = Color(0xFFE2543F);
 
   /// CITE's own orange. Added to the palette for the department rather
   /// than borrowing a status colour — it sits in the same soft-pop
   /// register and carries ink text at 7.3:1.
-  static const Color orange = Color(0xFFD4703F);
+  static const Color orange = Color(0xFFF26B21);
 
   /// Rare. Destructive emphasis only.
   static const Color alert = Color(0xFFEF4444);
@@ -66,7 +66,10 @@ class AppColors {
 
   // ── Neutrals ──────────────────────────────────────────────────────────
   /// Disabled fills, progress tracks, hairline panels.
-  static const Color line = Color(0xFFE6DED4);
+  /// Not only a rule. This is also the fill behind a progress bar, the
+  /// unreached half of a step bar and a disabled chip, so it has to stay
+  /// light: setting it to the outline colour turned every track black.
+  static const Color line = Color(0xFFE3D9C6);
 
   /// Disabled borders and inactive icons.
   static const Color muted = Color(0xFF94A3B8);

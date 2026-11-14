@@ -21,7 +21,7 @@ import 'palette.dart';
 class AppText {
   AppText._();
 
-  static const String headerFamily = 'Lexend';
+  static const String headerFamily = 'IBMPlexMono';
   static const String bodyFamily = 'Lexend';
   static const String monoFamily = 'IBMPlexMono';
 
@@ -163,13 +163,13 @@ class AppRadius {
   AppRadius._();
 
   /// Cards, sheets, big tiles.
-  static const double card = 22;
+  static const double card = 6;
 
   /// List rows, choice cards, metric tiles, toasts.
   static const double row = 12;
 
   /// Buttons, inputs, selects, chips, badges.
-  static const double control = 8;
+  static const double control = 4;
 
   static const BorderRadius cardAll = BorderRadius.all(Radius.circular(card));
   static const BorderRadius rowAll = BorderRadius.all(Radius.circular(row));
@@ -217,17 +217,17 @@ class AppShadows {
 
   /// Chips, list rows, small buttons inside cards.
   static const List<BoxShadow> sm = [
-    BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 2),
+    
   ];
 
   /// Buttons, cards, selected choices.
   static const List<BoxShadow> base = [
-    BoxShadow(color: Color(0x0F000000), offset: Offset(0, 2), blurRadius: 6),
+    
   ];
 
   /// Sheets, menus, popovers.
   static const List<BoxShadow> lg = [
-    BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24),
+    
   ];
 
   /// Pressed, and disabled.
