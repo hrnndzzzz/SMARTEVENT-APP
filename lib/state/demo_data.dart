@@ -81,8 +81,7 @@ abstract final class DemoData {
     RemoteOrganization(
       id: 'demo-jpssite',
       code: 'JPSSITE',
-      name:
-          'Junior Philippine Student Society for Information Technology',
+      name: 'Junior Philippine Student Society for Information Technology',
       departmentId: 'demo-cite',
     ),
     // Outside any college, so its proposals skip the Dean.
@@ -707,47 +706,86 @@ abstract final class DemoData {
     return switch (inventoryId) {
       // 15 in, 3 out = 12.
       'demo-inv-1' => [
-        move(change: 15, type: InventoryMovementType.openingBalance,
-            reason: 'Counted at the start of the school year',
-            by: 'Demo Admin', daysAgo: 30),
-        move(change: -3, type: InventoryMovementType.issue,
-            reason: 'Registration desks, CITE Week',
-            by: 'Demo Treasurer', daysAgo: 6, eventId: 'demo-ev-2'),
+        move(
+          change: 15,
+          type: InventoryMovementType.openingBalance,
+          reason: 'Counted at the start of the school year',
+          by: 'Demo Admin',
+          daysAgo: 30,
+        ),
+        move(
+          change: -3,
+          type: InventoryMovementType.issue,
+          reason: 'Registration desks, CITE Week',
+          by: 'Demo Treasurer',
+          daysAgo: 6,
+          eventId: 'demo-ev-2',
+        ),
       ],
       // 4 in, 1 written off = 3, which is why it reads low stock.
       'demo-inv-2' => [
-        move(change: 4, type: InventoryMovementType.acquisition,
-            reason: 'Bought with last year\'s remaining budget',
-            by: 'Demo Admin', daysAgo: 28),
-        move(change: -1, type: InventoryMovementType.disposal,
-            reason: 'Receiver failed, beyond repair',
-            by: 'Demo Admin', daysAgo: 9),
+        move(
+          change: 4,
+          type: InventoryMovementType.acquisition,
+          reason: 'Bought with last year\'s remaining budget',
+          by: 'Demo Admin',
+          daysAgo: 28,
+        ),
+        move(
+          change: -1,
+          type: InventoryMovementType.disposal,
+          reason: 'Receiver failed, beyond repair',
+          by: 'Demo Admin',
+          daysAgo: 9,
+        ),
       ],
       // 6 in, 6 out = none left.
       'demo-inv-3' => [
-        move(change: 6, type: InventoryMovementType.openingBalance,
-            reason: 'Counted at the start of the school year',
-            by: 'Demo Admin', daysAgo: 30),
-        move(change: -6, type: InventoryMovementType.issue,
-            reason: 'Lent to the College of Education, not yet returned',
-            by: 'Demo Treasurer', daysAgo: 4),
+        move(
+          change: 6,
+          type: InventoryMovementType.openingBalance,
+          reason: 'Counted at the start of the school year',
+          by: 'Demo Admin',
+          daysAgo: 30,
+        ),
+        move(
+          change: -6,
+          type: InventoryMovementType.issue,
+          reason: 'Lent to the College of Education, not yet returned',
+          by: 'Demo Treasurer',
+          daysAgo: 4,
+        ),
       ],
       // 500 in, 260 out = 240.
       'demo-inv-4' => [
-        move(change: 500, type: InventoryMovementType.purchase,
-            reason: 'Ream for the semester',
-            by: 'Demo Treasurer', daysAgo: 21),
-        move(change: -260, type: InventoryMovementType.issue,
-            reason: 'Certificates for CITE Week',
-            by: 'Demo Treasurer', daysAgo: 5, eventId: 'demo-ev-2'),
+        move(
+          change: 500,
+          type: InventoryMovementType.purchase,
+          reason: 'Ream for the semester',
+          by: 'Demo Treasurer',
+          daysAgo: 21,
+        ),
+        move(
+          change: -260,
+          type: InventoryMovementType.issue,
+          reason: 'Certificates for CITE Week',
+          by: 'Demo Treasurer',
+          daysAgo: 5,
+          eventId: 'demo-ev-2',
+        ),
       ],
       // The drafted one: a single movement, the purchase that made it,
       // linked back to the expense line that paid for it.
       'demo-inv-5' => [
-        move(change: 2, type: InventoryMovementType.purchase,
-            reason: 'From completing the Hack the Future purchase',
-            by: 'Demo Treasurer', daysAgo: 2, eventId: 'demo-ev-1',
-            expenseItemId: 'demo-exi-1'),
+        move(
+          change: 2,
+          type: InventoryMovementType.purchase,
+          reason: 'From completing the Hack the Future purchase',
+          by: 'Demo Treasurer',
+          daysAgo: 2,
+          eventId: 'demo-ev-1',
+          expenseItemId: 'demo-exi-1',
+        ),
       ],
       _ => const [],
     };
@@ -1215,7 +1253,10 @@ abstract final class DemoProposals {
           'Write up findings the way an employer expects.',
       budget: [
         // The paper gives this one a flat fee and no count.
-        SapBudgetItem(particulars: 'Guest speaker honorarium', amount: '2000.00'),
+        SapBudgetItem(
+          particulars: 'Guest speaker honorarium',
+          amount: '2000.00',
+        ),
         // These two read across the way the paper does, so the demo
         // shows the quantity and unit cost columns rather than only the
         // rows that have neither.

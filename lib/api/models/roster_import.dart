@@ -47,8 +47,7 @@ class RosterImportRejected implements Exception {
 
     return RosterImportRejected([
       for (final row in rows)
-        if (row is Map)
-          RosterRowError.fromJson(Map<String, dynamic>.from(row)),
+        if (row is Map) RosterRowError.fromJson(Map<String, dynamic>.from(row)),
     ]);
   }
 

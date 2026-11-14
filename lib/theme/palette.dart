@@ -165,8 +165,7 @@ extension BrutPaletteOf on BuildContext {
   /// a locked choice has no fill and no shadow, so the outline is the
   /// whole signal. It stayed full ink when [side] became a hairline,
   /// because flattening the look must not flatten what the look says.
-  BorderSide get emphaticSide =>
-      BorderSide(color: palette.ink, width: 1.5);
+  BorderSide get emphaticSide => BorderSide(color: palette.ink, width: 1.5);
 
   /// The foreground that belongs on [fill]: dark ink on anything bright
   /// enough to carry it, light ink otherwise. Measured rather than

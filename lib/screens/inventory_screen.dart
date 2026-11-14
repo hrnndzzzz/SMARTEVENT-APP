@@ -9,6 +9,7 @@ import '../widgets/event_picker_items.dart';
 import '../widgets/last_change_note.dart';
 import '../widgets/module_band.dart';
 import 'inventory_detail_screen.dart';
+import '../theme/module_identity.dart';
 
 /// The equipment catalog and its stock.
 ///
@@ -63,9 +64,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ModuleBand(
-            icon: Icons.warehouse_outlined,
-            title: 'Inventory',
-            tone: BrutTone.brand,
+            module: Module.inventory,
             subtitle: 'Stock changes only through recorded movements.',
           ),
           const SizedBox(height: AppLayout.tight),

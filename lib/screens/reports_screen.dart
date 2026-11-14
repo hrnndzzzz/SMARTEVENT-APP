@@ -12,6 +12,7 @@ import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import '../theme/peso.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Consolidated financial reports.
 ///
@@ -194,9 +195,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         children: [
           const SizedBox(height: AppLayout.contentPadding),
           const ModuleBand(
-            icon: Icons.insights_outlined,
-            title: 'Financial reports',
-            tone: BrutTone.orange,
+            module: Module.reports,
             subtitle: 'Income and approved spending over a period.',
           ),
           const SizedBox(height: AppLayout.contentPadding),

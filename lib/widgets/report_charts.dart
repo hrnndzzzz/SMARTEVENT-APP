@@ -64,9 +64,11 @@ class EventBalanceChart extends StatelessWidget {
 
     final peak = events.fold(
       0.0,
-      (most, e) => [most, e.totalIncome, e.totalExpenses].reduce(
-        (a, b) => a > b ? a : b,
-      ),
+      (most, e) => [
+        most,
+        e.totalIncome,
+        e.totalExpenses,
+      ].reduce((a, b) => a > b ? a : b),
     );
     if (peak <= 0) {
       return const _NoData(message: 'Nothing recorded against these events.');

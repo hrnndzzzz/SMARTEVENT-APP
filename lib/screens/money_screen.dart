@@ -15,6 +15,7 @@ import 'income_screen.dart';
 import 'receipts_screen.dart';
 import 'scanner_screen.dart';
 import '../theme/peso.dart';
+import '../theme/module_identity.dart';
 
 /// Everything about money, in one place.
 ///
@@ -39,9 +40,7 @@ class MoneyScreen extends StatelessWidget {
         children: [
           const SizedBox(height: AppLayout.between),
           const ModuleBand(
-            icon: Icons.account_balance_wallet_outlined,
-            title: 'Money',
-            tone: BrutTone.orange,
+            module: Module.money,
             subtitle: 'Budget, expenses, receipts and income.',
           ),
           const SizedBox(height: AppLayout.tight),

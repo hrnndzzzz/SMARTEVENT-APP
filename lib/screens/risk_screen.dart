@@ -7,6 +7,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../theme/peso.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Expenses the backend has flagged for a closer look.
 ///
@@ -87,9 +88,7 @@ class _RiskScreenState extends State<RiskScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ModuleBand(
-            icon: Icons.outlined_flag,
-            title: 'Flagged for review',
-            tone: BrutTone.orange,
+            module: Module.flagged,
             subtitle: 'A flag is a prompt to look, not a finding.',
           ),
           const SizedBox(height: 14),

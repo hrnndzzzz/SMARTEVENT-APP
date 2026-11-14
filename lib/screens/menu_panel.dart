@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 import 'search_screen.dart';
+import '../theme/module_identity.dart';
 
 /// The menu, one swipe right of the dashboard.
 ///
@@ -169,9 +170,11 @@ class _Band extends StatelessWidget {
   }
 
   Widget _bandBody(BuildContext context, Color fill, Color on, int? count) {
-    final accent = index.isOdd
-        ? BrutTone.brand.fill(context)
-        : BrutTone.orange.fill(context);
+    // The module's own colour, not an alternating pair. The menu used
+    // to go blue, orange, blue down the list, which made the colour a
+    // property of position rather than of the thing — so the menu and
+    // the band at the top of the screen it opened disagreed.
+    final accent = moduleForAreaId(area.id)?.color ?? context.palette.muted;
     final onAccent = context.foregroundOn(accent);
 
     return Container(

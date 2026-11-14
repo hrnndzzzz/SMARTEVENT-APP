@@ -216,19 +216,13 @@ class AppShadows {
   AppShadows._();
 
   /// Chips, list rows, small buttons inside cards.
-  static const List<BoxShadow> sm = [
-    
-  ];
+  static const List<BoxShadow> sm = [];
 
   /// Buttons, cards, selected choices.
-  static const List<BoxShadow> base = [
-    
-  ];
+  static const List<BoxShadow> base = [];
 
   /// Sheets, menus, popovers.
-  static const List<BoxShadow> lg = [
-    
-  ];
+  static const List<BoxShadow> lg = [];
 
   /// Pressed, and disabled.
   static const List<BoxShadow> none = <BoxShadow>[];

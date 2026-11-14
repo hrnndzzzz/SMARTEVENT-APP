@@ -42,9 +42,7 @@ abstract final class ColourPulse {
     if (overlay == null) return false;
 
     late final OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (_) => _Pulse(onDone: entry.remove),
-    );
+    entry = OverlayEntry(builder: (_) => _Pulse(onDone: entry.remove));
     overlay.insert(entry);
     return true;
   }

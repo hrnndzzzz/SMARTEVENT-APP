@@ -1209,9 +1209,7 @@ class BrutScreen extends StatelessWidget {
       // Without this a short page refuses to move, so the gesture is
       // there on a full list and missing on an empty one — which is
       // exactly when someone wants to pull.
-      physics: onRefresh == null
-          ? null
-          : const AlwaysScrollableScrollPhysics(),
+      physics: onRefresh == null ? null : const AlwaysScrollableScrollPhysics(),
       padding: gutters,
       child: child,
     );

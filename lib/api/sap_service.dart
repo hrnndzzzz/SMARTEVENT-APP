@@ -218,10 +218,7 @@ class SapService {
   /// back is then a return for changes, not a withdrawal. It keeps the
   /// revision number and re-stages the attachments for the next submit,
   /// so nothing already submitted is erased.
-  Future<SapProposal> withdraw(
-    String eventId, {
-    required int expectedVersion,
-  }) {
+  Future<SapProposal> withdraw(String eventId, {required int expectedVersion}) {
     return _guard(() async {
       final response = await _client.post(
         '${_base(eventId)}/withdraw',

@@ -10,6 +10,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/scope_picker.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Roster, accounts and audit.
 ///
@@ -60,9 +61,7 @@ class _AdminScreenState extends State<AdminScreen> {
         children: [
           const SizedBox(height: AppLayout.contentPadding),
           const ModuleBand(
-            icon: Icons.manage_accounts_outlined,
-            title: 'Administration',
-            tone: BrutTone.brand,
+            module: Module.admin,
             subtitle: 'Roster, accounts and the audit log.',
           ),
           // Departments and organizations were SQL-only before this.

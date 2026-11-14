@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../theme/module_identity.dart';
+import '../theme/palette.dart';
 
 /// The block at the top of a module that says which module it is.
 ///
@@ -18,16 +20,22 @@ import '../theme/brut.dart';
 class ModuleBand extends StatelessWidget {
   const ModuleBand({
     super.key,
-    required this.icon,
-    required this.title,
-    required this.tone,
+    required this.module,
+    this.title,
+    this.icon,
     this.subtitle,
     this.trailing,
   });
 
-  final IconData icon;
-  final String title;
-  final BrutTone tone;
+  /// Which part of the app this is. Carries the colour, and the title
+  /// and icon unless the screen overrides them.
+  final Module module;
+
+  /// For a screen inside a module rather than the module's own front
+  /// page — Receipts under Money. It keeps the module's colour, because
+  /// the point is that it still feels like the money area.
+  final String? title;
+  final IconData? icon;
 
   /// One line under the title. The module's own blurb, when it has one
   /// worth repeating here.
@@ -40,8 +48,8 @@ class ModuleBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fill = tone.fill(context);
-    final ink = tone.foreground(context);
+    final fill = module.color;
+    final ink = context.foregroundOn(fill);
 
     return BrutSurface(
       fill: fill,
@@ -59,7 +67,7 @@ class ModuleBand extends StatelessWidget {
               color: ink.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, size: 22, color: ink),
+            child: Icon(icon ?? module.icon, size: 22, color: ink),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -67,7 +75,7 @@ class ModuleBand extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  title ?? module.title,
                   style: AppText.display.copyWith(fontSize: 26, color: ink),
                 ),
                 if (subtitle case final line?) ...[

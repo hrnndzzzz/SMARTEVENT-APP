@@ -17,9 +17,9 @@ class ReportChartTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BrutCard(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => _ChartPage(chart: chart)),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => _ChartPage(chart: chart))),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -52,10 +52,7 @@ class ReportChartTile extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.contain,
               alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: 260,
-                child: chart.build(context),
-              ),
+              child: SizedBox(width: 260, child: chart.build(context)),
             ),
           ),
         ],

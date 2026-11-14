@@ -15,6 +15,7 @@ import '../widgets/event_status.dart';
 import '../widgets/last_change_note.dart';
 import 'event_detail_screen.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Every proposal, as a list or as a month.
 ///
@@ -53,11 +54,7 @@ class _EventsScreenState extends State<EventsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const ModuleBand(
-            icon: Icons.event_outlined,
-            title: 'Events',
-            tone: BrutTone.brand,
-          ),
+          const ModuleBand(module: Module.events),
           const SizedBox(height: AppLayout.tight),
           // The three controls keep their own row under the band. In
           // the band's trailing slot they had to share it with the

@@ -7,6 +7,7 @@ import '../widgets/app_header.dart';
 import 'receipt_review_screen.dart';
 import '../theme/peso.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Receipts and the duplicate-review queue.
 ///
@@ -41,9 +42,9 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ModuleBand(
-            icon: Icons.receipt_long_outlined,
+            module: Module.money,
             title: 'Receipts',
-            tone: BrutTone.orange,
+            icon: Icons.receipt_long_outlined,
             subtitle: 'Proof of spending, and anything that looks duplicated.',
           ),
           const SizedBox(height: 14),

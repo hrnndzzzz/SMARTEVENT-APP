@@ -31,7 +31,10 @@ class AppColors {
   static const Color brand = Color(0xFFFFE24D);
 
   /// Needs attention, pending, waiting.
-  static const Color sun = Color(0xFFFFE24D);
+  /// Waiting. A deeper gold than [brand], which is the bright yellow a
+  /// primary action wears — the two were briefly the same swatch, which
+  /// made "waiting on a decision" and "press this" indistinguishable.
+  static const Color sun = Color(0xFFF2C230);
 
   /// Done, approved, correct.
   static const Color mint = Color(0xFF8FB46B);

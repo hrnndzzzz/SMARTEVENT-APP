@@ -193,8 +193,8 @@ class _NoteSheetState extends State<_NoteSheet> {
                 for (final note in thread) ...[
                   _NoteRow(
                     note: note,
-                    onToggle: () => widget.notes
-                        .setResolved(note.id, !note.resolved),
+                    onToggle: () =>
+                        widget.notes.setResolved(note.id, !note.resolved),
                   ),
                   const SizedBox(height: 8),
                 ],

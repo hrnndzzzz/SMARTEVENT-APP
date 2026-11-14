@@ -8,6 +8,7 @@ import '../theme/brut.dart';
 import 'sds_proposals_screen.dart';
 import '../widgets/app_header.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Proposal letters.
 ///
@@ -69,9 +70,9 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ModuleBand(
-            icon: Icons.mail_outline,
+            module: Module.events,
             title: 'Proposal letters',
-            tone: BrutTone.brand,
+            icon: Icons.mail_outline,
           ),
           const SizedBox(height: 4),
           Text(switch (role) {

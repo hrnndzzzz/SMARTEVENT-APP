@@ -92,7 +92,9 @@ class AdminService {
       );
       return RosterImportResult.fromJson(response as Map<String, dynamic>);
     } on ApiException catch (error) {
-      final rejected = RosterImportRejected.from(error.detail ?? const <String, Object?>{});
+      final rejected = RosterImportRejected.from(
+        error.detail ?? const <String, Object?>{},
+      );
       if (rejected != null) throw rejected;
       rethrow;
     }

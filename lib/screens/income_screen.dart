@@ -9,6 +9,7 @@ import '../widgets/brut_date_picker.dart';
 import '../widgets/event_picker_items.dart';
 import '../theme/peso.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Income recorded against events, by fund source.
 ///
@@ -59,9 +60,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ModuleBand(
-            icon: Icons.savings_outlined,
+            module: Module.money,
             title: 'Income',
-            tone: BrutTone.orange,
+            icon: Icons.savings_outlined,
             subtitle: 'Money received, by where it came from.',
           ),
           const SizedBox(height: 12),

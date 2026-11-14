@@ -29,8 +29,7 @@ class BudgetPeek extends StatelessWidget {
 
     // Tightest first: the one about to run out is the reason anyone
     // held this tile, and it should not be at the bottom of the list.
-    final rows = [...categories]
-      ..sort((a, b) => _used(b).compareTo(_used(a)));
+    final rows = [...categories]..sort((a, b) => _used(b).compareTo(_used(a)));
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -46,8 +45,10 @@ class BudgetPeek extends StatelessWidget {
 
   static double _used(Category c) => c.allocatedBudget <= 0
       ? 0
-      : ((c.allocatedBudget - c.remainingBudget) / c.allocatedBudget)
-            .clamp(0.0, 1.0);
+      : ((c.allocatedBudget - c.remainingBudget) / c.allocatedBudget).clamp(
+          0.0,
+          1.0,
+        );
 }
 
 class _CategoryRow extends StatelessWidget {

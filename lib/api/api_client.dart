@@ -390,28 +390,30 @@ class ApiClient {
     Map<String, String> fields = const {},
   }) async {
     _guardWrite(path);
-    return _counted(_send(() async {
-      final request = http.MultipartRequest('POST', _uri(path))
-        ..headers.addAll(_authHeaders)
-        ..fields.addAll(fields)
-        ..files.add(
-          http.MultipartFile.fromBytes(
-            field,
-            bytes,
-            filename: filename,
-            contentType: MediaType.parse(contentType),
-          ),
-        );
+    return _counted(
+      _send(() async {
+        final request = http.MultipartRequest('POST', _uri(path))
+          ..headers.addAll(_authHeaders)
+          ..fields.addAll(fields)
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              field,
+              bytes,
+              filename: filename,
+              contentType: MediaType.parse(contentType),
+            ),
+          );
 
-      // Sent through the injected client like every other method here.
-      // `request.send()` would quietly make its own, which ignores any
-      // client this was constructed with and, in a test, reaches the
-      // real network.
-      return http.Response.fromStream(await _httpClient.send(request));
-      // Up to 10 MB from a phone, then storage (30 s) and, for a receipt
-      // scan, OCR (30 s) on the server: twenty seconds gave up on uploads
-      // that went on to succeed.
-    }, patience: const Duration(seconds: 90)));
+        // Sent through the injected client like every other method here.
+        // `request.send()` would quietly make its own, which ignores any
+        // client this was constructed with and, in a test, reaches the
+        // real network.
+        return http.Response.fromStream(await _httpClient.send(request));
+        // Up to 10 MB from a phone, then storage (30 s) and, for a receipt
+        // scan, OCR (30 s) on the server: twenty seconds gave up on uploads
+        // that went on to succeed.
+      }, patience: const Duration(seconds: 90)),
+    );
   }
 
   /// Fetches a binary response — an export — rather than JSON.

@@ -290,7 +290,8 @@ class SapProgramFlowItem {
 
   factory SapProgramFlowItem.fromJson(Map<String, dynamic> json) =>
       SapProgramFlowItem(
-        start: SapTime.fromWire(json['start'] as String?) ?? const SapTime(0, 0),
+        start:
+            SapTime.fromWire(json['start'] as String?) ?? const SapTime(0, 0),
         end: SapTime.fromWire(json['end'] as String?) ?? const SapTime(0, 0),
         activity: (json['activity'] as String?) ?? '',
       );
@@ -339,9 +340,7 @@ class SapBudgetItem {
     // Rows saved before these existed come back without them, and the
     // server does not backfill: a missing quantity means one.
     quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-    unitCost: json['unit_cost'] == null
-        ? null
-        : json['unit_cost'].toString(),
+    unitCost: json['unit_cost'] == null ? null : json['unit_cost'].toString(),
   );
 
   Map<String, dynamic> toJson() => {
@@ -419,16 +418,16 @@ class SapAffectedClass {
   final SapTime end;
   final String professor;
 
-  factory SapAffectedClass.fromJson(Map<String, dynamic> json) =>
-      SapAffectedClass(
-        yearLevel: (json['year_level'] as String?) ?? '',
-        subject: (json['subject'] as String?) ?? '',
-        classDate:
-            _dateFromWire(json['class_date'] as String?) ?? DateTime(1970),
-        start: SapTime.fromWire(json['start'] as String?) ?? const SapTime(0, 0),
-        end: SapTime.fromWire(json['end'] as String?) ?? const SapTime(0, 0),
-        professor: (json['professor'] as String?) ?? '',
-      );
+  factory SapAffectedClass.fromJson(
+    Map<String, dynamic> json,
+  ) => SapAffectedClass(
+    yearLevel: (json['year_level'] as String?) ?? '',
+    subject: (json['subject'] as String?) ?? '',
+    classDate: _dateFromWire(json['class_date'] as String?) ?? DateTime(1970),
+    start: SapTime.fromWire(json['start'] as String?) ?? const SapTime(0, 0),
+    end: SapTime.fromWire(json['end'] as String?) ?? const SapTime(0, 0),
+    professor: (json['professor'] as String?) ?? '',
+  );
 
   Map<String, dynamic> toJson() => {
     'year_level': yearLevel,
@@ -987,7 +986,8 @@ class SapProposal {
         SapProgramFlowItem.fromJson(row),
     ],
     budgetItems: [
-      for (final row in _rows(json, 'budget-items')) SapBudgetItem.fromJson(row),
+      for (final row in _rows(json, 'budget-items'))
+        SapBudgetItem.fromJson(row),
     ],
     supportRequests: [
       for (final row in _rows(json, 'support-requests'))
@@ -1022,7 +1022,10 @@ class SapProposal {
       json['sds_review'] is Map ? json['sds_review'] as Map : const {};
 
   /// One collection out of the nested `collections` object.
-  static List<Map<String, dynamic>> _rows(Map<String, dynamic> json, String key) {
+  static List<Map<String, dynamic>> _rows(
+    Map<String, dynamic> json,
+    String key,
+  ) {
     final collections = json['collections'];
     if (collections is! Map) return const [];
     final rows = collections[key];
