@@ -669,8 +669,12 @@ class BrutProgressBar extends StatelessWidget {
     super.key,
     required this.value,
     this.tone = BrutTone.brand,
-    this.height = 12,
+    this.height = thickness,
   });
+
+  /// The default height, named so a caller reserving room for a bar it
+  /// may not draw cannot drift from the bar's real size.
+  static const double thickness = 12;
 
   /// 0..1. Clamped, so an over-budget ratio shows a full bar rather than
   /// overflowing the container.

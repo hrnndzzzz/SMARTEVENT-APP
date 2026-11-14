@@ -165,99 +165,116 @@ class HomeScreen extends StatelessWidget {
           // for, and each one is a way into the module behind it.
           //
           // Long-press any of them to look without leaving the page.
-          Row(
-            children: [
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.inventory_2_outlined,
-                  value: '${app.events.length}',
-                  label: 'Events',
-                  opens: 'events',
-                  trend: _Trend.up,
-                  onTap: () => _open(context, 'events'),
-                  peek: _eventsPeek(app),
-                  // Not a sentence: the same bars the list below draws,
-                  // so a hold answers "where has everything got to?".
-                  peekChild: EventProgressPeek(
-                    events: app.events,
-                    onOpen: (event) => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => EventDetailScreen(event: event),
+          //
+          // stretch, not the Row default: centre leaves a shorter card
+          // floating in the middle of its row with a gap top and
+          // bottom. Reserving the bar's space above makes the two the
+          // same height anyway; this keeps them that way if one of them
+          // ever grows a line the other has not got.
+          //
+          // IntrinsicHeight because stretch alone is illegal here: the
+          // Row's height comes from its tallest child, and stretch asks
+          // the children to fill a height that is still being measured.
+          // Two children, so the extra pass costs nothing worth saving.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _StatTile(
+                    icon: Icons.inventory_2_outlined,
+                    value: '${app.events.length}',
+                    label: 'Events',
+                    opens: 'events',
+                    trend: _Trend.up,
+                    onTap: () => _open(context, 'events'),
+                    peek: _eventsPeek(app),
+                    // Not a sentence: the same bars the list below draws,
+                    // so a hold answers "where has everything got to?".
+                    peekChild: EventProgressPeek(
+                      events: app.events,
+                      onOpen: (event) => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => EventDetailScreen(event: event),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppLayout.between),
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.account_balance_wallet_outlined,
-                  value: peso(remaining, decimals: 0),
-                  label: 'of ${peso(allocated, decimals: 0)} left',
-                  peekTitle: 'Budget',
-                  opens: 'money',
-                  // The bar fills with what has been spent while the
-                  // figure counts what is left, so the tile says how
-                  // much remains and shows how far in you are at once.
-                  fill: used,
-                  // Held, it breaks into categories — the same shape
-                  // the events peek takes, so a hold reads the same
-                  // way wherever it is done.
-                  peekChild: BudgetPeek(categories: app.categories),
-                  trend: used >= 0.9 ? _Trend.down : _Trend.up,
-                  onTap: () => _open(context, 'money'),
-                  peek:
-                      '${peso(allocated, decimals: 0)} allocated, '
-                      '${peso(spent, decimals: 0)} approved.\n'
-                      '${(used * 100).round()}% of the budget is used.',
+                const SizedBox(width: AppLayout.between),
+                Expanded(
+                  child: _StatTile(
+                    icon: Icons.account_balance_wallet_outlined,
+                    value: peso(remaining, decimals: 0),
+                    label: 'of ${peso(allocated, decimals: 0)} left',
+                    peekTitle: 'Budget',
+                    opens: 'money',
+                    // The bar fills with what has been spent while the
+                    // figure counts what is left, so the tile says how
+                    // much remains and shows how far in you are at once.
+                    fill: used,
+                    // Held, it breaks into categories — the same shape
+                    // the events peek takes, so a hold reads the same
+                    // way wherever it is done.
+                    peekChild: BudgetPeek(categories: app.categories),
+                    trend: used >= 0.9 ? _Trend.down : _Trend.up,
+                    onTap: () => _open(context, 'money'),
+                    peek:
+                        '${peso(allocated, decimals: 0)} allocated, '
+                        '${peso(spent, decimals: 0)} approved.\n'
+                        '${(used * 100).round()}% of the budget is used.',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: AppLayout.between),
-          Row(
-            children: [
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.fact_check_outlined,
-                  value: '${app.pendingExpenses.length}',
-                  label: 'Awaiting review',
-                  opens: 'expenses',
-                  accent: AppColors.orange,
-                  trend: app.pendingExpenses.isEmpty
-                      ? _Trend.flat
-                      : _Trend.down,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _StatTile(
+                    icon: Icons.fact_check_outlined,
+                    value: '${app.pendingExpenses.length}',
+                    label: 'Awaiting review',
+                    opens: 'expenses',
+                    accent: AppColors.orange,
+                    trend: app.pendingExpenses.isEmpty
+                        ? _Trend.flat
+                        : _Trend.down,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+                    ),
+                    peek: app.pendingExpenses.isEmpty
+                        ? 'Nothing is waiting on a decision.'
+                        : '${app.pendingExpenses.length} expense'
+                              '${app.pendingExpenses.length == 1 ? '' : 's'} '
+                              'waiting on a decision.',
                   ),
-                  peek: app.pendingExpenses.isEmpty
-                      ? 'Nothing is waiting on a decision.'
-                      : '${app.pendingExpenses.length} expense'
-                            '${app.pendingExpenses.length == 1 ? '' : 's'} '
-                            'waiting on a decision.',
                 ),
-              ),
-              const SizedBox(width: AppLayout.between),
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.warehouse_outlined,
-                  value: '${app.dashboard?.lowStockItemCount ?? 0}',
-                  label: 'Low stock',
-                  opens: 'inventory',
-                  accent: AppColors.orange,
-                  trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
-                      ? _Trend.flat
-                      : _Trend.down,
-                  onTap: () => _open(context, 'inventory'),
-                  peek: app.dashboard == null
-                      ? 'The figures have not loaded yet.'
-                      : '${app.dashboard!.lowStockItemCount} item(s) at or '
-                            'below their threshold, '
-                            '${app.dashboard!.draftInventoryCount} draft '
-                            'waiting to be confirmed.',
+                const SizedBox(width: AppLayout.between),
+                Expanded(
+                  child: _StatTile(
+                    icon: Icons.warehouse_outlined,
+                    value: '${app.dashboard?.lowStockItemCount ?? 0}',
+                    label: 'Low stock',
+                    opens: 'inventory',
+                    accent: AppColors.orange,
+                    trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
+                        ? _Trend.flat
+                        : _Trend.down,
+                    onTap: () => _open(context, 'inventory'),
+                    peek: app.dashboard == null
+                        ? 'The figures have not loaded yet.'
+                        : '${app.dashboard!.lowStockItemCount} item(s) at or '
+                              'below their threshold, '
+                              '${app.dashboard!.draftInventoryCount} draft '
+                              'waiting to be confirmed.',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
 
           // ── Your events ──────────────────────────────────────────
@@ -437,17 +454,28 @@ class _StatTile extends StatelessWidget {
           // tint went muddy brown — and it had to dodge the icon. A
           // bar says the same thing in the shape people already read
           // proportions in.
-          if (amount != null) ...[
-            const SizedBox(height: 10),
-            BrutProgressBar(
-              value: amount.clamp(0.0, 1.0),
-              tone: switch (amount) {
-                >= 1 => BrutTone.coral,
-                >= 0.9 => BrutTone.sun,
-                _ => BrutTone.orange,
-              },
-            ),
-          ],
+          //
+          // The room for it is reserved on every tile, drawn or not.
+          // Only the budget has a proportion to show, so it was 19px
+          // taller than the other three: the grid came out at three
+          // different heights and the short tile in its row floated
+          // centred, with a gap above and below. Reserving the space
+          // costs the three tiles nothing and makes the four identical
+          // without a hardcoded height anywhere.
+          const SizedBox(height: 10),
+          SizedBox(
+            height: BrutProgressBar.thickness,
+            child: amount == null
+                ? null
+                : BrutProgressBar(
+                    value: amount.clamp(0.0, 1.0),
+                    tone: switch (amount) {
+                      >= 1 => BrutTone.coral,
+                      >= 0.9 => BrutTone.sun,
+                      _ => BrutTone.orange,
+                    },
+                  ),
+          ),
         ],
       ),
     );

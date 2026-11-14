@@ -6,6 +6,7 @@ import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/notice_shelf.dart';
 import 'package:smartevent/state/reachability.dart';
+import 'package:smartevent/theme/brut.dart';
 import 'package:smartevent/widgets/event_progress_bar.dart';
 
 /// The dashboard, as four figures and a bar.
@@ -206,6 +207,73 @@ void main() {
           .dy;
 
       expect(chartTop, greaterThan(headingBottom));
+    });
+  });
+
+  group('the grid is a grid', () {
+    // Four cards in a 2x2 came out three different heights: only the
+    // budget tile draws a progress bar, so it was ~19px taller than the
+    // other three, and the Row's default centre alignment left the
+    // short card in its row floating with a gap above and below. Caught
+    // by eye on the phone; the suite had never measured a rectangle.
+    Rect tileOf(WidgetTester tester, Finder label) => tester.getRect(
+      find.ancestor(of: label, matching: find.byType(BrutCard)).first,
+    );
+
+    List<Rect> allFour(WidgetTester tester) => [
+      tileOf(tester, find.text('Events')),
+      tileOf(tester, find.textContaining('of ')),
+      tileOf(tester, find.text('Awaiting review')),
+      tileOf(tester, find.text('Low stock')),
+    ];
+
+    testWidgets('all four tiles are exactly the same size', (tester) async {
+      await open(tester);
+
+      final sizes = allFour(tester).map((r) => r.size).toSet();
+
+      expect(
+        sizes,
+        hasLength(1),
+        reason: 'three different heights read as a mistake, not a layout',
+      );
+    });
+
+    testWidgets('each row shares a top and a bottom edge', (tester) async {
+      await open(tester);
+      final [events, budget, review, stock] = allFour(tester);
+
+      expect(events.top, budget.top);
+      expect(events.bottom, budget.bottom);
+      expect(review.top, stock.top);
+      expect(review.bottom, stock.bottom);
+    });
+
+    testWidgets('each column shares a left and a right edge', (tester) async {
+      await open(tester);
+      final [events, budget, review, stock] = allFour(tester);
+
+      expect(events.left, review.left);
+      expect(events.right, review.right);
+      expect(budget.left, stock.left);
+      expect(budget.right, stock.right);
+    });
+
+    testWidgets('the tile without a bar still reserves its room', (
+      tester,
+    ) async {
+      await open(tester);
+
+      // One bar on the screen, four tiles the same height: the other
+      // three are holding the space rather than being padded to match.
+      expect(
+        find.descendant(
+          of: find.byType(BrutCard),
+          matching: find.byType(BrutProgressBar),
+        ),
+        findsOneWidget,
+      );
+      expect(allFour(tester).map((r) => r.height).toSet(), hasLength(1));
     });
   });
 }
