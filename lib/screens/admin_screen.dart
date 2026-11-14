@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/scope_picker.dart';
+import '../widgets/module_band.dart';
 
 /// Roster, accounts and audit.
 ///
@@ -51,16 +52,19 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) {
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppLayout.contentPadding),
-          const Text('Administration', style: AppText.titleBig),
+          const ModuleBand(
+            icon: Icons.manage_accounts_outlined,
+            title: 'Administration',
+            tone: BrutTone.brand,
+            subtitle: 'Roster, accounts and the audit log.',
+          ),
           // Departments and organizations were SQL-only before this.
           if (context.watch<AppState>().currentRole == UserRole.superAdmin) ...[
             const SizedBox(height: AppLayout.tight),
@@ -1224,7 +1228,10 @@ class _NewOrganizationButton extends StatelessWidget {
 /// organization with a department must carry it, and the server refuses
 /// one sent without it.
 class _AddOrganizationSheet extends StatefulWidget {
-  const _AddOrganizationSheet({this.departmentId, this.allowNoDepartment = true});
+  const _AddOrganizationSheet({
+    this.departmentId,
+    this.allowNoDepartment = true,
+  });
 
   final String? departmentId;
   final bool allowNoDepartment;

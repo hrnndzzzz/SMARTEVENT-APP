@@ -40,7 +40,6 @@ class SapPart2Screen extends StatefulWidget {
   /// the event record is made.
   final Future<void> Function(int)? onJumpTo;
 
-
   @override
   State<SapPart2Screen> createState() => _SapPart2ScreenState();
 }
@@ -110,9 +109,9 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
         Navigator.of(context).maybePop();
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_form.error ?? 'Could not save.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_form.error ?? 'Could not save.')));
     }
   }
 
@@ -148,88 +147,88 @@ class _SapPart2ScreenState extends State<SapPart2Screen> {
         if (!didPop) _leave(context);
       },
       child: AnimatedBuilder(
-      animation: _form,
-      builder: (context, _) {
-        return BrutScreen(
-          // One of three when it is being filled in as a run, its own
-          // screen when the SDS Office opens it from their six-part
-          // list.
-          header: widget.step == null
-              ? BrutHeader(
-                  title: 'School Support',
-                  eyebrow: 'Part 2',
-                  onBack: () => _leave(context),
-                )
-              : BrutFlowHeader(
-                  title: 'School Support',
-                  flowName: 'Part 2 of 3',
-                  currentStep: widget.step!,
-                  onBack: () => _leave(context),
-                  steps: [
-                    for (var i = 0; i < ProposalSteps.labels.length; i++)
-                      BrutStep(
-                        label: ProposalSteps.labels[i],
-                        onJump: (widget.onJumpTo != null && i < widget.step!)
-                            ? () => widget.onJumpTo!(i)
-                            : null,
-                      ),
-                  ],
-                ),
-          // One back button, in the header. There were two doing the
-          // same thing, and neither said whether anything was kept.
-          footer: BrutFooter(
-            child: BrutButton(
-              label: widget.step == null ? 'Save' : 'Next: the breakdown',
-              busy: _form.saving,
-              busyLabel: 'Saving',
-              onPressed: _editable ? _save : null,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const BrutInlineMessage(
-                tone: BrutTone.neutral,
-                icon: Icons.info_outline,
-                text:
-                    'Anything ticked here still needs its own requisition '
-                    'form sent to the office concerned.',
-              ),
-              const SizedBox(height: 14),
-
-              // The paper is a grid of tick boxes, and this was eleven
-              // full-width cards stacked down the screen — most of them
-              // holding nothing, because most are not wanted. The grid
-              // is what is being chosen from; what was chosen is filled
-              // in underneath it.
-              _SupportGrid(
-                enabled: _editable,
-                isTicked: (type) => _requestFor(type) != null,
-                onToggle: _toggle,
-              ),
-
-              for (final type in SapSupportType.values)
-                if (_requestFor(type) case final request?) ...[
-                  const SizedBox(height: 10),
-                  _SupportTile(
-                    type: type,
-                    request: request,
-                    enabled: _editable,
-                    takesQuantity: _withQuantity.contains(type),
-                    // Every ticked row on the paper has room written
-                    // beside it — "St. Augustine Bldg. AVR", "Podium",
-                    // "additional 100 chairs" — so none of them is only
-                    // a tick.
-                    takesDetail: true,
-                    onToggle: () => _toggle(type),
-                    onQuantity: (q) => _amend(type, quantity: q),
-                    onDetail: (s) => _amend(type, specify: s),
+        animation: _form,
+        builder: (context, _) {
+          return BrutScreen(
+            // One of three when it is being filled in as a run, its own
+            // screen when the SDS Office opens it from their six-part
+            // list.
+            header: widget.step == null
+                ? BrutHeader(
+                    title: 'School Support',
+                    eyebrow: 'Part 2',
+                    onBack: () => _leave(context),
+                  )
+                : BrutFlowHeader(
+                    title: 'School Support',
+                    flowName: 'Part 2 of 3',
+                    currentStep: widget.step!,
+                    onBack: () => _leave(context),
+                    steps: [
+                      for (var i = 0; i < ProposalSteps.labels.length; i++)
+                        BrutStep(
+                          label: ProposalSteps.labels[i],
+                          onJump: (widget.onJumpTo != null && i < widget.step!)
+                              ? () => widget.onJumpTo!(i)
+                              : null,
+                        ),
+                    ],
                   ),
-                ],
-            ],
-          ),
-        );
-      },
+            // One back button, in the header. There were two doing the
+            // same thing, and neither said whether anything was kept.
+            footer: BrutFooter(
+              child: BrutButton(
+                label: widget.step == null ? 'Save' : 'Next: the breakdown',
+                busy: _form.saving,
+                busyLabel: 'Saving',
+                onPressed: _editable ? _save : null,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const BrutInlineMessage(
+                  tone: BrutTone.neutral,
+                  icon: Icons.info_outline,
+                  text:
+                      'Anything ticked here still needs its own requisition '
+                      'form sent to the office concerned.',
+                ),
+                const SizedBox(height: 14),
+
+                // The paper is a grid of tick boxes, and this was eleven
+                // full-width cards stacked down the screen — most of them
+                // holding nothing, because most are not wanted. The grid
+                // is what is being chosen from; what was chosen is filled
+                // in underneath it.
+                _SupportGrid(
+                  enabled: _editable,
+                  isTicked: (type) => _requestFor(type) != null,
+                  onToggle: _toggle,
+                ),
+
+                for (final type in SapSupportType.values)
+                  if (_requestFor(type) case final request?) ...[
+                    const SizedBox(height: 10),
+                    _SupportTile(
+                      type: type,
+                      request: request,
+                      enabled: _editable,
+                      takesQuantity: _withQuantity.contains(type),
+                      // Every ticked row on the paper has room written
+                      // beside it — "St. Augustine Bldg. AVR", "Podium",
+                      // "additional 100 chairs" — so none of them is only
+                      // a tick.
+                      takesDetail: true,
+                      onToggle: () => _toggle(type),
+                      onQuantity: (q) => _amend(type, quantity: q),
+                      onDetail: (s) => _amend(type, specify: s),
+                    ),
+                  ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }

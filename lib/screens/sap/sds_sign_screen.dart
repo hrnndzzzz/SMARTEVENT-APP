@@ -74,8 +74,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
 
   /// Nothing is sent from a stale form: every request would carry the old
   /// version and be refused again, so the way on is to reload it first.
-  bool get _canDecide =>
-      _open && _hasReason && !_form.saving && !_form.isStale;
+  bool get _canDecide => _open && _hasReason && !_form.saving && !_form.isStale;
 
   void _collect() {
     _form.overallRemarks = _overall.text.trim();
@@ -92,17 +91,17 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
     final problem = await _form.saveReviewNotes();
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(problem ?? 'Remarks saved.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(problem ?? 'Remarks saved.')));
   }
 
   Future<void> _sign() async {
     final problem = _signature.problem;
     if (problem != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(problem)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(problem)));
       return;
     }
 
@@ -154,9 +153,9 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
     final failure = await send();
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(failure ?? done)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(failure ?? done)));
     if (failure == null) Navigator.of(context).maybePop();
   }
 
@@ -329,8 +328,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 const BrutInlineMessage(
                   tone: BrutTone.sun,
                   icon: Icons.assignment_late_outlined,
-                  text:
-                      'Confirm Part 4 (SDS Office Clearance) before signing.',
+                  text: 'Confirm Part 4 (SDS Office Clearance) before signing.',
                 ),
                 const SizedBox(height: 10),
               ],

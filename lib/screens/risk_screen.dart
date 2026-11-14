@@ -6,6 +6,7 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../theme/peso.dart';
+import '../widgets/module_band.dart';
 
 /// Expenses the backend has flagged for a closer look.
 ///
@@ -79,20 +80,17 @@ class _RiskScreenState extends State<RiskScreen> {
     final flagged = _order.apply(app.flaggedExpenses);
 
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Flagged for review', style: AppText.display),
-          const SizedBox(height: 4),
-          const Text(
-            'Expenses the system noticed something about. A flag is a '
-            'prompt to look, not a finding.',
-            style: AppText.caption,
+          const ModuleBand(
+            icon: Icons.outlined_flag,
+            title: 'Flagged for review',
+            tone: BrutTone.orange,
+            subtitle: 'A flag is a prompt to look, not a finding.',
           ),
           const SizedBox(height: 14),
           if (flagged.length > 1) ...[

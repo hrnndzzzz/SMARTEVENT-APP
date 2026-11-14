@@ -198,18 +198,27 @@ class _Totals extends StatelessWidget {
           const SizedBox(height: 12),
           BrutDetailRow('Allocated', peso(report.allocatedBudget), mono: true),
           const SizedBox(height: 8),
-          BrutDetailRow('Estimated cost', peso(report.estimatedCost),
-              mono: true),
+          BrutDetailRow(
+            'Estimated cost',
+            peso(report.estimatedCost),
+            mono: true,
+          ),
           const SizedBox(height: 8),
           BrutDetailRow('Income', peso(report.totalIncome), mono: true),
           const SizedBox(height: 8),
           // Approved spending only; pending and rejected are not
           // spending, and the model says so.
-          BrutDetailRow('Approved spending', peso(report.totalSpent),
-              mono: true),
+          BrutDetailRow(
+            'Approved spending',
+            peso(report.totalSpent),
+            mono: true,
+          ),
           const SizedBox(height: 8),
-          BrutDetailRow('Remaining budget', peso(report.remainingBudget),
-              mono: true),
+          BrutDetailRow(
+            'Remaining budget',
+            peso(report.remainingBudget),
+            mono: true,
+          ),
           const SizedBox(height: 12),
           BrutSurface(
             fill: (short ? BrutTone.coral : BrutTone.mint).tint(context),

@@ -83,53 +83,55 @@ class _SdsSummaryScreenState extends State<SdsSummaryScreen> {
                   child: Center(child: BrutSpinner()),
                 )
               : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                d.title?.isNotEmpty == true ? d.title! : 'Untitled activity',
-                style: AppText.display,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                [
-                  if (d.organizationName?.isNotEmpty == true)
-                    d.organizationName!,
-                  if (d.schoolYear?.isNotEmpty == true) d.schoolYear!,
-                ].join(' · '),
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 16),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      d.title?.isNotEmpty == true
+                          ? d.title!
+                          : 'Untitled activity',
+                      style: AppText.display,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      [
+                        if (d.organizationName?.isNotEmpty == true)
+                          d.organizationName!,
+                        if (d.schoolYear?.isNotEmpty == true) d.schoolYear!,
+                      ].join(' · '),
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 16),
 
-              _Facts(details: d),
-              const SizedBox(height: 16),
+                    _Facts(details: d),
+                    const SizedBox(height: 16),
 
-              const BrutSectionTitle('What is being asked for'),
-              const SizedBox(height: 10),
-              _Money(form: form),
-              const SizedBox(height: 10),
-              _Support(form: form),
+                    const BrutSectionTitle('What is being asked for'),
+                    const SizedBox(height: 10),
+                    _Money(form: form),
+                    const SizedBox(height: 10),
+                    _Support(form: form),
 
-              if (form.attachments.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                const BrutSectionTitle('Supporting documents'),
-                const SizedBox(height: 8),
-                SapAttachmentRows(form: form),
-              ],
+                    if (form.attachments.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      const BrutSectionTitle('Supporting documents'),
+                      const SizedBox(height: 8),
+                      SapAttachmentRows(form: form),
+                    ],
 
-              if (d.rationale?.isNotEmpty == true) ...[
-                const SizedBox(height: 20),
-                const BrutSectionTitle('Why'),
-                const SizedBox(height: 8),
-                Text(d.rationale!, style: AppText.body),
-              ],
-              if (d.objectives?.isNotEmpty == true) ...[
-                const SizedBox(height: 14),
-                const BrutSectionTitle('Objectives'),
-                const SizedBox(height: 8),
-                Text(d.objectives!, style: AppText.body),
-              ],
-            ],
-          ),
+                    if (d.rationale?.isNotEmpty == true) ...[
+                      const SizedBox(height: 20),
+                      const BrutSectionTitle('Why'),
+                      const SizedBox(height: 8),
+                      Text(d.rationale!, style: AppText.body),
+                    ],
+                    if (d.objectives?.isNotEmpty == true) ...[
+                      const SizedBox(height: 14),
+                      const BrutSectionTitle('Objectives'),
+                      const SizedBox(height: 8),
+                      Text(d.objectives!, style: AppText.body),
+                    ],
+                  ],
+                ),
         );
       },
     );
@@ -147,7 +149,10 @@ class _Facts extends StatelessWidget {
     final rows = <(String, String)>[
       if (details.activityDate case final on?) ('Date', _date(on)),
       if (details.startTime != null && details.endTime != null)
-        ('Time', '${_clock(details.startTime!)} to ${_clock(details.endTime!)}'),
+        (
+          'Time',
+          '${_clock(details.startTime!)} to ${_clock(details.endTime!)}',
+        ),
       if (details.setting case final s?) ('Setting', s.label),
       if (details.modality case final m?) ('Modality', m.label),
       if (details.venue?.isNotEmpty == true) ('Venue', details.venue!),
@@ -173,9 +178,7 @@ class _Facts extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(width: 92, child: MonoLabel(rows[i].$1, fontSize: 10)),
-                Expanded(
-                  child: Text(rows[i].$2, style: AppText.body),
-                ),
+                Expanded(child: Text(rows[i].$2, style: AppText.body)),
               ],
             ),
             if (i != rows.length - 1) const SizedBox(height: 10),
@@ -252,8 +255,10 @@ class _Money extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Text(peso(double.tryParse(item.amount) ?? 0),
-                      style: AppText.body),
+                  Text(
+                    peso(double.tryParse(item.amount) ?? 0),
+                    style: AppText.body,
+                  ),
                 ],
               ),
               const SizedBox(height: 6),

@@ -14,6 +14,7 @@ import '../widgets/event_calendar.dart';
 import '../widgets/event_status.dart';
 import '../widgets/last_change_note.dart';
 import 'event_detail_screen.dart';
+import '../widgets/module_band.dart';
 
 /// Every proposal, as a list or as a month.
 ///
@@ -52,9 +53,18 @@ class _EventsScreenState extends State<EventsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const ModuleBand(
+            icon: Icons.event_outlined,
+            title: 'Events',
+            tone: BrutTone.brand,
+          ),
+          const SizedBox(height: AppLayout.tight),
+          // The three controls keep their own row under the band. In
+          // the band's trailing slot they had to share it with the
+          // title, and at 360dp that left the New button a stub.
           Row(
             children: [
-              const Expanded(child: Text('Events', style: AppText.display)),
+              const Spacer(),
               _SortButton(
                 sort: _sort,
                 onChanged: (v) => setState(() => _sort = v),

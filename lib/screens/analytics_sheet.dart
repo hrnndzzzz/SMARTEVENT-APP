@@ -101,7 +101,9 @@ class ReportOrganizationPicker extends StatelessWidget {
         children: [
           const MonoLabel('Organization'),
           const SizedBox(width: AppLayout.tight),
-          Flexible(child: BrutBadge(label: own, tone: BrutTone.brand)),
+          Flexible(
+            child: BrutBadge(label: own, tone: BrutTone.brand),
+          ),
         ],
       );
     }

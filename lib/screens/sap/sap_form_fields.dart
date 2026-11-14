@@ -47,9 +47,9 @@ class SapSingleChoice<T> extends StatelessWidget {
                 child: BrutChip(
                   label: labelOf(option),
                   selected: option == value,
-                // Tapping the chosen one again clears it, because the
-                // paper lets you leave a row blank and the form should
-                // not trap someone into an answer they cannot undo.
+                  // Tapping the chosen one again clears it, because the
+                  // paper lets you leave a row blank and the form should
+                  // not trap someone into an answer they cannot undo.
                   onTap: !enabled
                       ? null
                       : () => onChanged(option == value ? null : option),

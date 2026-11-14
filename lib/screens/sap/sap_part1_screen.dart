@@ -363,579 +363,584 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         if (!didPop) _leave(context);
       },
       child: AnimatedBuilder(
-      animation: _form,
-      builder: (context, _) {
-        final d = _form.details;
-        final notice = _daysOfNotice(d);
-        final tooSoon = notice != null && notice < _noticeDays;
-        final unacknowledged =
-            d.setting == SapSetting.offCampus && !d.offCampusAgreement;
+        animation: _form,
+        builder: (context, _) {
+          final d = _form.details;
+          final notice = _daysOfNotice(d);
+          final tooSoon = notice != null && notice < _noticeDays;
+          final unacknowledged =
+              d.setting == SapSetting.offCampus && !d.offCampusAgreement;
 
-        // On its own, every group shows: the reviewer wants the whole
-        // of Part 1 in front of them, not a third of it.
-        final whole = widget.step == null;
+          // On its own, every group shows: the reviewer wants the whole
+          // of Part 1 in front of them, not a third of it.
+          final whole = widget.step == null;
 
-        // Each step says what it is about, rather than all three
-        // calling themselves "Activity Details" and leaving the
-        // proposer to work out which third they are looking at.
-        final heading = switch (widget.step) {
-          ProposalSteps.schedule => 'When and where',
-          ProposalSteps.details => 'About the activity',
-          _ => 'Activity Details',
-        };
-        // Both of these are about fields on the schedule step, and
-        // their explanations are drawn there. On any other step the
-        // button would simply be dead, with the reason on a page the
-        // proposer cannot see.
-        final blockedElsewhere =
-            (tooSoon || unacknowledged) &&
-            widget.step != null &&
-            widget.step != ProposalSteps.schedule;
+          // Each step says what it is about, rather than all three
+          // calling themselves "Activity Details" and leaving the
+          // proposer to work out which third they are looking at.
+          final heading = switch (widget.step) {
+            ProposalSteps.schedule => 'When and where',
+            ProposalSteps.details => 'About the activity',
+            _ => 'Activity Details',
+          };
+          // Both of these are about fields on the schedule step, and
+          // their explanations are drawn there. On any other step the
+          // button would simply be dead, with the reason on a page the
+          // proposer cannot see.
+          final blockedElsewhere =
+              (tooSoon || unacknowledged) &&
+              widget.step != null &&
+              widget.step != ProposalSteps.schedule;
 
-        final nextLabel = switch (widget.step) {
-          ProposalSteps.activity => 'Next: when and where',
-          ProposalSteps.schedule => 'Next: about the activity',
-          _ => 'Next: school support',
-        };
+          final nextLabel = switch (widget.step) {
+            ProposalSteps.activity => 'Next: when and where',
+            ProposalSteps.schedule => 'Next: about the activity',
+            _ => 'Next: school support',
+          };
 
-        return BrutScreen(
-          // One of three when it is being filled in as a run, its own
-          // screen when the SDS Office opens it from their six-part
-          // list.
-          header: widget.step == null
-              ? BrutHeader(
-                  title: 'Activity Details',
-                  eyebrow: 'Part 1',
-                  onBack: () => _leave(context),
-                )
-              : BrutFlowHeader(
-                  title: heading,
-                  flowName: 'Part 1',
-                  currentStep: widget.step!,
-                  onBack: () => _leave(context),
-                  steps: [
-                    for (var i = 0; i < ProposalSteps.labels.length; i++)
-                      BrutStep(
-                        label: ProposalSteps.labels[i],
-                        onJump: (widget.onJumpTo != null && i < widget.step!)
-                            ? () => widget.onJumpTo!(i)
-                            : null,
-                      ),
-                  ],
-                ),
-          // One back button, in the header. There were two doing the
-          // same thing, and neither said whether anything was kept.
-          footer: BrutFooter(
-            child: BrutButton(
-              label: whole ? 'Save' : nextLabel,
-              busy: _form.saving,
-              busyLabel: 'Saving',
-              onPressed: _editable && !tooSoon && !unacknowledged
-                  ? _save
-                  : null,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!_editable)
-                // Nothing is returned after a rejection, so "until it is
-                // returned" would promise what cannot happen.
-                if (_form.state == SapState.rejected)
-                  const BrutInlineMessage(
-                    tone: BrutTone.coral,
-                    icon: Icons.block,
-                    text:
-                        'Rejected by the SDS Office. This proposal is final, '
-                        'so Parts 1 to 3 stay as they were sent.',
+          return BrutScreen(
+            // One of three when it is being filled in as a run, its own
+            // screen when the SDS Office opens it from their six-part
+            // list.
+            header: widget.step == null
+                ? BrutHeader(
+                    title: 'Activity Details',
+                    eyebrow: 'Part 1',
+                    onBack: () => _leave(context),
                   )
-                else
-                  const BrutInlineMessage(
-                    tone: BrutTone.sun,
-                    icon: Icons.lock_outline,
-                    text:
-                        'This proposal is under review, so Parts 1 to 3 are '
-                        'read-only until it is returned for revision.',
+                : BrutFlowHeader(
+                    title: heading,
+                    flowName: 'Part 1',
+                    currentStep: widget.step!,
+                    onBack: () => _leave(context),
+                    steps: [
+                      for (var i = 0; i < ProposalSteps.labels.length; i++)
+                        BrutStep(
+                          label: ProposalSteps.labels[i],
+                          onJump: (widget.onJumpTo != null && i < widget.step!)
+                              ? () => widget.onJumpTo!(i)
+                              : null,
+                        ),
+                    ],
                   ),
-              const SizedBox(height: 12),
-
-              if (blockedElsewhere) ...[
-                BrutInlineMessage(
-                  tone: BrutTone.coral,
-                  icon: Icons.event_busy,
-                  text: unacknowledged
-                      ? 'Going off campus needs the agreement ticked. It is '
-                            'on the When and where step.'
-                      : 'The activity date does not leave enough notice. '
-                            'It is on the When and where step.',
-                ),
+            // One back button, in the header. There were two doing the
+            // same thing, and neither said whether anything was kept.
+            footer: BrutFooter(
+              child: BrutButton(
+                label: whole ? 'Save' : nextLabel,
+                busy: _form.saving,
+                busyLabel: 'Saving',
+                onPressed: _editable && !tooSoon && !unacknowledged
+                    ? _save
+                    : null,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_editable)
+                  // Nothing is returned after a rejection, so "until it is
+                  // returned" would promise what cannot happen.
+                  if (_form.state == SapState.rejected)
+                    const BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.block,
+                      text:
+                          'Rejected by the SDS Office. This proposal is final, '
+                          'so Parts 1 to 3 stay as they were sent.',
+                    )
+                  else
+                    const BrutInlineMessage(
+                      tone: BrutTone.sun,
+                      icon: Icons.lock_outline,
+                      text:
+                          'This proposal is under review, so Parts 1 to 3 are '
+                          'read-only until it is returned for revision.',
+                    ),
                 const SizedBox(height: 12),
-              ],
 
-              // The activity is what the proposer came to write about, so
-              // the form opens on it. The department is taken from the
-              // account when this client can name it, and asked for only
-              // when it cannot.
-              // ── Step 1: the activity ──────────────────────
-              if (whole || widget.step == ProposalSteps.activity) ...[
-                _FieldGroup(
-                  title: 'The activity',
-                  tone: BrutTone.brand,
-                  hint: 'What it is called, and whose it is',
-                ),
-                BrutTextField(
-                  controller: _title,
-                  label: 'Activity title',
-                  hint: 'HACK THE FUTURE: Cybersecurity…',
-                  enabled: _editable,
-                  maxLines: 2,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 14),
-                BrutTextField(
-                  controller: _organization,
-                  label: 'Organization',
-                  hint: 'Association of Computer Engineering Students',
-                  enabled: _editable,
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 14),
-                SapSingleChoice<String>(
-                  label: 'Department type',
-                  options: SapPart1Screen.departmentTypes,
-                  labelOf: (v) => v,
-                  value: d.departmentType,
-                  enabled: _editable,
-                  onChanged: (v) =>
-                      _form.updateDetails((x) => x.copyWith(departmentType: v)),
-                ),
-                const SizedBox(height: 14),
-                if (_asksDepartment) ...[
+                if (blockedElsewhere) ...[
+                  BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.event_busy,
+                    text: unacknowledged
+                        ? 'Going off campus needs the agreement ticked. It is '
+                              'on the When and where step.'
+                        : 'The activity date does not leave enough notice. '
+                              'It is on the When and where step.',
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // The activity is what the proposer came to write about, so
+                // the form opens on it. The department is taken from the
+                // account when this client can name it, and asked for only
+                // when it cannot.
+                // ── Step 1: the activity ──────────────────────
+                if (whole || widget.step == ProposalSteps.activity) ...[
+                  _FieldGroup(
+                    title: 'The activity',
+                    tone: BrutTone.brand,
+                    hint: 'What it is called, and whose it is',
+                  ),
                   BrutTextField(
-                    controller: _department,
-                    label: 'Department',
-                    hint: 'College of Information Technology',
+                    controller: _title,
+                    label: 'Activity title',
+                    hint: 'HACK THE FUTURE: Cybersecurity…',
                     enabled: _editable,
-                    maxLength: 100,
+                    maxLines: 2,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 14),
+                  BrutTextField(
+                    controller: _organization,
+                    label: 'Organization',
+                    hint: 'Association of Computer Engineering Students',
+                    enabled: _editable,
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 14),
+                  SapSingleChoice<String>(
+                    label: 'Department type',
+                    options: SapPart1Screen.departmentTypes,
+                    labelOf: (v) => v,
+                    value: d.departmentType,
+                    enabled: _editable,
+                    onChanged: (v) => _form.updateDetails(
+                      (x) => x.copyWith(departmentType: v),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (_asksDepartment) ...[
+                    BrutTextField(
+                      controller: _department,
+                      label: 'Department',
+                      hint: 'College of Information Technology',
+                      enabled: _editable,
+                      maxLength: 100,
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  BrutTextField(
+                    controller: _schoolYear,
+                    label: 'School year',
+                    hint: '2026-2027',
+                    enabled: _editable,
+                  ),
+                  const SizedBox(height: 14),
+                  BrutDateField(
+                    label: 'Date of proposal',
+                    value: d.proposalDate,
+                    hint: 'Pick a date',
+                    onTap: _editable ? _pickProposalDate : () {},
+                  ),
+                  if (d.proposalDate != null &&
+                      d.activityDate != null &&
+                      d.proposalDate!.isAfter(d.activityDate!)) ...[
+                    const SizedBox(height: 10),
+                    const BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.error_outline,
+                      text: 'The proposal date cannot come after the activity.',
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  BrutTextField(
+                    controller: _course,
+                    label: 'Program / course',
+                    hint: 'Bachelor of Science in Computer Engineering',
+                    enabled: _editable,
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 14),
                 ],
-                BrutTextField(
-                  controller: _schoolYear,
-                  label: 'School year',
-                  hint: '2026-2027',
-                  enabled: _editable,
-                ),
-                const SizedBox(height: 14),
-                BrutDateField(
-                  label: 'Date of proposal',
-                  value: d.proposalDate,
-                  hint: 'Pick a date',
-                  onTap: _editable ? _pickProposalDate : () {},
-                ),
-                if (d.proposalDate != null &&
-                    d.activityDate != null &&
-                    d.proposalDate!.isAfter(d.activityDate!)) ...[
-                  const SizedBox(height: 10),
-                  const BrutInlineMessage(
-                    tone: BrutTone.coral,
-                    icon: Icons.error_outline,
-                    text: 'The proposal date cannot come after the activity.',
+                // ── Step 2: when and where ───────────────────
+                if (whole || widget.step == ProposalSteps.schedule) ...[
+                  _FieldGroup(
+                    title: 'When',
+                    tone: BrutTone.sun,
+                    hint: 'And how it is being held',
                   ),
-                ],
-                const SizedBox(height: 14),
-                BrutTextField(
-                  controller: _course,
-                  label: 'Program / course',
-                  hint: 'Bachelor of Science in Computer Engineering',
-                  enabled: _editable,
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 14),
-              ],
-              // ── Step 2: when and where ───────────────────
-              if (whole || widget.step == ProposalSteps.schedule) ...[
-                _FieldGroup(
-                  title: 'When',
-                  tone: BrutTone.sun,
-                  hint: 'And how it is being held',
-                ),
-                BrutDateField(
-                  label: 'Activity date',
-                  value: d.activityDate,
-                  hint: 'Pick a date',
-                  onTap: _editable ? _pickDate : () {},
-                ),
-                if (tooSoon) ...[
-                  const SizedBox(height: 10),
-                  BrutInlineMessage(
-                    tone: BrutTone.coral,
-                    icon: Icons.error_outline,
-                    text: notice < 0
-                        ? 'That date has already passed.'
-                        : 'An activity needs $_noticeDays days of notice. '
-                              'This one is ${notice == 0
-                                  ? 'today'
-                                  : notice == 1
-                                  ? '1 day away'
-                                  : '$notice days away'}.',
+                  BrutDateField(
+                    label: 'Activity date',
+                    value: d.activityDate,
+                    hint: 'Pick a date',
+                    onTap: _editable ? _pickDate : () {},
                   ),
-                ],
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SapTimeField(
-                        label: 'Start',
-                        value: d.startTime,
-                        enabled: _editable,
-                        onChanged: (t) => _form.updateDetails(
-                          (x) => x.copyWith(startTime: t),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SapTimeField(
-                        label: 'End',
-                        value: d.endTime,
-                        enabled: _editable,
-                        onChanged: (t) =>
-                            _form.updateDetails((x) => x.copyWith(endTime: t)),
-                      ),
+                  if (tooSoon) ...[
+                    const SizedBox(height: 10),
+                    BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.error_outline,
+                      text: notice < 0
+                          ? 'That date has already passed.'
+                          : 'An activity needs $_noticeDays days of notice. '
+                                'This one is ${notice == 0
+                                    ? 'today'
+                                    : notice == 1
+                                    ? '1 day away'
+                                    : '$notice days away'}.',
                     ),
                   ],
-                ),
-                if (d.startTime != null &&
-                    d.endTime != null &&
-                    d.endTime!.compareTo(d.startTime!) <= 0) ...[
-                  const SizedBox(height: 10),
-                  const BrutInlineMessage(
-                    tone: BrutTone.coral,
-                    icon: Icons.error_outline,
-                    text: 'The end time has to be after the start time.',
-                  ),
-                ],
-                const SizedBox(height: 18),
-
-                SapSingleChoice<SapModality>(
-                  label: 'Modality',
-                  options: SapModality.values,
-                  labelOf: (m) => m.label,
-                  value: d.modality,
-                  enabled: _editable,
-                  onChanged: (m) =>
-                      _form.updateDetails((x) => x.copyWith(modality: m)),
-                ),
-                const SizedBox(height: 18),
-
-                // The setting is normally chosen on the cover, before any of
-                // this, because it decides what the form will ask for, and
-                // only shown here. Opened from the six-part list there was
-                // no cover, so it is asked for here instead.
-                if (_asksSetting)
-                  SapSingleChoice<SapSetting>(
-                    label: 'Setting',
-                    options: SapSetting.values,
-                    labelOf: (s) => s.label,
-                    value: d.setting,
-                    enabled: _editable,
-                    onChanged: (s) =>
-                        _form.updateDetails((x) => x.copyWith(setting: s)),
-                  )
-                else ...[
-                  const MonoLabel('Setting'),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
-                      Icon(
-                        Icons.place_outlined,
-                        size: 16,
-                        color: context.palette.ink,
+                      Expanded(
+                        child: SapTimeField(
+                          label: 'Start',
+                          value: d.startTime,
+                          enabled: _editable,
+                          onChanged: (t) => _form.updateDetails(
+                            (x) => x.copyWith(startTime: t),
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        d.setting?.label ?? 'Not chosen',
-                        style: AppText.cardTitle.copyWith(fontSize: 14),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SapTimeField(
+                          label: 'End',
+                          value: d.endTime,
+                          enabled: _editable,
+                          onChanged: (t) => _form.updateDetails(
+                            (x) => x.copyWith(endTime: t),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ],
-                if (d.setting == SapSetting.offCampus) ...[
-                  const SizedBox(height: 14),
-                  // Acknowledged on the cover otherwise; without it Save
-                  // stays disabled.
+                  if (d.startTime != null &&
+                      d.endTime != null &&
+                      d.endTime!.compareTo(d.startTime!) <= 0) ...[
+                    const SizedBox(height: 10),
+                    const BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.error_outline,
+                      text: 'The end time has to be after the start time.',
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+
+                  SapSingleChoice<SapModality>(
+                    label: 'Modality',
+                    options: SapModality.values,
+                    labelOf: (m) => m.label,
+                    value: d.modality,
+                    enabled: _editable,
+                    onChanged: (m) =>
+                        _form.updateDetails((x) => x.copyWith(modality: m)),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // The setting is normally chosen on the cover, before any of
+                  // this, because it decides what the form will ask for, and
+                  // only shown here. Opened from the six-part list there was
+                  // no cover, so it is asked for here instead.
                   if (_asksSetting)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IntrinsicWidth(
-                        child: BrutChip(
-                          label: d.offCampusAgreement
-                              ? 'Acknowledged'
-                              : 'I acknowledge the off-campus requirements',
-                          selected: d.offCampusAgreement,
-                          onTap: _editable
-                              ? () => _form.updateDetails(
-                                  (x) => x.copyWith(
-                                    offCampusAgreement: !x.offCampusAgreement,
-                                  ),
-                                )
-                              : null,
+                    SapSingleChoice<SapSetting>(
+                      label: 'Setting',
+                      options: SapSetting.values,
+                      labelOf: (s) => s.label,
+                      value: d.setting,
+                      enabled: _editable,
+                      onChanged: (s) =>
+                          _form.updateDetails((x) => x.copyWith(setting: s)),
+                    )
+                  else ...[
+                    const MonoLabel('Setting'),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.place_outlined,
+                          size: 16,
+                          color: context.palette.ink,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          d.setting?.label ?? 'Not chosen',
+                          style: AppText.cardTitle.copyWith(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (d.setting == SapSetting.offCampus) ...[
+                    const SizedBox(height: 14),
+                    // Acknowledged on the cover otherwise; without it Save
+                    // stays disabled.
+                    if (_asksSetting)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IntrinsicWidth(
+                          child: BrutChip(
+                            label: d.offCampusAgreement
+                                ? 'Acknowledged'
+                                : 'I acknowledge the off-campus requirements',
+                            selected: d.offCampusAgreement,
+                            onTap: _editable
+                                ? () => _form.updateDetails(
+                                    (x) => x.copyWith(
+                                      offCampusAgreement: !x.offCampusAgreement,
+                                    ),
+                                  )
+                                : null,
+                          ),
                         ),
                       ),
-                    ),
-                  if (!d.offCampusAgreement) ...[
+                    if (!d.offCampusAgreement) ...[
+                      const SizedBox(height: 8),
+                      const BrutInlineMessage(
+                        tone: BrutTone.coral,
+                        icon: Icons.error_outline,
+                        text:
+                            'An off-campus activity cannot be sent until this '
+                            'is acknowledged.',
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    if (_form.hasRocCoc)
+                      const BrutInlineMessage(
+                        tone: BrutTone.mint,
+                        icon: Icons.check_circle_outline,
+                        text: 'The ROC or COC is attached.',
+                      )
+                    else ...[
+                      BrutButton(
+                        label: 'Attach the ROC or COC',
+                        icon: Icons.attach_file,
+                        tone: BrutTone.neutral,
+                        busy: _form.saving,
+                        busyLabel: 'Attaching',
+                        onPressed: _editable ? _attachRocCoc : null,
+                      ),
+                      const SizedBox(height: 8),
+                      const BrutInlineMessage(
+                        tone: BrutTone.neutral,
+                        icon: Icons.info_outline,
+                        text:
+                            'PDF, PNG or JPEG, up to 10 MB. It is attached to '
+                            'this revision: a returned proposal needs it again.',
+                      ),
+                    ],
+                  ],
+                  if (d.setting == SapSetting.online &&
+                      d.modality != null &&
+                      d.modality != SapModality.online) ...[
                     const SizedBox(height: 8),
                     const BrutInlineMessage(
                       tone: BrutTone.coral,
                       icon: Icons.error_outline,
                       text:
-                          'An off-campus activity cannot be sent until this '
-                          'is acknowledged.',
+                          'An online setting needs the modality to be online.',
                     ),
                   ],
-                  const SizedBox(height: 10),
-                  if (_form.hasRocCoc)
-                    const BrutInlineMessage(
-                      tone: BrutTone.mint,
-                      icon: Icons.check_circle_outline,
-                      text: 'The ROC or COC is attached.',
-                    )
-                  else ...[
-                    BrutButton(
-                      label: 'Attach the ROC or COC',
-                      icon: Icons.attach_file,
-                      tone: BrutTone.neutral,
-                      busy: _form.saving,
-                      busyLabel: 'Attaching',
-                      onPressed: _editable ? _attachRocCoc : null,
-                    ),
-                    const SizedBox(height: 8),
-                    const BrutInlineMessage(
-                      tone: BrutTone.neutral,
-                      icon: Icons.info_outline,
-                      text:
-                          'PDF, PNG or JPEG, up to 10 MB. It is attached to '
-                          'this revision: a returned proposal needs it again.',
-                    ),
-                  ],
+                  const SizedBox(height: 14),
+
+                  _FieldGroup(title: 'Where', tone: BrutTone.mint),
+                  BrutTextField(
+                    controller: _venue,
+                    label: 'Venue',
+                    hint: 'Zoom Platform',
+                    enabled: _editable,
+                  ),
                 ],
-                if (d.setting == SapSetting.online &&
-                    d.modality != null &&
-                    d.modality != SapModality.online) ...[
+                // ── Step 3: who, what kind, why, safety, money ─
+                if (whole || widget.step == ProposalSteps.details) ...[
+                  // Its own group now. These two sat under the "Where and
+                  // who" heading, which stayed behind with the venue when
+                  // this became a step of its own — leaving the step to
+                  // open on two unlabelled fields.
+                  _FieldGroup(title: 'Who is running it', tone: BrutTone.mint),
+                  BrutTextField(
+                    controller: _pic,
+                    label: 'Personnel-in-charge',
+                    hint: 'Engr. Aileen M. Habaradas, Engr. Glazen M. Perez',
+                    enabled: _editable,
+                    maxLines: 2,
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 14),
+                  BrutTextField(
+                    controller: _attire,
+                    label: 'Attire',
+                    hint: 'Any decent attire',
+                    enabled: _editable,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // The server prints these two lists on the PDF exactly as
+                  // they arrive, joined with commas — unlike the core values,
+                  // which it title-cases. So the stored value has to be the
+                  // wording the paper uses, not a snake_case key.
+                  _FieldGroup(
+                    title: 'What kind of activity',
+                    tone: BrutTone.violet,
+                  ),
+                  SapMultiChoice<String>(
+                    label: 'Activity type',
+                    options: const [
+                      'Co-Curricular',
+                      'Extra-Curricular',
+                      'Subject-Embedded/Academic',
+                    ],
+                    labelOf: (v) => v,
+                    selected: d.activityTypes,
+                    enabled: _editable,
+                    onChanged: (v) => _form.updateDetails(
+                      (x) => x.copyWith(activityTypes: v),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  SapSingleChoice<String>(
+                    label: 'Scope',
+                    // The paper offers five. This workflow keeps the existing
+                    // two-value scope, so only those can be chosen.
+                    options: const ['organizational', 'departmental'],
+                    labelOf: (v) => v == 'organizational'
+                        ? 'Organizational'
+                        : 'Departmental',
+                    value: d.scope,
+                    enabled: _editable,
+                    onChanged: (v) =>
+                        _form.updateDetails((x) => x.copyWith(scope: v)),
+                  ),
+                  const SizedBox(height: 18),
+
+                  SapMultiChoice<String>(
+                    label: 'Program',
+                    options: const [
+                      'Team Building',
+                      'Leadership Summit',
+                      'General Assembly',
+                      'Competition',
+                      'Press Conference',
+                      'Seminar/Convention',
+                      'Others',
+                    ],
+                    labelOf: (v) => v,
+                    selected: d.programTypes,
+                    enabled: _editable,
+                    onChanged: (v) =>
+                        _form.updateDetails((x) => x.copyWith(programTypes: v)),
+                  ),
+                  const SizedBox(height: 14),
+
+                  BrutTextField(
+                    controller: _students,
+                    label: 'Number of students',
+                    hint: '145',
+                    enabled: _editable,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 14),
+                  _FieldGroup(
+                    title: 'Why it is being held',
+                    tone: BrutTone.brand,
+                    hint: 'The case for it, and what it is meant to achieve',
+                  ),
+                  BrutTextField(
+                    controller: _rationale,
+                    label: 'Rationale',
+                    hint: 'Why the activity is being proposed',
+                    enabled: _editable,
+                    maxLines: 6,
+                    // The server's limits for these three, enforced as typed.
+                    maxLength: 1800,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 14),
+                  BrutTextField(
+                    controller: _objectives,
+                    label: 'Objectives',
+                    hint: 'One per line',
+                    enabled: _editable,
+                    maxLines: 6,
+                    maxLength: 1200,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 18),
+
+                  SapMultiChoice<SapCoreValue>(
+                    label: 'Augustinian core values',
+                    options: SapCoreValue.values,
+                    labelOf: (c) => c.label,
+                    selected: d.coreValues,
+                    enabled: _editable,
+                    onChanged: (v) =>
+                        _form.updateDetails((x) => x.copyWith(coreValues: v)),
+                  ),
+                  const SizedBox(height: 18),
+
+                  SapMultiChoice<int>(
+                    label: 'Expected graduate attributes',
+                    options: const [1, 2, 3, 4],
+                    labelOf: (i) => switch (i) {
+                      1 => 'EGA 1 · Critical and Creative Thinker',
+                      2 => 'EGA 2 · Competent Professional',
+                      3 => 'EGA 3 · Socially Responsive Steward',
+                      _ => 'EGA 4 · Transformative Lifelong Learner',
+                    },
+                    selected: d.egas,
+                    enabled: _editable,
+                    onChanged: (v) =>
+                        _form.updateDetails((x) => x.copyWith(egas: v)),
+                  ),
+                  const SizedBox(height: 20),
+
+                  const BrutSectionTitle('Program flow'),
                   const SizedBox(height: 8),
-                  const BrutInlineMessage(
-                    tone: BrutTone.coral,
-                    icon: Icons.error_outline,
-                    text: 'An online setting needs the modality to be online.',
+                  if (_outsideWindow(d).isNotEmpty) ...[
+                    BrutInlineMessage(
+                      tone: BrutTone.coral,
+                      icon: Icons.error_outline,
+                      text:
+                          '${_outsideWindow(d).length} row(s) fall outside '
+                          '${d.startTime!.label} – ${d.endTime!.label}. Every row '
+                          'has to sit inside the activity.',
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  _ProgramFlowEditor(form: _form, enabled: _editable),
+                  const SizedBox(height: 20),
+
+                  _FieldGroup(title: 'Safety', tone: BrutTone.coral),
+                  BrutTextField(
+                    controller: _emergency,
+                    label: 'Emergency plan',
+                    hint: 'What happens if something goes wrong',
+                    enabled: _editable,
+                    maxLines: 6,
+                    maxLength: 600,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 14),
+                  _FieldGroup(
+                    title: 'Money',
+                    tone: BrutTone.mint,
+                    hint: 'The total here; the breakdown comes in step three',
+                  ),
+                  BrutTextField(
+                    controller: _budget,
+                    label: 'Budget',
+                    hint: '2500.00',
+                    enabled: _editable,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  BrutTextField(
+                    controller: _funding,
+                    label: 'Source of budget',
+                    hint: 'Organizational funds',
+                    enabled: _editable,
                   ),
                 ],
-                const SizedBox(height: 14),
-
-                _FieldGroup(title: 'Where', tone: BrutTone.mint),
-                BrutTextField(
-                  controller: _venue,
-                  label: 'Venue',
-                  hint: 'Zoom Platform',
-                  enabled: _editable,
-                ),
               ],
-              // ── Step 3: who, what kind, why, safety, money ─
-              if (whole || widget.step == ProposalSteps.details) ...[
-                // Its own group now. These two sat under the "Where and
-                // who" heading, which stayed behind with the venue when
-                // this became a step of its own — leaving the step to
-                // open on two unlabelled fields.
-                _FieldGroup(title: 'Who is running it', tone: BrutTone.mint),
-                BrutTextField(
-                  controller: _pic,
-                  label: 'Personnel-in-charge',
-                  hint: 'Engr. Aileen M. Habaradas, Engr. Glazen M. Perez',
-                  enabled: _editable,
-                  maxLines: 2,
-                  textCapitalization: TextCapitalization.words,
-                ),
-                const SizedBox(height: 14),
-                BrutTextField(
-                  controller: _attire,
-                  label: 'Attire',
-                  hint: 'Any decent attire',
-                  enabled: _editable,
-                ),
-                const SizedBox(height: 18),
-
-                // The server prints these two lists on the PDF exactly as
-                // they arrive, joined with commas — unlike the core values,
-                // which it title-cases. So the stored value has to be the
-                // wording the paper uses, not a snake_case key.
-                _FieldGroup(
-                  title: 'What kind of activity',
-                  tone: BrutTone.violet,
-                ),
-                SapMultiChoice<String>(
-                  label: 'Activity type',
-                  options: const [
-                    'Co-Curricular',
-                    'Extra-Curricular',
-                    'Subject-Embedded/Academic',
-                  ],
-                  labelOf: (v) => v,
-                  selected: d.activityTypes,
-                  enabled: _editable,
-                  onChanged: (v) =>
-                      _form.updateDetails((x) => x.copyWith(activityTypes: v)),
-                ),
-                const SizedBox(height: 18),
-
-                SapSingleChoice<String>(
-                  label: 'Scope',
-                  // The paper offers five. This workflow keeps the existing
-                  // two-value scope, so only those can be chosen.
-                  options: const ['organizational', 'departmental'],
-                  labelOf: (v) =>
-                      v == 'organizational' ? 'Organizational' : 'Departmental',
-                  value: d.scope,
-                  enabled: _editable,
-                  onChanged: (v) =>
-                      _form.updateDetails((x) => x.copyWith(scope: v)),
-                ),
-                const SizedBox(height: 18),
-
-                SapMultiChoice<String>(
-                  label: 'Program',
-                  options: const [
-                    'Team Building',
-                    'Leadership Summit',
-                    'General Assembly',
-                    'Competition',
-                    'Press Conference',
-                    'Seminar/Convention',
-                    'Others',
-                  ],
-                  labelOf: (v) => v,
-                  selected: d.programTypes,
-                  enabled: _editable,
-                  onChanged: (v) =>
-                      _form.updateDetails((x) => x.copyWith(programTypes: v)),
-                ),
-                const SizedBox(height: 14),
-
-                BrutTextField(
-                  controller: _students,
-                  label: 'Number of students',
-                  hint: '145',
-                  enabled: _editable,
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 14),
-                _FieldGroup(
-                  title: 'Why it is being held',
-                  tone: BrutTone.brand,
-                  hint: 'The case for it, and what it is meant to achieve',
-                ),
-                BrutTextField(
-                  controller: _rationale,
-                  label: 'Rationale',
-                  hint: 'Why the activity is being proposed',
-                  enabled: _editable,
-                  maxLines: 6,
-                  // The server's limits for these three, enforced as typed.
-                  maxLength: 1800,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 14),
-                BrutTextField(
-                  controller: _objectives,
-                  label: 'Objectives',
-                  hint: 'One per line',
-                  enabled: _editable,
-                  maxLines: 6,
-                  maxLength: 1200,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 18),
-
-                SapMultiChoice<SapCoreValue>(
-                  label: 'Augustinian core values',
-                  options: SapCoreValue.values,
-                  labelOf: (c) => c.label,
-                  selected: d.coreValues,
-                  enabled: _editable,
-                  onChanged: (v) =>
-                      _form.updateDetails((x) => x.copyWith(coreValues: v)),
-                ),
-                const SizedBox(height: 18),
-
-                SapMultiChoice<int>(
-                  label: 'Expected graduate attributes',
-                  options: const [1, 2, 3, 4],
-                  labelOf: (i) => switch (i) {
-                    1 => 'EGA 1 · Critical and Creative Thinker',
-                    2 => 'EGA 2 · Competent Professional',
-                    3 => 'EGA 3 · Socially Responsive Steward',
-                    _ => 'EGA 4 · Transformative Lifelong Learner',
-                  },
-                  selected: d.egas,
-                  enabled: _editable,
-                  onChanged: (v) =>
-                      _form.updateDetails((x) => x.copyWith(egas: v)),
-                ),
-                const SizedBox(height: 20),
-
-                const BrutSectionTitle('Program flow'),
-                const SizedBox(height: 8),
-                if (_outsideWindow(d).isNotEmpty) ...[
-                  BrutInlineMessage(
-                    tone: BrutTone.coral,
-                    icon: Icons.error_outline,
-                    text:
-                        '${_outsideWindow(d).length} row(s) fall outside '
-                        '${d.startTime!.label} – ${d.endTime!.label}. Every row '
-                        'has to sit inside the activity.',
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                _ProgramFlowEditor(form: _form, enabled: _editable),
-                const SizedBox(height: 20),
-
-                _FieldGroup(title: 'Safety', tone: BrutTone.coral),
-                BrutTextField(
-                  controller: _emergency,
-                  label: 'Emergency plan',
-                  hint: 'What happens if something goes wrong',
-                  enabled: _editable,
-                  maxLines: 6,
-                  maxLength: 600,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 14),
-                _FieldGroup(
-                  title: 'Money',
-                  tone: BrutTone.mint,
-                  hint: 'The total here; the breakdown comes in step three',
-                ),
-                BrutTextField(
-                  controller: _budget,
-                  label: 'Budget',
-                  hint: '2500.00',
-                  enabled: _editable,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                BrutTextField(
-                  controller: _funding,
-                  label: 'Source of budget',
-                  hint: 'Organizational funds',
-                  enabled: _editable,
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
       ),
     );
   }

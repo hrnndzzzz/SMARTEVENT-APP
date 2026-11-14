@@ -6,6 +6,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import 'receipt_review_screen.dart';
 import '../theme/peso.dart';
+import '../widgets/module_band.dart';
 
 /// Receipts and the duplicate-review queue.
 ///
@@ -33,19 +34,17 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
     final load = app.receiptsLoad;
 
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Receipts', style: AppText.display),
-          const SizedBox(height: 4),
-          const Text(
-            'Proof of spending, and anything that looks like a duplicate.',
-            style: AppText.caption,
+          const ModuleBand(
+            icon: Icons.receipt_long_outlined,
+            title: 'Receipts',
+            tone: BrutTone.orange,
+            subtitle: 'Proof of spending, and anything that looks duplicated.',
           ),
           const SizedBox(height: 14),
           const _FilterBar(),

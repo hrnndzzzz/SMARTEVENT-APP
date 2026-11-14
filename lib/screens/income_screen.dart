@@ -8,6 +8,7 @@ import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import '../widgets/event_picker_items.dart';
 import '../theme/peso.dart';
+import '../widgets/module_band.dart';
 
 /// Income recorded against events, by fund source.
 ///
@@ -57,11 +58,11 @@ class _IncomeScreenState extends State<IncomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Income', style: AppText.display),
-          const SizedBox(height: 4),
-          const Text(
-            'Money received, by where it came from.',
-            style: AppText.caption,
+          const ModuleBand(
+            icon: Icons.savings_outlined,
+            title: 'Income',
+            tone: BrutTone.orange,
+            subtitle: 'Money received, by where it came from.',
           ),
           const SizedBox(height: 12),
           if (app.incomes.isNotEmpty) const _Totals(),
@@ -337,9 +338,7 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events = context
-        .watch<AppState>()
-        .events;
+    final events = context.watch<AppState>().events;
     final items = eventPickerItems(events, keep: _eventId);
 
     return BrutSheet(

@@ -552,8 +552,10 @@ class _RecentReceipts extends StatelessWidget {
         decoration: BoxDecoration(
           // White on the camera's own dark chrome, matching the back
           // button beside it rather than the app's light surfaces.
-          border: Border.all(color: Colors.white.withValues(alpha: 0.7),
-              width: 2),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.7),
+            width: 2,
+          ),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -574,7 +576,6 @@ class _RecentReceipts extends StatelessWidget {
     );
   }
 }
-
 
 /// How far along the scan is. Capture, then check and save.
 class _StepBars extends StatelessWidget {

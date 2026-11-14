@@ -67,10 +67,12 @@ class _EventReadinessScreenState extends State<EventReadinessScreen> {
       final results = await Future.wait([
         // Officers may not read logistics; that is no reason to fail the
         // readiness they may read.
-        app.eventLogistics(id).catchError(
-          (_) => null,
-          test: (e) => e is ApiException && e.isForbidden,
-        ),
+        app
+            .eventLogistics(id)
+            .catchError(
+              (_) => null,
+              test: (e) => e is ApiException && e.isForbidden,
+            ),
         app.eventRouting(id),
         app.eventReadiness(id),
         // Only administrators may list signatories, and only they route.
@@ -113,9 +115,7 @@ class _EventReadinessScreenState extends State<EventReadinessScreen> {
   @override
   Widget build(BuildContext context) {
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

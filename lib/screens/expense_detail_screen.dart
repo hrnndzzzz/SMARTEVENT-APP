@@ -589,9 +589,7 @@ class _EditExpenseSheet extends StatefulWidget {
 
 class _EditExpenseSheetState extends State<_EditExpenseSheet> {
   late final RemoteExpense? _remote = widget.expense.remote;
-  late final _description = TextEditingController(
-    text: widget.expense.vendor,
-  );
+  late final _description = TextEditingController(text: widget.expense.vendor);
   late final _amount = TextEditingController(
     text: MoneyInput.fromDouble(widget.expense.amount),
   );

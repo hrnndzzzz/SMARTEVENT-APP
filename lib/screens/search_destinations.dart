@@ -39,8 +39,16 @@ class SearchDestination {
     SearchDestination(
       title: 'Financial reports',
       about: 'Income and spending over a period',
-      words: ['report', 'pdf', 'csv', 'export', 'download', 'chart',
-          'analytics', 'summary'],
+      words: [
+        'report',
+        'pdf',
+        'csv',
+        'export',
+        'download',
+        'chart',
+        'analytics',
+        'summary',
+      ],
       open: ReportsScreen.new,
     ),
     SearchDestination(
@@ -105,6 +113,8 @@ class SearchDestination {
     return words.any((w) => w.startsWith(q) || q.startsWith(w));
   }
 
-  static List<SearchDestination> matching(String query) =>
-      [for (final d in all) if (d.matches(query)) d];
+  static List<SearchDestination> matching(String query) => [
+    for (final d in all)
+      if (d.matches(query)) d,
+  ];
 }

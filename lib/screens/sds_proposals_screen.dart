@@ -137,10 +137,7 @@ class _ProposalCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '${event.org} · ${event.date}',
-            style: AppText.caption,
-          ),
+          Text('${event.org} · ${event.date}', style: AppText.caption),
         ],
       ),
     );

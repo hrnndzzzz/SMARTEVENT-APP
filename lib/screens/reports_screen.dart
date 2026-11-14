@@ -11,6 +11,7 @@ import 'export_preview_screen.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import '../theme/peso.dart';
+import '../widgets/module_band.dart';
 
 /// Consolidated financial reports.
 ///
@@ -74,7 +75,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   ///
   /// The snapshot first, so what is about to be exported is visible
   /// before choosing a format, then the three formats as squares.
-  void _openDownloads(BuildContext context, ConsolidatedFinancialReport? report) {
+  void _openDownloads(
+    BuildContext context,
+    ConsolidatedFinancialReport? report,
+  ) {
     BrutSheet.show<void>(
       context,
       builder: (sheetContext) => BrutSheet(
@@ -175,9 +179,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final report = app.financialReport;
 
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       // Downloading is one deliberate act, so it is one button in the
       // corner rather than a fold at the bottom of a long list.
@@ -191,11 +193,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppLayout.contentPadding),
-          const Text('Financial reports', style: AppText.display),
-          const SizedBox(height: 4),
-          const Text(
-            'Income and approved spending over a period.',
-            style: AppText.caption,
+          const ModuleBand(
+            icon: Icons.insights_outlined,
+            title: 'Financial reports',
+            tone: BrutTone.orange,
+            subtitle: 'Income and approved spending over a period.',
           ),
           const SizedBox(height: AppLayout.contentPadding),
           Expanded(
@@ -638,8 +640,6 @@ class _EventsCard extends StatelessWidget {
   }
 }
 
-
-
 class _NotYetGenerated extends StatelessWidget {
   const _NotYetGenerated();
 
@@ -666,4 +666,3 @@ class _ErrorCard extends StatelessWidget {
     return BrutInlineMessage(text: message, tone: BrutTone.coral);
   }
 }
-
