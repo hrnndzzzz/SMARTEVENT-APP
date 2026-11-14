@@ -8,6 +8,7 @@ import '../theme/brut.dart';
 import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import '../widgets/last_change_note.dart';
+import '../widgets/module_band.dart';
 import 'categories_screen.dart';
 import 'expenses_screen.dart';
 import 'income_screen.dart';
@@ -31,14 +32,20 @@ class MoneyScreen extends StatelessWidget {
     final canRecord = app.mayRecordFinance;
 
     return BrutScreen(
+      tint: BrutTone.orange,
       onRefresh: context.read<AppState>().refreshAll,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: AppLayout.section),
-          const Text('Money', style: AppText.display),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppLayout.between),
+          const ModuleBand(
+            icon: Icons.account_balance_wallet_outlined,
+            title: 'Money',
+            tone: BrutTone.orange,
+            subtitle: 'Budget, expenses, receipts and income.',
+          ),
+          const SizedBox(height: AppLayout.tight),
           const LastChangeNote(area: 'finance'),
           const SizedBox(height: AppLayout.section),
           MoneyFigures(

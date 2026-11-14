@@ -67,3 +67,6 @@ node_modules/
 .pytest_cache/
 /smartevent-backend/tmp/
 /smartevent-backend/supabase/.temp/
+
+# Renders from test/render_screens.dart — a look at a screen, not a fixture.
+test/goldens/

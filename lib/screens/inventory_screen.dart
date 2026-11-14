@@ -7,6 +7,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_picker_items.dart';
 import '../widgets/last_change_note.dart';
+import '../widgets/module_band.dart';
 import 'inventory_detail_screen.dart';
 
 /// The equipment catalog and its stock.
@@ -55,19 +56,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
               label: Text('New item', style: AppText.buttonLabel),
             )
           : null,
+      tint: BrutTone.brand,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Inventory', style: AppText.display),
-          const SizedBox(height: 4),
-          const Text(
-            'Stock changes only through recorded movements.',
-            style: AppText.caption,
+          const ModuleBand(
+            icon: Icons.warehouse_outlined,
+            title: 'Inventory',
+            tone: BrutTone.brand,
+            subtitle: 'Stock changes only through recorded movements.',
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: AppLayout.tight),
           const LastChangeNote(area: 'inventory'),
           const SizedBox(height: 2),
 
