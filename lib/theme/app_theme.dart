@@ -163,7 +163,7 @@ class AppRadius {
   AppRadius._();
 
   /// Cards, sheets, big tiles.
-  static const double card = 16;
+  static const double card = 22;
 
   /// List rows, choice cards, metric tiles, toasts.
   static const double row = 12;
@@ -217,17 +217,17 @@ class AppShadows {
 
   /// Chips, list rows, small buttons inside cards.
   static const List<BoxShadow> sm = [
-    BoxShadow(color: AppColors.shadow, offset: Offset(1, 1), blurRadius: 0),
+    BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 2),
   ];
 
   /// Buttons, cards, selected choices.
   static const List<BoxShadow> base = [
-    BoxShadow(color: AppColors.shadow, offset: Offset(3, 3), blurRadius: 0),
+    BoxShadow(color: Color(0x0F000000), offset: Offset(0, 2), blurRadius: 6),
   ];
 
   /// Sheets, menus, popovers.
   static const List<BoxShadow> lg = [
-    BoxShadow(color: AppColors.shadow, offset: Offset(5, 5), blurRadius: 0),
+    BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24),
   ];
 
   /// Pressed, and disabled.

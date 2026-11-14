@@ -32,7 +32,6 @@ class MoneyScreen extends StatelessWidget {
     final canRecord = app.mayRecordFinance;
 
     return BrutScreen(
-      tint: BrutTone.orange,
       onRefresh: context.read<AppState>().refreshAll,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       child: Column(

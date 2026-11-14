@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:smartevent/screens/events_screen.dart';
 import 'package:smartevent/screens/inventory_screen.dart';
 import 'package:smartevent/screens/money_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
@@ -80,5 +81,55 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(InventoryScreen),
         matchesGoldenFile('goldens/inventory.png'));
+  });
+
+  testWidgets('events', (tester) async {
+    await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf']);
+    await font('IBMPlexMono',
+        ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(accent: app.themeColor),
+        home: const EventsScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(
+        find.byType(EventsScreen), matchesGoldenFile('goldens/events.png'));
+  });
+
+  testWidgets('money dark', (tester) async {
+    await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf']);
+    await font('IBMPlexMono',
+        ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.dark(accent: app.themeColor),
+        home: const MoneyScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(MoneyScreen),
+        matchesGoldenFile('goldens/money-dark.png'));
   });
 }

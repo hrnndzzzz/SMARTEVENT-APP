@@ -1118,11 +1118,6 @@ class BrutSectionTitle extends StatelessWidget {
 /// notices one screen at a time and everybody notices flipping between
 /// them.
 class BrutScreen extends StatelessWidget {
-  /// How far the canvas moves towards the module's colour. Low on
-  /// purpose: at 0.25 the orange areas read as beige and the text
-  /// contrast starts to go.
-  static const double _tintStrength = 0.12;
-
   const BrutScreen({
     super.key,
     required this.child,
@@ -1134,18 +1129,7 @@ class BrutScreen extends StatelessWidget {
     this.scrollable = true,
     this.onRefresh,
     this.bottomPadding = AppLayout.contentPadding,
-    this.tint,
   });
-
-  /// Washes the canvas in a module's colour, very faintly.
-  ///
-  /// Sixteen screens shared one header and one near-white canvas, so
-  /// the only thing telling you which module you were in was the word
-  /// at the top. The wash is deliberately weak — it has to read as
-  /// "this is the money area", not as a coloured page, and every card
-  /// on top of it still has to carry its own meaning in green, yellow
-  /// and coral.
-  final BrutTone? tint;
 
   /// A [BrutHeader] or [BrutFlowHeader], drawn edge to edge with its own
   /// padding and its own 2px rule.
@@ -1188,15 +1172,7 @@ class BrutScreen extends StatelessWidget {
       bottomPadding,
     );
 
-    final p = context.palette;
     return Scaffold(
-      // Mixed towards the canvas rather than set at an opacity, so the
-      // result is a real colour the foreground helpers can reason
-      // about, and so dark mode gets a dark wash rather than a pale
-      // film over black.
-      backgroundColor: tint == null
-          ? null
-          : Color.lerp(p.canvas, tint!.fill(context), _tintStrength),
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,
       body: SafeArea(
@@ -2055,8 +2031,10 @@ class BrutChip extends StatelessWidget {
       enabled: !locked,
       fill: fill,
       radius: AppRadius.controlAll,
-      // BrutSurface mutes a disabled outline; the chosen answer keeps ink.
-      side: locked && selected ? context.side : null,
+      // BrutSurface mutes a disabled outline; the chosen answer keeps
+      // ink — emphaticSide, not side, because the ordinary outline is a
+      // hairline now and would not tell the chosen one from the rest.
+      side: locked && selected ? context.emphaticSide : null,
       shadow: selected ? AppShadows.sm : AppShadows.none,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       alignment: Alignment.center,

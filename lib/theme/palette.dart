@@ -155,7 +155,18 @@ extension BrutPaletteOf on BuildContext {
       Theme.of(this).extension<BrutPalette>() ?? BrutPalette.lightPalette;
 
   /// The outline every container and control wears.
-  BorderSide get side => BorderSide(color: palette.ink, width: 2);
+  /// The ordinary outline: a hairline that separates a card from the
+  /// cream behind it and nothing more.
+  BorderSide get side => BorderSide(color: palette.line, width: 1);
+
+  /// An outline that is carrying meaning rather than shape.
+  ///
+  /// Used where there is nothing else left to say which one is chosen —
+  /// a locked choice has no fill and no shadow, so the outline is the
+  /// whole signal. It stayed full ink when [side] became a hairline,
+  /// because flattening the look must not flatten what the look says.
+  BorderSide get emphaticSide =>
+      BorderSide(color: palette.ink, width: 1.5);
 
   /// The foreground that belongs on [fill]: dark ink on anything bright
   /// enough to carry it, light ink otherwise. Measured rather than

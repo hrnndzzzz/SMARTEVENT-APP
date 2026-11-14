@@ -56,7 +56,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
               label: Text('New item', style: AppText.buttonLabel),
             )
           : null,
-      tint: BrutTone.brand,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
