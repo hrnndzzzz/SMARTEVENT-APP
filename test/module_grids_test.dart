@@ -8,6 +8,7 @@ import 'package:smartevent/screens/inventory_screen.dart';
 import 'package:smartevent/screens/menu_panel.dart';
 import 'package:smartevent/screens/money_screen.dart';
 import 'package:smartevent/screens/risk_screen.dart';
+import 'package:smartevent/state/app_areas.dart';
 import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/notice_shelf.dart';
@@ -309,6 +310,41 @@ void main() {
         greaterThan(890 * 0.85),
         reason: 'the grid should reach the bottom of the screen',
       );
+    });
+
+    testWidgets('nothing on a block is cut off at 360pt', (tester) async {
+      // Found on the phone, not in the 411pt render: the arrow beside
+      // the blurb took a word and a half off every line, so all four
+      // blurbs ended in an ellipsis on a Galaxy and none did here.
+      final app = await open(
+        tester,
+        const MenuPanel(),
+        size: const Size(360, 800),
+      );
+
+      for (final area in menuAreasFor(app.currentRole)) {
+        if (area.id == 'search') continue;
+        for (final line in [area.title, area.blurb]) {
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.text(line),
+          );
+          // Laid out again without the maxLines, at the width it was
+          // actually given. RenderParagraph's own intrinsic height
+          // applies maxLines too, so asking it is asking the clamp
+          // whether it clamped.
+          final free = TextPainter(
+            text: paragraph.text,
+            textDirection: TextDirection.ltr,
+            textScaler: paragraph.textScaler,
+          )..layout(maxWidth: paragraph.size.width);
+
+          expect(
+            paragraph.size.height,
+            closeTo(free.height, 0.5),
+            reason: '"$line" is cut off on ${area.title}',
+          );
+        }
+      }
     });
 
     testWidgets('a place wears its module colour, filled', (tester) async {

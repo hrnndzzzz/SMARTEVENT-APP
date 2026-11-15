@@ -219,32 +219,45 @@ class _Block extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          Text(
-            area.title,
-            style: AppText.display.copyWith(
-              fontSize: 22,
-              color: on,
-              height: 1.05,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
+          // The arrow rides the title, not the blurb. Beside the blurb
+          // it took 24pt off a line of body text, which is a word and a
+          // half at this width: on a 360pt phone every blurb in the
+          // grid ended in an ellipsis while the title beside the arrow
+          // had room to spare.
           Row(
             children: [
+              // Scaled down rather than clipped. "Inventory" at 22pt
+              // does not fit a half-width block on a 360pt phone, and
+              // the name of the place is the one thing on this screen
+              // that must survive — an ellipsis in the middle of it is
+              // worse than a point or two of type.
               Expanded(
-                child: Text(
-                  area.blurb,
-                  style: AppText.caption.copyWith(
-                    color: on.withValues(alpha: 0.75),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    area.title,
+                    style: AppText.display.copyWith(
+                      fontSize: 22,
+                      color: on,
+                      height: 1.05,
+                    ),
+                    maxLines: 1,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 6),
               Icon(Icons.arrow_outward, size: 18, color: on),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            area.blurb,
+            style: AppText.caption.copyWith(
+              color: on.withValues(alpha: 0.75),
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
