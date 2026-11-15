@@ -22,6 +22,7 @@ import 'package:smartevent/screens/receipts_screen.dart';
 import 'package:smartevent/screens/income_screen.dart';
 import 'package:smartevent/screens/admin_screen.dart';
 import 'package:smartevent/screens/inventory_screen.dart';
+import 'package:smartevent/screens/menu_panel.dart';
 import 'package:smartevent/screens/money_screen.dart';
 import 'package:smartevent/screens/home_screen.dart';
 import 'package:smartevent/screens/events_hub_screen.dart';
@@ -395,5 +396,27 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(
         find.byType(EventsHubScreen), matchesGoldenFile('goldens/events-hub.png'));
+  });
+
+  testWidgets('menu', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(accent: app.themeColor),
+        home: const MenuPanel(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(
+        find.byType(MenuPanel), matchesGoldenFile('goldens/menu.png'));
   });
 }

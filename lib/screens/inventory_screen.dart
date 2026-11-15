@@ -305,7 +305,12 @@ class _ItemCard extends StatelessWidget {
               else if (item.isLowStock)
                 BrutBadge(
                   label: 'Low stock (≤ ${item.lowStockThreshold})',
-                  tone: BrutTone.coral,
+                  // Amber, not the coral "None left" wears. Low and
+                  // gone were the same red, so the row said they were
+                  // the same thing while the comment above and the
+                  // figures at the top of the screen both say they are
+                  // not.
+                  tone: BrutTone.sun,
                 ),
               if (item.needsEventLink)
                 const BrutBadge(label: 'No event link', tone: BrutTone.coral),

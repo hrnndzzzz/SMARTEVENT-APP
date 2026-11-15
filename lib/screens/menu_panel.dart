@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../state/app_areas.dart';
 import '../state/app_settings.dart';
 import '../state/app_state.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -16,9 +15,19 @@ import '../theme/module_identity.dart';
 
 /// The menu, one swipe right of the dashboard.
 ///
-/// Full-width bands rather than a grid of cards: there is no hierarchy
-/// to express here, just a list of places, and a band gives the name room
-/// to be read at a glance while the colour does the finding.
+/// A grid of blocks that fills the screen, each in its module's own
+/// colour.
+///
+/// It was a list of full-width bands on the page's surface, with the
+/// colour reduced to a coin beside each name. The argument for that was
+/// that there is no hierarchy here, only places — which is true, and
+/// which a grid says just as well. What it did not survive was the
+/// count: four places make four rows, and four rows leave most of a
+/// phone empty. The review said so in one word.
+///
+/// Filling the colour rather than coining it also makes this screen
+/// agree with the one it opens: tap the purple block, land on a purple
+/// band.
 ///
 /// Dashboard and Events are not on it. They are the two screens either
 /// side of this one, and a menu entry that takes you where a swipe
@@ -107,15 +116,14 @@ class MenuPanel extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                padding: EdgeInsets.only(
-                  bottom:
-                      MediaQuery.viewPaddingOf(context).bottom +
-                      AppLayout.section,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppLayout.gutter,
+                  0,
+                  AppLayout.gutter,
+                  MediaQuery.viewPaddingOf(context).bottom + AppLayout.tight,
                 ),
-                itemCount: areas.length,
-                itemBuilder: (context, i) =>
-                    _Band(area: areas[i], index: i + 1, app: app),
+                child: _Grid(areas: areas, app: app),
               ),
             ),
           ],
@@ -125,154 +133,161 @@ class MenuPanel extends StatelessWidget {
   }
 }
 
-class _Band extends StatelessWidget {
-  const _Band({required this.area, required this.index, required this.app});
+/// Two across, filling whatever height the screen has left.
+///
+/// Expanded rows rather than a fixed cell height: a menu that stops
+/// two thirds of the way down is the thing this replaced, and a phone
+/// is not one height. An odd last block takes the full width instead of
+/// leaving a hole — unlike a grid of figures, where a double-width cell
+/// would read as the important one, the last place is a place like the
+/// others and the row is the bottom of the screen.
+class _Grid extends StatelessWidget {
+  const _Grid({required this.areas, required this.app});
+
+  final List<AppArea> areas;
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+    for (var i = 0; i < areas.length; i += 2) {
+      final left = areas[i];
+      final right = i + 1 < areas.length ? areas[i + 1] : null;
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 10));
+      rows.add(
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _Block(area: left, app: app)),
+              if (right != null) ...[
+                const SizedBox(width: 10),
+                Expanded(child: _Block(area: right, app: app)),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+  }
+}
+
+class _Block extends StatelessWidget {
+  const _Block({required this.area, required this.app});
 
   final AppArea area;
-  final int index;
   final AppState app;
 
   @override
   Widget build(BuildContext context) {
     final count = area.badge?.call(app);
-    // The bands take the page's own surface and the numeral carries the
-    // colour, alternating blue and orange down the list. Six full-width
-    // fills were six things shouting at once; one accent the size of a
-    // coin is enough to make the list read as a set.
-    final fill = context.palette.surface;
+    // The module's own colour, filled. It used to be a coin beside the
+    // name on a surface-coloured band, which made the menu and the
+    // screen it opens disagree about what colour that place is.
+    final fill =
+        moduleForAreaId(area.id)?.colorIn(context) ?? context.palette.muted;
     final on = context.foregroundOn(fill);
 
-    return GestureDetector(
+    return BrutSurface(
       onTap: () =>
           Navigator.of(context).push(MaterialPageRoute(builder: area.builder)),
-      behavior: HitTestBehavior.opaque,
-      child: Semantics(
-        label: area.title,
-        button: true,
-        // The band first, the pulse over it: the body is an opaque fill
-        // and would paint the pulse out if it came second.
-        child: Stack(
-          children: [
-            _bandBody(context, fill, on, count),
-            if (count != null && count > 0)
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: _AttentionPulse(
-                    semantic: '$count ${area.badgeLabel ?? 'waiting'}',
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _bandBody(BuildContext context, Color fill, Color on, int? count) {
-    // The module's own colour, not an alternating pair. The menu used
-    // to go blue, orange, blue down the list, which made the colour a
-    // property of position rather than of the thing — so the menu and
-    // the band at the top of the screen it opened disagreed.
-    final accent =
-        moduleForAreaId(area.id)?.colorIn(context) ?? context.palette.muted;
-    final onAccent = context.foregroundOn(accent);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: fill,
-        // A rule above the first as well, so the top band sits on
-        // something instead of floating under the search bar.
-        border: Border(
-          top: index == 1 ? context.side : BorderSide.none,
-          bottom: context.side,
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(
-        AppLayout.gutter,
-        18,
-        AppLayout.gutter,
-        18,
-      ),
-      child: Row(
+      semanticLabel: area.title,
+      fill: fill,
+      radius: AppRadius.cardAll,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The area's own icon, where its position in the list used to
-          // be. The position was true but useless: nobody looks for
-          // "the fourth one", they look for the money.
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: accent,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.ink, width: 2),
-            ),
-            child: Icon(area.icon, size: 18, color: onAccent),
-          ),
-          const SizedBox(width: AppLayout.between),
-          // The name alone, at full size. The blurb under it said in a
-          // sentence what the name already said in a word, on every
-          // band, which is most of what made this screen busy.
-          Expanded(
-            child: Text(
-              area.title,
-              style: AppText.display.copyWith(
-                fontSize: 26,
-                color: on,
-                height: 1.05,
+          Row(
+            children: [
+              // Punched out of the fill rather than drawn on it, the
+              // same way the band at the top of each module carries its
+              // icon, so the two read as the same object.
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: on.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(area.icon, size: 22, color: on),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+              const Spacer(),
+              if (count != null && count > 0)
+                _WaitingCount(count: count, label: area.badgeLabel, ring: on),
+            ],
           ),
-          // The figure itself, beside the glow. The pulse says
-          // something here wants attention; without a number it never
-          // said how much, and the band had to be opened to find out.
-          if (count != null && count > 0) ...[
-            const SizedBox(width: AppLayout.tight),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(
-                color: BrutTone.coral.fill(context),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: AppColors.ink, width: 2),
-              ),
-              child: Text(
-                '$count',
-                style: AppText.number.copyWith(
-                  fontSize: 12,
-                  color: context.foregroundOn(BrutTone.coral.fill(context)),
+          const Spacer(),
+          Text(
+            area.title,
+            style: AppText.display.copyWith(
+              fontSize: 22,
+              color: on,
+              height: 1.05,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  area.blurb,
+                  style: AppText.caption.copyWith(
+                    color: on.withValues(alpha: 0.75),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
-          ],
-          const SizedBox(width: AppLayout.tight),
-          Icon(Icons.arrow_outward, size: 22, color: on),
+              const SizedBox(width: 6),
+              Icon(Icons.arrow_outward, size: 18, color: on),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-/// A band with something waiting behind it, said without a number.
+/// A block with something waiting behind it, said in a figure that
+/// breathes.
 ///
-/// One pulse every ten seconds down the right edge: long enough apart
-/// that six of them are not a light show, bright enough that the eye
-/// catches one while reading something else. Red, because it means the
-/// same thing as every other red in the app — this wants you — and a
-/// count said that in a way nobody could tell from the band's own
-/// numeral.
-class _AttentionPulse extends StatefulWidget {
-  const _AttentionPulse({required this.semantic});
+/// One swell every ten seconds: long enough apart that six of them are
+/// not a light show, bright enough that the eye catches one while
+/// reading something else.
+///
+/// It was a red gradient down the band's right edge, which worked while
+/// every band was the page's own cream. On a block filled with the
+/// module's colour a red edge is invisible against Flagged's red and
+/// fights everything else, so the same ten-second swell moves to the
+/// count itself — which carries on any fill, and says how many as well
+/// as that there are some.
+class _WaitingCount extends StatefulWidget {
+  const _WaitingCount({
+    required this.count,
+    required this.label,
+    required this.ring,
+  });
 
-  final String semantic;
+  final int count;
+  final String? label;
+
+  /// The block's own foreground. The pill's outline was hardcoded ink,
+  /// which is a black ring on a black-inked block: invisible on
+  /// Flagged's dark red, where the signal matters most, and muddy on
+  /// Money's orange, which is coral's near neighbour. Taking the
+  /// block's foreground means it separates from every fill by
+  /// construction rather than by luck.
+  final Color ring;
 
   @override
-  State<_AttentionPulse> createState() => _AttentionPulseState();
+  State<_WaitingCount> createState() => _WaitingCountState();
 }
 
-class _AttentionPulseState extends State<_AttentionPulse>
+class _WaitingCountState extends State<_WaitingCount>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -287,40 +302,55 @@ class _AttentionPulseState extends State<_AttentionPulse>
 
   @override
   Widget build(BuildContext context) {
-    final still = context.watch<AppSettings>().reduceMotion;
-    final edge = BrutTone.coral.fill(context);
+    var still = MediaQuery.disableAnimationsOf(context);
+    try {
+      still = still || context.watch<AppSettings>().reduceMotion;
+    } on ProviderNotFoundException {
+      // A test host without the settings provider still gets a count.
+    }
 
-    Widget strip(double strength) => IgnorePointer(
-      child: Container(
-        width: 56,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerRight,
-            end: Alignment.centerLeft,
-            colors: [
-              edge.withValues(alpha: 0.85 * strength),
-              edge.withValues(alpha: 0),
-            ],
-          ),
-        ),
+    final fill = BrutTone.coral.fill(context);
+    final on = context.foregroundOn(fill);
+
+    Widget pill(double strength) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: widget.ring, width: 2),
+        // The swell, not a colour change: the pill is already the red
+        // that means "this wants you" everywhere else in the app, and a
+        // red that brightens and dims is a different red.
+        boxShadow: strength <= 0
+            ? null
+            : [
+                BoxShadow(
+                  color: fill.withValues(alpha: 0.75 * strength),
+                  blurRadius: 14 * strength,
+                  spreadRadius: 3 * strength,
+                ),
+              ],
+      ),
+      child: Text(
+        '${widget.count}',
+        style: AppText.number.copyWith(fontSize: 12, color: on),
       ),
     );
 
+    final semantic = '${widget.count} ${widget.label ?? 'waiting'}';
+
     // Held steady rather than removed: the signal is the point, the
     // movement is only what makes it noticed.
-    if (still) {
-      return Semantics(label: widget.semantic, child: strip(0.5));
-    }
+    if (still) return Semantics(label: semantic, child: pill(0.4));
 
     return Semantics(
-      label: widget.semantic,
+      label: semantic,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
           // One swell inside the first fifth of the cycle, flat after.
           final t = _controller.value;
-          final strength = t < 0.2 ? math.sin(t / 0.2 * math.pi) : 0.0;
-          return strip(strength);
+          return pill(t < 0.2 ? math.sin(t / 0.2 * math.pi) : 0.0);
         },
       ),
     );

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartevent/screens/home_screen.dart';
 import 'package:smartevent/screens/inventory_screen.dart';
+import 'package:smartevent/screens/menu_panel.dart';
 import 'package:smartevent/screens/money_screen.dart';
 import 'package:smartevent/screens/risk_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
@@ -12,6 +14,8 @@ import 'package:smartevent/state/notice_shelf.dart';
 import 'package:smartevent/state/reachability.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
+import 'package:smartevent/theme/module_identity.dart';
+import 'package:smartevent/widgets/module_band.dart';
 import 'package:smartevent/widgets/stat_grid.dart';
 
 /// The reviewer's two notes about the module screens: that they opened
@@ -267,6 +271,104 @@ void main() {
       final scope = tester.getRect(find.textContaining('TREASURER'));
       expect(date.top, closeTo(scope.top, 1));
       expect(scope.left, greaterThan(date.right));
+    });
+  });
+
+  group('Menu', () {
+    testWidgets('the places are two across and fill the screen', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        const MenuPanel(),
+        size: const Size(411, 890),
+      );
+
+      Rect block(String title) => tester.getRect(
+        find.ancestor(
+          of: find.text(title),
+          matching: find.byType(BrutSurface),
+        ).last,
+      );
+
+      final money = block('Money');
+      final inventory = block('Inventory');
+      final reports = block('Reports');
+
+      // Two across.
+      expect(money.top, inventory.top);
+      expect(inventory.left, greaterThan(money.right));
+      // And the next row below, not beside.
+      expect(reports.top, greaterThan(money.bottom));
+
+      // Filling what is there. Four rows of list left most of a phone
+      // empty, which is the whole complaint.
+      final last = block('Flagged');
+      expect(
+        last.bottom,
+        greaterThan(890 * 0.85),
+        reason: 'the grid should reach the bottom of the screen',
+      );
+    });
+
+    testWidgets('a place wears its module colour, filled', (tester) async {
+      await open(tester, const MenuPanel(), size: const Size(411, 890));
+
+      // Tap the purple block, land on a purple band. The menu used to
+      // put the colour in a coin beside the name, so the two screens
+      // disagreed about what colour a place is.
+      final surface = tester.widget<BrutSurface>(
+        find.ancestor(
+          of: find.text('Inventory'),
+          matching: find.byType(BrutSurface),
+        ).last,
+      );
+      expect(surface.fill, Module.inventory.color);
+    });
+  });
+
+  group('Module bands', () {
+    testWidgets('no title wraps, on the narrowest phone', (tester) async {
+      // "Flagged for review" was two lines in its band while every
+      // other module was one. Measured rather than looked at, because
+      // the next long name will not announce itself either.
+      await tester.binding.setSurfaceSize(const Size(360, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      for (final module in Module.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ModuleBand(module: module, subtitle: 'A line under it.'),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final title = tester.renderObject<RenderParagraph>(
+          find.text(module.title),
+        );
+        // Its height with nothing forcing a wrap is one line's worth.
+        // Taller than that on the band's real width means it wrapped.
+        expect(
+          title.size.height,
+          closeTo(title.getMaxIntrinsicHeight(double.infinity), 0.5),
+          reason: '${module.title} wraps in its own band',
+        );
+      }
+    });
+  });
+
+  group('Inventory badges', () {
+    test('low and gone are not the same colour', () {
+      // The row said both in coral while the figures above call low
+      // amber and gone red, so the same shelf read two ways depending
+      // on where you looked.
+      expect(BrutTone.sun, isNot(BrutTone.coral));
     });
   });
 }

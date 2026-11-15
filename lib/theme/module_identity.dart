@@ -28,8 +28,13 @@ enum Module {
     Module.events => 'Events',
     Module.money => 'Money',
     Module.inventory => 'Inventory',
-    Module.reports => 'Financial reports',
-    Module.flagged => 'Flagged for review',
+    // 'Financial reports' fits a 411pt band and not a 360pt one, and
+    // the menu had always called it this. The band's own subtitle says
+    // which reports they are.
+    Module.reports => 'Reports',
+    // 'Flagged for review' was the only title that would not fit its
+    // band on one line, and the menu had always called it this.
+    Module.flagged => 'Flagged',
     Module.admin => 'Administration',
     Module.search => 'Search',
   };
