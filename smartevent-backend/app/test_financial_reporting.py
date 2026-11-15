@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from types import SimpleNamespace
 from uuid import uuid4
@@ -176,3 +177,56 @@ def test_pdf_endpoint_returns_download_and_forwards_filters(monkeypatch):
     assert forwarded["school_year"] == "2026-2027"
     assert forwarded["semester"] == "1st"
     assert forwarded["event_scope"] == "organizational"
+
+
+def _analytics_report(**overrides):
+    from app.schemas import CategorySpend, LedgerEntry, TrendPoint
+    event = FinancialEventSummary(event_id=uuid4(), title="Week <script>alert(1)</script>", school_year="2026-2027",
+                                  semester="1st", event_scope="organizational", income_count=1, expense_count=1,
+                                  total_income=1200, total_expenses=900, net_balance=300, status="approved",
+                                  allocated_budget=800, spent_to_date=900)
+    values = dict(period="monthly", start_date=date(2026, 9, 1), end_date=date(2026, 9, 30), school_year=None,
+                  semester=None, event_scope=None, total_income=1200, total_expenses=900, unassigned_expense_total=0,
+                  net_balance=300, events=[event], total_allocated_budget=800, total_spent_to_date=900,
+                  expenses_by_category=[CategorySpend(category_id=uuid4(), category_name="Food", expense_count=1,
+                                                      total_expenses=900)],
+                  trend=[TrendPoint(bucket="2026-09-01", total_income=1200, total_expenses=0),
+                         TrendPoint(bucket="2026-09-02", total_income=0, total_expenses=900)],
+                  ledger=[LedgerEntry(occurred_on=date(2026, 9, 2), kind="expense", label="Food",
+                                      description="Meals", amount=900)])
+    return ConsolidatedFinancialReport(**{**values, **overrides})
+
+
+def _render(report, format):
+    return render_export("SMARTEVENT Financial Report", financial_sections(report), format, "r",
+                         meta=["Monthly"], figures=exports_router.financial_figures(report),
+                         charts=exports_router.financial_charts(report)).body
+
+
+def test_print_ready_puts_charts_before_tables_with_nothing_that_runs():
+    html = _render(_analytics_report(), "html").decode()
+    charts = html[html.index('<section class="charts">'):html.index("</section>")]
+    assert charts.count("<svg") == 4  # the empty income pie is left out
+    assert html.index('class="charts"') < html.index("<table")
+    assert "break-after:page" in html
+    for unsafe in ("<script", "<image", "href=", "<foreignObject"):
+        assert unsafe not in html
+    assert "&lt;script&gt;" in html  # the event title, escaped in the chart and the table
+    assert len(set(re.findall(r'id="(clip\d+)"', html))) == 4  # one clip id per chart
+
+
+def test_pdf_starts_the_tables_on_a_new_page_and_an_empty_report_still_renders():
+    full = _render(_analytics_report(), "pdf")
+    assert full.startswith(b"%PDF-") and len(re.findall(rb"/Type /Page\b(?!s)", full)) >= 2
+    empty = _render(_analytics_report(events=[], trend=[], ledger=[], expenses_by_category=[], total_income=0,
+                                      total_expenses=0, net_balance=0, total_allocated_budget=0,
+                                      total_spent_to_date=0), "pdf")
+    assert empty.startswith(b"%PDF-") and b"Charts" not in empty
+
+
+def test_csv_is_data_only_with_figures_and_plain_numbers():
+    text = _render(_analytics_report(), "csv").decode("utf-8-sig")
+    assert "<svg" not in text and "Charts" not in text
+    assert "Summary" in text and "Income (PHP),1200.00" in text and "Budget used,112%" in text
+    assert "Meals,-900.00" in text  # spending reads as a negative number, not escaped text
+    assert "Food,1,900.00" in text
