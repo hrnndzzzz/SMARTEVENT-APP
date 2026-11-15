@@ -32,6 +32,7 @@ import 'package:smartevent/state/notice_shelf.dart';
 import 'package:smartevent/state/reachability.dart';
 import 'package:smartevent/widgets/brand_pill.dart';
 import 'package:smartevent/widgets/connection_banner.dart';
+import 'package:smartevent/theme/app_colors.dart';
 import 'package:smartevent/theme/app_theme.dart';
 
 Future<void> font(String family, List<String> paths) async {
@@ -435,7 +436,10 @@ void main() {
       final reach = Reachability()..report(reachable: true);
 
       await tester.pumpWidget(MaterialApp(
-        theme: AppTheme.light(),
+        // CITE's accent, not the default. A pill rendered on the
+        // fallback is a picture of a department nobody is signed in to,
+        // and the whole point of this one is the colour.
+        theme: AppTheme.light(accent: AppColors.orange),
         home: ChangeNotifierProvider<Reachability>.value(
           value: reach,
           child: ConnectionBanner(
