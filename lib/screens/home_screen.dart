@@ -21,6 +21,7 @@ import 'event_detail_screen.dart';
 import 'events_screen.dart';
 import 'expenses_screen.dart';
 import '../theme/peso.dart';
+import '../theme/module_identity.dart';
 
 /// The dashboard: where you stand, what needs you, and the one thing you
 /// are most likely to have opened the app to do.
@@ -182,7 +183,8 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: _StatTile(
-                    icon: Icons.inventory_2_outlined,
+                    icon: Module.events.icon,
+                    accent: Module.events.color,
                     value: '${app.events.length}',
                     label: 'Events',
                     opens: 'events',
@@ -204,7 +206,8 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(width: AppLayout.between),
                 Expanded(
                   child: _StatTile(
-                    icon: Icons.account_balance_wallet_outlined,
+                    icon: Module.money.icon,
+                    accent: Module.money.color,
                     value: peso(remaining, decimals: 0),
                     label: 'of ${peso(allocated, decimals: 0)} left',
                     peekTitle: 'Budget',
@@ -239,7 +242,7 @@ class HomeScreen extends StatelessWidget {
                     value: '${app.pendingExpenses.length}',
                     label: 'Awaiting review',
                     opens: 'expenses',
-                    accent: AppColors.orange,
+                    accent: Module.money.color,
                     trend: app.pendingExpenses.isEmpty
                         ? _Trend.flat
                         : _Trend.down,
@@ -256,11 +259,11 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(width: AppLayout.between),
                 Expanded(
                   child: _StatTile(
-                    icon: Icons.warehouse_outlined,
+                    icon: Module.inventory.icon,
                     value: '${app.dashboard?.lowStockItemCount ?? 0}',
                     label: 'Low stock',
                     opens: 'inventory',
-                    accent: AppColors.orange,
+                    accent: Module.inventory.color,
                     trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
                         ? _Trend.flat
                         : _Trend.down,
@@ -420,13 +423,22 @@ class _StatTile extends StatelessWidget {
         children: [
           Row(
             children: [
+              // A solid block, not a 16% wash of the accent. On the old
+              // near-white canvas the wash read as a tint; on cream it
+              // read as nothing, and the brighter module colours made
+              // it worse rather than better.
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(10),
+                  color: accent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.fromBorderSide(context.side),
                 ),
-                child: Icon(icon, size: 17, color: accent),
+                child: Icon(
+                  icon,
+                  size: 17,
+                  color: context.foregroundOn(accent),
+                ),
               ),
               const Spacer(),
               _TrendBadge(trend: trend),
