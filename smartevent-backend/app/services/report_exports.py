@@ -23,10 +23,28 @@ def income_source_section(report):
 
 
 def financial_sections(report):
-    return [summary_section(report),
-            ("Events", ["Event", "School year", "Semester", "Scope", "Income (PHP)", "Expenses (PHP)", "Balance (PHP)"],
-             [[e.title, e.school_year, e.semester, e.event_scope, e.total_income, e.total_expenses, e.net_balance] for e in report.events]),
-            income_source_section(report)]
+    sections = [summary_section(report)]
+    if report.previous:
+        p = report.previous
+        sections.append(("Previous period", ["Window", "Income (PHP)", "Expenses (PHP)", "Balance (PHP)"],
+                         [[" ".join(_text(v) for v in (p.start_date, p.end_date, p.school_year, p.semester) if v),
+                           p.total_income, p.total_expenses, p.net_balance]]))
+    sections += [
+        ("Events (budget and spent to date cover the whole event, not only this period)",
+         ["Event", "Status", "School year", "Semester", "Allocated (PHP)", "Spent to date (PHP)",
+          "Variance (PHP)", "Income (PHP)", "Expenses (PHP)", "Balance (PHP)"],
+         [[e.title, e.status, e.school_year, e.semester, e.allocated_budget, e.spent_to_date,
+           round(e.allocated_budget - e.spent_to_date, 2), e.total_income, e.total_expenses, e.net_balance]
+          for e in report.events]),
+        ("Spending by category", ["Category", "Count", "Expenses (PHP)"],
+         [[c.category_name, c.expense_count, c.total_expenses] for c in report.expenses_by_category]),
+        income_source_section(report),
+        ("Ledger", ["Date", "Type", "Event", "Category / source", "Description", "Amount (PHP)", "Counted"],
+         [[r.occurred_on, r.kind, r.event_title or "No event", r.label, r.description,
+           r.amount if r.kind == "income" else -r.amount, "yes" if r.counted else "withheld"]
+          for r in report.ledger]),
+    ]
+    return sections
 
 def _text(value):
     return "" if value is None else str(value)

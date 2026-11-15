@@ -818,6 +818,48 @@ class FinancialEventSummary(BaseModel):
     net_balance: float
     withheld_income_total: float = 0
     withheld_income_count: int = 0
+    status: EventStatus | None = None
+    event_date: date | None = None
+    allocated_budget: float = 0
+    # Approved spending over the event's whole life, not just this window,
+    # so it can be set against the event's whole budget.
+    spent_to_date: float = 0
+
+
+class CategorySpend(BaseModel):
+    category_id: uuid.UUID
+    category_name: str
+    expense_count: int
+    total_expenses: float
+
+
+class TrendPoint(BaseModel):
+    bucket: str  # YYYY-MM-DD for weekly/monthly, YYYY-MM for academic periods
+    total_income: float
+    total_expenses: float
+
+
+class LedgerEntry(BaseModel):
+    occurred_on: date
+    kind: Literal["income", "expense"]
+    event_id: uuid.UUID | None = None
+    event_title: str | None = None
+    label: str  # expense category, or who the income came from
+    source_type: FundSource | None = None
+    description: str
+    amount: float
+    counted: bool = True  # False for income withheld pending a receipt decision
+    flagged: bool = False
+
+
+class PeriodTotals(BaseModel):
+    start_date: date | None = None
+    end_date: date | None = None
+    school_year: str | None = None
+    semester: Semester | None = None
+    total_income: float
+    total_expenses: float
+    net_balance: float
 
 
 class ConsolidatedFinancialReport(BaseModel):
@@ -835,6 +877,13 @@ class ConsolidatedFinancialReport(BaseModel):
     income_by_source: list[IncomeSourceSummary] = Field(default_factory=list)
     withheld_income_total: float = 0
     withheld_income_count: int = 0
+    # Budget figures cover approved and completed events only.
+    total_allocated_budget: float = 0
+    total_spent_to_date: float = 0
+    expenses_by_category: list[CategorySpend] = Field(default_factory=list)
+    trend: list[TrendPoint] = Field(default_factory=list)
+    ledger: list[LedgerEntry] = Field(default_factory=list)
+    previous: PeriodTotals | None = None
 
 
 class BudgetRecommendation(BaseModel):

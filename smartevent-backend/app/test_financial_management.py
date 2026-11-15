@@ -69,6 +69,73 @@ def test_financial_periods_filters_and_decimal_totals(system, period, params):
     assert client.get(f"/reports/financial?period={period}{params}&event_scope=departmental").json()["total_income"] == 0
 
 
+def test_report_breakdowns_reconcile_with_its_totals(system):
+    client, db, users, orgs, resources, login = system
+    resources[0]["expenses"].status = "approved"
+    resources[0]["expenses"].expense_date = date(2026, 9, 10)
+    resources[0]["incomes"].received_on = date(2026, 9, 12)
+    db.add(Expense(organization_id=orgs[0].id, department_id=resources[0]["events"].department_id,
+                   category_id=resources[0]["categories"].id, description="Tarpaulin", amount="25.50",
+                   expense_date=date(2026, 9, 15), status="approved", recorded_by=users["treasurer"].id))
+    db.commit()
+    login("officer")
+    report = client.get("/reports/financial?period=monthly&reference_date=2026-09-20").json()
+    assert report["total_income"] == 100 and report["total_expenses"] == 35.5
+    counted = [row for row in report["ledger"] if row["counted"]]
+    assert sum(r["amount"] for r in counted if r["kind"] == "income") == 100
+    assert round(sum(r["amount"] for r in counted if r["kind"] == "expense"), 2) == 35.5
+    assert any(r["event_title"] is None and r["description"] == "Tarpaulin" for r in report["ledger"])
+    assert report["expenses_by_category"] == [{"category_id": str(resources[0]["categories"].id),
+        "category_name": "Supplies", "expense_count": 2, "total_expenses": 35.5}]
+    assert len(report["trend"]) == 30
+    assert sum(p["total_income"] for p in report["trend"]) == 100
+    assert round(sum(p["total_expenses"] for p in report["trend"]), 2) == 35.5
+
+
+def test_report_compares_with_the_period_before(system):
+    client, db, users, orgs, resources, login = system
+    resources[0]["incomes"].received_on = date(2026, 8, 20)
+    db.commit()
+    login("officer")
+    report = client.get("/reports/financial?period=monthly&reference_date=2026-09-20").json()
+    assert report["total_income"] == 0
+    assert report["previous"]["total_income"] == 100 and report["previous"]["start_date"] == "2026-08-01"
+    from app.routers.reports import _previous_period
+    today = date(2026, 9, 20)
+    assert _previous_period("semester", today, "2026-2027", "1st")[1:] == ("2025-2026", "summer")
+    assert _previous_period("semester", today, "2026-2027", "summer")[1:] == ("2026-2027", "2nd")
+    assert _previous_period("school_year", today, "2026-2027", None)[1] == "2025-2026"
+    assert _previous_period("weekly", today, None, None)[0] == date(2026, 9, 13)
+
+
+def test_budget_figures_use_whole_event_spending_and_committed_events(system):
+    client, db, users, orgs, resources, login = system
+    event = resources[0]["events"]
+    event.status = "approved"
+    resources[0]["expenses"].status = "approved"
+    resources[0]["expenses"].expense_date = date(2026, 8, 5)  # before the window
+    db.commit()
+    login("officer")
+    url = "/reports/financial?period=monthly&reference_date=2026-09-20"
+    report = client.get(url).json()
+    row = report["events"][0]
+    assert row["total_expenses"] == 0 and row["spent_to_date"] == 10 and row["allocated_budget"] == 1000
+    assert row["status"] == "approved"
+    assert report["total_allocated_budget"] == 1000 and report["total_spent_to_date"] == 10
+    event.status = "pending"
+    db.commit()
+    assert client.get(url).json()["total_allocated_budget"] == 0
+
+
+def test_financial_export_carries_the_new_sections(system):
+    client, db, users, orgs, resources, login = system
+    login("officer")
+    response = client.get("/reports/financial/export?period=school_year&school_year=2026-2027&format=csv")
+    assert response.status_code == 200
+    for heading in ("Spending by category", "Ledger", "Spent to date", "Previous period"):
+        assert heading in response.text
+
+
 def test_calendar_reports_use_transaction_dates_not_event_creation_date(system):
     client, db, users, orgs, resources, login = system
     resources[0]["incomes"].received_on = date(2026, 8, 31)
