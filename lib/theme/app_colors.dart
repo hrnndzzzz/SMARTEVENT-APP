@@ -27,17 +27,35 @@ class AppColors {
   static const Color shadow = Color(0xFF1A1A1A);
 
   // ── Accents ───────────────────────────────────────────────────────────
-  /// The brand, and every primary action.
-  static const Color brand = Color(0xFFFFE24D);
+  /// The brand, and every primary action. Blue.
+  ///
+  /// SmartEvent is blue and orange — CITE's two, and the logo's two —
+  /// and the restyle quietly made this half yellow. Three places went
+  /// on saying blue while it did: [brandDark], so a primary button was
+  /// yellow in light and blue in dark; [brandTint], so a tinted brand
+  /// panel sat behind a yellow fill; and AppTheme's own doc, which says
+  /// primary "stays blue". One of the four was changed, which is the
+  /// kind of thing a palette cannot survive.
+  static const Color brand = Color(0xFF4D96FF);
 
   /// Needs attention, pending, waiting.
-  /// Waiting. A deeper gold than [brand], which is the bright yellow a
-  /// primary action wears — the two were briefly the same swatch, which
-  /// made "waiting on a decision" and "press this" indistinguishable.
+  ///
+  /// The only yellow with a job. It was deepened to a gold when [brand]
+  /// was briefly yellow too, because "waiting on a decision" and "press
+  /// this" cannot be the same swatch. With the brand back to blue that
+  /// collision is gone, and the gold stays: it is the one that reads on
+  /// the cream.
   static const Color sun = Color(0xFFF2C230);
 
   /// Done, approved, correct.
-  static const Color mint = Color(0xFF8FB46B);
+  ///
+  /// The same drift as [brand], caught by the same measurement: muting
+  /// this for the cream rotated it 37° into yellow-green while
+  /// [mintDark] and [mintTint] stayed at the green they always were,
+  /// so "approved" was olive in light and green in dark. Back on the
+  /// family's own hue, at the saturation and lightness the cream
+  /// needed.
+  static const Color mint = Color(0xFF6AB472);
 
   /// Small "on" signals only: a switch that is on, an online dot.
   static const Color leaf = Color(0xFF22C55E);
