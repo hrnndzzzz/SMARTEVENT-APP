@@ -151,14 +151,27 @@ class _HtmlViewState extends State<_HtmlView> {
   }
 }
 
-/// The CSV as a table, with the header row kept in place.
-class _CsvTable extends StatelessWidget {
-  const _CsvTable({required this.file});
+/// One table in an exported CSV: its heading, column names and rows. The
+/// lines at the top of the file (title, what it covers) come back as a
+/// section with only [lines].
+class CsvSection {
+  const CsvSection({
+    this.heading,
+    this.lines = const [],
+    this.header = const [],
+    this.rows = const [],
+  });
 
-  final DownloadedFile file;
+  final String? heading;
+  final List<String> lines;
+  final List<String> header;
+  final List<List<String>> rows;
+
+  bool get isTable => header.isNotEmpty;
 
   /// A small CSV reader: quoted fields, doubled quotes inside them, and
-  /// newlines that only end a row when they fall outside quotes.
+  /// newlines that only end a row when they fall outside quotes. Blank
+  /// lines come back as empty rows: they are where one table ends.
   static List<List<String>> parse(String input) {
     final rows = <List<String>>[];
     var row = <String>[];
@@ -197,15 +210,58 @@ class _CsvTable extends StatelessWidget {
       row.add(field.toString());
       rows.add(row);
     }
-    // A trailing newline leaves one empty row behind.
-    return rows.where((r) => r.any((c) => c.trim().isNotEmpty)).toList();
+    return [
+      for (final r in rows)
+        if (r.any((c) => c.trim().isNotEmpty)) r else const <String>[],
+    ];
   }
+
+  /// The file split at its blank lines. In each part, a lone one-cell row
+  /// is the heading and the row after it the column names; a part made
+  /// only of one-cell rows is text, such as the title block.
+  static List<CsvSection> split(String input) {
+    final rows = parse(input.startsWith('\ufeff') ? input.substring(1) : input);
+    final parts = <List<List<String>>>[[]];
+    for (final row in rows) {
+      row.isEmpty ? parts.add([]) : parts.last.add(row);
+    }
+    final sections = <CsvSection>[];
+    for (final part in parts.where((p) => p.isNotEmpty)) {
+      bool single(List<String> r) =>
+          r.length == 1 || r.skip(1).every((c) => c.isEmpty);
+      if (part.every(single)) {
+        sections.add(CsvSection(lines: [for (final r in part) r.first]));
+      } else if (single(part.first) && part.length > 1) {
+        sections.add(
+          CsvSection(
+            heading: part.first.first,
+            header: part[1],
+            rows: part.skip(2).toList(),
+          ),
+        );
+      } else {
+        sections.add(CsvSection(header: part.first, rows: part.skip(1).toList()));
+      }
+    }
+    return sections;
+  }
+}
+
+/// The CSV as its tables, one after another, each with its own heading
+/// and column names. It used to be read as one table under the title row,
+/// so only the first column of anything showed.
+class _CsvTable extends StatelessWidget {
+  const _CsvTable({required this.file});
+
+  final DownloadedFile file;
 
   @override
   Widget build(BuildContext context) {
-    final rows = parse(utf8.decode(file.bytes, allowMalformed: true));
+    final sections = CsvSection.split(
+      utf8.decode(file.bytes, allowMalformed: true),
+    );
 
-    if (rows.isEmpty) {
+    if (sections.isEmpty) {
       return const Center(
         child: BrutEmptyState(
           title: 'The file is empty',
@@ -215,59 +271,85 @@ class _CsvTable extends StatelessWidget {
       );
     }
 
-    final header = rows.first;
-    final body = rows.skip(1).toList();
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        for (final section in sections) ...[
+          if (section.isTable) ...[
+            if (section.heading case final heading?) ...[
+              BrutSectionTitle(heading),
+              const SizedBox(height: 8),
+            ],
+            _CsvGrid(section: section),
+          ] else
+            for (final (i, line) in section.lines.indexed)
+              Text(line, style: i == 0 ? AppText.cardTitle : AppText.caption),
+          const SizedBox(height: 18),
+        ],
+      ],
+    );
+  }
+}
+
+/// One table, scrolling sideways when it is wider than the phone.
+class _CsvGrid extends StatelessWidget {
+  const _CsvGrid({required this.section});
+
+  final CsvSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    final header = section.header;
+    // Amounts read in a column, so they line up on the right.
+    final money = {
+      for (var c = 0; c < header.length; c++)
+        if (header[c].contains('(PHP)')) c,
+    };
+    Widget cell(String text, int c, {bool head = false}) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Align(
+        alignment: money.contains(c)
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
+        child: head
+            ? MonoLabel(text)
+            : Text(text, style: AppText.body.copyWith(fontSize: 12.5)),
+      ),
+    );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: BrutCard(
-          padding: EdgeInsets.zero,
-          child: Table(
-            defaultColumnWidth: const IntrinsicColumnWidth(),
-            children: [
-              TableRow(
-                decoration: BoxDecoration(
-                  color: context.palette.line,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(AppRadius.card - AppBorders.width),
-                  ),
+      scrollDirection: Axis.horizontal,
+      child: BrutCard(
+        padding: EdgeInsets.zero,
+        child: Table(
+          defaultColumnWidth: const IntrinsicColumnWidth(),
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                color: context.palette.line,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.card - AppBorders.width),
                 ),
+              ),
+              children: [
+                for (var c = 0; c < header.length; c++)
+                  cell(header[c], c, head: true),
+              ],
+            ),
+            for (final r in section.rows)
+              TableRow(
                 children: [
-                  for (final cell in header)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      child: MonoLabel(cell),
-                    ),
+                  for (var c = 0; c < header.length; c++)
+                    cell(c < r.length ? r[c] : '', c),
                 ],
               ),
-              for (final r in body)
-                TableRow(
-                  children: [
-                    for (var c = 0; c < header.length; c++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        child: Text(
-                          c < r.length ? r[c] : '',
-                          style: AppText.body.copyWith(fontSize: 12.5),
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 }
+
 
 /// Everything the app can honestly say about a file it cannot render.
 class _FileSummary extends StatelessWidget {
