@@ -136,6 +136,56 @@ def test_financial_export_carries_the_new_sections(system):
         assert heading in response.text
 
 
+def dues(client, **overrides):
+    payload = {"source": "Members", "source_type": "membership_dues", "purpose": "1st sem dues",
+               "amount": "250.00", "received_on": "2026-09-04", "school_year": "2026-2027", "semester": "1st"}
+    return client.post("/incomes", json={**payload, **overrides})
+
+
+def test_general_fund_income_is_recorded_without_an_event(system):
+    client, db, users, orgs, resources, login = system
+    login("treasurer")
+    response = dues(client)
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["event_id"] is None and body["school_year"] == "2026-2027"
+    from uuid import UUID
+    row = db.get(IncomeRecord, UUID(body["id"]))
+    assert row.organization_id == orgs[0].id
+    assert dues(client, semester=None).status_code == 422
+    assert dues(client, school_year="2026-2028").status_code == 422
+    assert dues(client, receipt={"receipt_url": "https://example.com/d.jpg", "purpose": "Dues"}).status_code == 422
+    with_event = dues(client, event_id=str(resources[0]["events"].id))
+    assert with_event.status_code == 422  # event income takes its labels from the event
+    # Old app builds read every event_id as present, so the list opts in.
+    assert all(r["event_id"] for r in client.get("/incomes").json())
+    assert body["id"] in {r["id"] for r in client.get("/incomes?include_general=true").json()}
+
+
+def test_general_fund_income_reaches_reports_in_its_own_scope(system):
+    client, db, users, orgs, resources, login = system
+    login("treasurer")
+    assert dues(client).status_code == 201
+    login("officer")
+    for url in ("/reports/financial?period=monthly&reference_date=2026-09-20",
+                "/reports/financial?period=semester&school_year=2026-2027&semester=1st"):
+        report = client.get(url).json()
+        assert report["general_income_total"] == 250
+        assert any(r["event_id"] is None and r["kind"] == "income" for r in report["ledger"])
+        assert {"source_type": "membership_dues", "source": "Members", "income_count": 1,
+                "total_income": 250} in report["income_by_source"]
+    assert client.get("/reports/financial?period=semester&school_year=2026-2027&semester=2nd").json()["general_income_total"] == 0
+    scoped = client.get("/reports/financial?period=school_year&school_year=2026-2027&event_scope=organizational").json()
+    assert scoped["general_income_total"] == 0
+    # Another organization's treasurer sees none of it.
+    login("super_admin")
+    assert client.patch(f"/users/{users['treasurer'].id}/access",
+                        json={"organization_id": str(orgs[1].id)}).status_code == 200
+    login("treasurer")
+    assert client.get("/reports/financial?period=school_year&school_year=2026-2027").json()["general_income_total"] == 0
+    assert not [r for r in client.get("/incomes?include_general=true").json() if r["event_id"] is None]
+
+
 def test_calendar_reports_use_transaction_dates_not_event_creation_date(system):
     client, db, users, orgs, resources, login = system
     resources[0]["incomes"].received_on = date(2026, 8, 31)

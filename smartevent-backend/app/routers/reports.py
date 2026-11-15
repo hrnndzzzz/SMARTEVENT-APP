@@ -283,6 +283,27 @@ def _financial_report(db, current_user, *, period, reference, school_year, semes
             )
         )
 
+    # General-fund income carries its own labels, so it follows the same
+    # period filters as events; an event-scope filter leaves it out.
+    general = []
+    if event_scope is None:
+        general_query = for_organization(scope_query_by_department(
+            db.query(IncomeRecord).options(selectinload(IncomeRecord.receipt))
+            .filter(IncomeRecord.event_id.is_(None)),
+            IncomeRecord.department_id, current_user,
+        ), IncomeRecord, organization_id)
+        if start_date is not None and end_date is not None:
+            general_query = general_query.filter(
+                IncomeRecord.received_on >= start_date,
+                IncomeRecord.received_on <= end_date,
+            )
+        if school_year is not None:
+            general_query = general_query.filter(IncomeRecord.school_year == school_year)
+        if semester is not None:
+            general_query = general_query.filter(IncomeRecord.semester == semester)
+        general = general_query.all()
+    eligible_incomes.extend(general)
+
     # Spending tied to no event belongs to no academic label, so it only
     # appears in unfiltered calendar reports.
     unassigned = []
@@ -362,6 +383,7 @@ def _financial_report(db, current_user, *, period, reference, school_year, semes
         income_by_source=_income_sources(eligible_incomes),
         withheld_income_total=_sum_amounts(withheld_incomes),
         withheld_income_count=len(withheld_incomes),
+        general_income_total=_sum_amounts(general),
         total_allocated_budget=sum((Decimal(str(row.allocated_budget)) for row in committed), Decimal("0.00")),
         total_spent_to_date=sum((Decimal(str(row.spent_to_date)) for row in committed), Decimal("0.00")),
         expenses_by_category=expenses_by_category,

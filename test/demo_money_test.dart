@@ -71,6 +71,25 @@ void main() {
       expect(app.incomes.first.amount, 900);
     });
 
+    test('general-fund income is recorded with no event', () async {
+      final app = treasurer();
+      await app.loadIncomes();
+
+      final error = await app.recordIncome(
+        eventId: null,
+        source: 'Members',
+        sourceType: FundSource.membershipDues,
+        purpose: '1st semester dues',
+        amount: '250',
+        schoolYear: '2026-2027',
+        semester: Semester.first,
+      );
+
+      expect(error, isNull);
+      expect(app.incomes.first.isGeneralFund, isTrue);
+      expect(app.incomes.first.semester, '1st');
+    });
+
     test('income recorded with a receipt is withheld until reviewed', () async {
       final app = treasurer();
       await app.loadIncomes();

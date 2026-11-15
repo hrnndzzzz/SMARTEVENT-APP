@@ -11,7 +11,7 @@ AccountEmail = Annotated[EmailStr, Field(max_length=150), AfterValidator(str.low
 
 Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
 NonnegativeMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
-FundSource = Literal["registration_fees", "sponsorship", "donation", "other"]
+FundSource = Literal["registration_fees", "sponsorship", "donation", "membership_dues", "fundraising", "other"]
 
 Role = Literal["super_admin", "admin", "adviser", "officer", "treasurer", "sds_staff", "signatory"]
 RosterRole = Literal["admin", "adviser", "officer", "treasurer", "sds_staff", "signatory"]  # = rbac_policy.ROSTER_ROLES
@@ -548,7 +548,10 @@ class ExpenseOut(BaseModel):
 
 class IncomeCreate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    event_id: uuid.UUID
+    # None records general-fund income, such as membership dues.
+    event_id: uuid.UUID | None = None
+    school_year: str | None = Field(default=None, pattern=r"^\d{4}-\d{4}$")
+    semester: Semester | None = None
     source: str = Field(min_length=1, max_length=100)
     source_type: FundSource = "other"
     purpose: str = Field(min_length=1, max_length=2000)
@@ -556,12 +559,26 @@ class IncomeCreate(BaseModel):
     received_on: date = Field(default_factory=institution_today)
     receipt: ReceiptDetails | None = None
 
+    @model_validator(mode="after")
+    def general_fund_needs_its_own_labels(self):
+        if self.event_id is None:
+            if self.school_year is None or self.semester is None:
+                raise ValueError("General-fund income needs a school year and semester")
+            # Receipts hang off an event throughout the receipt module.
+            if self.receipt is not None:
+                raise ValueError("A receipt can only be attached to income recorded against an event")
+        elif self.school_year is not None or self.semester is not None:
+            raise ValueError("Event income takes its school year and semester from the event")
+        return self
+
 
 class IncomeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    event_id: uuid.UUID
+    event_id: uuid.UUID | None
+    school_year: str | None = None
+    semester: Semester | None = None
     source: str
     source_type: FundSource = "other"
     receipt_review_status: Literal["clear", "pending", "cleared", "rejected"] = "clear"
@@ -877,6 +894,9 @@ class ConsolidatedFinancialReport(BaseModel):
     income_by_source: list[IncomeSourceSummary] = Field(default_factory=list)
     withheld_income_total: float = 0
     withheld_income_count: int = 0
+    # Income recorded against no event, such as membership dues. Part of
+    # total_income, and in none of the event rows.
+    general_income_total: float = 0
     # Budget figures cover approved and completed events only.
     total_allocated_budget: float = 0
     total_spent_to_date: float = 0

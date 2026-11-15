@@ -246,6 +246,9 @@ class OfflineSync extends ChangeNotifier {
         read(path);
       }
       read('/analytics/spending-trends', query: {'months': '6'});
+      // The income list as IncomeService asks for it, general fund included;
+      // the plain '/incomes' above still answers per-event filters offline.
+      read('/incomes', query: {'include_general': 'true'});
       // The report Analytics opens on, as ReportsService asks for it.
       final year = {
         'period': 'school_year',

@@ -1902,20 +1902,26 @@ class AppState extends ChangeNotifier {
   }
 
   /// Records income. There is no edit or delete counterpart, by design.
+  /// A null [eventId] records general-fund income, which then needs
+  /// [schoolYear] and [semester].
   Future<String?> recordIncome({
-    required String eventId,
+    required String? eventId,
     required String source,
     required FundSource sourceType,
     required String purpose,
     required String amount,
     DateTime? receivedOn,
     ReceiptDetailsInput? receipt,
+    String? schoolYear,
+    Semester? semester,
   }) async {
     if (_demoMode) {
       final now = DateTime.now();
       final recorded = Income(
         id: 'demo-in-${now.microsecondsSinceEpoch}',
         eventId: eventId,
+        schoolYear: schoolYear,
+        semester: semester?.wireName,
         source: source,
         sourceType: sourceType,
         purpose: purpose,
@@ -1944,6 +1950,8 @@ class AppState extends ChangeNotifier {
         amount: amount,
         receivedOn: receivedOn,
         receipt: receipt,
+        schoolYear: schoolYear,
+        semester: semester?.wireName,
       );
       incomes = [created, ...incomes];
       notifyListeners();

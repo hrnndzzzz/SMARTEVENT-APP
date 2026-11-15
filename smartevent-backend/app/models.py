@@ -298,7 +298,14 @@ class IncomeRecord(Base):
     __tablename__ = "income_records"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
+    # Null for general-fund income, such as membership dues. Such a row
+    # carries its own scope and academic labels; an event's income takes
+    # them from the event, so these stay blank there.
+    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=True)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    school_year = Column(String(9), nullable=True)
+    semester = Column(String(10), nullable=True)
     source = Column(String(100), nullable=False)
     source_type = Column(String(30), nullable=False, default="other", server_default="other")
     purpose = Column(Text, nullable=False)
