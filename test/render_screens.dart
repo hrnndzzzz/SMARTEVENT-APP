@@ -30,6 +30,8 @@ import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/notice_shelf.dart';
 import 'package:smartevent/state/reachability.dart';
+import 'package:smartevent/widgets/brand_pill.dart';
+import 'package:smartevent/widgets/connection_banner.dart';
 import 'package:smartevent/theme/app_theme.dart';
 
 Future<void> font(String family, List<String> paths) async {
@@ -419,4 +421,57 @@ void main() {
     await expectLater(
         find.byType(MenuPanel), matchesGoldenFile('goldens/menu.png'));
   });
+
+  // The header saying what happened to the connection, in each of the
+  // three states it can be in. Driven by real transitions rather than
+  // by setting a flag, because the announcement only fires on a change.
+  for (final (name, offline) in [('offline', true), ('online', false)]) {
+    testWidgets('brand-pill-$name', (tester) async {
+      tester.view.devicePixelRatio = 2;
+      tester.view.physicalSize = const Size(822, 240);
+      addTearDown(tester.view.reset);
+      // Always online first: an announcement is a change, and the
+      // state it starts in is not one.
+      final reach = Reachability()..report(reachable: true);
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        home: ChangeNotifierProvider<Reachability>.value(
+          value: reach,
+          child: ConnectionBanner(
+            child: Scaffold(
+              body: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(children: const [BrandPill(), Spacer()]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      reach.report(reachable: false);
+      if (!offline) {
+        // Away and back, so this is a recovery rather than a first
+        // answer — which is not news and says nothing. The hold on the
+        // "No connection" is run out first, or the two would overlap.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+        reach.report(reachable: true);
+      }
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await expectLater(
+          find.byType(BrandPill), matchesGoldenFile('goldens/brand-pill-$name.png'));
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      reach.dispose();
+    });
+  }
 }
