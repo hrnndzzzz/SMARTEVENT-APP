@@ -257,6 +257,15 @@ class FinancialEventSummary {
   final double withheldIncomeTotal;
   final int withheldIncomeCount;
 
+  /// The backend's status string, or null from a server that predates it.
+  final String? status;
+  final DateTime? eventDate;
+  final double allocatedBudget;
+
+  /// Approved spending over the event's whole life, not only this period,
+  /// so it can be set against [allocatedBudget].
+  final double spentToDate;
+
   FinancialEventSummary({
     required this.eventId,
     required this.title,
@@ -270,7 +279,19 @@ class FinancialEventSummary {
     required this.netBalance,
     required this.withheldIncomeTotal,
     required this.withheldIncomeCount,
+    this.status,
+    this.eventDate,
+    this.allocatedBudget = 0,
+    this.spentToDate = 0,
   });
+
+  /// Approved or completed: the budget is real, not a proposal.
+  bool get isCommitted => status == 'approved' || status == 'completed';
+
+  /// Positive is budget left, negative is overspent.
+  double get variance => allocatedBudget - spentToDate;
+
+  bool get isOverBudget => allocatedBudget > 0 && spentToDate > allocatedBudget;
 
   factory FinancialEventSummary.fromJson(Map<String, dynamic> json) {
     return FinancialEventSummary(
@@ -288,8 +309,143 @@ class FinancialEventSummary {
           (json['withheld_income_total'] as num?)?.toDouble() ?? 0,
       withheldIncomeCount:
           (json['withheld_income_count'] as num?)?.toInt() ?? 0,
+      status: json['status'] as String?,
+      eventDate: _optionalDate(json['event_date']),
+      allocatedBudget: (json['allocated_budget'] as num?)?.toDouble() ?? 0,
+      spentToDate: (json['spent_to_date'] as num?)?.toDouble() ?? 0,
     );
   }
+}
+
+DateTime? _optionalDate(Object? raw) =>
+    raw is String ? DateTime.tryParse(raw) : null;
+
+/// Approved spending in one budget category — `CategorySpend`.
+class CategorySpend {
+  final String categoryId;
+  final String categoryName;
+  final int expenseCount;
+  final double totalExpenses;
+
+  CategorySpend({
+    required this.categoryId,
+    required this.categoryName,
+    required this.expenseCount,
+    required this.totalExpenses,
+  });
+
+  factory CategorySpend.fromJson(Map<String, dynamic> json) => CategorySpend(
+    categoryId: json['category_id'] as String,
+    categoryName: json['category_name'] as String? ?? '',
+    expenseCount: (json['expense_count'] as num?)?.toInt() ?? 0,
+    totalExpenses: (json['total_expenses'] as num?)?.toDouble() ?? 0,
+  );
+}
+
+/// Counted money in one day or month of a report — `TrendPoint`.
+class ReportTrendPoint {
+  /// `YYYY-MM-DD` for weekly and monthly reports, `YYYY-MM` otherwise.
+  final String bucket;
+  final double totalIncome;
+  final double totalExpenses;
+
+  ReportTrendPoint({
+    required this.bucket,
+    required this.totalIncome,
+    required this.totalExpenses,
+  });
+
+  bool get isDaily => bucket.length > 7;
+
+  factory ReportTrendPoint.fromJson(Map<String, dynamic> json) =>
+      ReportTrendPoint(
+        bucket: json['bucket'] as String,
+        totalIncome: (json['total_income'] as num?)?.toDouble() ?? 0,
+        totalExpenses: (json['total_expenses'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// One row the report's totals are built from — `LedgerEntry`.
+class LedgerEntry {
+  final DateTime occurredOn;
+  final bool isIncome;
+
+  /// Null for spending, or general-fund income, tied to no event.
+  final String? eventId;
+  final String? eventTitle;
+
+  /// The expense's category, or who the income came from.
+  final String label;
+  final FundSource? sourceType;
+  final String description;
+  final double amount;
+
+  /// False for income withheld pending a receipt decision: listed, but
+  /// not in any total.
+  final bool counted;
+  final bool flagged;
+
+  LedgerEntry({
+    required this.occurredOn,
+    required this.isIncome,
+    required this.eventId,
+    required this.eventTitle,
+    required this.label,
+    required this.sourceType,
+    required this.description,
+    required this.amount,
+    required this.counted,
+    required this.flagged,
+  });
+
+  /// Positive in, negative out.
+  double get signedAmount => isIncome ? amount : -amount;
+
+  factory LedgerEntry.fromJson(Map<String, dynamic> json) => LedgerEntry(
+    occurredOn: DateTime.parse(json['occurred_on'] as String),
+    isIncome: json['kind'] == 'income',
+    eventId: json['event_id'] as String?,
+    eventTitle: json['event_title'] as String?,
+    label: json['label'] as String? ?? '',
+    sourceType: json['source_type'] == null
+        ? null
+        : fundSourceFromWire(json['source_type'] as String?),
+    description: json['description'] as String? ?? '',
+    amount: (json['amount'] as num?)?.toDouble() ?? 0,
+    counted: json['counted'] as bool? ?? true,
+    flagged: json['flagged'] as bool? ?? false,
+  );
+}
+
+/// The period before a report's own, for comparison — `PeriodTotals`.
+class PeriodTotals {
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? schoolYear;
+  final Semester? semester;
+  final double totalIncome;
+  final double totalExpenses;
+  final double netBalance;
+
+  PeriodTotals({
+    this.startDate,
+    this.endDate,
+    this.schoolYear,
+    this.semester,
+    required this.totalIncome,
+    required this.totalExpenses,
+    required this.netBalance,
+  });
+
+  factory PeriodTotals.fromJson(Map<String, dynamic> json) => PeriodTotals(
+    startDate: _optionalDate(json['start_date']),
+    endDate: _optionalDate(json['end_date']),
+    schoolYear: json['school_year'] as String?,
+    semester: semesterFromWire(json['semester'] as String?),
+    totalIncome: (json['total_income'] as num?)?.toDouble() ?? 0,
+    totalExpenses: (json['total_expenses'] as num?)?.toDouble() ?? 0,
+    netBalance: (json['net_balance'] as num?)?.toDouble() ?? 0,
+  );
 }
 
 /// `ConsolidatedFinancialReport` — a period's finances across events.
@@ -320,6 +476,17 @@ class ConsolidatedFinancialReport {
   final double withheldIncomeTotal;
   final int withheldIncomeCount;
 
+  /// Over approved and completed events only.
+  final double totalAllocatedBudget;
+  final double totalSpentToDate;
+
+  final List<CategorySpend> expensesByCategory;
+  final List<ReportTrendPoint> trend;
+  final List<LedgerEntry> ledger;
+
+  /// Null from a server that predates it, and then nothing is compared.
+  final PeriodTotals? previous;
+
   ConsolidatedFinancialReport({
     required this.period,
     required this.startDate,
@@ -335,10 +502,21 @@ class ConsolidatedFinancialReport {
     required this.incomeBySource,
     required this.withheldIncomeTotal,
     required this.withheldIncomeCount,
+    this.totalAllocatedBudget = 0,
+    this.totalSpentToDate = 0,
+    this.expensesByCategory = const [],
+    this.trend = const [],
+    this.ledger = const [],
+    this.previous,
   });
 
   bool get hasWithheldIncome => withheldIncomeCount > 0;
   bool get hasUnassignedSpending => unassignedExpenseTotal > 0;
+
+  /// 0..n, where 1 is fully spent. Null when no budget is committed.
+  double? get budgetUsed => totalAllocatedBudget > 0
+      ? totalSpentToDate / totalAllocatedBudget
+      : null;
 
   static DateTime? _date(Object? raw) =>
       raw == null ? null : DateTime.tryParse(raw as String);
@@ -368,8 +546,22 @@ class ConsolidatedFinancialReport {
           (json['withheld_income_total'] as num?)?.toDouble() ?? 0,
       withheldIncomeCount:
           (json['withheld_income_count'] as num?)?.toInt() ?? 0,
+      totalAllocatedBudget:
+          (json['total_allocated_budget'] as num?)?.toDouble() ?? 0,
+      totalSpentToDate: (json['total_spent_to_date'] as num?)?.toDouble() ?? 0,
+      expensesByCategory: _list(json['expenses_by_category'], CategorySpend.fromJson),
+      trend: _list(json['trend'], ReportTrendPoint.fromJson),
+      ledger: _list(json['ledger'], LedgerEntry.fromJson),
+      previous: json['previous'] is Map
+          ? PeriodTotals.fromJson((json['previous'] as Map).cast<String, dynamic>())
+          : null,
     );
   }
+
+  static List<T> _list<T>(Object? raw, T Function(Map<String, dynamic>) read) => [
+    for (final row in (raw as List? ?? const []))
+      read((row as Map).cast<String, dynamic>()),
+  ];
 }
 
 /// The four reporting periods.

@@ -294,7 +294,7 @@ void main() {
 
       final money = block('Money');
       final inventory = block('Inventory');
-      final reports = block('Reports');
+      final reports = block('Analytics');
 
       // Two across.
       expect(money.top, inventory.top);

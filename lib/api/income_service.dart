@@ -11,11 +11,14 @@ class IncomeService {
   final ApiClient _client;
   IncomeService(this._client);
 
-  /// `GET /incomes`, optionally narrowed to one event.
+  /// `GET /incomes`, optionally narrowed to one event. The whole list
+  /// includes general-fund income, which the server sends only on request.
   Future<List<Income>> list({String? eventId}) async {
     final response = await _client.get(
       '/incomes',
-      query: eventId == null ? null : {'event_id': eventId},
+      query: eventId == null
+          ? {'include_general': 'true'}
+          : {'event_id': eventId},
     );
     return (response as List)
         .map((json) => Income.fromJson(json as Map<String, dynamic>))
@@ -30,19 +33,26 @@ class IncomeService {
   /// attached inline, and its URL must already exist — there is no
   /// file-first income creation route, and inventing a placeholder URL to
   /// work around that would corrupt the audit trail.
+  ///
+  /// With no [eventId] it is general-fund income, which needs [schoolYear]
+  /// and [semester] (wire values) and cannot carry a receipt.
   Future<Income> record({
-    required String eventId,
+    required String? eventId,
     required String source,
     required FundSource sourceType,
     required String purpose,
     required String amount,
     DateTime? receivedOn,
     ReceiptDetailsInput? receipt,
+    String? schoolYear,
+    String? semester,
   }) async {
     final response = await _client.post(
       '/incomes',
       body: {
-        'event_id': eventId,
+        'event_id': ?eventId,
+        'school_year': ?schoolYear,
+        'semester': ?semester,
         'source': source,
         'source_type': sourceType.wireName,
         'purpose': purpose,

@@ -1,46 +1,70 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:smartevent/api/models/income.dart';
-import 'package:smartevent/api/models/reports.dart';
+import 'package:smartevent/state/demo_data.dart';
 import 'package:smartevent/widgets/report_charts.dart';
 
-/// Four charts, defined once so the tile in the grid and the page it
-/// opens cannot drift apart.
+/// Five charts, defined once so the tile in the grid and the page it
+/// opens cannot drift apart, and all drawn from the report itself.
 void main() {
-  List<ReportChart> charts({
-    Map<String, double> budgets = const {'Venue': 100},
-    Map<String, double> spend = const {'Venue': 40},
-    List<IncomeSourceSummary> sources = const [],
-    List<FinancialEventSummary> events = const [],
-  }) => ReportChart.all(
-    budgets: budgets,
-    spend: spend,
-    sources: sources,
-    events: events,
-  );
+  final report = DemoData.financialReport();
 
-  test('there are four of them', () {
-    expect(charts(), hasLength(4));
+  test('there are five of them, the trend first', () {
+    final charts = ReportChart.all(report);
+    expect(charts, hasLength(5));
+    expect(charts.first.title, 'Over time');
   });
 
-  test('each has a name and an explanation', () {
-    for (final chart in charts()) {
+  test('each has a name and an explanation, and no two share a name', () {
+    final charts = ReportChart.all(report);
+    for (final chart in charts) {
       expect(chart.title.trim(), isNotEmpty);
       expect(chart.explanation.trim(), isNotEmpty);
     }
-  });
-
-  test('no two share a name', () {
-    expect({for (final c in charts()) c.title}, hasLength(4));
+    expect({for (final c in charts) c.title}, hasLength(5));
   });
 
   test('they cover income as well as spending', () {
-    final titles = charts().map((c) => c.title.toLowerCase()).join(' ');
-    expect(titles, contains('came from'));
-    expect(titles, contains('went'));
+    final titles = ReportChart.all(report).map((c) => c.title.toLowerCase());
+    expect(titles.join(' '), allOf(contains('came from'), contains('went')));
   });
 
-  test('an empty period still defines four charts', () {
-    // Nothing recorded is a normal state, not a reason to show nothing.
-    expect(charts(budgets: const {}, spend: const {}), hasLength(4));
+  test('no report yet still defines five charts, with no figures', () {
+    // Nothing loaded is a normal state, not a reason to show nothing.
+    final charts = ReportChart.all(null);
+    expect(charts, hasLength(5));
+    expect(charts.every((c) => c.rows.isEmpty), isTrue);
+  });
+
+  test('each category row links to its ledger rows', () {
+    final went = ReportChart.all(
+      report,
+    ).firstWhere((c) => c.title == 'Where it went');
+    final catering = went.rows.firstWhere((r) => r.label == 'Catering');
+    final matched = report.ledger.where(catering.filter!.matches);
+    expect(matched, isNotEmpty);
+    expect(
+      matched.fold(0.0, (sum, r) => sum + r.amount),
+      report.expensesByCategory
+          .firstWhere((c) => c.categoryName == 'Catering')
+          .totalExpenses,
+    );
+  });
+
+  test('income sources are summed by type, largest first', () {
+    final types = incomeByType(report.incomeBySource);
+    expect(types.first.$2, greaterThanOrEqualTo(types.last.$2));
+    expect(
+      types.fold(0.0, (sum, t) => sum + t.$2),
+      report.totalIncome,
+    );
+  });
+
+  test('axis labels stay short', () {
+    expect(compactPeso(950), '₱950');
+    expect(compactPeso(2500), '₱2.5k');
+    expect(compactPeso(14450), '₱14k');
+    expect(compactPeso(1200000), '₱1.2M');
+    expect(bucketLabel('2026-09'), 'Sep');
+    expect(bucketLabel('2026-09-19'), '19');
+    expect(bucketLabel('2026-09', long: true), 'Sep 2026');
   });
 }

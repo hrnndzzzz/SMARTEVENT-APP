@@ -417,6 +417,8 @@ abstract final class DemoData {
       required String title,
       required double income,
       required double expenses,
+      required String status,
+      required double allocated,
     }) => FinancialEventSummary(
       eventId: id,
       title: title,
@@ -430,38 +432,102 @@ abstract final class DemoData {
       netBalance: income - expenses,
       withheldIncomeTotal: 0,
       withheldIncomeCount: 0,
+      status: status,
+      allocatedBudget: allocated,
+      spentToDate: expenses,
     );
 
+    const hack = 'HACK THE FUTURE: Cybersecurity and Ethical Hacking';
+    const week = 'CITE Week: Opening Ceremony';
     final events = [
       event(
         id: 'demo-ev-1',
-        title: 'HACK THE FUTURE: Cybersecurity and Ethical Hacking',
+        title: hack,
         income: 7250,
         expenses: 2500,
+        status: 'completed',
+        allocated: 5000,
       ),
+      // Over its budget, so the demo shows what that looks like.
       event(
         id: 'demo-ev-2',
-        title: 'CITE Week: Opening Ceremony',
+        title: week,
         income: 12000,
         expenses: 11950,
+        status: 'approved',
+        allocated: 11000,
       ),
       event(
         id: 'demo-ev-5',
         title: 'Capstone Project Exhibit',
         income: 0,
         expenses: 0,
+        status: 'pending_adviser',
+        allocated: 8000,
       ),
     ];
+
+    LedgerEntry row(
+      int month,
+      int day,
+      String eventId,
+      String title,
+      String label,
+      String description,
+      double amount, {
+      FundSource? source,
+      bool flagged = false,
+    }) => LedgerEntry(
+      occurredOn: DateTime(2026, month, day),
+      isIncome: source != null,
+      eventId: eventId,
+      eventTitle: title,
+      label: label,
+      sourceType: source,
+      description: description,
+      amount: amount,
+      counted: true,
+      flagged: flagged,
+    );
+
+    // Every row below is one the totals are built from, so they add up.
+    final ledger = [
+      row(9, 22, 'demo-ev-1', hack, 'Faculty', 'Prize pool', 1250,
+          source: FundSource.donation),
+      row(9, 20, 'demo-ev-1', hack, 'Alumni chapter', 'Snacks', 250,
+          source: FundSource.sponsorship),
+      row(9, 19, 'demo-ev-1', hack, 'Equipment', 'Router rental', 2450,
+          flagged: true),
+      row(9, 19, 'demo-ev-1', hack, 'Marketing', 'Printed certificates', 50),
+      row(9, 18, 'demo-ev-1', hack, 'Participants', 'Registration', 5750,
+          source: FundSource.registrationFees),
+      row(8, 28, 'demo-ev-2', week, 'TechCorp PH', 'Gold sponsor', 3250,
+          source: FundSource.sponsorship),
+      row(8, 27, 'demo-ev-2', week, 'Venue', 'Sound system and stage', 4300),
+      row(8, 27, 'demo-ev-2', week, 'Marketing', 'Tarpaulins', 1450),
+      row(8, 26, 'demo-ev-2', week, 'Catering', 'Packed meals', 6200),
+      row(8, 25, 'demo-ev-2', week, 'Participants', 'Registration', 8750,
+          source: FundSource.registrationFees),
+    ];
+
+    CategorySpend category(String id, String name, int count, double total) =>
+        CategorySpend(
+          categoryId: id,
+          categoryName: name,
+          expenseCount: count,
+          totalExpenses: total,
+        );
 
     final income = events.fold<double>(0, (sum, e) => sum + e.totalIncome);
     final spent = events.fold<double>(0, (sum, e) => sum + e.totalExpenses);
 
+    // The school year, because that is the period Analytics opens on.
     return ConsolidatedFinancialReport(
-      period: ReportPeriod.semester,
-      startDate: DateTime(2026, 8, 1),
-      endDate: DateTime(2026, 12, 20),
+      period: ReportPeriod.schoolYear,
+      startDate: null,
+      endDate: null,
       schoolYear: '2026-2027',
-      semester: Semester.first,
+      semester: null,
       eventScope: null,
       totalIncome: income,
       totalExpenses: spent,
@@ -490,6 +556,33 @@ abstract final class DemoData {
       ],
       withheldIncomeTotal: 0,
       withheldIncomeCount: 0,
+      totalAllocatedBudget: 16000,
+      totalSpentToDate: 14450,
+      expensesByCategory: [
+        category('demo-cat-catering', 'Catering', 1, 6200),
+        category('demo-cat-venue', 'Venue', 1, 4300),
+        category('demo-cat-equipment', 'Equipment', 1, 2450),
+        category('demo-cat-marketing', 'Marketing', 2, 1500),
+      ],
+      trend: [
+        ReportTrendPoint(
+          bucket: '2026-08',
+          totalIncome: 12000,
+          totalExpenses: 11950,
+        ),
+        ReportTrendPoint(
+          bucket: '2026-09',
+          totalIncome: 7250,
+          totalExpenses: 2500,
+        ),
+      ],
+      ledger: ledger,
+      previous: PeriodTotals(
+        schoolYear: '2025-2026',
+        totalIncome: 16800,
+        totalExpenses: 12100,
+        netBalance: 4700,
+      ),
     );
   }
 

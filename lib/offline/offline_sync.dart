@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../api/api_client.dart';
+import '../api/models/academic.dart';
 import '../state/user_role.dart';
 import 'offline_store.dart';
 
@@ -245,16 +246,16 @@ class OfflineSync extends ChangeNotifier {
         read(path);
       }
       read('/analytics/spending-trends', query: {'months': '6'});
-      final now = DateTime.now();
-      final month = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-      read(
-        '/reports/financial',
-        query: {'period': 'monthly', 'reference_date': month},
-      );
-      pdf(
-        '/reports/financial/export',
-        query: {'period': 'monthly', 'reference_date': month, 'format': 'pdf'},
-      );
+      // The income list as IncomeService asks for it, general fund included;
+      // the plain '/incomes' above still answers per-event filters offline.
+      read('/incomes', query: {'include_general': 'true'});
+      // The report Analytics opens on, as ReportsService asks for it.
+      final year = {
+        'period': 'school_year',
+        'school_year': SchoolYear.current(DateTime.now()),
+      };
+      read('/reports/financial', query: year);
+      pdf('/reports/financial/export', query: {...year, 'format': 'pdf'});
       pdf('/reports/dashboard/export', query: {'format': 'pdf'});
       add(() async {
         final rows = <dynamic>[];

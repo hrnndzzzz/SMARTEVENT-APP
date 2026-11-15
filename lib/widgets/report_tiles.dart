@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../state/report_insights.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
@@ -10,16 +11,31 @@ import 'report_charts.dart';
 /// Tapping opens the same chart full screen. The tile and the page are
 /// built from one definition, so they cannot drift apart.
 class ReportChartTile extends StatelessWidget {
-  const ReportChartTile({super.key, required this.chart});
+  const ReportChartTile({
+    super.key,
+    required this.chart,
+    this.onFilter,
+    this.height = 150,
+    this.width = 260,
+  });
 
   final ReportChart chart;
+
+  /// Called with a row's ledger filter when it is tapped on the full page.
+  final ValueChanged<LedgerFilter>? onFilter;
+
+  /// The space the chart is scaled into. A full-width tile is wider.
+  final double height;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     return BrutCard(
-      onTap: () => Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => _ChartPage(chart: chart))),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _ChartPage(chart: chart, onFilter: onFilter),
+        ),
+      ),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -28,31 +44,26 @@ class ReportChartTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                // Two of these are existing cards that draw their own
-                // heading, and a title here put the same words above
-                // them twice.
-                child: chart.selfTitled
-                    ? const SizedBox.shrink()
-                    : Text(
-                        chart.title,
-                        style: AppText.cardTitle.copyWith(fontSize: 13),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                child: Text(
+                  chart.title,
+                  style: AppText.cardTitle.copyWith(fontSize: 13),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Icon(Icons.open_in_full, size: 14, color: context.palette.ink),
             ],
           ),
-          SizedBox(height: chart.selfTitled ? 4 : 10),
-          // Scaled rather than cropped. Held to a height so four tiles
+          const SizedBox(height: 10),
+          // Scaled rather than cropped. Held to a height so the tiles
           // make an even grid, and whatever the chart draws is shrunk to
           // fit instead of having its bottom cut off.
           SizedBox(
-            height: 150,
+            height: height,
             child: FittedBox(
               fit: BoxFit.contain,
               alignment: Alignment.topCenter,
-              child: SizedBox(width: 260, child: chart.build(context)),
+              child: SizedBox(width: width, child: chart.build(context, false)),
             ),
           ),
         ],
@@ -61,11 +72,12 @@ class ReportChartTile extends StatelessWidget {
   }
 }
 
-/// A chart on its own, with room to read it.
+/// A chart on its own, with room to read it and its exact figures below.
 class _ChartPage extends StatelessWidget {
-  const _ChartPage({required this.chart});
+  const _ChartPage({required this.chart, this.onFilter});
 
   final ReportChart chart;
+  final ValueChanged<LedgerFilter>? onFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +92,29 @@ class _ChartPage extends StatelessWidget {
         children: [
           Text(chart.explanation, style: AppText.caption),
           const SizedBox(height: 16),
-          BrutCard(child: chart.build(context)),
+          BrutCard(child: chart.build(context, true)),
+          if (chart.rows.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const BrutSectionTitle('The figures'),
+            const SizedBox(height: 10),
+            for (final row in chart.rows) ...[
+              BrutListRow(
+                title: row.label,
+                meta: row.detail,
+                marker: row.colour == null
+                    ? null
+                    : LegendDot(color: row.colour!, label: ''),
+                trailing: Text(row.value, style: AppText.number),
+                onTap: row.filter == null || onFilter == null
+                    ? null
+                    : () {
+                        Navigator.of(context).pop();
+                        onFilter!(row.filter!);
+                      },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
         ],
       ),
     );

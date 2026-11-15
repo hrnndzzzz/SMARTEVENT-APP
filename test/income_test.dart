@@ -101,5 +101,25 @@ void main() {
       expect(income.amount, 2500.5);
       expect(income.receivedOn, DateTime(2026, 9, 20));
     });
+
+    test('general-fund income has no event and its own labels', () {
+      final income = Income.fromJson({
+        'id': 'i2',
+        'event_id': null,
+        'school_year': '2026-2027',
+        'semester': '1st',
+        'source': 'Members',
+        'source_type': 'membership_dues',
+        'purpose': 'Dues',
+        'amount': 250,
+        'received_on': '2026-09-04',
+        'recorded_by': 'u1',
+        'created_at': '2026-09-04T10:00:00Z',
+      });
+      expect(income.isGeneralFund, isTrue);
+      expect(income.schoolYear, '2026-2027');
+      expect(income.sourceType, FundSource.membershipDues);
+      expect(_income().isGeneralFund, isFalse);
+    });
   });
 }

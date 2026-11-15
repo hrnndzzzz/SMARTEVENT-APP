@@ -1,26 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../state/report_insights.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
-import '../widgets/report_charts.dart';
-import '../widgets/report_tiles.dart';
-import 'analytics_sheet.dart';
-import 'export_preview_screen.dart';
+import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
-import '../theme/peso.dart';
 import '../widgets/module_band.dart';
 import '../theme/module_identity.dart';
+import '../widgets/report_charts.dart';
+import '../widgets/report_status.dart';
+import '../widgets/report_tiles.dart';
+import '../theme/peso.dart';
+import 'event_report_screen.dart';
+import 'export_preview_screen.dart';
 
-/// Consolidated financial reports.
+/// Analytics: where the money came from, where it went, and against what
+/// budget, for one period at a time.
 ///
 /// Three things this screen is deliberate about:
 ///
-///  * The **report's own totals are displayed**, never a sum of the event
-///    rows shown. Unassigned spending and withheld income mean those two
-///    figures legitimately differ, and the report is the correct one.
+///  * Every figure is the **server's**, for the filters on screen. Nothing
+///    is summed from whatever lists the phone happens to hold, so the
+///    charts, the ledger and the printed report always agree.
 ///  * The **window the backend actually used** is shown, so the figures and
 ///    the stated range always agree.
 ///  * An **export uses the filters currently on screen**, so the file
@@ -32,8 +36,68 @@ class ReportsScreen extends StatefulWidget {
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
+enum _Tab { overview, events, ledger }
+
 class _ReportsScreenState extends State<ReportsScreen> {
   bool _exporting = false;
+  _Tab _tab = _Tab.overview;
+  LedgerFilter _filter = LedgerFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  /// The report, and the dashboard counts under "Needs a look", for the
+  /// same organization.
+  Future<void> _reload() async {
+    if (!mounted) return;
+    final app = context.read<AppState>();
+    await Future.wait([
+      app.loadFinancialReport(),
+      app.reportOrganizationId == null
+          ? app.loadDashboard()
+          : app.loadOrganizationDashboard(),
+    ]);
+  }
+
+  void _pickPeriod(ReportPeriod period) {
+    final app = context.read<AppState>();
+    final now = DateTime.now();
+    app.setReportFilters(
+      period: period,
+      schoolYear: period.needsSchoolYear && app.reportSchoolYear == null
+          ? SchoolYear.current(now)
+          : null,
+      semester: period.needsSemester && app.reportSemester == null
+          ? _semesterOf(now)
+          : null,
+    );
+    app.loadFinancialReport();
+  }
+
+  /// August to December is the first semester, January to May the
+  /// second, June and July the summer.
+  static Semester _semesterOf(DateTime now) => switch (now.month) {
+    >= 8 => Semester.first,
+    <= 5 => Semester.second,
+    _ => Semester.summer,
+  };
+
+  void _showLedger(LedgerFilter filter) => setState(() {
+    _filter = filter;
+    _tab = _Tab.ledger;
+  });
+
+  void _openFilters() => BrutSheet.show<void>(
+    context,
+    builder: (_) => BrutSheet(
+      title: 'Period and scope',
+      subtitle: 'What the figures cover.',
+      child: _Filters(onApply: _reload),
+    ),
+  );
 
   Future<void> _export(ExportFormat format) async {
     setState(() => _exporting = true);
@@ -76,10 +140,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   ///
   /// The snapshot first, so what is about to be exported is visible
   /// before choosing a format, then the three formats as squares.
-  void _openDownloads(
-    BuildContext context,
-    ConsolidatedFinancialReport? report,
-  ) {
+  void _openDownloads(BuildContext context, ConsolidatedFinancialReport? report) {
     BrutSheet.show<void>(
       context,
       builder: (sheetContext) => BrutSheet(
@@ -178,10 +239,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final app = context.watch<AppState>();
     final load = app.financialReportLoad;
     final report = app.financialReport;
+    final dashboard = app.reportOrganizationId == null
+        ? app.dashboard
+        : app.organizationDashboard;
 
     return BrutScreen(
+      // No canvas tint. A 12% wash of the module's colour was the old
+      // answer to "sixteen screens look the same"; the band below says
+      // it in full colour now, and this would be the only screen in
+      // the app whose page is not the same cream as the rest.
+      onRefresh: _reload,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
       // Downloading is one deliberate act, so it is one button in the
       // corner rather than a fold at the bottom of a long list.
       floatingActionButton: FloatingActionButton(
@@ -193,92 +261,403 @@ class _ReportsScreenState extends State<ReportsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: AppLayout.contentPadding),
-          const ModuleBand(
+          const SizedBox(height: AppLayout.between),
+          ModuleBand(
             module: Module.reports,
-            subtitle: 'Income and approved spending over a period.',
+            subtitle: report == null
+                ? 'Income, spending and budgets over a period.'
+                : windowLabel(report),
           ),
-          const SizedBox(height: AppLayout.contentPadding),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
-              children: [
-                // Charts first, four of them, two to a row. Each tile
-                // opens the same chart full screen, where there is room
-                // to read it.
-                const BrutSectionTitle('Charts'),
-                const SizedBox(height: 10),
-                ReportGrid(
-                  children: [
-                    for (final chart in ReportChart.all(
-                      budgets: app.categoryBudgets,
-                      spend: app.spendByCategory,
-                      sources: report?.incomeBySource ?? const [],
-                      events: report?.events ?? const [],
-                    ))
-                      ReportChartTile(chart: chart),
-                  ],
+          const SizedBox(height: AppLayout.section),
+          BrutChipBar(
+            children: [
+              for (final period in const [
+                ReportPeriod.schoolYear,
+                ReportPeriod.semester,
+                ReportPeriod.monthly,
+                ReportPeriod.weekly,
+              ])
+                BrutChip(
+                  label: period.label,
+                  // The app's own selected colour, not orange. Orange
+                  // is Money's, and a selected chip here sat under a
+                  // gold Analytics band reading as a stray piece of
+                  // the money area. Every other chip bar in the app —
+                  // Inventory's, the ledger's below — marks the chosen
+                  // one this way.
+                  selected: app.reportPeriod == period,
+                  onTap: () => _pickPeriod(period),
                 ),
-                const SizedBox(height: AppLayout.section),
-
-                // The two things that change what the charts are of,
-                // squared the same way as everything else here.
-                const BrutSectionTitle('Narrow it down'),
-                const SizedBox(height: 10),
-                ReportGrid(
-                  children: [
-                    ReportActionTile(
-                      label: 'Period and scope',
-                      icon: Icons.tune,
-                      detail: report == null
-                          ? 'Nothing chosen yet'
-                          : report.period.label,
-                      tone: report == null ? BrutTone.sun : BrutTone.neutral,
-                      onTap: () => BrutSheet.show<void>(
-                        context,
-                        builder: (_) => const BrutSheet(
-                          title: 'Period and scope',
-                          subtitle: 'What the figures cover.',
-                          child: _Filters(),
-                        ),
-                      ),
-                    ),
-                    ReportActionTile(
-                      label: 'Organization analytics',
-                      icon: Icons.insights_outlined,
-                      detail: 'Across the whole organization',
-                      onTap: () => BrutSheet.show<void>(
-                        context,
-                        builder: (_) => const AnalyticsSheet(),
-                      ),
-                    ),
-                  ],
+              BrutChip(
+                label: 'More filters',
+                selected: false,
+                onTap: _openFilters,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppLayout.between),
+          Row(
+            children: [
+              for (final (tab, label) in const [
+                (_Tab.overview, 'Overview'),
+                (_Tab.events, 'Events'),
+                (_Tab.ledger, 'Ledger'),
+              ]) ...[
+                Expanded(
+                  child: BrutChip(
+                    label: label,
+                    selected: _tab == tab,
+                    onTap: () => setState(() => _tab = tab),
+                  ),
                 ),
-                const SizedBox(height: AppLayout.section),
-
-                if (load.isLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: BrutSpinner(),
-                    ),
-                  )
-                else if (load.hasFailed)
-                  _ErrorCard(message: load.error!)
-                else if (report == null)
-                  const _NotYetGenerated()
-                else ...[
-                  _WindowCard(report: report),
-                  const SizedBox(height: 14),
-                  _TotalsCard(report: report),
-                  const SizedBox(height: 14),
-                  if (report.incomeBySource.isNotEmpty) ...[
-                    _SourcesCard(report: report),
-                    const SizedBox(height: 14),
-                  ],
-                  _EventsCard(report: report),
-                ],
+                if (tab != _Tab.ledger) const SizedBox(width: 8),
               ],
+            ],
+          ),
+          const SizedBox(height: AppLayout.section),
+          if (load.isLoading)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: Center(child: BrutSpinner(size: 22)),
+            ),
+          if (load.hasFailed)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: BrutInlineMessage(text: load.error!, tone: BrutTone.coral),
+            ),
+          if (report == null)
+            load.isLoading ? const SizedBox.shrink() : const _NotYetGenerated()
+          else
+            switch (_tab) {
+              _Tab.overview => _Overview(
+                report: report,
+                dashboard: dashboard,
+                onFilter: _showLedger,
+              ),
+              _Tab.events => _Events(report: report, onFilter: _showLedger),
+              _Tab.ledger => _Ledger(
+                report: report,
+                filter: _filter,
+                onFilter: (f) => setState(() => _filter = f),
+              ),
+            },
+        ],
+      ),
+    );
+  }
+}
+
+/// The window and filters the backend actually applied, as returned.
+String windowLabel(ConsolidatedFinancialReport report) {
+  String date(DateTime? value) => value == null
+      ? '—'
+      : '${value.year}-${value.month.toString().padLeft(2, '0')}'
+            '-${value.day.toString().padLeft(2, '0')}';
+  return [
+    report.period.label,
+    if (report.startDate != null || report.endDate != null)
+      '${date(report.startDate)} to ${date(report.endDate)}',
+    ?report.schoolYear,
+    if (report.semester != null) report.semester!.label,
+    if (report.eventScope != null) report.eventScope!.label,
+  ].join(' · ');
+}
+
+class _Overview extends StatelessWidget {
+  const _Overview({
+    required this.report,
+    required this.dashboard,
+    required this.onFilter,
+  });
+
+  final ConsolidatedFinancialReport report;
+  final DashboardSummary? dashboard;
+  final ValueChanged<LedgerFilter> onFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final charts = ReportChart.all(report);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Kpis(report: report),
+        const SizedBox(height: AppLayout.section),
+        _Insights(items: reportInsights(report)),
+        const SizedBox(height: AppLayout.section),
+        const BrutSectionTitle('Charts'),
+        const SizedBox(height: 10),
+        // The trend reads left to right, so it gets the full width.
+        ReportChartTile(
+          chart: charts.first,
+          onFilter: onFilter,
+          height: 160,
+          width: 360,
+        ),
+        const SizedBox(height: 10),
+        ReportGrid(
+          children: [
+            for (final chart in charts.skip(1))
+              ReportChartTile(chart: chart, onFilter: onFilter),
+          ],
+        ),
+        if (dashboard != null) ...[
+          const SizedBox(height: AppLayout.section),
+          NeedsALook(data: dashboard!),
+        ],
+      ],
+    );
+  }
+}
+
+/// Four headline figures, each against the period before.
+class _Kpis extends StatelessWidget {
+  const _Kpis({required this.report});
+
+  final ConsolidatedFinancialReport report;
+
+  static String? _change(double now, double? before) {
+    if (before == null) return null;
+    if (before == 0) {
+      return now == 0 ? 'Same as the period before' : 'None the period before';
+    }
+    final change = (now - before) / before.abs();
+    // Words, not arrows: the app's fonts carry no arrow glyphs.
+    return '${change >= 0 ? 'Up' : 'Down'} ${(change.abs() * 100).round()}% '
+        'on the period before';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final before = report.previous;
+    final used = report.budgetUsed;
+    final net = report.netBalance;
+    return ReportGrid(
+      children: [
+        BrutMetricTile(
+          label: 'Income',
+          value: peso(report.totalIncome, decimals: 0),
+          tone: BrutTone.mint,
+          footnote: _change(report.totalIncome, before?.totalIncome),
+        ),
+        BrutMetricTile(
+          label: 'Spending',
+          value: peso(report.totalExpenses, decimals: 0),
+          tone: BrutTone.orange,
+          footnote: _change(report.totalExpenses, before?.totalExpenses),
+        ),
+        BrutMetricTile(
+          label: 'Net balance',
+          value: peso(net, decimals: 0),
+          tone: net < 0 ? BrutTone.coral : BrutTone.neutral,
+          footnote: _change(net, before?.netBalance),
+        ),
+        BrutMetricTile(
+          label: 'Budget used',
+          value: used == null ? '—' : '${(used * 100).round()}%',
+          tone: used == null
+              ? BrutTone.neutral
+              : used > 1
+              ? BrutTone.coral
+              : BrutTone.brand,
+          footnote: used == null
+              ? 'No approved event budgets yet'
+              : '${peso(report.totalSpentToDate, decimals: 0)} of '
+                    '${peso(report.totalAllocatedBudget, decimals: 0)}',
+        ),
+      ],
+    );
+  }
+}
+
+class _Insights extends StatelessWidget {
+  const _Insights({required this.items});
+
+  final List<ReportInsight> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const BrutSectionTitle('Worth knowing'),
+          const SizedBox(height: 10),
+          if (items.isEmpty)
+            const Text('Nothing unusual in this period.', style: AppText.caption)
+          else
+            for (final item in items) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    item.warning
+                        ? Icons.error_outline
+                        : Icons.lightbulb_outline,
+                    size: 18,
+                    color: item.warning
+                        ? BrutTone.coral.fill(context)
+                        : context.palette.subtle,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(item.text, style: AppText.body)),
+                ],
+              ),
+              if (item != items.last) const SizedBox(height: 10),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Events extends StatelessWidget {
+  const _Events({required this.report, required this.onFilter});
+
+  final ConsolidatedFinancialReport report;
+  final ValueChanged<LedgerFilter> onFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = <String, int>{};
+    for (final event in report.events) {
+      final status = event.status;
+      if (status != null) counts[status] = (counts[status] ?? 0) + 1;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        StatusCounts(title: 'Events by status', counts: counts),
+        const SizedBox(height: AppLayout.section),
+        if (report.events.isEmpty)
+          const BrutEmptyState(
+            title: 'No events in this period',
+            hint: 'Widen the period, or clear the scope filter.',
+            icon: Icons.event_busy_outlined,
+          )
+        else ...[
+          BrutSectionTitle(
+            'Events',
+            aside: MonoLabel('${report.events.length} in period'),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Budget and spent to date cover the whole event. In and out are '
+            'this period only.',
+            style: AppText.caption,
+          ),
+          const SizedBox(height: 12),
+          for (final event in report.events) ...[
+            _EventRow(event: event, onFilter: onFilter),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _EventRow extends StatelessWidget {
+  const _EventRow({required this.event, required this.onFilter});
+
+  final FinancialEventSummary event;
+  final ValueChanged<LedgerFilter> onFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final item = app.events
+        .where((e) => e.remoteId == event.eventId)
+        .firstOrNull;
+    final status = event.status;
+    final budget = event.allocatedBudget;
+
+    return BrutCard(
+      onTap: item == null
+          ? null
+          : () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => EventReportScreen(event: item),
+              ),
+            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  event.title,
+                  style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (status != null) ...[
+                const SizedBox(width: 8),
+                BrutBadge(
+                  label: eventStatusLabel(status),
+                  tone: eventStatusTone(status),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (budget > 0) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: MonoLabel(
+                    'Spent ${peso(event.spentToDate, decimals: 0)} of '
+                    '${peso(budget, decimals: 0)}',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // A budget not yet approved is a request, so it has no
+                // variance to speak of.
+                BrutBadge(
+                  label: event.isCommitted ? varianceLabel(event) : 'Proposed',
+                  tone: event.isOverBudget
+                      ? BrutTone.coral
+                      : event.isCommitted
+                      ? BrutTone.mint
+                      : BrutTone.neutral,
+                  mono: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            BrutProgressBar(
+              value: event.spentToDate / budget,
+              tone: event.isOverBudget ? BrutTone.coral : BrutTone.brand,
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            children: [
+              _Figure('In', peso(event.totalIncome, decimals: 0)),
+              _Figure('Out', peso(event.totalExpenses, decimals: 0)),
+              _Figure('Net', peso(event.netBalance, decimals: 0)),
+            ],
+          ),
+          if (event.withheldIncomeCount > 0) ...[
+            const SizedBox(height: 8),
+            BrutBadge(
+              label: '${peso(event.withheldIncomeTotal)} withheld',
+              tone: BrutTone.sun,
+              mono: true,
+            ),
+          ],
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: BrutChip(
+              label: 'Show in ledger',
+              selected: false,
+              onTap: () => onFilter(
+                LedgerFilter(eventId: event.eventId, title: event.title),
+              ),
             ),
           ),
         ],
@@ -287,8 +666,178 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 }
 
+class _Figure extends StatelessWidget {
+  const _Figure(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MonoLabel(label),
+        const SizedBox(height: 2),
+        Text(value, style: AppText.number, maxLines: 1),
+      ],
+    ),
+  );
+}
+
+/// Every entry the totals are built from, newest first.
+class _Ledger extends StatelessWidget {
+  const _Ledger({
+    required this.report,
+    required this.filter,
+    required this.onFilter,
+  });
+
+  final ConsolidatedFinancialReport report;
+  final LedgerFilter filter;
+  final ValueChanged<LedgerFilter> onFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = report.ledger.where(filter.matches).toList();
+    var income = 0.0;
+    var spending = 0.0;
+    for (final row in rows.where((r) => r.counted)) {
+      row.isIncome ? income += row.amount : spending += row.amount;
+    }
+    final narrowed = filter.title != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BrutChipBar(
+          children: [
+            for (final (label, kind) in const [
+              ('All', null),
+              ('Income', true),
+              ('Spending', false),
+            ])
+              BrutChip(
+                label: label,
+                selected: !narrowed && filter.income == kind,
+                onTap: () => onFilter(LedgerFilter(income: kind)),
+              ),
+            if (narrowed)
+              BrutChip(
+                label: '${filter.title}  ✕',
+                selected: true,
+                tone: BrutTone.orange,
+                onTap: () => onFilter(LedgerFilter.all),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        MonoLabel(
+          '${rows.length} ${rows.length == 1 ? 'entry' : 'entries'} · '
+          'in ${peso(income, decimals: 0)} · out ${peso(spending, decimals: 0)}',
+        ),
+        const SizedBox(height: 10),
+        if (rows.isEmpty)
+          const BrutEmptyState(
+            title: 'No entries',
+            hint: 'Nothing recorded matches in this period.',
+            icon: Icons.receipt_long_outlined,
+          )
+        else
+          for (final row in rows) ...[
+            _LedgerRow(row: row),
+            const SizedBox(height: 8),
+          ],
+      ],
+    );
+  }
+}
+
+class _LedgerRow extends StatelessWidget {
+  const _LedgerRow({required this.row});
+
+  final LedgerEntry row;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final where =
+        row.eventTitle ?? (row.isIncome ? 'General fund' : 'No event');
+    final kind = row.isIncome && row.sourceType != null
+        ? '${row.sourceType!.label}: ${row.label}'
+        : row.label;
+
+    return BrutCard(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 40,
+            child: Column(
+              children: [
+                MonoLabel(_months[row.occurredOn.month - 1]),
+                Text('${row.occurredOn.day}', style: AppText.number),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.description,
+                  style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  kind,
+                  style: AppText.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                MonoLabel(where),
+                if (!row.counted || row.flagged) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (!row.counted)
+                        const BrutBadge(
+                          label: 'Not counted',
+                          tone: BrutTone.sun,
+                        ),
+                      if (row.flagged)
+                        const BrutBadge(label: 'Flagged', tone: BrutTone.coral),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${row.isIncome ? '+' : '−'}${peso(row.amount)}',
+            style: AppText.number,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Filters extends StatelessWidget {
-  const _Filters();
+  const _Filters({required this.onApply});
+
+  final Future<void> Function() onApply;
 
   @override
   Widget build(BuildContext context) {
@@ -399,45 +948,17 @@ class _Filters extends StatelessWidget {
           ],
           const SizedBox(height: 18),
           BrutButton(
-            label: 'Generate report',
-            icon: Icons.insert_chart_outlined,
-            onPressed: problem != null ? null : app.loadFinancialReport,
+            label: 'Show these figures',
+            icon: Icons.insights_outlined,
+            onPressed: problem != null
+                ? null
+                : () {
+                    Navigator.of(context).pop();
+                    onApply();
+                  },
           ),
         ],
       ),
-    );
-  }
-}
-
-/// The window and filters the backend actually applied, shown as returned.
-class _WindowCard extends StatelessWidget {
-  const _WindowCard({required this.report});
-
-  final ConsolidatedFinancialReport report;
-
-  static String _date(DateTime? value) => value == null
-      ? '—'
-      : '${value.year}-${value.month.toString().padLeft(2, '0')}'
-            '-${value.day.toString().padLeft(2, '0')}';
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = [
-      report.period.label,
-      if (report.startDate != null || report.endDate != null)
-        '${_date(report.startDate)} to ${_date(report.endDate)}',
-      if (report.schoolYear != null) report.schoolYear!,
-      if (report.semester != null) report.semester!.label,
-      if (report.eventScope != null) report.eventScope!.label,
-    ];
-
-    return BrutCard(
-      tone: BrutTone.brand,
-      tinted: true,
-      radius: AppRadius.rowAll,
-      shadow: AppShadows.sm,
-      padding: const EdgeInsets.all(12),
-      child: MonoLabel(parts.join(' · ')),
     );
   }
 }
@@ -462,29 +983,6 @@ class _TotalsCard extends StatelessWidget {
             report.netBalance,
             tone: report.netBalance < 0 ? BrutTone.coral : BrutTone.mint,
           ),
-          if (report.hasWithheldIncome) ...[
-            const SizedBox(height: 14),
-            BrutInlineMessage(
-              tone: BrutTone.sun,
-              icon: Icons.pause_circle_outline,
-              text:
-                  '${peso(report.withheldIncomeTotal)} of '
-                  'income (${report.withheldIncomeCount} '
-                  '${report.withheldIncomeCount == 1 ? 'entry' : 'entries'}) '
-                  'is held out of these totals pending a receipt decision.',
-            ),
-          ],
-          if (report.hasUnassignedSpending) ...[
-            const SizedBox(height: 10),
-            BrutInlineMessage(
-              tone: BrutTone.sun,
-              icon: Icons.link_off,
-              text:
-                  '${peso(report.unassignedExpenseTotal)} of '
-                  'spending is not linked to any event, so it is in the '
-                  'total above but in none of the events below.',
-            ),
-          ],
         ],
       ),
     );
@@ -495,146 +993,10 @@ class _TotalsCard extends StatelessWidget {
       children: [
         Expanded(child: MonoLabel(label)),
         if (tone != null)
-          BrutBadge(label: '${peso(value)}', tone: tone, mono: true)
+          BrutBadge(label: peso(value), tone: tone, mono: true)
         else
-          Text('${peso(value)}', style: AppText.number),
+          Text(peso(value), style: AppText.number),
       ],
-    );
-  }
-}
-
-class _SourcesCard extends StatelessWidget {
-  const _SourcesCard({required this.report});
-
-  final ConsolidatedFinancialReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    return BrutCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const BrutSectionTitle('Where the income came from'),
-          const SizedBox(height: 12),
-          for (final source in report.incomeBySource) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        source.source.isEmpty ? '—' : source.source,
-                        style: AppText.body.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      MonoLabel(
-                        '${source.sourceType.label} · '
-                        '${source.incomeCount} '
-                        '${source.incomeCount == 1 ? 'entry' : 'entries'}',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text('${peso(source.totalIncome)}', style: AppText.number),
-              ],
-            ),
-            if (source != report.incomeBySource.last) const Divider(height: 20),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _EventsCard extends StatelessWidget {
-  const _EventsCard({required this.report});
-
-  final ConsolidatedFinancialReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    if (report.events.isEmpty) {
-      return const BrutCard(
-        child: BrutEmptyState(
-          title: 'No events in this period',
-          hint: 'Widen the period, or clear the scope filter.',
-          icon: Icons.event_busy_outlined,
-        ),
-      );
-    }
-
-    return BrutCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          BrutSectionTitle(
-            'Events',
-            aside: MonoLabel('${report.events.length} in period'),
-          ),
-          const SizedBox(height: 4),
-          // Saying this plainly, because the two figures genuinely differ.
-          const Text(
-            'These rows do not necessarily add up to the totals above.',
-            style: AppText.caption,
-          ),
-          const SizedBox(height: 14),
-          for (final event in report.events) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        event.title,
-                        style: AppText.body.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      MonoLabel(
-                        [
-                          if (event.schoolYear != null) event.schoolYear!,
-                          if (event.semester != null)
-                            event.semester!.shortLabel,
-                          if (event.eventScope != null) event.eventScope!.label,
-                        ].join(' · '),
-                      ),
-                      if (event.withheldIncomeCount > 0) ...[
-                        const SizedBox(height: 6),
-                        BrutBadge(
-                          label: '${peso(event.withheldIncomeTotal)} withheld',
-                          tone: BrutTone.sun,
-                          mono: true,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('+${peso(event.totalIncome)}', style: AppText.number),
-                    const SizedBox(height: 2),
-                    Text(
-                      '−${peso(event.totalExpenses)}',
-                      style: AppText.moneySmall,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            if (event != report.events.last) const Divider(height: 20),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -647,21 +1009,10 @@ class _NotYetGenerated extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 24),
       child: BrutEmptyState(
-        icon: Icons.insert_chart_outlined,
-        title: 'No report yet',
-        hint: 'Choose a period and generate one.',
+        icon: Icons.insights_outlined,
+        title: 'No figures yet',
+        hint: 'Pick a period above, or pull down to try again.',
       ),
     );
-  }
-}
-
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return BrutInlineMessage(text: message, tone: BrutTone.coral);
   }
 }

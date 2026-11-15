@@ -24,7 +24,7 @@ void main() {
     child: const MaterialApp(home: ReportsScreen()),
   );
 
-  testWidgets('reports lays out on a phone', (tester) async {
+  testWidgets('analytics lays out on a phone, all three tabs', (tester) async {
     // The A51 this is demonstrated on: 1080x2400 at 2.75.
     tester.view.devicePixelRatio = 2.75;
     tester.view.physicalSize = const Size(1080, 2400);
@@ -38,7 +38,54 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(tester.takeException(), isNull);
+    expect(find.text('Analytics'), findsOneWidget);
     expect(find.text('Charts'), findsOneWidget);
+    expect(find.text('BUDGET USED'), findsOneWidget);
+    expect(find.text('Worth knowing'), findsOneWidget);
+
+    await tester.tap(find.text('Events'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.takeException(), isNull);
+    expect(find.text('Events by status'), findsOneWidget);
+    // A budget not yet approved has no variance; mono badges are capitals.
+    expect(find.text('PROPOSED'), findsOneWidget);
+    expect(find.textContaining('OVER ₱950'), findsOneWidget);
+
+    await tester.tap(find.text('Ledger'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.takeException(), isNull);
+    expect(find.text('Router rental'), findsOneWidget);
+    expect(find.text('Flagged'), findsOneWidget);
+  });
+
+  testWidgets('a chart opens full screen with its figures', (tester) async {
+    tester.view.devicePixelRatio = 2.75;
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+
+    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light(), home: host(app)),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.ensureVisible(find.text('Where it went'));
+    await tester.tap(find.text('Where it went'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(tester.takeException(), isNull);
+    expect(find.text('The figures'), findsOneWidget);
+
+    // A category row takes you to its ledger entries.
+    await tester.ensureVisible(find.text('Catering').last);
+    await tester.tap(find.text('Catering').last);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(tester.takeException(), isNull);
+    expect(find.text('Catering  ✕'), findsOneWidget);
+    expect(find.text('Packed meals'), findsOneWidget);
   });
 
   testWidgets('and the download sheet opens with all three formats', (

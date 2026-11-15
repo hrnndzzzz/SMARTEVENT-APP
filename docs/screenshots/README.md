@@ -18,7 +18,7 @@ portfolio.
 | 06 | Menu | Badges are counts that need attention |
 | 07 | Money | Allocated, spent, left, pending |
 | 08 | Inventory | Stock by location, with low-stock flags |
-| 09 | Reports | Charts, and the organization filter |
+| 09 | Reports | Charts, and the organization filter. Predates the Analytics revision of 15 Nov; retake it |
 | 10 | Flagged | The empty state, which is the normal one |
 | 11 | Proposal cover | SAS-SDS-FO-020, before the form starts |
 | 12 | Proposal step 1 | Five steps, one question group each |

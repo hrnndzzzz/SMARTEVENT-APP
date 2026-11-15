@@ -105,9 +105,9 @@ const List<AppArea> appAreas = [
   ),
   AppArea(
     id: 'reports',
-    title: 'Reports',
-    blurb: 'Financial reports and exports',
-    icon: Icons.insert_chart_outlined,
+    title: 'Analytics',
+    blurb: 'Budgets, trends and reports',
+    icon: Icons.insights_outlined,
     tone: BrutTone.orange,
     builder: _reports,
   ),
