@@ -98,10 +98,16 @@ class _SapReviewDemoScreenState extends State<SapReviewDemoScreen> {
                 eyebrow: 'Part 1',
                 mark: _mark('part1.activity', 'Activity details'),
                 rows: const [
-                  ('Title', 'HACK THE FUTURE: Cybersecurity, Ethical '
-                      'Hacking, and the Battle for the Digital World'),
-                  ('Organization', 'Association of Computer Engineering '
-                      'Students'),
+                  (
+                    'Title',
+                    'HACK THE FUTURE: Cybersecurity, Ethical '
+                        'Hacking, and the Battle for the Digital World',
+                  ),
+                  (
+                    'Organization',
+                    'Association of Computer Engineering '
+                        'Students',
+                  ),
                   ('Date', '28 October 2026 · 8:00 AM – 11:00 AM'),
                   ('Modality', 'Online · Zoom Platform'),
                   ('Students', '145'),
@@ -112,18 +118,14 @@ class _SapReviewDemoScreenState extends State<SapReviewDemoScreen> {
                 title: 'Augustinian core values',
                 eyebrow: 'Part 1',
                 mark: _mark('part1.core_values', 'Augustinian core values'),
-                rows: const [
-                  ('Ticked', 'All six'),
-                ],
+                rows: const [('Ticked', 'All six')],
               ),
               const SizedBox(height: 10),
               _Section(
                 title: 'Expected graduate attributes',
                 eyebrow: 'Part 1',
                 mark: _mark('part1.egas', 'Expected graduate attributes'),
-                rows: const [
-                  ('Ticked', 'EGA 1 to 4'),
-                ],
+                rows: const [('Ticked', 'EGA 1 to 4')],
               ),
               const SizedBox(height: 10),
               _Section(
@@ -156,10 +158,16 @@ class _SapReviewDemoScreenState extends State<SapReviewDemoScreen> {
                 eyebrow: 'Part 3',
                 mark: _mark('part3.affected-classes', 'Affected classes'),
                 rows: const [
-                  ('BSCpE 3', 'Data & Digital · 7:00 AM – 12:00 NN · '
-                      'Engr. Glazen Perez'),
-                  ('BSCpE 4', 'Cpe 402 · 10:00 AM – 12:00 NN · '
-                      'Engr. Rowell Demdam'),
+                  (
+                    'BSCpE 3',
+                    'Data & Digital · 7:00 AM – 12:00 NN · '
+                        'Engr. Glazen Perez',
+                  ),
+                  (
+                    'BSCpE 4',
+                    'Cpe 402 · 10:00 AM – 12:00 NN · '
+                        'Engr. Rowell Demdam',
+                  ),
                 ],
               ),
               const SizedBox(height: 18),
@@ -222,9 +230,7 @@ class _Section extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       title,
-                      style: AppText.body.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppText.body.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -240,10 +246,7 @@ class _Section extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 104,
-                    child: MonoLabel(label),
-                  ),
+                  SizedBox(width: 104, child: MonoLabel(label)),
                   Expanded(child: Text(value, style: AppText.caption)),
                 ],
               ),

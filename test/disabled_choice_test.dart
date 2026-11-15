@@ -169,9 +169,14 @@ void main() {
       await tester.pumpWidget(single(enabled: false));
       final locked = decorationOf(tester, 'Yes');
 
+      // The flat theme has no drop shadows at all, so "live" can no
+      // longer be told by one. What carries it now is the fill: a live
+      // chosen chip wears the accent, a locked one drops to the muted
+      // track colour. Asserted as a difference rather than as a shadow,
+      // which was only ever one of the signals.
       expect(live.color, isNot(BrutPalette.lightPalette.line));
-      expect(live.boxShadow, isNotEmpty);
       expect(locked.color, BrutPalette.lightPalette.line);
+      expect(live.color, isNot(locked.color));
       expect(locked.boxShadow, anyOf(isNull, isEmpty));
     });
 

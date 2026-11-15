@@ -11,8 +11,8 @@ import '../theme/palette.dart';
 import '../theme/brut.dart';
 import 'account_menu.dart';
 import 'user_avatar.dart';
+import 'brand_pill.dart';
 import 'connection_banner.dart';
-import 'colour_pulse.dart';
 import 'notification_menu.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
@@ -50,9 +50,6 @@ class AppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    // The department accent comes from the theme rather than from state:
-    // main.dart puts it there, so every identity surface reads one value.
-    final accent = Theme.of(context).colorScheme.secondary;
 
     return Row(
       children: [
@@ -69,30 +66,8 @@ class AppHeader extends StatelessWidget {
         // above the two buttons it is supposed to line up with.
         // The wordmark goes home. On the dashboard, where home already
         // is, it does the one thing it can usefully do instead of
-        // nothing.
-        BrutSurface(
-          fill: accent,
-          radius: AppRadius.pill,
-          shadow: AppShadows.sm,
-          padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
-          // Whether it has somewhere to go is a question the navigator
-          // can already answer: anywhere with a route under it is a
-          // screen you arrived at, and the way out is home.
-          semanticLabel: Navigator.of(context).canPop()
-              ? 'Back to the dashboard'
-              : 'SmartEvent',
-          onTap: () => Navigator.of(context).canPop()
-              ? Navigator.of(context).popUntil((route) => route.isFirst)
-              : ColourPulse.show(context),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.bolt, size: 15, color: AppColors.ink),
-              const SizedBox(width: 5),
-              Text('SmartEvent', style: AppText.wordmark),
-            ],
-          ),
-        ),
+        // nothing — and it is where the connection reports itself.
+        const BrandPill(),
         const Spacer(),
         const _BellWithBadge(),
         const SizedBox(width: 8),

@@ -17,9 +17,11 @@ import '../theme/palette.dart';
   final on = event.on;
   final past =
       on != null &&
-      DateTime(on.year, on.month, on.day).isBefore(
-        DateTime(now.year, now.month, now.day),
-      );
+      DateTime(
+        on.year,
+        on.month,
+        on.day,
+      ).isBefore(DateTime(now.year, now.month, now.day));
   return switch (event.status) {
     EventApprovalStatus.completed => (tone: BrutTone.brand, label: 'Past'),
     EventApprovalStatus.approved when past => (
@@ -45,9 +47,11 @@ List<DropdownMenuItem<String>> eventPickerItems(
   String? keep,
   DateTime? today,
 }) {
-  final groups = {BrutTone.mint: <DropdownMenuItem<String>>[],
-      BrutTone.sun: <DropdownMenuItem<String>>[],
-      BrutTone.brand: <DropdownMenuItem<String>>[]};
+  final groups = {
+    BrutTone.mint: <DropdownMenuItem<String>>[],
+    BrutTone.sun: <DropdownMenuItem<String>>[],
+    BrutTone.brand: <DropdownMenuItem<String>>[],
+  };
   final kept = <DropdownMenuItem<String>>[];
   for (final event in events) {
     final id = event.remoteId;

@@ -15,37 +15,58 @@ class AppColors {
 
   // ── Canvas and ink ────────────────────────────────────────────────────
   /// Screen background.
-  static const Color canvas = Color(0xFFF8F9FA);
+  static const Color canvas = Color(0xFFF1E7D5);
 
   /// Cards, inputs, sheets, neutral buttons.
-  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surface = Color(0xFFFCF4E4);
 
   /// Text, outlines, icons. Every border in the app is this colour.
-  static const Color ink = Color(0xFF1A1A1A);
+  static const Color ink = Color(0xFF14110C);
 
   /// Hard shadows. Same value as [ink] — they are the same mark.
   static const Color shadow = Color(0xFF1A1A1A);
 
   // ── Accents ───────────────────────────────────────────────────────────
-  /// The brand, and every primary action.
+  /// The brand, and every primary action. Blue.
+  ///
+  /// SmartEvent is blue and orange — CITE's two, and the logo's two —
+  /// and the restyle quietly made this half yellow. Three places went
+  /// on saying blue while it did: [brandDark], so a primary button was
+  /// yellow in light and blue in dark; [brandTint], so a tinted brand
+  /// panel sat behind a yellow fill; and AppTheme's own doc, which says
+  /// primary "stays blue". One of the four was changed, which is the
+  /// kind of thing a palette cannot survive.
   static const Color brand = Color(0xFF4D96FF);
 
   /// Needs attention, pending, waiting.
-  static const Color sun = Color(0xFFFFD93D);
+  ///
+  /// The only yellow with a job. It was deepened to a gold when [brand]
+  /// was briefly yellow too, because "waiting on a decision" and "press
+  /// this" cannot be the same swatch. With the brand back to blue that
+  /// collision is gone, and the gold stays: it is the one that reads on
+  /// the cream.
+  static const Color sun = Color(0xFFF2C230);
 
   /// Done, approved, correct.
-  static const Color mint = Color(0xFF6BCB77);
+  ///
+  /// The same drift as [brand], caught by the same measurement: muting
+  /// this for the cream rotated it 37° into yellow-green while
+  /// [mintDark] and [mintTint] stayed at the green they always were,
+  /// so "approved" was olive in light and green in dark. Back on the
+  /// family's own hue, at the saturation and lightness the cream
+  /// needed.
+  static const Color mint = Color(0xFF6AB472);
 
   /// Small "on" signals only: a switch that is on, an online dot.
   static const Color leaf = Color(0xFF22C55E);
 
   /// Urgent, rejected, over budget, offline.
-  static const Color coral = Color(0xFFFF5964);
+  static const Color coral = Color(0xFFE2543F);
 
   /// CITE's own orange. Added to the palette for the department rather
   /// than borrowing a status colour — it sits in the same soft-pop
   /// register and carries ink text at 7.3:1.
-  static const Color orange = Color(0xFFFF8A3D);
+  static const Color orange = Color(0xFFF26B21);
 
   /// Rare. Destructive emphasis only.
   static const Color alert = Color(0xFFEF4444);
@@ -66,7 +87,10 @@ class AppColors {
 
   // ── Neutrals ──────────────────────────────────────────────────────────
   /// Disabled fills, progress tracks, hairline panels.
-  static const Color line = Color(0xFFE2E8F0);
+  /// Not only a rule. This is also the fill behind a progress bar, the
+  /// unreached half of a step bar and a disabled chip, so it has to stay
+  /// light: setting it to the outline colour turned every track black.
+  static const Color line = Color(0xFFE3D9C6);
 
   /// Disabled borders and inactive icons.
   static const Color muted = Color(0xFF94A3B8);
@@ -82,14 +106,17 @@ class AppColors {
   // yellow in both themes, and still carries dark ink. What flips is the
   // canvas, and with it the ink — which means the outlines and the hard
   // shadows flip too, since they are the same mark as the text.
-  static const Color canvasDark = Color(0xFF121417);
-  static const Color surfaceDark = Color(0xFF1F2329);
-  static const Color inkDark = Color(0xFFF2F1EC);
-  static const Color lineDark = Color(0xFF2E343C);
-  static const Color mutedDark = Color(0xFF6F7884);
-  static const Color subtleDark = Color(0xFFA9B1BC);
+  /// Navy, not near-black. The logo is drawn on #0C295A, so the dark
+  /// theme sits in the same family rather than in a neutral grey that
+  /// belongs to nothing.
+  static const Color canvasDark = Color(0xFF0C1F3D);
+  static const Color surfaceDark = Color(0xFF14294A);
+  static const Color inkDark = Color(0xFFEDF2F9);
+  static const Color lineDark = Color(0xFF27446E);
+  static const Color mutedDark = Color(0xFF6E82A3);
+  static const Color subtleDark = Color(0xFFA6B6CE);
   static const Color alertInkDark = Color(0xFFFF8A8F);
-  static const Color backdropDark = Color(0xFF0B0C0E);
+  static const Color backdropDark = Color(0xFF060F1E);
 
   // The tints are the accents flattened against the dark surface rather
   // than against white, so a tinted panel stays a panel instead of

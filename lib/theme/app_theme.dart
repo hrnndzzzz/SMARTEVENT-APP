@@ -21,7 +21,7 @@ import 'palette.dart';
 class AppText {
   AppText._();
 
-  static const String headerFamily = 'Lexend';
+  static const String headerFamily = 'IBMPlexMono';
   static const String bodyFamily = 'Lexend';
   static const String monoFamily = 'IBMPlexMono';
 
@@ -163,13 +163,13 @@ class AppRadius {
   AppRadius._();
 
   /// Cards, sheets, big tiles.
-  static const double card = 16;
+  static const double card = 6;
 
   /// List rows, choice cards, metric tiles, toasts.
   static const double row = 12;
 
   /// Buttons, inputs, selects, chips, badges.
-  static const double control = 8;
+  static const double control = 4;
 
   static const BorderRadius cardAll = BorderRadius.all(Radius.circular(card));
   static const BorderRadius rowAll = BorderRadius.all(Radius.circular(row));
@@ -216,19 +216,13 @@ class AppShadows {
   AppShadows._();
 
   /// Chips, list rows, small buttons inside cards.
-  static const List<BoxShadow> sm = [
-    BoxShadow(color: AppColors.shadow, offset: Offset(1, 1), blurRadius: 0),
-  ];
+  static const List<BoxShadow> sm = [];
 
   /// Buttons, cards, selected choices.
-  static const List<BoxShadow> base = [
-    BoxShadow(color: AppColors.shadow, offset: Offset(3, 3), blurRadius: 0),
-  ];
+  static const List<BoxShadow> base = [];
 
   /// Sheets, menus, popovers.
-  static const List<BoxShadow> lg = [
-    BoxShadow(color: AppColors.shadow, offset: Offset(5, 5), blurRadius: 0),
-  ];
+  static const List<BoxShadow> lg = [];
 
   /// Pressed, and disabled.
   static const List<BoxShadow> none = <BoxShadow>[];

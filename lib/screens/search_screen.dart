@@ -157,9 +157,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return BrutScreen(
-      topBar: AppHeader(
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       scrollable: false,
       bottomPadding: 0,
       child: Column(
@@ -207,21 +205,20 @@ class _SearchScreenState extends State<SearchScreen> {
                                   _ResultCard(
                                     result: r,
                                     onTap: switch (r) {
-                                      _ when r.event != null => () =>
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => EventDetailScreen(
-                                                event: r.event!,
-                                              ),
+                                      _ when r.event != null =>
+                                        () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => EventDetailScreen(
+                                              event: r.event!,
                                             ),
                                           ),
-                                      _ when r.destination != null => () =>
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  r.destination!(),
-                                            ),
+                                        ),
+                                      _ when r.destination != null =>
+                                        () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => r.destination!(),
                                           ),
+                                        ),
                                       _ => null,
                                     },
                                   ),
@@ -394,75 +391,71 @@ class _ResultCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          // The kind of record as a stripe, so a mixed list can be read by
-          // colour before it is read by word.
-          Container(
-            width: 8,
-            decoration: BoxDecoration(
-              color: tone.fill(context),
-              border: Border(right: context.side),
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(AppRadius.row - AppBorders.width),
+            // The kind of record as a stripe, so a mixed list can be read by
+            // colour before it is read by word.
+            Container(
+              width: 8,
+              decoration: BoxDecoration(
+                color: tone.fill(context),
+                border: Border(right: context.side),
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(AppRadius.row - AppBorders.width),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      BrutBadge(
-                        label: kind,
-                        tone: tone,
-                        mono: true,
-                      ),
-                      const Spacer(),
-                      Text(result.timestamp, style: AppText.moneySmall),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(result.title, style: AppText.cardTitle),
-                            const SizedBox(height: 3),
-                            Text(result.subtitle, style: AppText.caption),
-                          ],
-                        ),
-                      ),
-                      if (!isEvent && result.amount != null) ...[
-                        const SizedBox(width: 10),
-                        Text(
-                          result.amount!,
-                          style: AppText.moneyLarge.copyWith(fontSize: 15),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (isEvent && result.tags.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                          for (final tag in result.tags)
-                          BrutBadge(
-                            label: tag,
-                            // The status's own colour. Every tag used to
-                            // be mint, so "Draft" and "Rejected by …"
-                            // both read as approved.
-                            tone: result.event?.status.tone ?? BrutTone.mint,
-                          ),
+                        BrutBadge(label: kind, tone: tone, mono: true),
+                        const Spacer(),
+                        Text(result.timestamp, style: AppText.moneySmall),
                       ],
                     ),
-                  ],
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(result.title, style: AppText.cardTitle),
+                              const SizedBox(height: 3),
+                              Text(result.subtitle, style: AppText.caption),
+                            ],
+                          ),
+                        ),
+                        if (!isEvent && result.amount != null) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            result.amount!,
+                            style: AppText.moneyLarge.copyWith(fontSize: 15),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (isEvent && result.tags.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final tag in result.tags)
+                            BrutBadge(
+                              label: tag,
+                              // The status's own colour. Every tag used to
+                              // be mint, so "Draft" and "Rejected by …"
+                              // both read as approved.
+                              tone: result.event?.status.tone ?? BrutTone.mint,
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

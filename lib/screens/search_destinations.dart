@@ -105,6 +105,8 @@ class SearchDestination {
     return words.any((w) => w.startsWith(q) || q.startsWith(w));
   }
 
-  static List<SearchDestination> matching(String query) =>
-      [for (final d in all) if (d.matches(query)) d];
+  static List<SearchDestination> matching(String query) => [
+    for (final d in all)
+      if (d.matches(query)) d,
+  ];
 }

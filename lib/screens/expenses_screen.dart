@@ -9,6 +9,8 @@ import '../widgets/app_header.dart';
 import '../widgets/expense_review.dart';
 import 'expense_detail_screen.dart';
 import '../theme/peso.dart';
+import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Expenses, with the ones waiting on a decision at the top.
 ///
@@ -55,7 +57,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppLayout.section),
-          const Text('Expenses', style: AppText.display),
+          const ModuleBand(
+            module: Module.money,
+            title: 'Expenses',
+            icon: Icons.fact_check_outlined,
+          ),
           const SizedBox(height: 6),
           Text(
             canReview

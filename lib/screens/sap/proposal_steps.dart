@@ -149,7 +149,6 @@ abstract final class LeaveProposal {
         return saved;
     }
   }
-
 }
 
 enum _Leaving { stay, discard, save }

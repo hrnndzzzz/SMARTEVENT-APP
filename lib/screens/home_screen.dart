@@ -21,6 +21,7 @@ import 'event_detail_screen.dart';
 import 'events_screen.dart';
 import 'expenses_screen.dart';
 import '../theme/peso.dart';
+import '../theme/module_identity.dart';
 
 /// The dashboard: where you stand, what needs you, and the one thing you
 /// are most likely to have opened the app to do.
@@ -86,42 +87,6 @@ class HomeScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppLayout.section),
-          // The date opens the planner and the scope line opens the
-          // account: both were small grey captions that looked like
-          // decoration, so both now carry a chevron and a tap target.
-          _HeaderLine(
-            label:
-                '${_days[now.weekday - 1]} / ${_months[now.month - 1]} '
-                '${now.day}',
-            icon: Icons.calendar_month_outlined,
-            onTap: () => BrutSheet.show<void>(
-              context,
-              builder: (sheetContext) => BrutSheet(
-                title: 'Planner',
-                subtitle: 'Everything with a date on it.',
-                // The calendar is a ListView, which wants all the height
-                // there is; the sheet sizes itself to its content, which
-                // offers none. Unbounded inside a sheet means nothing
-                // renders at all, so it is given most of the screen and
-                // scrolls inside that.
-                child: SizedBox(
-                  height: MediaQuery.sizeOf(sheetContext).height * 0.62,
-                  child: EventCalendar(
-                    events: app.events,
-                    onOpen: (event) {
-                      Navigator.of(sheetContext).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => EventDetailScreen(event: event),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
           // One line, not two. "Good afternoon," above the name took a
           // third of the height above the fold to say nothing the
           // second line did not.
@@ -131,14 +96,63 @@ class HomeScreen extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppText.display.copyWith(fontSize: 24, height: 1.1),
           ),
-          if (AppHeader.scopeLineFor(app) case final scope?) ...[
-            const SizedBox(height: 4),
-            _HeaderLine(
-              label: scope,
-              icon: Icons.badge_outlined,
-              onTap: () => AccountMenu.show(context),
-            ),
-          ],
+          const SizedBox(height: 2),
+
+          // The date and the scope, on one row rather than one above
+          // and one below the greeting.
+          //
+          // Both open something — the planner and the account — and
+          // both were small grey captions that looked like decoration,
+          // so both carry a chevron and a tap target. Three stacked
+          // rows of header meant the thing the app is actually about
+          // started a fifth of the way down the screen.
+          //
+          // A Wrap rather than a Row: on a narrow phone, or with a long
+          // organization name, the two drop onto separate lines instead
+          // of one of them being clipped.
+          Wrap(
+            spacing: AppLayout.between,
+            children: [
+              _HeaderLine(
+                label:
+                    '${_days[now.weekday - 1]} / ${_months[now.month - 1]} '
+                    '${now.day}',
+                icon: Icons.calendar_month_outlined,
+                onTap: () => BrutSheet.show<void>(
+                  context,
+                  builder: (sheetContext) => BrutSheet(
+                    title: 'Planner',
+                    subtitle: 'Everything with a date on it.',
+                    // The calendar is a ListView, which wants all the
+                    // height there is; the sheet sizes itself to its
+                    // content, which offers none. Unbounded inside a
+                    // sheet means nothing renders at all, so it is
+                    // given most of the screen and scrolls inside that.
+                    child: SizedBox(
+                      height: MediaQuery.sizeOf(sheetContext).height * 0.62,
+                      child: EventCalendar(
+                        events: app.events,
+                        onOpen: (event) {
+                          Navigator.of(sheetContext).pop();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => EventDetailScreen(event: event),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (AppHeader.scopeLineFor(app) case final scope?)
+                _HeaderLine(
+                  label: scope,
+                  icon: Icons.badge_outlined,
+                  onTap: () => AccountMenu.show(context),
+                ),
+            ],
+          ),
           const SizedBox(height: AppLayout.between),
 
           // The next activity, first. It is the one thing on this
@@ -182,9 +196,15 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: _StatTile(
-                    icon: Icons.inventory_2_outlined,
-                    value: '${app.events.length}',
-                    label: 'Events',
+                    icon: Module.events.icon,
+                    accent: Module.events.colorIn(context),
+                    // How many exist is a figure nobody acts on, and
+                    // it was the first thing on the dashboard. What is
+                    // waiting on a decision is the same module's
+                    // number, about the same events, that somebody can
+                    // do something with.
+                    value: '${app.events.where((e) => e.status.isPending).length}',
+                    label: 'Events waiting',
                     opens: 'events',
                     trend: _Trend.up,
                     onTap: () => _open(context, 'events'),
@@ -204,7 +224,8 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(width: AppLayout.between),
                 Expanded(
                   child: _StatTile(
-                    icon: Icons.account_balance_wallet_outlined,
+                    icon: Module.money.icon,
+                    accent: Module.money.colorIn(context),
                     value: peso(remaining, decimals: 0),
                     label: 'of ${peso(allocated, decimals: 0)} left',
                     peekTitle: 'Budget',
@@ -239,7 +260,7 @@ class HomeScreen extends StatelessWidget {
                     value: '${app.pendingExpenses.length}',
                     label: 'Awaiting review',
                     opens: 'expenses',
-                    accent: AppColors.orange,
+                    accent: Module.money.colorIn(context),
                     trend: app.pendingExpenses.isEmpty
                         ? _Trend.flat
                         : _Trend.down,
@@ -256,11 +277,11 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(width: AppLayout.between),
                 Expanded(
                   child: _StatTile(
-                    icon: Icons.warehouse_outlined,
+                    icon: Module.inventory.icon,
                     value: '${app.dashboard?.lowStockItemCount ?? 0}',
                     label: 'Low stock',
                     opens: 'inventory',
-                    accent: AppColors.orange,
+                    accent: Module.inventory.colorIn(context),
                     trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
                         ? _Trend.flat
                         : _Trend.down,
@@ -420,13 +441,22 @@ class _StatTile extends StatelessWidget {
         children: [
           Row(
             children: [
+              // A solid block, not a 16% wash of the accent. On the old
+              // near-white canvas the wash read as a tint; on cream it
+              // read as nothing, and the brighter module colours made
+              // it worse rather than better.
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(10),
+                  color: accent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.fromBorderSide(context.side),
                 ),
-                child: Icon(icon, size: 17, color: accent),
+                child: Icon(
+                  icon,
+                  size: 17,
+                  color: context.foregroundOn(accent),
+                ),
               ),
               const Spacer(),
               _TrendBadge(trend: trend),
@@ -583,6 +613,7 @@ class _NextUpState extends State<_NextUp> with SingleTickerProviderStateMixin {
       1 => 'Tomorrow',
       _ => 'In $days days',
     };
+    final stage = EventStage.of(event.status);
 
     // Reduce-motion holds it still rather than removing the colour:
     // the gradient is what marks this card out, the movement is only
@@ -654,25 +685,51 @@ class _NextUpState extends State<_NextUp> with SingleTickerProviderStateMixin {
           ),
           Padding(
             padding: const EdgeInsets.all(14),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const MonoLabel('Next up'),
-                      const SizedBox(height: 6),
-                      Text(
-                        event.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.titleBig.copyWith(fontSize: 17),
-                      ),
-                    ],
-                  ),
+                // "In 4 days" sits on the eyebrow rather than in a
+                // column of its own down the right-hand side. It is
+                // three words; giving them their own column took a
+                // third of the card's width away from the two lines
+                // that have something to say.
+                Row(
+                  children: [
+                    const MonoLabel('Next up'),
+                    const Spacer(),
+                    Text(when, style: AppText.number.copyWith(fontSize: 13)),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Text(when, style: AppText.number.copyWith(fontSize: 14)),
+                const SizedBox(height: 6),
+                Text(
+                  event.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.titleBig.copyWith(fontSize: 17),
+                ),
+                const SizedBox(height: 8),
+                // Where it has got to, not only when it is.
+                //
+                // A date without an approval stage is half the fact: an
+                // event in four days that is still with the Dean cannot
+                // be spent against, and this card used to show the four
+                // days and say nothing about the Dean. The same words
+                // the events list and the proposal bar use, from the
+                // same place, so the three cannot drift apart.
+                Row(
+                  children: [
+                    BrutBadge(label: stage.label, tone: stage.tone),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        stage.note,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.caption,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -902,6 +959,11 @@ class _HeaderLine extends StatelessWidget {
 
     return Align(
       alignment: Alignment.centerLeft,
+      // Sized to its own content. Without the factor an Align fills
+      // whatever width it is offered, so two of these in a Wrap each
+      // took a full row and the Wrap never had the chance to put them
+      // side by side.
+      widthFactor: 1,
       child: InkWell(
         onTap: onTap,
         borderRadius: AppRadius.controlAll,

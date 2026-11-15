@@ -47,8 +47,9 @@ class SapCoverScreen extends StatelessWidget {
   ///
   /// The academic year turns over in June, so August 2026 is 2026-2027
   /// and February 2027 is still 2026-2027.
-  static String schoolYearFor(DateTime now) =>
-      now.month >= 6 ? '${now.year}-${now.year + 1}' : '${now.year - 1}-${now.year}';
+  static String schoolYearFor(DateTime now) => now.month >= 6
+      ? '${now.year}-${now.year + 1}'
+      : '${now.year - 1}-${now.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -61,9 +62,7 @@ class SapCoverScreen extends StatelessWidget {
         final departments = this.departments;
         final scoped = departments == null || form.scopeOrganizationId != null;
         final ready =
-            scoped &&
-            d.setting != null &&
-            (!offCampus || d.offCampusAgreement);
+            scoped && d.setting != null && (!offCampus || d.offCampusAgreement);
 
         return BrutScreen(
           header: BrutHeader(
@@ -96,8 +95,7 @@ class SapCoverScreen extends StatelessWidget {
                         .firstOrNull,
                   ),
                   organizations:
-                      organizationsIn?.call(form.scopeDepartmentId) ??
-                      const [],
+                      organizationsIn?.call(form.scopeDepartmentId) ?? const [],
                   organizationId: form.scopeOrganizationId,
                   onOrganizationChanged: (id) => form.chooseScope(
                     departmentId: form.scopeDepartmentId,
@@ -187,8 +185,7 @@ class SapCoverScreen extends StatelessWidget {
                             onTap: editable
                                 ? () => form.updateDetails(
                                     (x) => x.copyWith(
-                                      offCampusAgreement:
-                                          !x.offCampusAgreement,
+                                      offCampusAgreement: !x.offCampusAgreement,
                                     ),
                                   )
                                 : null,
@@ -229,8 +226,18 @@ class SapCoverScreen extends StatelessWidget {
 
   static String _readable(DateTime on) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return '${months[on.month - 1]} ${on.day}, ${on.year}';
   }

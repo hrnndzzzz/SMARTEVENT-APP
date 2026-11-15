@@ -46,7 +46,7 @@ void main() {
     testWidgets('all four are shown', (tester) async {
       await open(tester);
 
-      expect(find.text('Events'), findsOneWidget);
+      expect(find.text('Events waiting'), findsOneWidget);
       // The tile says what is left and what of, so the figure above it
       // needs no second line explaining itself.
       expect(find.textContaining('left'), findsWidgets);
@@ -88,7 +88,7 @@ void main() {
 
       expect(
         tester.getTopLeft(find.text('NEXT UP')).dy,
-        lessThan(tester.getTopLeft(find.text('Events')).dy),
+        lessThan(tester.getTopLeft(find.text('Events waiting')).dy),
         reason: 'it is the only thing here with a deadline attached',
       );
     });
@@ -135,7 +135,7 @@ void main() {
     ) async {
       final app = await open(tester);
 
-      await tester.longPress(find.text('Events'));
+      await tester.longPress(find.text('Events waiting'));
       await tester.pump(const Duration(milliseconds: 400));
 
       // Not a sentence about the events — the bars, one per live one.
@@ -221,7 +221,7 @@ void main() {
     );
 
     List<Rect> allFour(WidgetTester tester) => [
-      tileOf(tester, find.text('Events')),
+      tileOf(tester, find.text('Events waiting')),
       tileOf(tester, find.textContaining('of ')),
       tileOf(tester, find.text('Awaiting review')),
       tileOf(tester, find.text('Low stock')),

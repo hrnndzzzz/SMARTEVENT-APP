@@ -125,9 +125,7 @@ class _SapSignaturePadState extends State<SapSignaturePad> {
                   child: _strokes.isEmpty && _current.isEmpty
                       ? Center(
                           child: Text(
-                            widget.enabled
-                                ? 'Sign here'
-                                : 'Signing is closed',
+                            widget.enabled ? 'Sign here' : 'Signing is closed',
                             style: AppText.caption,
                           ),
                         )
@@ -145,8 +143,7 @@ class _SapSignaturePadState extends State<SapSignaturePad> {
                 label: 'Undo stroke',
                 icon: Icons.undo,
                 tone: BrutTone.neutral,
-                onPressed:
-                    widget.enabled && _strokes.isNotEmpty ? _undo : null,
+                onPressed: widget.enabled && _strokes.isNotEmpty ? _undo : null,
               ),
             ),
             const SizedBox(width: 10),

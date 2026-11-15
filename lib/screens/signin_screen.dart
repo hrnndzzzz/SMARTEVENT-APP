@@ -92,6 +92,7 @@ class _SignInScreenState extends State<SignInScreen> {
       ),
     );
   }
+
   /// The way in to the demo: hold the heading, say yes.
   ///
   /// It starts as an officer and the role is changed from Settings
@@ -137,7 +138,6 @@ class _SignInScreenState extends State<SignInScreen> {
     // and buried under the sign-in screen still on top of it.
     navigator.popUntil((route) => route.isFirst);
   }
-
 
   @override
   Widget build(BuildContext context) {

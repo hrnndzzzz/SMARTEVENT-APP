@@ -26,8 +26,7 @@ class SignatoryScreen extends StatelessWidget {
     final name = context.watch<AppState>().currentAccount?.name;
 
     return BrutScreen(
-      topBar: AppHeader(
-      ),
+      topBar: AppHeader(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -7,6 +7,8 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import 'sds_proposals_screen.dart';
 import '../widgets/app_header.dart';
+import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Proposal letters.
 ///
@@ -67,7 +69,11 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Proposal letters', style: AppText.display),
+          const ModuleBand(
+            module: Module.events,
+            title: 'Proposal letters',
+            icon: Icons.mail_outline,
+          ),
           const SizedBox(height: 4),
           Text(switch (role) {
             null => 'Not signed in.',

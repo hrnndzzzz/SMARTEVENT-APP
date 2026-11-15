@@ -46,7 +46,6 @@ class SapPart3Screen extends StatefulWidget {
   /// the event record is made.
   final Future<void> Function(int)? onJumpTo;
 
-
   @override
   State<SapPart3Screen> createState() => _SapPart3ScreenState();
 }
@@ -192,9 +191,9 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
     final ok = await _saveAll();
     if (!mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_form.error ?? 'Could not save.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_form.error ?? 'Could not save.')));
       return;
     }
     if (widget.onContinue case final next?) {
@@ -257,225 +256,226 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
         if (!didPop) _leave(context);
       },
       child: AnimatedBuilder(
-      animation: _form,
-      builder: (context, _) {
-        final declared = _form.details.totalBudget;
-        final summed = _totalCentavos;
-        final ready = _form.missingForSubmit.isEmpty;
-        final mismatch =
-            declared != null &&
-            declared.isNotEmpty &&
-            _form.budgetItems.isNotEmpty &&
-            SapForm.centavos(declared) != summed;
+        animation: _form,
+        builder: (context, _) {
+          final declared = _form.details.totalBudget;
+          final summed = _totalCentavos;
+          final ready = _form.missingForSubmit.isEmpty;
+          final mismatch =
+              declared != null &&
+              declared.isNotEmpty &&
+              _form.budgetItems.isNotEmpty &&
+              SapForm.centavos(declared) != summed;
 
-        return BrutScreen(
-          // One of three when it is being filled in as a run, its own
-          // screen when the SDS Office opens it from their six-part
-          // list.
-          header: widget.step == null
-              ? BrutHeader(
-                  title: 'Additional Information',
-                  eyebrow: 'Part 3',
-                  onBack: () => _leave(context),
-                )
-              : BrutFlowHeader(
-                  title: 'Additional Information',
-                  flowName: 'Part 3 of 3',
-                  currentStep: widget.step!,
-                  onBack: () => _leave(context),
-                  steps: [
-                    for (var i = 0; i < ProposalSteps.labels.length; i++)
-                      BrutStep(
-                        label: ProposalSteps.labels[i],
-                        onJump: (widget.onJumpTo != null && i < widget.step!)
-                            ? () => widget.onJumpTo!(i)
-                            : null,
-                      ),
-                  ],
-                ),
-          // One back button, in the header. There were two doing the
-          // same thing, and neither said whether anything was kept.
-          footer: BrutFooter(
-            child: BrutButton(
-              label: widget.step == null ? 'Save' : 'Send for review',
-              busy: _form.saving,
-              busyLabel: 'Saving',
-              // As a run's last step this sends it, and a half-filled
-              // proposal is not sent.
-              onPressed: _editable && (widget.step == null || ready)
-                  ? _save
-                  : null,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (widget.step != null && _editable && !ready) ...[
-                MissingForSubmit(_form.missingForSubmit),
-                const SizedBox(height: 14),
-              ],
-              const BrutSectionTitle('Budget breakdown'),
-              const SizedBox(height: 8),
-              if (_form.budgetItems.isEmpty)
-                const BrutInlineMessage(
-                  tone: BrutTone.neutral,
-                  icon: Icons.receipt_long,
-                  text: 'No lines yet.',
-                ),
-              for (var i = 0; i < _form.budgetItems.length; i++) ...[
-                SapRowCard(
-                  title: _form.budgetItems[i].particulars,
-                  // The paper's row reads across: how many, at what each,
-                  // coming to what. Showing only the total hid the two
-                  // columns the office checks the arithmetic against.
-                  subtitle: _budgetLine(_form.budgetItems[i]),
-                  onRemove: _editable
-                      ? () => _form.setBudgetItems(
-                          [..._form.budgetItems]..removeAt(i),
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (_form.budgetItems.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                BrutCard(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const MonoLabel('TOTAL'),
-                      Text(_peso(summed), style: AppText.moneyLarge),
+          return BrutScreen(
+            // One of three when it is being filled in as a run, its own
+            // screen when the SDS Office opens it from their six-part
+            // list.
+            header: widget.step == null
+                ? BrutHeader(
+                    title: 'Additional Information',
+                    eyebrow: 'Part 3',
+                    onBack: () => _leave(context),
+                  )
+                : BrutFlowHeader(
+                    title: 'Additional Information',
+                    flowName: 'Part 3 of 3',
+                    currentStep: widget.step!,
+                    onBack: () => _leave(context),
+                    steps: [
+                      for (var i = 0; i < ProposalSteps.labels.length; i++)
+                        BrutStep(
+                          label: ProposalSteps.labels[i],
+                          onJump: (widget.onJumpTo != null && i < widget.step!)
+                              ? () => widget.onJumpTo!(i)
+                              : null,
+                        ),
                     ],
                   ),
-                ),
-              ],
-              if (mismatch) ...[
-                const SizedBox(height: 10),
-                BrutInlineMessage(
-                  tone: BrutTone.coral,
-                  icon: Icons.error_outline,
-                  text:
-                      'These lines come to ${_peso(summed)}, but Part 1 says '
-                      '${_peso(SapForm.centavos(declared))}. They have to match '
-                      'exactly before this can be submitted.',
-                ),
-              ],
-              if (_editable) ...[
-                const SizedBox(height: 10),
-                BrutButton(
-                  label: _form.budgetItems.length >=
-                          SapProposal.maxCollectionItems
-                      ? 'Sixteen lines is the limit'
-                      : 'Add a line',
-                  icon: Icons.add,
-                  tone: BrutTone.neutral,
-                  size: BrutSize.small,
-                  onPressed: _form.budgetItems.length >=
-                          SapProposal.maxCollectionItems
-                      ? null
-                      : _addBudgetLine,
-                ),
-              ],
-              const SizedBox(height: 22),
-
-              const BrutSectionTitle('Affected classes'),
-              const SizedBox(height: 8),
-              const BrutInlineMessage(
-                tone: BrutTone.neutral,
-                icon: Icons.school_outlined,
-                text:
-                    'Declared by hand. Nothing is read from a timetable, and '
-                    'each row has to overlap the activity on the same day.',
+            // One back button, in the header. There were two doing the
+            // same thing, and neither said whether anything was kept.
+            footer: BrutFooter(
+              child: BrutButton(
+                label: widget.step == null ? 'Save' : 'Send for review',
+                busy: _form.saving,
+                busyLabel: 'Saving',
+                // As a run's last step this sends it, and a half-filled
+                // proposal is not sent.
+                onPressed: _editable && (widget.step == null || ready)
+                    ? _save
+                    : null,
               ),
-              const SizedBox(height: 10),
-              for (var i = 0; i < _form.affectedClasses.length; i++) ...[
-                SapRowCard(
-                  title:
-                      '${_form.affectedClasses[i].yearLevel} · '
-                      '${_form.affectedClasses[i].subject}',
-                  subtitle:
-                      '${_form.affectedClasses[i].start.label} – '
-                      '${_form.affectedClasses[i].end.label} · '
-                      '${_form.affectedClasses[i].professor}',
-                  onRemove: _editable
-                      ? () => _form.setAffectedClasses(
-                          [..._form.affectedClasses]..removeAt(i),
-                        )
-                      : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.step != null && _editable && !ready) ...[
+                  MissingForSubmit(_form.missingForSubmit),
+                  const SizedBox(height: 14),
+                ],
+                const BrutSectionTitle('Budget breakdown'),
+                const SizedBox(height: 8),
+                if (_form.budgetItems.isEmpty)
+                  const BrutInlineMessage(
+                    tone: BrutTone.neutral,
+                    icon: Icons.receipt_long,
+                    text: 'No lines yet.',
+                  ),
+                for (var i = 0; i < _form.budgetItems.length; i++) ...[
+                  SapRowCard(
+                    title: _form.budgetItems[i].particulars,
+                    // The paper's row reads across: how many, at what each,
+                    // coming to what. Showing only the total hid the two
+                    // columns the office checks the arithmetic against.
+                    subtitle: _budgetLine(_form.budgetItems[i]),
+                    onRemove: _editable
+                        ? () => _form.setBudgetItems(
+                            [..._form.budgetItems]..removeAt(i),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (_form.budgetItems.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  BrutCard(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const MonoLabel('TOTAL'),
+                        Text(_peso(summed), style: AppText.moneyLarge),
+                      ],
+                    ),
+                  ),
+                ],
+                if (mismatch) ...[
+                  const SizedBox(height: 10),
+                  BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.error_outline,
+                    text:
+                        'These lines come to ${_peso(summed)}, but Part 1 says '
+                        '${_peso(SapForm.centavos(declared))}. They have to match '
+                        'exactly before this can be submitted.',
+                  ),
+                ],
+                if (_editable) ...[
+                  const SizedBox(height: 10),
+                  BrutButton(
+                    label:
+                        _form.budgetItems.length >=
+                            SapProposal.maxCollectionItems
+                        ? 'Sixteen lines is the limit'
+                        : 'Add a line',
+                    icon: Icons.add,
+                    tone: BrutTone.neutral,
+                    size: BrutSize.small,
+                    onPressed:
+                        _form.budgetItems.length >=
+                            SapProposal.maxCollectionItems
+                        ? null
+                        : _addBudgetLine,
+                  ),
+                ],
+                const SizedBox(height: 22),
+
+                const BrutSectionTitle('Affected classes'),
+                const SizedBox(height: 8),
+                const BrutInlineMessage(
+                  tone: BrutTone.neutral,
+                  icon: Icons.school_outlined,
+                  text:
+                      'Declared by hand. Nothing is read from a timetable, and '
+                      'each row has to overlap the activity on the same day.',
+                ),
+                const SizedBox(height: 10),
+                for (var i = 0; i < _form.affectedClasses.length; i++) ...[
+                  SapRowCard(
+                    title:
+                        '${_form.affectedClasses[i].yearLevel} · '
+                        '${_form.affectedClasses[i].subject}',
+                    subtitle:
+                        '${_form.affectedClasses[i].start.label} – '
+                        '${_form.affectedClasses[i].end.label} · '
+                        '${_form.affectedClasses[i].professor}',
+                    onRemove: _editable
+                        ? () => _form.setAffectedClasses(
+                            [..._form.affectedClasses]..removeAt(i),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (_editable) ...[
+                  const SizedBox(height: 4),
+                  BrutButton(
+                    label: 'Add a class',
+                    icon: Icons.add,
+                    tone: BrutTone.neutral,
+                    size: BrutSize.small,
+                    onPressed: _addClass,
+                  ),
+                ],
+                const SizedBox(height: 22),
+
+                BrutTextField(
+                  controller: _excuse,
+                  label: 'Excuse letter arrangement',
+                  hint: 'How affected students will be excused',
+                  enabled: _editable,
+                  // The server's own limit. Without it the field accepts
+                  // whatever is typed and the refusal arrives as a 422
+                  // after Save, naming a field the writer cannot see.
+                  maxLength: 400,
+                  maxLines: 5,
+                  textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 8),
-              ],
-              if (_editable) ...[
-                const SizedBox(height: 4),
-                BrutButton(
-                  label: 'Add a class',
-                  icon: Icons.add,
+                const BrutInlineMessage(
                   tone: BrutTone.neutral,
-                  size: BrutSize.small,
-                  onPressed: _addClass,
-                ),
-              ],
-              const SizedBox(height: 22),
-
-              BrutTextField(
-                controller: _excuse,
-                label: 'Excuse letter arrangement',
-                hint: 'How affected students will be excused',
-                enabled: _editable,
-                // The server's own limit. Without it the field accepts
-                // whatever is typed and the refusal arrives as a 422
-                // after Save, naming a field the writer cannot see.
-                maxLength: 400,
-                maxLines: 5,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 8),
-              const BrutInlineMessage(
-                tone: BrutTone.neutral,
-                icon: Icons.info_outline,
-                text: 'Letters are not issued automatically; this is the plan '
-                    'for them.',
-              ),              // Last, not first. Ten long free-text headings opened
-              // this step and buried the breakdown it is named for, which
-              // is also the part with a total that has to agree.
-              const BrutSectionTitle('Other details'),
-              const SizedBox(height: 6),
-              Text(
-                'The headings a filled form uses. Leave any of them '
-                'blank and they are simply left out.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 12),
-              for (final heading in _otherDetailHeadings) ...[
-                BrutTextField(
-                  controller: _otherDetails[heading]!,
-                  label: heading,
-                  hint: _hintFor(heading),
-                  enabled: _editable,
-                  maxLines: 3,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-              ],
-              if (_otherDetailsLength > _otherDetailsLimit) ...[
-                BrutInlineMessage(
-                  tone: BrutTone.coral,
-                  icon: Icons.error_outline,
+                  icon: Icons.info_outline,
                   text:
-                      'These come to $_otherDetailsLength characters and the '
-                      'server takes $_otherDetailsLimit. Shorten them before '
-                      'submitting.',
+                      'Letters are not issued automatically; this is the plan '
+                      'for them.',
+                ), // Last, not first. Ten long free-text headings opened
+                // this step and buried the breakdown it is named for, which
+                // is also the part with a total that has to agree.
+                const BrutSectionTitle('Other details'),
+                const SizedBox(height: 6),
+                Text(
+                  'The headings a filled form uses. Leave any of them '
+                  'blank and they are simply left out.',
+                  style: AppText.caption,
                 ),
                 const SizedBox(height: 12),
+                for (final heading in _otherDetailHeadings) ...[
+                  BrutTextField(
+                    controller: _otherDetails[heading]!,
+                    label: heading,
+                    hint: _hintFor(heading),
+                    enabled: _editable,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (_otherDetailsLength > _otherDetailsLimit) ...[
+                  BrutInlineMessage(
+                    tone: BrutTone.coral,
+                    icon: Icons.error_outline,
+                    text:
+                        'These come to $_otherDetailsLength characters and the '
+                        'server takes $_otherDetailsLimit. Shorten them before '
+                        'submitting.',
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 10),
               ],
-              const SizedBox(height: 10),
-
-
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
       ),
     );
   }
@@ -587,8 +587,7 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
                       amount: _amount.text.trim().replaceAll(',', ''),
                       // Blank means one of the thing, which is what the
                       // server defaults to as well.
-                      quantity:
-                          int.tryParse(_quantity.text.trim()) ?? 1,
+                      quantity: int.tryParse(_quantity.text.trim()) ?? 1,
                       unitCost: _unitCost.text.trim().isEmpty
                           ? null
                           : _unitCost.text.trim().replaceAll(',', ''),

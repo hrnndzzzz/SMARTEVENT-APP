@@ -9,6 +9,7 @@ import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 import '../widgets/report_charts.dart';
 import '../widgets/report_status.dart';
 import '../widgets/report_tiles.dart';
@@ -243,7 +244,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         : app.organizationDashboard;
 
     return BrutScreen(
-      tint: BrutTone.orange,
+      // No canvas tint. A 12% wash of the module's colour was the old
+      // answer to "sixteen screens look the same"; the band below says
+      // it in full colour now, and this would be the only screen in
+      // the app whose page is not the same cream as the rest.
       onRefresh: _reload,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       // Downloading is one deliberate act, so it is one button in the
@@ -259,9 +263,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         children: [
           const SizedBox(height: AppLayout.between),
           ModuleBand(
-            icon: Icons.insights_outlined,
-            title: 'Analytics',
-            tone: BrutTone.orange,
+            module: Module.reports,
             subtitle: report == null
                 ? 'Income, spending and budgets over a period.'
                 : windowLabel(report),
@@ -277,7 +279,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ])
                 BrutChip(
                   label: period.label,
-                  tone: BrutTone.orange,
+                  // The app's own selected colour, not orange. Orange
+                  // is Money's, and a selected chip here sat under a
+                  // gold Analytics band reading as a stray piece of
+                  // the money area. Every other chip bar in the app —
+                  // Inventory's, the ledger's below — marks the chosen
+                  // one this way.
                   selected: app.reportPeriod == period,
                   onTap: () => _pickPeriod(period),
                 ),

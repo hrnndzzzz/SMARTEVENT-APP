@@ -6,6 +6,8 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../theme/peso.dart';
+import '../widgets/module_band.dart';
+import '../theme/module_identity.dart';
 
 /// Categories — full CRUD, which `FRONTEND_README.md` §4 makes mandatory:
 /// a list-only screen does not count as complete for a module that also
@@ -38,11 +40,11 @@ class CategoriesScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Budget categories', style: AppText.display),
-          const SizedBox(height: 4),
-          const Text(
-            'Allocation and remaining balance per category.',
-            style: AppText.caption,
+          const ModuleBand(
+            module: Module.money,
+            title: 'Budget categories',
+            icon: Icons.category_outlined,
+            subtitle: 'Allocation and remaining balance per category.',
           ),
           const SizedBox(height: 14),
           Expanded(child: _Body(canManage: canManage)),

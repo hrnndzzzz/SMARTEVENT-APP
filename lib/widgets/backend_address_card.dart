@@ -165,9 +165,7 @@ class _BackendAddressCardState extends State<BackendAddressCard> {
           if (_probe == _Probe.reachable || _probe == _Probe.unreachable) ...[
             const SizedBox(height: 12),
             BrutInlineMessage(
-              tone: _probe == _Probe.reachable
-                  ? BrutTone.mint
-                  : BrutTone.coral,
+              tone: _probe == _Probe.reachable ? BrutTone.mint : BrutTone.coral,
               icon: _probe == _Probe.reachable
                   ? Icons.check_circle_outline
                   : Icons.error_outline,

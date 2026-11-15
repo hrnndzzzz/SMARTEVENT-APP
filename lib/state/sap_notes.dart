@@ -133,8 +133,7 @@ class SapNotes extends ChangeNotifier {
   int get total => _notes.length;
 
   bool hasUnresolvedChange(String anchor) => _notes.any(
-    (n) =>
-        n.anchor == anchor && n.kind == SapNoteKind.change && !n.resolved,
+    (n) => n.anchor == anchor && n.kind == SapNoteKind.change && !n.resolved,
   );
 
   Future<void> load() async {
