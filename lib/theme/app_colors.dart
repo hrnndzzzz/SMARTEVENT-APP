@@ -88,14 +88,17 @@ class AppColors {
   // yellow in both themes, and still carries dark ink. What flips is the
   // canvas, and with it the ink — which means the outlines and the hard
   // shadows flip too, since they are the same mark as the text.
-  static const Color canvasDark = Color(0xFF121417);
-  static const Color surfaceDark = Color(0xFF1F2329);
-  static const Color inkDark = Color(0xFFF2F1EC);
-  static const Color lineDark = Color(0xFF2E343C);
-  static const Color mutedDark = Color(0xFF6F7884);
-  static const Color subtleDark = Color(0xFFA9B1BC);
+  /// Navy, not near-black. The logo is drawn on #0C295A, so the dark
+  /// theme sits in the same family rather than in a neutral grey that
+  /// belongs to nothing.
+  static const Color canvasDark = Color(0xFF0C1F3D);
+  static const Color surfaceDark = Color(0xFF14294A);
+  static const Color inkDark = Color(0xFFEDF2F9);
+  static const Color lineDark = Color(0xFF27446E);
+  static const Color mutedDark = Color(0xFF6E82A3);
+  static const Color subtleDark = Color(0xFFA6B6CE);
   static const Color alertInkDark = Color(0xFFFF8A8F);
-  static const Color backdropDark = Color(0xFF0B0C0E);
+  static const Color backdropDark = Color(0xFF060F1E);
 
   // The tints are the accents flattened against the dark surface rather
   // than against white, so a tinted panel stays a panel instead of

@@ -264,4 +264,67 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(AdminScreen), matchesGoldenFile('goldens/admin.png'));
   });
+
+  testWidgets('inventory-dark', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo(role: UserRole.superAdmin);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.dark(accent: app.themeColor),
+        home: const InventoryScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(InventoryScreen), matchesGoldenFile('goldens/inventory-dark.png'));
+  });
+
+  testWidgets('events-dark', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo(role: UserRole.superAdmin);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.dark(accent: app.themeColor),
+        home: const EventsScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(EventsScreen), matchesGoldenFile('goldens/events-dark.png'));
+  });
+
+  testWidgets('admin-dark', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo(role: UserRole.superAdmin);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.dark(accent: app.themeColor),
+        home: const AdminScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(AdminScreen), matchesGoldenFile('goldens/admin-dark.png'));
+  });
 }

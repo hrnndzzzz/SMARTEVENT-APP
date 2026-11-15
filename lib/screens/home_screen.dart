@@ -184,7 +184,7 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   child: _StatTile(
                     icon: Module.events.icon,
-                    accent: Module.events.color,
+                    accent: Module.events.colorIn(context),
                     value: '${app.events.length}',
                     label: 'Events',
                     opens: 'events',
@@ -207,7 +207,7 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   child: _StatTile(
                     icon: Module.money.icon,
-                    accent: Module.money.color,
+                    accent: Module.money.colorIn(context),
                     value: peso(remaining, decimals: 0),
                     label: 'of ${peso(allocated, decimals: 0)} left',
                     peekTitle: 'Budget',
@@ -242,7 +242,7 @@ class HomeScreen extends StatelessWidget {
                     value: '${app.pendingExpenses.length}',
                     label: 'Awaiting review',
                     opens: 'expenses',
-                    accent: Module.money.color,
+                    accent: Module.money.colorIn(context),
                     trend: app.pendingExpenses.isEmpty
                         ? _Trend.flat
                         : _Trend.down,
@@ -263,7 +263,7 @@ class HomeScreen extends StatelessWidget {
                     value: '${app.dashboard?.lowStockItemCount ?? 0}',
                     label: 'Low stock',
                     opens: 'inventory',
-                    accent: Module.inventory.color,
+                    accent: Module.inventory.colorIn(context),
                     trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
                         ? _Trend.flat
                         : _Trend.down,

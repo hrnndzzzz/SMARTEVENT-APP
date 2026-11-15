@@ -48,7 +48,7 @@ class ModuleBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fill = module.color;
+    final fill = module.colorIn(context);
     final ink = context.foregroundOn(fill);
 
     return BrutSurface(

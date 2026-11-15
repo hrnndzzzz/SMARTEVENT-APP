@@ -174,7 +174,8 @@ class _Band extends StatelessWidget {
     // to go blue, orange, blue down the list, which made the colour a
     // property of position rather than of the thing — so the menu and
     // the band at the top of the screen it opened disagreed.
-    final accent = moduleForAreaId(area.id)?.color ?? context.palette.muted;
+    final accent =
+        moduleForAreaId(area.id)?.colorIn(context) ?? context.palette.muted;
     final onAccent = context.foregroundOn(accent);
 
     return Container(
