@@ -69,6 +69,123 @@ def test_financial_periods_filters_and_decimal_totals(system, period, params):
     assert client.get(f"/reports/financial?period={period}{params}&event_scope=departmental").json()["total_income"] == 0
 
 
+def test_report_breakdowns_reconcile_with_its_totals(system):
+    client, db, users, orgs, resources, login = system
+    resources[0]["expenses"].status = "approved"
+    resources[0]["expenses"].expense_date = date(2026, 9, 10)
+    resources[0]["incomes"].received_on = date(2026, 9, 12)
+    db.add(Expense(organization_id=orgs[0].id, department_id=resources[0]["events"].department_id,
+                   category_id=resources[0]["categories"].id, description="Tarpaulin", amount="25.50",
+                   expense_date=date(2026, 9, 15), status="approved", recorded_by=users["treasurer"].id))
+    db.commit()
+    login("officer")
+    report = client.get("/reports/financial?period=monthly&reference_date=2026-09-20").json()
+    assert report["total_income"] == 100 and report["total_expenses"] == 35.5
+    counted = [row for row in report["ledger"] if row["counted"]]
+    assert sum(r["amount"] for r in counted if r["kind"] == "income") == 100
+    assert round(sum(r["amount"] for r in counted if r["kind"] == "expense"), 2) == 35.5
+    assert any(r["event_title"] is None and r["description"] == "Tarpaulin" for r in report["ledger"])
+    assert report["expenses_by_category"] == [{"category_id": str(resources[0]["categories"].id),
+        "category_name": "Supplies", "expense_count": 2, "total_expenses": 35.5}]
+    assert len(report["trend"]) == 30
+    assert sum(p["total_income"] for p in report["trend"]) == 100
+    assert round(sum(p["total_expenses"] for p in report["trend"]), 2) == 35.5
+
+
+def test_report_compares_with_the_period_before(system):
+    client, db, users, orgs, resources, login = system
+    resources[0]["incomes"].received_on = date(2026, 8, 20)
+    db.commit()
+    login("officer")
+    report = client.get("/reports/financial?period=monthly&reference_date=2026-09-20").json()
+    assert report["total_income"] == 0
+    assert report["previous"]["total_income"] == 100 and report["previous"]["start_date"] == "2026-08-01"
+    from app.routers.reports import _previous_period
+    today = date(2026, 9, 20)
+    assert _previous_period("semester", today, "2026-2027", "1st")[1:] == ("2025-2026", "summer")
+    assert _previous_period("semester", today, "2026-2027", "summer")[1:] == ("2026-2027", "2nd")
+    assert _previous_period("school_year", today, "2026-2027", None)[1] == "2025-2026"
+    assert _previous_period("weekly", today, None, None)[0] == date(2026, 9, 13)
+
+
+def test_budget_figures_use_whole_event_spending_and_committed_events(system):
+    client, db, users, orgs, resources, login = system
+    event = resources[0]["events"]
+    event.status = "approved"
+    resources[0]["expenses"].status = "approved"
+    resources[0]["expenses"].expense_date = date(2026, 8, 5)  # before the window
+    db.commit()
+    login("officer")
+    url = "/reports/financial?period=monthly&reference_date=2026-09-20"
+    report = client.get(url).json()
+    row = report["events"][0]
+    assert row["total_expenses"] == 0 and row["spent_to_date"] == 10 and row["allocated_budget"] == 1000
+    assert row["status"] == "approved"
+    assert report["total_allocated_budget"] == 1000 and report["total_spent_to_date"] == 10
+    event.status = "pending"
+    db.commit()
+    assert client.get(url).json()["total_allocated_budget"] == 0
+
+
+def test_financial_export_carries_the_new_sections(system):
+    client, db, users, orgs, resources, login = system
+    login("officer")
+    response = client.get("/reports/financial/export?period=school_year&school_year=2026-2027&format=csv")
+    assert response.status_code == 200
+    for heading in ("Spending by category", "Ledger", "Spent to date", "Previous period"):
+        assert heading in response.text
+
+
+def dues(client, **overrides):
+    payload = {"source": "Members", "source_type": "membership_dues", "purpose": "1st sem dues",
+               "amount": "250.00", "received_on": "2026-09-04", "school_year": "2026-2027", "semester": "1st"}
+    return client.post("/incomes", json={**payload, **overrides})
+
+
+def test_general_fund_income_is_recorded_without_an_event(system):
+    client, db, users, orgs, resources, login = system
+    login("treasurer")
+    response = dues(client)
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["event_id"] is None and body["school_year"] == "2026-2027"
+    from uuid import UUID
+    row = db.get(IncomeRecord, UUID(body["id"]))
+    assert row.organization_id == orgs[0].id
+    assert dues(client, semester=None).status_code == 422
+    assert dues(client, school_year="2026-2028").status_code == 422
+    assert dues(client, receipt={"receipt_url": "https://example.com/d.jpg", "purpose": "Dues"}).status_code == 422
+    with_event = dues(client, event_id=str(resources[0]["events"].id))
+    assert with_event.status_code == 422  # event income takes its labels from the event
+    # Old app builds read every event_id as present, so the list opts in.
+    assert all(r["event_id"] for r in client.get("/incomes").json())
+    assert body["id"] in {r["id"] for r in client.get("/incomes?include_general=true").json()}
+
+
+def test_general_fund_income_reaches_reports_in_its_own_scope(system):
+    client, db, users, orgs, resources, login = system
+    login("treasurer")
+    assert dues(client).status_code == 201
+    login("officer")
+    for url in ("/reports/financial?period=monthly&reference_date=2026-09-20",
+                "/reports/financial?period=semester&school_year=2026-2027&semester=1st"):
+        report = client.get(url).json()
+        assert report["general_income_total"] == 250
+        assert any(r["event_id"] is None and r["kind"] == "income" for r in report["ledger"])
+        assert {"source_type": "membership_dues", "source": "Members", "income_count": 1,
+                "total_income": 250} in report["income_by_source"]
+    assert client.get("/reports/financial?period=semester&school_year=2026-2027&semester=2nd").json()["general_income_total"] == 0
+    scoped = client.get("/reports/financial?period=school_year&school_year=2026-2027&event_scope=organizational").json()
+    assert scoped["general_income_total"] == 0
+    # Another organization's treasurer sees none of it.
+    login("super_admin")
+    assert client.patch(f"/users/{users['treasurer'].id}/access",
+                        json={"organization_id": str(orgs[1].id)}).status_code == 200
+    login("treasurer")
+    assert client.get("/reports/financial?period=school_year&school_year=2026-2027").json()["general_income_total"] == 0
+    assert not [r for r in client.get("/incomes?include_general=true").json() if r["event_id"] is None]
+
+
 def test_calendar_reports_use_transaction_dates_not_event_creation_date(system):
     client, db, users, orgs, resources, login = system
     resources[0]["incomes"].received_on = date(2026, 8, 31)

@@ -185,7 +185,10 @@ class ReportsService {
             : now);
     return {
       'period': period.wireName,
-      'reference_date': reference.toIso8601String().split('T').first,
+      // Academic periods ignore it; leaving it out keeps the offline
+      // cache key the same from one day to the next.
+      if (period.usesReferenceDate)
+        'reference_date': reference.toIso8601String().split('T').first,
       if (schoolYear != null) 'school_year': schoolYear,
       if (semester != null) 'semester': semester.wireName,
       if (eventScope != null) 'event_scope': eventScope.wireName,

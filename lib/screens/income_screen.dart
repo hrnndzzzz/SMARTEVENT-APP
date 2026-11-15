@@ -203,6 +203,15 @@ class _IncomeCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               BrutBadge(label: income.sourceType.label, tone: BrutTone.brand),
+              if (income.isGeneralFund)
+                BrutBadge(
+                  label: [
+                    'General fund',
+                    ?income.schoolYear,
+                    if (semesterFromWire(income.semester) case final s?)
+                      s.shortLabel,
+                  ].join(' · '),
+                ),
               MonoLabel(
                 '${income.receivedOn.year}-'
                 '${income.receivedOn.month.toString().padLeft(2, '0')}-'
@@ -262,9 +271,16 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
   final _purposeController = TextEditingController();
   final _amountController = TextEditingController();
 
+  /// The chosen event, or [_generalFund] for money that belongs to none.
   String? _eventId;
   FundSource _sourceType = FundSource.registrationFees;
   DateTime _receivedOn = DateTime.now();
+
+  // A dropdown value null is not, since null means nothing chosen yet.
+  static const _generalFund = '';
+  bool get _isGeneral => _eventId == _generalFund;
+  String _schoolYear = SchoolYear.current(DateTime.now());
+  Semester? _semester;
 
   bool _submitting = false;
   String? _error;
@@ -278,7 +294,12 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
   }
 
   String? _validate() {
-    if (_eventId == null) return 'Choose the event this income is for.';
+    if (_eventId == null) {
+      return 'Choose the event this income is for, or the general fund.';
+    }
+    if (_isGeneral && _semester == null) {
+      return 'Choose the semester this general-fund income belongs to.';
+    }
     if (_sourceController.text.trim().isEmpty) {
       return 'Enter who or what the money came from.';
     }
@@ -301,12 +322,14 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
     });
 
     final error = await context.read<AppState>().recordIncome(
-      eventId: _eventId!,
+      eventId: _isGeneral ? null : _eventId!,
       source: _sourceController.text.trim(),
       sourceType: _sourceType,
       purpose: _purposeController.text.trim(),
       amount: MoneyInput.normalize(_amountController.text)!,
       receivedOn: _receivedOn,
+      schoolYear: _isGeneral ? _schoolYear : null,
+      semester: _isGeneral ? _semester : null,
     );
 
     if (!mounted) return;
@@ -337,10 +360,14 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events = context
-        .watch<AppState>()
-        .events;
-    final items = eventPickerItems(events, keep: _eventId);
+    final app = context.watch<AppState>();
+    final items = [
+      const DropdownMenuItem(
+        value: _generalFund,
+        child: Text('General fund (no event)'),
+      ),
+      ...eventPickerItems(app.events, keep: _eventId),
+    ];
 
     return BrutSheet(
       title: 'Record income',
@@ -358,10 +385,50 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
           BrutDropdown<String>(
             label: 'Event',
             value: _eventId,
-            hint: items.isEmpty ? 'No events available' : 'Select an event',
+            hint: 'Select an event or the general fund',
             items: items,
-            onChanged: (v) => setState(() => _eventId = v),
+            onChanged: (v) => setState(() {
+              _eventId = v;
+              // Dues are what the general fund mostly holds.
+              if (_isGeneral && _sourceType == FundSource.registrationFees) {
+                _sourceType = FundSource.membershipDues;
+              }
+            }),
           ),
+          if (_isGeneral) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'Money for the organization itself, such as membership dues. '
+              'It has no event, so it is labelled with a school year and '
+              'semester instead, and cannot carry a receipt here.',
+              style: AppText.caption,
+            ),
+            const SizedBox(height: 14),
+            BrutDropdown<String>(
+              label: 'School year',
+              value: _schoolYear,
+              hint: 'Select a school year',
+              items: [
+                for (final year in SchoolYear.mergeOptions(
+                  app.knownSchoolYears,
+                  DateTime.now(),
+                ))
+                  DropdownMenuItem(value: year, child: Text(year)),
+              ],
+              onChanged: (v) => setState(() => _schoolYear = v ?? _schoolYear),
+            ),
+            const SizedBox(height: 14),
+            BrutDropdown<Semester>(
+              label: 'Semester',
+              value: _semester,
+              hint: 'Select a semester',
+              items: [
+                for (final s in Semester.values)
+                  DropdownMenuItem(value: s, child: Text(s.label)),
+              ],
+              onChanged: (v) => setState(() => _semester = v),
+            ),
+          ],
           const SizedBox(height: 14),
           BrutDropdown<FundSource>(
             label: 'Source type',

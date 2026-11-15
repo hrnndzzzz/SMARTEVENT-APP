@@ -134,6 +134,26 @@ Where they are not already covered above.
 
 ---
 
+## H. Reports becomes Analytics *(15 Nov)*
+
+Reports listed figures but did not analyse them: two of its four charts
+were summed on the phone and ignored the period, and there was no trend,
+no comparison and no ledger.
+
+| # | What | Status |
+|---|---|---|
+| H1 | One screen, three tabs: Overview, Events, Ledger. Opens on the current school year with figures loaded | **done** |
+| H2 | Headline figures (income, spending, net, budget used) against the period before | **done** — `previous` on `/reports/financial` |
+| H3 | "Worth knowing": over-budget events, shortfalls, dominant category or source, swings of 10% or more | **done** — `reportInsights`, tested rule by rule |
+| H4 | Five charts from the report itself: over time, budget vs actual by event, in and out by event, where it went, where it came from | **done** — fl_chart; each opens full screen with its exact figures |
+| H5 | Per-event budget, spent to date and variance; a proposal shows as Proposed | **done** |
+| H6 | A ledger of every entry the totals are built from, filterable, opened from any chart row | **done** |
+| H7 | General-fund income, such as membership dues, with no event | **done** — needs migration `20261115000100_general_fund_income` before the backend. No receipt on such income yet |
+| H8 | Exports carry the same sections | **done** — category, ledger, budget columns and the previous period |
+| H9 | Screenshot 09 retaken | **todo** — needs the phone; the current one predates H1 |
+
+---
+
 ## What this adds up to
 
 **Re-counted 4 Nov, with the backend running against the real database

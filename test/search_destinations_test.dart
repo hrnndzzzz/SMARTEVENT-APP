@@ -13,14 +13,14 @@ void main() {
   }
 
   test('a word for a screen finds the screen', () {
-    expect(only('reports').title, 'Financial reports');
+    expect(only('reports').title, 'Analytics');
     expect(only('inventory').title, 'Inventory');
     expect(only('settings').title, 'Settings');
   });
 
   test('and a word nobody put on it does too', () {
     // None of these appear in the screens' own names.
-    expect(only('csv').title, 'Financial reports');
+    expect(only('csv').title, 'Analytics');
     expect(only('receipt').title, 'Record an expense');
     expect(only('duplicate').title, 'Flagged for review');
     expect(only('dark').title, 'Settings');
@@ -32,7 +32,7 @@ void main() {
   });
 
   test('a half-typed word still lands', () {
-    expect(only('rep').title, 'Financial reports');
+    expect(only('rep').title, 'Analytics');
     expect(only('inv').title, 'Inventory');
   });
 

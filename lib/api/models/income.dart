@@ -8,7 +8,12 @@ import 'receipt.dart';
 /// a backend conversation, not a negative income row invented client-side.
 class Income {
   final String id;
-  final String eventId;
+
+  /// Null for general-fund income, such as membership dues, which is
+  /// labelled with its own [schoolYear] and [semester] instead.
+  final String? eventId;
+  final String? schoolYear;
+  final String? semester;
 
   /// Who or what the money actually came from — a sponsor's name, the
   /// paying body. Distinct from [sourceType], and both are shown.
@@ -41,7 +46,11 @@ class Income {
     required this.receiptReviewStatus,
     required this.recordedBy,
     required this.createdAt,
+    this.schoolYear,
+    this.semester,
   });
+
+  bool get isGeneralFund => eventId == null;
 
   /// Excluded from event and consolidated totals because its receipt is
   /// unresolved or was rejected.
@@ -60,7 +69,9 @@ class Income {
   factory Income.fromJson(Map<String, dynamic> json) {
     return Income(
       id: json['id'] as String,
-      eventId: json['event_id'] as String,
+      eventId: json['event_id'] as String?,
+      schoolYear: json['school_year'] as String?,
+      semester: json['semester'] as String?,
       source: json['source'] as String,
       sourceType: fundSourceFromWire(json['source_type'] as String?),
       purpose: json['purpose'] as String,
@@ -77,13 +88,22 @@ class Income {
 
 /// Where money came from. Recording this is what makes fund-source
 /// breakdowns in the financial reports possible at all.
-enum FundSource { registrationFees, sponsorship, donation, other }
+enum FundSource {
+  registrationFees,
+  sponsorship,
+  donation,
+  membershipDues,
+  fundraising,
+  other,
+}
 
 extension FundSourceNaming on FundSource {
   String get wireName => switch (this) {
     FundSource.registrationFees => 'registration_fees',
     FundSource.sponsorship => 'sponsorship',
     FundSource.donation => 'donation',
+    FundSource.membershipDues => 'membership_dues',
+    FundSource.fundraising => 'fundraising',
     FundSource.other => 'other',
   };
 
@@ -91,6 +111,8 @@ extension FundSourceNaming on FundSource {
     FundSource.registrationFees => 'Registration fees',
     FundSource.sponsorship => 'Sponsorship',
     FundSource.donation => 'Donation',
+    FundSource.membershipDues => 'Membership dues',
+    FundSource.fundraising => 'Fundraising',
     FundSource.other => 'Other',
   };
 
@@ -98,6 +120,8 @@ extension FundSourceNaming on FundSource {
     FundSource.registrationFees => 'Collected from participants',
     FundSource.sponsorship => 'From a sponsoring company or body',
     FundSource.donation => 'Given without expectation of return',
+    FundSource.membershipDues => "Members' dues for the term",
+    FundSource.fundraising => 'Merchandise, booths and sales',
     FundSource.other => 'Anything that fits none of the above',
   };
 }
@@ -108,5 +132,7 @@ FundSource fundSourceFromWire(String? value) => switch (value) {
   'registration_fees' => FundSource.registrationFees,
   'sponsorship' => FundSource.sponsorship,
   'donation' => FundSource.donation,
+  'membership_dues' => FundSource.membershipDues,
+  'fundraising' => FundSource.fundraising,
   _ => FundSource.other,
 };
