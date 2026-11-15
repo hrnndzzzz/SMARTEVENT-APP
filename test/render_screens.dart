@@ -23,6 +23,8 @@ import 'package:smartevent/screens/income_screen.dart';
 import 'package:smartevent/screens/admin_screen.dart';
 import 'package:smartevent/screens/inventory_screen.dart';
 import 'package:smartevent/screens/money_screen.dart';
+import 'package:smartevent/screens/home_screen.dart';
+import 'package:smartevent/screens/events_hub_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/notice_shelf.dart';
@@ -326,5 +328,48 @@ void main() {
     ));
     await tester.pump(const Duration(milliseconds: 400));
     await expectLater(find.byType(AdminScreen), matchesGoldenFile('goldens/admin-dark.png'));
+  });
+
+  testWidgets('home', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(accent: app.themeColor),
+        home: const HomeScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(find.byType(HomeScreen), matchesGoldenFile('goldens/home.png'));
+  });
+
+  testWidgets('events-hub', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(accent: app.themeColor),
+        home: const EventsHubScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(
+        find.byType(EventsHubScreen), matchesGoldenFile('goldens/events-hub.png'));
   });
 }

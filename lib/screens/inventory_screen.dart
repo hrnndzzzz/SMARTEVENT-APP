@@ -8,6 +8,7 @@ import '../widgets/app_header.dart';
 import '../widgets/event_picker_items.dart';
 import '../widgets/last_change_note.dart';
 import '../widgets/module_band.dart';
+import '../widgets/stat_grid.dart';
 import 'inventory_detail_screen.dart';
 import '../theme/module_identity.dart';
 
@@ -69,7 +70,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
           const SizedBox(height: AppLayout.tight),
           const LastChangeNote(area: 'inventory'),
-          const SizedBox(height: 2),
+          const SizedBox(height: AppLayout.between),
+
+          // Where the module stands, before the list of what is in it.
+          //
+          // This page used to go from its coloured band straight into
+          // two paragraphs of explanation and a row of filters, so the
+          // top third of the screen was prose and the first thing you
+          // could actually use was below it. The same four figures are
+          // in the list — but only if you read every row and count.
+          _Figures(items: app.catalog),
+          const SizedBox(height: AppLayout.between),
 
           // Where items come from was explained only on the empty
           // screen, so anyone with a list in front of them could not
@@ -130,6 +141,61 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Items, low stock, none left, and where they live.
+///
+/// Counted off the loaded catalogue rather than asked for separately:
+/// a second source for the same four numbers is a second thing that
+/// can disagree with the list underneath it.
+class _Figures extends StatelessWidget {
+  const _Figures({required this.items});
+
+  final List<RemoteInventoryItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    // None left is its own state, not a low one — isLowStock is true at
+    // zero — so an empty shelf is counted once, under "None left", and
+    // "Low stock" means low rather than gone. The badges on the rows
+    // below already make exactly this distinction.
+    final empty = items.where((i) => i.quantity <= 0).length;
+    final low = items.where((i) => i.quantity > 0 && i.isLowStock).length;
+    final locations = items
+        .map((i) => i.location)
+        .whereType<String>()
+        .where((l) => l.isNotEmpty)
+        .toSet()
+        .length;
+
+    return StatGrid(
+      cells: [
+        StatCell(
+          label: 'Items',
+          value: '${items.length}',
+          // A count of what exists is context, not a verdict.
+          tone: BrutTone.neutral,
+        ),
+        StatCell(
+          label: 'Locations',
+          value: '$locations',
+          tone: BrutTone.neutral,
+        ),
+        StatCell(
+          label: 'Low stock',
+          value: '$low',
+          tone: low == 0 ? BrutTone.neutral : BrutTone.sun,
+          hint: low == 0 ? null : 'At or below the threshold',
+        ),
+        StatCell(
+          label: 'None left',
+          value: '$empty',
+          tone: empty == 0 ? BrutTone.neutral : BrutTone.coral,
+          hint: empty == 0 ? null : 'Nothing on the shelf',
+        ),
+      ],
     );
   }
 }

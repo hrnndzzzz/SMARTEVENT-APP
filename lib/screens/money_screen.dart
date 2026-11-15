@@ -5,10 +5,10 @@ import '../state/app_state.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
-import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import '../widgets/last_change_note.dart';
 import '../widgets/module_band.dart';
+import '../widgets/stat_grid.dart';
 import 'categories_screen.dart';
 import 'expenses_screen.dart';
 import 'income_screen.dart';
@@ -24,8 +24,29 @@ import '../theme/module_identity.dart';
 /// spending, one reviews the proof, one records what came in, and one
 /// sets the ceiling. The strip at the top is the same four figures the
 /// dashboard shows, so you can see where you stand before choosing.
-class MoneyScreen extends StatelessWidget {
+class MoneyScreen extends StatefulWidget {
   const MoneyScreen({super.key});
+
+  @override
+  State<MoneyScreen> createState() => _MoneyScreenState();
+}
+
+class _MoneyScreenState extends State<MoneyScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Receipts and income are not among the lists signing in fetches,
+    // and this screen now prints a count of each. A count of a list
+    // that was never asked for is a zero that looks like a fact, so
+    // the screen fetches what it shows. Expenses and categories come
+    // down at sign-in, and the pull-to-refresh above covers the rest.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final app = context.read<AppState>();
+      app.loadReceipts();
+      app.loadIncomes();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,56 +74,72 @@ class MoneyScreen extends StatelessWidget {
           const SizedBox(height: AppLayout.tight),
           _UsedBar(app: app),
           const SizedBox(height: AppLayout.section),
-          const BrutSectionTitle('What do you need?'),
-          const SizedBox(height: AppLayout.between),
-          _Tile(
-            icon: Icons.fact_check_outlined,
-            title: 'Expenses',
-            blurb: app.pendingExpenses.isEmpty
-                ? 'Everything recorded, and where each one got to.'
-                : 'Some are waiting on a decision.',
-            tone: app.pendingExpenses.isEmpty ? BrutTone.brand : BrutTone.sun,
-            count: app.pendingExpenses.length,
-            onTap: () => _go(context, const ExpensesScreen()),
-          ),
-          // Offered only to those who record: anyone else reached a camera
-          // whose save always came back refused.
+
+          // Recording an expense is the verb on this screen; the four
+          // below are places. It was the second of five identical rows,
+          // which made the one thing people open Money to *do* look
+          // like another thing to go and read.
           if (canRecord) ...[
-            const SizedBox(height: AppLayout.tight),
-            _Tile(
+            BrutButton(
+              label: 'Record an expense',
               icon: Icons.document_scanner_outlined,
-              title: 'Record an expense',
-              blurb: 'Scan the receipt, or enter it by hand, then save.',
               tone: BrutTone.orange,
-              onTap: () => _go(context, const ScannerScreen()),
+              expand: true,
+              onPressed: () => _go(context, const ScannerScreen()),
             ),
+            const SizedBox(height: AppLayout.section),
           ],
-          const SizedBox(height: AppLayout.tight),
-          _Tile(
-            icon: Icons.receipt_long_outlined,
-            title: 'Receipts',
-            blurb: 'Proof of spending, and anything that looks duplicated.',
-            tone: BrutTone.sun,
-            count: app.receipts.length,
-            onTap: () => _go(context, const ReceiptsScreen()),
-          ),
-          const SizedBox(height: AppLayout.tight),
-          _Tile(
-            icon: Icons.savings_outlined,
-            title: 'Income',
-            blurb: 'Fees, sponsorships and donations, by where they came from.',
-            tone: BrutTone.mint,
-            count: app.incomes.length,
-            onTap: () => _go(context, const IncomeScreen()),
-          ),
-          const SizedBox(height: AppLayout.tight),
-          _Tile(
-            icon: Icons.folder_outlined,
-            title: 'Budget categories',
-            blurb: 'What is allocated, and what is left in each.',
-            tone: BrutTone.brand,
-            count: app.categories.length,
-            onTap: () => _go(context, const CategoriesScreen()),
+
+          const BrutSectionTitle('Where to'),
+          const SizedBox(height: AppLayout.between),
+
+          // A 2×2, not five rows down the page.
+          //
+          // Five full-width rows each said a title, a sentence and a
+          // count, which is a lot of words for four destinations and
+          // put two of them below the fold. Four squares fit on the
+          // screen at once, and the count is the part anyone was
+          // reading — so the count is what each square shows.
+          _DestinationGrid(
+            destinations: [
+              _Destination(
+                icon: Icons.fact_check_outlined,
+                title: 'Expenses',
+                count: app.expenses.length,
+                // The badge is the pending count, not the total: an
+                // expense that has been decided is not asking for
+                // anything, and a square that is only ever a running
+                // total is a square nobody looks at twice.
+                badge: app.pendingExpenses.isEmpty
+                    ? null
+                    : '${app.pendingExpenses.length} waiting',
+                tone: app.pendingExpenses.isEmpty
+                    ? BrutTone.brand
+                    : BrutTone.sun,
+                onTap: () => _go(context, const ExpensesScreen()),
+              ),
+              _Destination(
+                icon: Icons.receipt_long_outlined,
+                title: 'Receipts',
+                count: app.receipts.length,
+                tone: BrutTone.sun,
+                onTap: () => _go(context, const ReceiptsScreen()),
+              ),
+              _Destination(
+                icon: Icons.savings_outlined,
+                title: 'Income',
+                count: app.incomes.length,
+                tone: BrutTone.mint,
+                onTap: () => _go(context, const IncomeScreen()),
+              ),
+              _Destination(
+                icon: Icons.folder_outlined,
+                title: 'Categories',
+                count: app.categories.length,
+                tone: BrutTone.brand,
+                onTap: () => _go(context, const CategoriesScreen()),
+              ),
+            ],
           ),
         ],
       ),
@@ -148,155 +185,129 @@ class MoneyFigures extends StatelessWidget {
     final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
     final pending = app.pendingExpenses.length;
 
-    final cells = <_Figure>[
-      _Figure(
-        label: 'Allocated',
-        value: peso(allocated, decimals: 0),
-        // Context, not a verdict: what was given, before any judgement
-        // about how it is going.
-        tone: BrutTone.neutral,
-      ),
-      _Figure(
-        label: 'Spent',
-        value: peso(spent, decimals: 0),
-        tone: toneForUsed(used),
-      ),
-      _Figure(
-        label: 'Left',
-        value: peso(app.remainingBalance, decimals: 0),
-        tone: toneForUsed(used),
-      ),
-      _Figure(
-        label: 'Pending',
-        value: '$pending',
-        tone: pending == 0 ? BrutTone.neutral : BrutTone.sun,
-        onTap: onPending,
-        hint: pending == 0 ? null : 'Waiting on a decision',
-      ),
-    ];
+    return StatGrid(
+      cells: [
+        StatCell(
+          label: 'Allocated',
+          value: peso(allocated, decimals: 0),
+          // Context, not a verdict: what was given, before any judgement
+          // about how it is going.
+          tone: BrutTone.neutral,
+        ),
+        StatCell(
+          label: 'Spent',
+          value: peso(spent, decimals: 0),
+          tone: toneForUsed(used),
+        ),
+        StatCell(
+          label: 'Left',
+          value: peso(app.remainingBalance, decimals: 0),
+          tone: toneForUsed(used),
+        ),
+        StatCell(
+          label: 'Pending',
+          value: '$pending',
+          tone: pending == 0 ? BrutTone.neutral : BrutTone.sun,
+          onTap: onPending,
+          hint: pending == 0 ? null : 'Waiting on a decision',
+        ),
+      ],
+    );
+  }
+}
 
+/// The four places Money leads to, two across.
+class _DestinationGrid extends StatelessWidget {
+  const _DestinationGrid({required this.destinations});
+
+  final List<_Destination> destinations;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var row = 0; row < 2; row++) ...[
-          // IntrinsicHeight, because stretching a Row's children needs a
-          // height to stretch to and this sits in a scrollable, where
-          // there is none. Without it the row cannot lay out and the
-          // screen comes up with the first two figures and nothing else.
+        for (var row = 0; row * 2 < destinations.length; row++) ...[
+          if (row > 0) const SizedBox(height: 10),
+          // Same reason as StatGrid: stretch needs a height to stretch
+          // to, and inside a scrollable there is none until something
+          // measures it.
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: cells[row * 2]),
+                Expanded(child: destinations[row * 2]),
                 const SizedBox(width: 10),
-                Expanded(child: cells[row * 2 + 1]),
+                Expanded(
+                  child: row * 2 + 1 < destinations.length
+                      ? destinations[row * 2 + 1]
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
           ),
-          if (row == 0) const SizedBox(height: 10),
         ],
       ],
     );
   }
 }
 
-/// One of the four.
-class _Figure extends StatelessWidget {
-  const _Figure({
-    required this.label,
-    required this.value,
+/// One square: what is in there, and how much of it.
+class _Destination extends StatelessWidget {
+  const _Destination({
+    required this.icon,
+    required this.title,
+    required this.count,
     required this.tone,
-    this.onTap,
-    this.hint,
+    required this.onTap,
+    this.badge,
   });
 
-  final String label;
-  final String value;
+  final IconData icon;
+  final String title;
+  final int count;
   final BrutTone tone;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
-  /// A second line, when the figure needs one.
-  final String? hint;
+  /// Shown under the title when something in there wants attention.
+  /// Absent is the normal state, and an absent line is quieter than a
+  /// line saying nothing is wrong.
+  final String? badge;
 
   @override
   Widget build(BuildContext context) {
     return BrutCard(
-      tone: tone,
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Expanded(child: MonoLabel(label, fontSize: 10)),
-              if (onTap != null)
-                Icon(Icons.chevron_right, size: 16, color: context.palette.ink),
+              BrutIconTile(icon: icon, tone: tone, size: 36),
+              const Spacer(),
+              // A zero would mean "nothing yet", which is worth saying
+              // here — unlike in a badge, the figure is the point of
+              // the square.
+              Text(
+                '$count',
+                style: AppText.moneyLarge.copyWith(fontSize: 22),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppText.moneyLarge.copyWith(fontSize: 22),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 10),
+          Text(title, style: AppText.cardTitle.copyWith(fontSize: 15)),
+          const SizedBox(height: 4),
+          // The row reserves the badge's space whether or not it draws
+          // one, so a square with nothing waiting is the same height as
+          // the one beside it.
+          SizedBox(
+            height: 20,
+            child: badge == null
+                ? null
+                : BrutBadge(label: badge!, tone: tone, mono: true),
           ),
-          if (hint case final line?) ...[
-            const SizedBox(height: 4),
-            Text(line, style: AppText.caption.copyWith(fontSize: 11)),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  const _Tile({
-    required this.icon,
-    required this.title,
-    required this.blurb,
-    required this.tone,
-    required this.onTap,
-    this.count,
-  });
-
-  final IconData icon;
-  final String title;
-  final String blurb;
-  final BrutTone tone;
-  final VoidCallback onTap;
-  final int? count;
-
-  @override
-  Widget build(BuildContext context) {
-    return BrutCard(
-      radius: AppRadius.rowAll,
-      padding: const EdgeInsets.all(12),
-      onTap: onTap,
-      child: Row(
-        children: [
-          BrutIconTile(icon: icon, tone: tone, size: 40),
-          const SizedBox(width: AppLayout.between),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(title, style: AppText.cardTitle.copyWith(fontSize: 15)),
-                const SizedBox(height: 2),
-                Text(blurb, style: AppText.caption),
-              ],
-            ),
-          ),
-          // A zero here would mean "nothing yet", which the row already
-          // says. It would also look identical to "not loaded".
-          if (count != null && count! > 0) ...[
-            const SizedBox(width: AppLayout.tight),
-            BrutBadge(label: '$count', tone: tone, mono: true),
-          ],
-          const Icon(Icons.chevron_right, size: 18),
         ],
       ),
     );

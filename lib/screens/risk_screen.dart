@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../theme/peso.dart';
 import '../widgets/module_band.dart';
+import '../widgets/stat_grid.dart';
 import '../theme/module_identity.dart';
 
 /// Expenses the backend has flagged for a closer look.
@@ -91,7 +93,18 @@ class _RiskScreenState extends State<RiskScreen> {
             module: Module.flagged,
             subtitle: 'A flag is a prompt to look, not a finding.',
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppLayout.between),
+
+          // What is flagged, in figures, before the list of it.
+          //
+          // The normal state of this screen is empty, and empty it was
+          // a coloured band and then nothing at all until a dashed box
+          // floating in the middle of the page. These four are true at
+          // zero as well as at ten, so the screen says something either
+          // way.
+          _Figures(flagged: flagged),
+          const SizedBox(height: AppLayout.between),
+
           if (flagged.length > 1) ...[
             Align(
               alignment: Alignment.centerLeft,
@@ -144,6 +157,54 @@ class _RiskScreenState extends State<RiskScreen> {
   }
 }
 
+/// How much is flagged, and how much of it is a reading that disagrees.
+///
+/// Every figure here is counted off the records themselves. The reason
+/// on a flag is free text from the backend, so nothing tries to sort
+/// flags into kinds — that would be guessing at a string. The one kind
+/// the record actually states is the OCR mismatch, which is a field.
+class _Figures extends StatelessWidget {
+  const _Figures({required this.flagged});
+
+  final List<RemoteExpense> flagged;
+
+  @override
+  Widget build(BuildContext context) {
+    final mismatched = flagged.where((e) => e.ocrAmountDiffers).length;
+    final total = flagged.fold<double>(0, (sum, e) => sum + e.amount);
+    final largest = flagged.isEmpty
+        ? 0.0
+        : flagged.map((e) => e.amount).reduce((a, b) => a > b ? a : b);
+
+    return StatGrid(
+      cells: [
+        StatCell(
+          label: 'Flagged',
+          value: '${flagged.length}',
+          tone: flagged.isEmpty ? BrutTone.mint : BrutTone.sun,
+          hint: flagged.isEmpty ? 'All clear' : 'Waiting to be looked at',
+        ),
+        StatCell(
+          label: 'Receipt mismatch',
+          value: '$mismatched',
+          tone: mismatched == 0 ? BrutTone.neutral : BrutTone.coral,
+          hint: mismatched == 0 ? null : 'Read amount differs',
+        ),
+        StatCell(
+          label: 'Value flagged',
+          value: peso(total, decimals: 0),
+          tone: BrutTone.neutral,
+        ),
+        StatCell(
+          label: 'Largest',
+          value: peso(largest, decimals: 0),
+          tone: BrutTone.neutral,
+        ),
+      ],
+    );
+  }
+}
+
 class _FlaggedCard extends StatelessWidget {
   const _FlaggedCard({required this.expense});
 
@@ -185,7 +246,7 @@ class _FlaggedCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '${peso(expense.amount)}',
+                peso(expense.amount),
                 style: AppText.moneyLarge.copyWith(fontSize: 16),
               ),
             ],
@@ -215,19 +276,31 @@ class _FlaggedCard extends StatelessWidget {
   }
 }
 
+/// The normal state of this screen.
+///
+/// It used to be one dashed box centred in an otherwise empty page,
+/// which is a lot of screen spent on the word "nothing". What is
+/// missing when there is nothing to list is the thing that makes the
+/// screen interpretable at all: what a flag *is*. That card was
+/// appended to the end of the list, so it appeared only when there were
+/// flags to explain — exactly when you need it least.
 class _NothingFlagged extends StatelessWidget {
   const _NothingFlagged();
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: BrutEmptyState(
-        icon: Icons.verified_outlined,
-        title: 'Nothing flagged',
-        hint:
-            'No expense has tripped a check. This is the normal state — it '
-            'does not mean nothing has been reviewed.',
-      ),
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 16),
+      children: const [
+        BrutEmptyState(
+          icon: Icons.verified_outlined,
+          title: 'Nothing flagged',
+          hint:
+              'No expense has tripped a check. This is the normal state — it '
+              'does not mean nothing has been reviewed.',
+        ),
+        _CriteriaCard(),
+      ],
     );
   }
 }
