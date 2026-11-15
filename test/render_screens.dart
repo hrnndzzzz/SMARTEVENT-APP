@@ -40,11 +40,32 @@ Future<void> font(String family, List<String> paths) async {
   await loader.load();
 }
 
+/// The icons, from the SDK's own cache.
+///
+/// FLUTTER_ROOT rather than the running binary's path: flutter_tester
+/// lives three levels inside bin/cache, and walking up from it landed
+/// one directory short — which failed silently and rendered another
+/// page of hollow squares.
+///
+/// flutter_test ships no icon font, so every `Icon` in a golden came
+/// out as a hollow square — which is fine for measuring a layout and
+/// useless for looking at one. Located rather than hardcoded: the path
+/// carries whoever's machine the SDK lives on.
+Future<void> icons() async {
+  final root = Platform.environment['FLUTTER_ROOT'];
+  if (root == null) return;
+  final file = File(
+      '$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+  if (!file.existsSync()) return;
+  await font('MaterialIcons', [file.path]);
+}
+
 void main() {
   testWidgets('money', (tester) async {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
+    await icons();
     tester.view.devicePixelRatio = 2;
     tester.view.physicalSize = const Size(822, 1600);
     addTearDown(tester.view.reset);
@@ -70,6 +91,7 @@ void main() {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
+    await icons();
     tester.view.devicePixelRatio = 2;
     tester.view.physicalSize = const Size(822, 1600);
     addTearDown(tester.view.reset);
@@ -95,6 +117,7 @@ void main() {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
+    await icons();
     tester.view.devicePixelRatio = 2;
     tester.view.physicalSize = const Size(822, 1600);
     addTearDown(tester.view.reset);
@@ -120,6 +143,7 @@ void main() {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
+    await icons();
     tester.view.devicePixelRatio = 2;
     tester.view.physicalSize = const Size(822, 1600);
     addTearDown(tester.view.reset);

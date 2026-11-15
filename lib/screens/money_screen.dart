@@ -113,30 +113,24 @@ class _MoneyScreenState extends State<MoneyScreen> {
                 badge: app.pendingExpenses.isEmpty
                     ? null
                     : '${app.pendingExpenses.length} waiting',
-                tone: app.pendingExpenses.isEmpty
-                    ? BrutTone.brand
-                    : BrutTone.sun,
                 onTap: () => _go(context, const ExpensesScreen()),
               ),
               _Destination(
                 icon: Icons.receipt_long_outlined,
                 title: 'Receipts',
                 count: app.receipts.length,
-                tone: BrutTone.sun,
                 onTap: () => _go(context, const ReceiptsScreen()),
               ),
               _Destination(
                 icon: Icons.savings_outlined,
                 title: 'Income',
                 count: app.incomes.length,
-                tone: BrutTone.mint,
                 onTap: () => _go(context, const IncomeScreen()),
               ),
               _Destination(
                 icon: Icons.folder_outlined,
                 title: 'Categories',
                 count: app.categories.length,
-                tone: BrutTone.brand,
                 onTap: () => _go(context, const CategoriesScreen()),
               ),
             ],
@@ -258,7 +252,6 @@ class _Destination extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.count,
-    required this.tone,
     required this.onTap,
     this.badge,
   });
@@ -266,7 +259,6 @@ class _Destination extends StatelessWidget {
   final IconData icon;
   final String title;
   final int count;
-  final BrutTone tone;
   final VoidCallback onTap;
 
   /// Shown under the title when something in there wants attention.
@@ -285,7 +277,14 @@ class _Destination extends StatelessWidget {
         children: [
           Row(
             children: [
-              BrutIconTile(icon: icon, tone: tone, size: 36),
+              // Money's own orange, on all four. These are four
+              // places inside one module, not four meanings: giving
+              // three of them a status colour apiece made yellow mean
+              // "receipts" here and "waiting" everywhere else, and the
+              // icon already tells them apart. The one badge below is
+              // then the only colour on the grid that is saying
+              // something.
+              BrutIconTile(icon: icon, tone: BrutTone.orange, size: 36),
               const Spacer(),
               // A zero would mean "nothing yet", which is worth saying
               // here — unlike in a badge, the figure is the point of
@@ -306,7 +305,7 @@ class _Destination extends StatelessWidget {
             height: 20,
             child: badge == null
                 ? null
-                : BrutBadge(label: badge!, tone: tone, mono: true),
+                : BrutBadge(label: badge!, tone: BrutTone.sun, mono: true),
           ),
         ],
       ),
