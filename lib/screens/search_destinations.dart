@@ -30,17 +30,17 @@ class SearchDestination {
   final String about;
 
   /// Words that should find it but are not worth showing. The screen is
-  /// called "Financial reports"; people look for "csv".
+  /// called "Analytics"; people look for "csv".
   final List<String> words;
 
   final Widget Function() open;
 
   static const List<SearchDestination> all = [
     SearchDestination(
-      title: 'Financial reports',
-      about: 'Income and spending over a period',
-      words: ['report', 'pdf', 'csv', 'export', 'download', 'chart',
-          'analytics', 'summary'],
+      title: 'Analytics',
+      about: 'Budgets, trends, ledger and financial reports',
+      words: ['report', 'reports', 'financial', 'pdf', 'csv', 'export',
+          'download', 'chart', 'summary', 'ledger', 'trend', 'variance'],
       open: ReportsScreen.new,
     ),
     SearchDestination(

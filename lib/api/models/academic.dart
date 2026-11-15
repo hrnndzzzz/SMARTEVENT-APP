@@ -113,6 +113,10 @@ abstract final class SchoolYear {
     ];
   }
 
+  /// The school year [now] falls in, by the same June rollover.
+  static String current(DateTime now) =>
+      suggestions(now, back: 0, forward: 0).single;
+
   /// Merges the years the backend already knows about with local
   /// suggestions, newest first and without duplicates, so a picker shows
   /// real data first but is never empty.

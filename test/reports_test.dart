@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/api/models/academic.dart';
+import 'package:smartevent/api/models/income.dart';
 import 'package:smartevent/api/models/reports.dart';
 import 'package:smartevent/api/reports_service.dart';
 
@@ -169,6 +170,96 @@ void main() {
       // The difference is the unassigned spending, which belongs to no
       // event — so a UI that summed the rows would understate it.
       expect(r.totalExpenses - rowSum, r.unassignedExpenseTotal);
+    });
+
+    test('a server without the analytics fields still reads', () {
+      final r = report();
+      expect(r.previous, isNull);
+      expect(r.trend, isEmpty);
+      expect(r.ledger, isEmpty);
+      expect(r.expensesByCategory, isEmpty);
+      expect(r.budgetUsed, isNull);
+    });
+
+    test('reads budgets, categories, trend, ledger and the period before', () {
+      final r = ConsolidatedFinancialReport.fromJson({
+        'period': 'monthly',
+        'total_income': 100,
+        'total_expenses': 35.5,
+        'unassigned_expense_total': 25.5,
+        'net_balance': 64.5,
+        'events': [
+          {
+            'event_id': 'e1',
+            'title': 'Summit',
+            'total_income': 100,
+            'total_expenses': 10,
+            'net_balance': 90,
+            'status': 'approved',
+            'event_date': '2026-09-20',
+            'allocated_budget': 1000,
+            'spent_to_date': 1100,
+          },
+        ],
+        'total_allocated_budget': 1000,
+        'total_spent_to_date': 1100,
+        'expenses_by_category': [
+          {
+            'category_id': 'c1',
+            'category_name': 'Supplies',
+            'expense_count': 2,
+            'total_expenses': 35.5,
+          },
+        ],
+        'trend': [
+          {'bucket': '2026-09-12', 'total_income': 100, 'total_expenses': 0},
+        ],
+        'ledger': [
+          {
+            'occurred_on': '2026-09-15',
+            'kind': 'expense',
+            'event_id': null,
+            'event_title': null,
+            'label': 'Supplies',
+            'description': 'Tarpaulin',
+            'amount': 25.5,
+            'counted': true,
+            'flagged': true,
+          },
+          {
+            'occurred_on': '2026-09-12',
+            'kind': 'income',
+            'event_id': 'e1',
+            'event_title': 'Summit',
+            'label': 'Donor',
+            'source_type': 'donation',
+            'description': 'Venue',
+            'amount': 100,
+            'counted': false,
+          },
+        ],
+        'previous': {
+          'start_date': '2026-08-01',
+          'end_date': '2026-08-31',
+          'total_income': 40,
+          'total_expenses': 10,
+          'net_balance': 30,
+        },
+      });
+      final event = r.events.single;
+      expect(event.isCommitted, isTrue);
+      expect(event.isOverBudget, isTrue);
+      expect(event.variance, -100);
+      expect(event.eventDate, DateTime(2026, 9, 20));
+      expect(r.budgetUsed, closeTo(1.1, 0.001));
+      expect(r.expensesByCategory.single.categoryName, 'Supplies');
+      expect(r.trend.single.isDaily, isTrue);
+      expect(r.ledger.first.signedAmount, -25.5);
+      expect(r.ledger.first.flagged, isTrue);
+      expect(r.ledger.last.sourceType, FundSource.donation);
+      expect(r.ledger.last.counted, isFalse);
+      expect(r.previous!.startDate, DateTime(2026, 8, 1));
+      expect(r.previous!.netBalance, 30);
     });
   });
 

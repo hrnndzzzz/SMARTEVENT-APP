@@ -1263,9 +1263,11 @@ class AppState extends ChangeNotifier {
   ConsolidatedFinancialReport? financialReport;
   final LoadState financialReportLoad = LoadState();
 
-  ReportPeriod reportPeriod = ReportPeriod.monthly;
+  // Analytics opens on the current school year, the period a treasurer is
+  // accountable for, so it has figures without choosing anything first.
+  ReportPeriod reportPeriod = ReportPeriod.schoolYear;
   DateTime? reportReferenceDate;
-  String? reportSchoolYear;
+  String? reportSchoolYear = SchoolYear.current(DateTime.now());
   Semester? reportSemester;
   EventScope? reportEventScope;
 
@@ -4393,9 +4395,9 @@ class AppState extends ChangeNotifier {
     receiptEventFilter = null;
     receiptStatusFilter = null;
     receiptFlaggedOnly = false;
-    reportPeriod = ReportPeriod.monthly;
+    reportPeriod = ReportPeriod.schoolYear;
     reportReferenceDate = null;
-    reportSchoolYear = null;
+    reportSchoolYear = SchoolYear.current(DateTime.now());
     reportSemester = null;
     reportEventScope = null;
     for (final state in _moduleLoads) {
