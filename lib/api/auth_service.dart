@@ -21,9 +21,12 @@ class AuthService {
   final ApiClient _client;
   AuthService(this._client);
 
+  /// [remember] false keeps the session in memory only: nothing is
+  /// written to the keystore, so closing the app ends it.
   Future<String> login({
     required String email,
     required String password,
+    bool remember = true,
   }) async {
     final formBody =
         'username=${Uri.encodeQueryComponent(email)}'
@@ -46,6 +49,7 @@ class AuthService {
     await _client.setToken(
       token,
       renewal: response['refresh_token'] as String?,
+      persist: remember,
     );
     return token;
   }

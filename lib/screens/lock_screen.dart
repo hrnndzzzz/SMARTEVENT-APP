@@ -23,6 +23,22 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen> {
   bool _busy = false;
 
+  /// What is enrolled, when the platform will say — null on most
+  /// Android phones, where the button stays a plain "Unlock" rather
+  /// than naming a finger to someone holding a face-only phone.
+  String? _kind;
+
+  @override
+  void initState() {
+    super.initState();
+    _readKind();
+  }
+
+  Future<void> _readKind() async {
+    final kind = await context.read<AppState>().biometricLock.kind;
+    if (mounted) setState(() => _kind = kind);
+  }
+
   Future<void> _unlock() async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -84,14 +100,14 @@ class _LockScreenState extends State<LockScreen> {
           const SizedBox(height: 6),
           Text(
             name == null
-                ? 'Unlock to open your session on this phone.'
-                : 'Unlock to open $name’s session on this phone.',
+                ? 'Your session is still here. Unlock to open it.'
+                : '$name’s session is still here. Unlock to open it.',
             textAlign: TextAlign.center,
             style: AppText.caption.copyWith(color: p.muted),
           ),
           const SizedBox(height: AppLayout.section),
           BrutButton(
-            label: 'Unlock',
+            label: _kind == null ? 'Unlock' : 'Unlock with $_kind',
             icon: Icons.lock_open,
             busy: _busy,
             busyLabel: 'Waiting',

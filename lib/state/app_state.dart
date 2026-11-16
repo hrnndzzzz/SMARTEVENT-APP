@@ -609,6 +609,18 @@ class AppState extends ChangeNotifier {
       return;
     }
     await _openOfflineStore();
+    // An unremembered sign-in leaves nothing behind, and the offline
+    // viewer is something left behind: a cached profile and its
+    // downloads reopen this account read-only on the next launch with
+    // nobody's password, which is the whole of what the unticked box
+    // promised not to do. The session itself still works — it is held
+    // in memory for as long as the app is open.
+    if (!_apiClient.persistSession) {
+      await _apiClient.offlineStore?.clear();
+      _apiClient.readOnly = false;
+      _apiClient.requiresSignIn = false;
+      return;
+    }
     final previous = _apiClient.offlineStore?.session;
     if (previous != null &&
         previous.scope !=
@@ -4133,6 +4145,37 @@ class AppState extends ChangeNotifier {
   bool get isLocked => _locked;
   bool _locked = false;
 
+  /// Whether the fingerprint can actually be the way back in.
+  ///
+  /// Four things have to hold. A real session, because the demo holds
+  /// no token to stand in front of. A session the device is keeping,
+  /// because an unremembered one is gone by the time the unlock asks
+  /// for it — locking behind a fingerprint that cannot open anything
+  /// would be a sign-out wearing a nicer word. The switch turned on.
+  /// And not already locked.
+  Future<bool> get canLock async {
+    if (_demoMode || _locked) return false;
+    if (!_apiClient.hasToken || !_apiClient.persistSession) return false;
+    return biometricLock.isEnabled;
+  }
+
+  /// Puts the app behind the fingerprint without signing out.
+  ///
+  /// This is the point of the feature. Handing the phone over, or
+  /// putting it down in the org room, used to mean either leaving the
+  /// session open or signing out and typing an email address and ten
+  /// characters to get back. Nothing is ended here and nothing is
+  /// sent: the token stays where it was, and a touch reopens it.
+  ///
+  /// False when it would not have worked, so the caller can say why
+  /// instead of appearing to do nothing.
+  Future<bool> lockNow() async {
+    if (!await canLock) return false;
+    _locked = true;
+    notifyListeners();
+    return true;
+  }
+
   /// Tries the unlock again, for the Unlock button on the lock screen.
   Future<void> unlock() async {
     if (!_locked) return;
@@ -4246,15 +4289,24 @@ class AppState extends ChangeNotifier {
   /// are deliberately not allowed to fail the sign-in: being signed in and
   /// having the dashboard's data are separate things, and their outcome is
   /// reported through [loadFailures] instead.
+  /// [remember] false is the unticked box on the sign-in screen: the
+  /// session stays in memory for as long as the app is open, nothing is
+  /// written to the keystore, and no offline copy of the account is
+  /// left on the phone. Closing the app ends it.
   Future<String?> signIn({
     required String email,
     required String password,
+    bool remember = true,
   }) async {
     final generation = ++_sessionGeneration;
     offlineSync.cancel();
     _apiClient.invalidateSession();
     try {
-      await _authService.login(email: email, password: password);
+      await _authService.login(
+        email: email,
+        password: password,
+        remember: remember,
+      );
 
       final UserProfile profile;
       try {
@@ -4287,7 +4339,11 @@ class AppState extends ChangeNotifier {
       await _rememberProfile(profile);
       await _loadSignedInData();
       notifyListeners();
-      unawaited(offlineSync.prepare());
+      // Preparing the offline copy is writing the account to the phone,
+      // which is the one thing an unticked box asked us not to do.
+      if (remember) {
+        unawaited(offlineSync.prepare());
+      }
       return null;
     } catch (error) {
       if (generation == _sessionGeneration &&

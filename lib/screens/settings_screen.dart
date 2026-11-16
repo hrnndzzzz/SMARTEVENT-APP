@@ -34,6 +34,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricAvailable = false;
   bool _biometricBusy = false;
 
+  /// Whether locking up would actually reopen afterwards. A Lock row on
+  /// a demo, or on a session this phone is not keeping, would be a
+  /// sign-out with a friendlier label.
+  bool _canLock = false;
+
   @override
   void initState() {
     super.initState();
@@ -41,14 +46,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _readBiometric() async {
-    final lock = context.read<AppState>().biometricLock;
+    final app = context.read<AppState>();
+    final lock = app.biometricLock;
     final available = await lock.isAvailable;
     final enabled = available && await lock.isEnabled;
+    final canLock = enabled && await app.canLock;
     if (!mounted) return;
     setState(() {
       _biometricAvailable = available;
       _biometricLogin = enabled;
+      _canLock = canLock;
     });
+  }
+
+  /// Leaves the app behind the unlock without ending the session.
+  ///
+  /// The state change alone is not enough: the gate that decides
+  /// lock-or-app is the route underneath everything here, so the stack
+  /// above it has to come off — the same reason the demo pops to the
+  /// first route.
+  Future<void> _lockNow() async {
+    final app = context.read<AppState>();
+    final navigator = Navigator.of(context);
+    if (await app.lockNow()) navigator.popUntil((route) => route.isFirst);
   }
 
   /// The switch shows what the device agreed to, not what was asked:
@@ -60,9 +80,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       wanted,
     );
     if (!mounted) return;
+    final canLock = settled && await context.read<AppState>().canLock;
+    if (!mounted) return;
     setState(() {
       _biometricLogin = settled;
       _biometricBusy = false;
+      _canLock = canLock;
     });
     if (wanted && !settled) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,6 +204,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'this phone. Add one in the system settings and it will '
                   'be offered here.',
             ),
+          // The reason the switch exists, made reachable. Without this
+          // the only way to meet the unlock was to close the app and
+          // open it again, so handing the phone to somebody meant
+          // either leaving the session open or signing out and typing
+          // an email address and a password to get back.
+          if (_canLock) ...[
+            const SizedBox(height: 8),
+            BrutListRow(
+              title: 'Lock SmartEvent now',
+              meta: 'Stays signed in',
+              marker: const BrutIconTile(size: 32, icon: Icons.lock_outline),
+              onTap: _lockNow,
+            ),
+          ] else if (_biometricLogin) ...[
+            const SizedBox(height: 8),
+            BrutInlineMessage(
+              tone: BrutTone.neutral,
+              icon: Icons.lock_outline,
+              text: context.watch<AppState>().isDemoMode
+                  ? 'Locking is offered on a real session. The demo holds '
+                        'none — nothing here is signed in to anything.'
+                  : 'This session is not being kept on the phone, so the '
+                        'unlock would have nothing to reopen. Sign in with '
+                        '"Keep me signed in" ticked to lock instead of '
+                        'signing out.',
+            ),
+          ],
           const SizedBox(height: 20),
           const BrutSectionTitle('More'),
           const SizedBox(height: 10),

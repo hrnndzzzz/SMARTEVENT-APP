@@ -115,6 +115,15 @@ class ApiClient {
 
   String? _token;
 
+  /// Whether this session may be written to the device at all.
+  ///
+  /// False when the sign-in was not remembered: the token lives in
+  /// memory for as long as the app is open and leaves nothing in the
+  /// keystore behind it, so the next launch starts at the password.
+  /// Renewal honours it too — otherwise an hour later the token the
+  /// user asked not to keep would write itself to disk anyway.
+  bool persistSession = true;
+
   String get baseUrl => ApiConfig.baseUrl;
 
   bool get hasToken => _token != null;
@@ -130,17 +139,28 @@ class ApiClient {
     if (epoch != _epoch) throw const SessionChanged();
     _token = token;
     _renewal = renewal;
+    // It came off the device, so it is plainly a session the device is
+    // allowed to keep.
+    persistSession = true;
     return _token;
   }
 
   /// Sets the in-memory token and persists it (or clears both, for null).
   /// A sign-in hands over its [renewal] key with it; one without a key (a
   /// temporary password) leaves none behind from an earlier session.
-  Future<void> setToken(String? token, {String? renewal}) async {
+  /// [persist] false is an unremembered sign-in: it keeps the token in
+  /// memory and clears the store, so nothing an earlier remembered
+  /// sign-in left behind survives to be restored on the next launch.
+  Future<void> setToken(
+    String? token, {
+    String? renewal,
+    bool persist = true,
+  }) async {
     _epoch++;
     _token = token;
     _renewal = renewal;
-    if (token == null) {
+    persistSession = persist;
+    if (token == null || !persist) {
       await _tokenStore.clear();
     } else {
       await _tokenStore.write(token);
@@ -193,7 +213,7 @@ class ApiClient {
       if (token is! String || token.isEmpty) return false;
       // The same session, so the epoch stays: requests in flight carry on.
       _token = token;
-      await _tokenStore.write(token);
+      if (persistSession) await _tokenStore.write(token);
       return true;
     } catch (_) {
       // Unreachable or a garbled answer: the expiry stands, and the next

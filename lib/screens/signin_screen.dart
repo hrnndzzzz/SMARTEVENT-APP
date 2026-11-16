@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../widgets/biometric_offer.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
@@ -38,6 +39,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final error = await app.signIn(
       email: _emailController.text.trim(),
       password: _passwordController.text,
+      remember: _rememberMe,
     );
 
     if (!mounted) return;
@@ -53,6 +55,16 @@ class _SignInScreenState extends State<SignInScreen> {
           ),
         );
         return;
+      }
+
+      // Offered here rather than left in Settings, and only where it
+      // can do anything: the unlock stands in front of a session kept
+      // on this phone, so an unticked Remember me leaves it nothing to
+      // guard. Awaited, because it puts a dialog and then the system
+      // prompt up — navigating out from under both would dismiss them.
+      if (_rememberMe) {
+        await offerBiometricLogin(context, app.biometricLock);
+        if (!mounted) return;
       }
 
       // Signing in and loading the dashboard's data are separate outcomes.
@@ -214,7 +226,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Text('Remember me', style: AppText.caption),
+                      const Text('Keep me signed in', style: AppText.caption),
                     ],
                   ),
                   GestureDetector(
@@ -231,6 +243,23 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ],
               ),
+              // The box was decoration until now: it was read nowhere
+              // and the session was always kept. It decides, so it says
+              // what it decides — and only when it is about to cost
+              // something, because a line of small print under a
+              // ticked box is noise.
+              if (!_rememberMe) ...[
+                const SizedBox(height: 10),
+                const BrutInlineMessage(
+                  tone: BrutTone.neutral,
+                  icon: Icons.phonelink_lock_outlined,
+                  text:
+                      'This session will not be kept on the phone. Closing '
+                      'SmartEvent signs you out, nothing is saved for '
+                      'offline reading, and your fingerprint cannot bring '
+                      'it back.',
+                ),
+              ],
               const SizedBox(height: 22),
               BrutButton(
                 label: 'Sign in',
