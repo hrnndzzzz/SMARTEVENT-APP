@@ -418,6 +418,22 @@ class _ScannerScreenState extends State<ScannerScreen> {
             'Nothing is saved until you press Save.',
             style: AppText.caption,
           ),
+          const SizedBox(height: 4),
+          // Said before the camera opens, not after the figures appear.
+          //
+          // The photo leaves the phone and is machine-read, and until
+          // now the only place that was written down was a comment in
+          // this file. Someone photographing a receipt could not have
+          // known the image was uploaded at all, let alone that the
+          // amount filled in below was a reading rather than a fact.
+          // Same principle as the AI note on Analytics: a disclosure
+          // that arrives after the claim is not a disclosure.
+          const Text(
+            'The photo is uploaded to the SmartEvent server, which reads '
+            'the figures off it automatically. Check them before you save '
+            '— a reading is a suggestion, not the receipt.',
+            style: AppText.caption,
+          ),
           const SizedBox(height: 14),
 
           _CapturePreview(
@@ -428,7 +444,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
           if (_scanning) ...[
             const SizedBox(height: 14),
-            const _Busy(label: 'Reading the receipt…'),
+            const _Busy(label: 'Uploading and reading the receipt…'),
           ],
 
           if (_error != null) ...[
