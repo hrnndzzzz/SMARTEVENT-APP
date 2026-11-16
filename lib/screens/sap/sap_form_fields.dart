@@ -4,6 +4,7 @@ import '../../api/models/sap_proposal.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/palette.dart';
 import '../../theme/brut.dart';
+import '../../state/school_calendar.dart';
 
 /// Small pieces the six part screens share.
 ///
@@ -140,7 +141,22 @@ class SapTimeField extends StatelessWidget {
       context: context,
       initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
     );
-    if (chosen != null) onChanged(SapTime(chosen.hour, chosen.minute));
+    if (chosen == null) return;
+    final picked = SapTime(chosen.hour, chosen.minute);
+
+    // Material's picker has no way to fence off a range, so the window
+    // is enforced on the way out instead. Before this a proposal could
+    // say the activity began at 12:00 AM, which is not a time anybody
+    // holds one at — it is what the field returns when somebody taps
+    // through it without looking.
+    if (SchoolCalendar.timeRefusal(picked) case final refused?) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(refused)));
+      return;
+    }
+    onChanged(picked);
   }
 
   @override
@@ -166,7 +182,9 @@ class SapTimeField extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  shown ?? 'Pick a time',
+                  shown ??
+                      '${SchoolCalendar.earliest.label} – '
+                          '${SchoolCalendar.latest.label}',
                   style: shown == null
                       ? AppText.body.copyWith(color: context.palette.muted)
                       : AppText.number,

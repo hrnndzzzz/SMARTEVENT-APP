@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
+import '../../state/school_calendar.dart';
 import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
 import '../../theme/app_theme.dart';
@@ -314,16 +315,47 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     );
   }
 
+  /// The first day on or after [from] the calendar will actually accept.
+  ///
+  /// `showDatePicker` asserts that its initial date passes its own
+  /// predicate, so handing it today when today is Christmas is a crash
+  /// rather than a refusal. It also matters for a draft saved before
+  /// these rules existed, whose stored date may be a holiday.
+  DateTime _firstOpenDay(DateTime from) {
+    var day = DateTime(from.year, from.month, from.day);
+    // A fortnight is more than enough: the longest run of consecutive
+    // refused days is a weekend with a holiday on either side.
+    for (var i = 0; i < 14; i++) {
+      if (SchoolCalendar.selectable(day)) return day;
+      day = day.add(const Duration(days: 1));
+    }
+    return day;
+  }
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final chosen = await showDatePicker(
       context: context,
-      initialDate: _d.activityDate ?? now,
-      firstDate: DateTime(now.year - 1),
+      initialDate: _firstOpenDay(_d.activityDate ?? now),
+      // Not last year. An activity cannot be proposed for a day that
+      // has gone, and offering the whole of it invited exactly that.
+      firstDate: DateTime(now.year, now.month, now.day),
       lastDate: DateTime(now.year + 2),
+      // Holidays and past days are greyed out rather than tapped and
+      // then rejected, so the rule is visible before the mistake.
+      selectableDayPredicate: SchoolCalendar.selectable,
     );
-    if (chosen != null) {
-      _form.updateDetails((d) => d.copyWith(activityDate: chosen));
+    if (chosen == null) return;
+    _form.updateDetails((d) => d.copyWith(activityDate: chosen));
+
+    // Allowed, but worth saying once. Not a refusal: a Saturday
+    // activity is a real thing, and a form that knows better than the
+    // people filling it in is a form they route around.
+    final note = SchoolCalendar.caution(chosen, schoolYear: _d.schoolYear);
+    if (note != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(note)));
     }
   }
 
