@@ -259,13 +259,20 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The tone rather than the raw hex, so the badge is held down with
+    // everything else on the navy — and the number measured against the
+    // fill rather than taking the page's ink, which on a dark canvas is
+    // light and was being printed on a light red.
+    final resting = BrutTone.coral.fill(context);
+    final fill = Color.lerp(resting, AppColors.alert, swell) ?? resting;
+
     return Transform.scale(
       scale: 1 + swell * 0.28,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         constraints: const BoxConstraints(minWidth: 18),
         decoration: BoxDecoration(
-          color: Color.lerp(AppColors.coral, AppColors.alert, swell),
+          color: fill,
           borderRadius: AppRadius.pill,
           border: context.borderAll,
         ),
@@ -276,7 +283,7 @@ class _Badge extends StatelessWidget {
           textAlign: TextAlign.center,
           style: AppText.monoLabel.copyWith(
             fontSize: 9,
-            color: context.palette.ink,
+            color: context.foregroundOn(fill),
             letterSpacing: 0,
           ),
         ),
@@ -306,13 +313,18 @@ class _RingingBell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     final resting = BrutTone.neutral.fill(context);
+    // Same two fixes as the badge: the tone, and an icon measured
+    // against the colour the box actually is this frame. Mid-flush it
+    // is neither of the two ends.
+    final fill =
+        Color.lerp(resting, BrutTone.coral.fill(context), flush * 0.85) ??
+        resting;
 
     return BrutSurface(
       onTap: onPressed,
       semanticLabel: 'Notifications, $count unread',
-      fill: Color.lerp(resting, AppColors.coral, flush * 0.85) ?? resting,
+      fill: fill,
       radius: AppRadius.controlAll,
       shadow: AppShadows.sm,
       width: 38,
@@ -323,7 +335,7 @@ class _RingingBell extends StatelessWidget {
         child: Icon(
           Icons.notifications_none,
           size: 38 * 0.45,
-          color: palette.ink,
+          color: context.foregroundOn(fill),
         ),
       ),
     );

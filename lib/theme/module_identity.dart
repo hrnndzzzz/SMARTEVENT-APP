@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_colors.dart';
+
 /// Which part of the app you are in, and what that looks like.
 ///
 /// One list, read by the module band at the top of a screen and by the
@@ -10,11 +12,15 @@ import 'package:flutter/material.dart';
 ///
 /// Green, yellow and coral mean approved, waiting and returned, and
 /// they have to keep meaning that on a chip sitting inside one of these
-/// screens. So a module never wears them. The module colours are
-/// saturated and carry a band; the status colours are lighter and carry
-/// a chip. That difference in weight is as much of the separation as
-/// the hue is — you can tell a band from a chip without knowing either
-/// colour.
+/// screens. So a module never wears them.
+///
+/// The hue is only half of the separation. The other half is weight: a
+/// module is a large, quiet field and a status is a small, bright mark,
+/// so you can tell a band from a chip without knowing either colour.
+/// On the cream the field is the darker of the two; on the navy it is
+/// the dimmer one, and the chip is what stands off the page. Both ways
+/// round the band recedes and the chip does not, which is the thing
+/// that has to stay true.
 enum Module {
   events,
   money,
@@ -51,10 +57,12 @@ enum Module {
   };
 
   /// On the cream. Money keeps the department's orange — it is the one
-  /// module whose colour was already decided outside this file.
+  /// module whose colour was already decided outside this file, so it is
+  /// [AppColors.orange] itself rather than a copy of its hex, and comes
+  /// down with it when the orange does.
   Color get color => switch (this) {
     Module.events => const Color(0xFF2E6F9E),
-    Module.money => const Color(0xFFF26B21),
+    Module.money => AppColors.orange,
     Module.inventory => const Color(0xFF6F4E8E),
     Module.reports => const Color(0xFFB5791F),
     Module.flagged => const Color(0xFFA8322A),
@@ -62,17 +70,29 @@ enum Module {
     Module.search => const Color(0xFF5B5750),
   };
 
-  /// On the navy. The dark canvas is a colour rather than a grey, so a
-  /// band has to clear it rather than merely be darker than white —
-  /// Events' steel blue sat on the navy and all but vanished.
+  /// On the navy: [color] run through [AppColors.onDarkCanvas] at
+  /// [AppColors.darkBandLuminance], which is the whole of the rule.
+  ///
+  /// These are the largest areas of colour in the app — a band is the
+  /// full width of the screen and a menu block is a quarter of it — so
+  /// they go *below* `foregroundOn`'s threshold and carry light ink,
+  /// rather than above it like the chips and badges do. That is the
+  /// opposite of what they used to do, and the reason is what the dark
+  /// menu looked like: Money and Analytics were the two brightest
+  /// things on the screen, brighter than any text on it, while
+  /// Inventory and Flagged sat below the line — so four blocks in one
+  /// grid printed their titles in two different colours.
+  ///
+  /// Written out rather than computed, because a band is rebuilt on
+  /// every frame of a scroll and these never change.
   Color get colorDark => switch (this) {
-    Module.events => const Color(0xFF4E95C8),
-    Module.money => const Color(0xFFF2823F),
-    Module.inventory => const Color(0xFF8E6BB0),
-    Module.reports => const Color(0xFFD19A3C),
-    Module.flagged => const Color(0xFFC9534A),
-    Module.admin => const Color(0xFF5C9070),
-    Module.search => const Color(0xFF8A857C),
+    Module.events => const Color(0xFF346F9B),
+    Module.money => const Color(0xFF9D5934),
+    Module.inventory => const Color(0xFF7F5AA3),
+    Module.reports => const Color(0xFF88642D),
+    Module.flagged => const Color(0xFFB6443D),
+    Module.admin => const Color(0xFF457556),
+    Module.search => const Color(0xFF6E6A61),
   };
 
   /// The one to use. Picks by the theme rather than by the caller, so a

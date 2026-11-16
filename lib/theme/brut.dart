@@ -2043,7 +2043,14 @@ class BrutChip extends StatelessWidget {
           // Every chip is bold, so the rest of a locked row steps down to
           // regular for the chosen one to stand out by more than ink.
           fontWeight: locked && !selected ? FontWeight.w400 : null,
-          color: selected ? context.palette.ink : context.palette.subtle,
+          // Measured against the fill, not taken from the page. On a
+          // dark canvas `palette.ink` is light, and a chosen chip's
+          // fill is one of the accents — which are light too, so the
+          // chosen answer was the one word on the row you could not
+          // read.
+          color: selected
+              ? context.foregroundOn(fill)
+              : context.palette.subtle,
         ),
       ),
     );

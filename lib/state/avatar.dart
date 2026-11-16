@@ -53,13 +53,24 @@ enum AvatarPattern {
 /// Bright enough to tell apart at 38 pixels in a header, and all light
 /// enough to carry dark initials — the ink on an avatar does not follow
 /// the theme, so the picture looks the same in both.
+///
+/// Held to `AppColors.lightSaturationCap` like everything else, with the
+/// lightness left alone so they stay light enough for the initials. Four
+/// of them were pure hues, and because they do not follow the theme they
+/// came through the dark palette untouched: on the navy dashboard the
+/// avatar ended up the loudest thing in the header, beside a brand pill
+/// that had just been calmed down.
+///
+/// (These are the one set of raw hexes outside `app_colors.dart`. They
+/// are not theme tokens — no screen may reach for "avatar yellow" — so
+/// they stay with the thing that owns them.)
 const List<int> avatarColors = [
-  0xFFFFD93D, // yellow
+  0xFFE7CA55, // yellow
   0xFF6BCB77, // green
-  0xFF4D96FF, // blue
-  0xFFFF5964, // coral
-  0xFFB794F6, // lavender
-  0xFFFF9F43, // orange
+  0xFF639AE9, // blue
+  0xFFEA6E76, // coral
+  0xFFB99AF0, // lavender
+  0xFFE8A05A, // orange
   0xFF5CE1E6, // aqua
   0xFFF2F1EC, // cream
 ];

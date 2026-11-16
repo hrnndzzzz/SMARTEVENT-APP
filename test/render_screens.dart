@@ -423,6 +423,55 @@ void main() {
         find.byType(MenuPanel), matchesGoldenFile('goldens/menu.png'));
   });
 
+  // The menu on the navy, which is the one screen carrying all seven
+  // module colours at once — and so the only place the dark palette can
+  // be judged as a set rather than one block at a time.
+  testWidgets('menu-dark', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1600);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.dark(accent: app.themeColor),
+        home: const MenuPanel(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(
+        find.byType(MenuPanel), matchesGoldenFile('goldens/menu-dark.png'));
+  });
+
+  // The dashboard on the navy: the status tones, which are the other
+  // half of the palette, all on one screen.
+  testWidgets('home-dark', (tester) async {
+    tester.view.devicePixelRatio = 2;
+    tester.view.physicalSize = const Size(822, 1900);
+    addTearDown(tester.view.reset);
+    final app = AppState()..enterDemo();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider(create: (_) => AppSettings()),
+        ChangeNotifierProvider(create: (_) => Reachability()),
+        ChangeNotifierProvider(create: (_) => NoticeShelf()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.dark(accent: app.themeColor),
+        home: const HomeScreen(),
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await expectLater(
+        find.byType(HomeScreen), matchesGoldenFile('goldens/home-dark.png'));
+  });
+
   // The header saying what happened to the connection, in each of the
   // three states it can be in. Driven by real transitions rather than
   // by setting a flag, because the announcement only fires on a change.

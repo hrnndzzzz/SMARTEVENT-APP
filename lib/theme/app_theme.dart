@@ -279,17 +279,30 @@ class AppTheme {
 
   /// The same theme on a dark canvas.
   ///
-  /// The accents keep their hex — a yellow badge is the same yellow — and
-  /// still carry dark ink. What flips is the canvas, the text, and with
-  /// them the outlines and the hard shadows, which are the same mark as
-  /// the text and would vanish if they stayed dark.
+  /// What flips is the canvas, the text, and with them the outlines and
+  /// the hard shadows, which are the same mark as the text and would
+  /// vanish if they stayed dark.
+  ///
+  /// The accents do not keep their hex. Every one of them is held down
+  /// for the navy — see `AppColors.onDarkCanvas` — including [primary]
+  /// and [accent], which arrive here from the signed-in account rather
+  /// than from the palette and so cannot have a constant waiting for
+  /// them. They were the exception for a long time, which is why CITE's
+  /// dark dashboard had a bright orange pill, avatar, peso figure and
+  /// budget bar sitting among accents that had all been calmed down.
   static ThemeData dark({
     Color primary = AppColors.brand,
     Color accent = AppColors.brand,
   }) => _build(Brightness.dark, primary, accent);
 
-  static ThemeData _build(Brightness brightness, Color primary, Color accent) {
+  static ThemeData _build(
+    Brightness brightness,
+    Color rawPrimary,
+    Color rawAccent,
+  ) {
     final isDark = brightness == Brightness.dark;
+    final primary = isDark ? AppColors.onDarkCanvas(rawPrimary) : rawPrimary;
+    final accent = isDark ? AppColors.onDarkCanvas(rawAccent) : rawAccent;
     final p = isDark ? BrutPalette.darkPalette : BrutPalette.lightPalette;
     final side = BorderSide(color: p.ink, width: AppBorders.width);
     final disabledSide = BorderSide(color: p.muted, width: AppBorders.width);
