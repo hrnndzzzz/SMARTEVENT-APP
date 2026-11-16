@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:smartevent/screens/admin_screen.dart';
 import 'package:smartevent/screens/categories_screen.dart';
 import 'package:smartevent/screens/events_screen.dart';
 import 'package:smartevent/screens/income_screen.dart';
@@ -116,16 +117,15 @@ void main() {
   });
 
   group('every module screen built the same way', () {
-    // Eight screens carried `scrollable: false` and a top-level
-    // Expanded. These seven are converted; the invariant is checked per
-    // screen so the next one to be rebuilt as two halves is caught
-    // here rather than on somebody's phone.
+    // All eight screens that carried `scrollable: false` and a
+    // top-level Expanded. The invariant is checked per screen, so the
+    // next one rebuilt as two halves is caught here rather than on
+    // somebody's phone.
     //
-    // Admin is the one left out, and on purpose: each of its three tabs
-    // keeps its floating buttons in a Positioned inside the scroller,
-    // so making the page scroll as one would send the primary actions
-    // down the page with it. That is a different change from a scroll
-    // fix and wants doing deliberately.
+    // Admin came last because its three tabs each kept their buttons in
+    // a Positioned inside the list, and letting the page scroll would
+    // have sent Add to roster down the page with the content. The
+    // buttons belong to the screen now.
     const screens = <String, Widget>{
       'Inventory': InventoryScreen(),
       'Flagged': RiskScreen(),
@@ -134,6 +134,7 @@ void main() {
       'Categories': CategoriesScreen(),
       'Proposal letters': ProposalLettersScreen(),
       'Events': EventsScreen(),
+      'Admin': AdminScreen(),
     };
 
     screens.forEach((name, screen) {
@@ -146,6 +147,24 @@ void main() {
         );
       });
     });
+  });
+
+  testWidgets('Admin keeps its buttons while the page scrolls', (tester) async {
+    // The reason Admin was done last. Its roster buttons used to be a
+    // Positioned inside the list; moved carelessly they would travel
+    // down the page with the content and leave the screen entirely.
+    await open(tester, const AdminScreen());
+    expect(find.text('Add to roster'), findsOneWidget);
+    final before = tester.getRect(find.text('Add to roster'));
+
+    await tester.drag(find.byType(AdminScreen), const Offset(0, -300));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      tester.getRect(find.text('Add to roster')),
+      before,
+      reason: 'the button went down the page with the content',
+    );
   });
 
   testWidgets('the whole page is still pullable to refresh', (tester) async {

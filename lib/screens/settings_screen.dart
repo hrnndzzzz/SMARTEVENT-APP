@@ -165,7 +165,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: 'Biometric login',
               subtitle:
                   'Ask for your fingerprint or face before opening a '
-                  'saved session on this phone.',
+                  'saved session on this phone. The check is done by '
+                  'Android against the fingerprint or face already on '
+                  'it — SmartEvent never sees or stores either, and '
+                  'nothing about them leaves the phone.',
               value: _biometricLogin,
               onChanged: _biometricBusy ? null : _setBiometric,
             )

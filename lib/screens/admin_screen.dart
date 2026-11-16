@@ -52,10 +52,62 @@ class _AdminScreenState extends State<AdminScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final school = app.currentRole?.canAdministerSchool ?? false;
+
     return BrutScreen(
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page — see inventory_screen.dart.
+      //
+      // This screen came last of the eight because its three tabs each
+      // kept their buttons in a Positioned *inside* the list. Letting
+      // the page scroll would have sent Add to roster and Upload a
+      // roster down the page with the content, so the buttons belong to
+      // the screen now and the tabs are plain Columns.
+      onRefresh: () => app.refreshList(switch (_tab) {
+        0 => app.loadRoster,
+        1 => app.loadManagedUsers,
+        _ => app.loadAuditLog,
+      }),
+      bottomPadding: 96,
+      floatingActionButton: switch (_tab) {
+        // A roster arrives as a spreadsheet far more often than one
+        // name at a time, and the route for it was already there with
+        // nothing calling it.
+        0 => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FloatingActionButton(
+              heroTag: 'roster-import',
+              onPressed: () => _importRoster(context),
+              tooltip: 'Upload a roster',
+              child: const Icon(Icons.upload_file),
+            ),
+            const SizedBox(width: 10),
+            FloatingActionButton.extended(
+              heroTag: 'roster-add',
+              onPressed: () => BrutSheet.show<void>(
+                context,
+                builder: (_) => const _AddRosterSheet(),
+              ),
+              icon: const Icon(Icons.person_add_alt),
+              label: Text('Add to roster', style: AppText.buttonLabel),
+            ),
+          ],
+        ),
+        // Admin, SDS and Signatory accounts never come from the roster.
+        // Without a signatory, no Admin can approve a plain event.
+        1 when school => FloatingActionButton.extended(
+          heroTag: 'school-account-add',
+          onPressed: () => BrutSheet.show<void>(
+            context,
+            builder: (_) => const _AddSchoolAccountSheet(),
+          ),
+          icon: const Icon(Icons.badge_outlined),
+          label: Text('Add school account', style: AppText.buttonLabel),
+        ),
+        _ => null,
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -65,7 +117,7 @@ class _AdminScreenState extends State<AdminScreen> {
             subtitle: 'Roster, accounts and the audit log.',
           ),
           // Departments and organizations were SQL-only before this.
-          if (context.watch<AppState>().currentRole == UserRole.superAdmin) ...[
+          if (app.currentRole == UserRole.superAdmin) ...[
             const SizedBox(height: AppLayout.tight),
             Wrap(
               spacing: AppLayout.tight,
@@ -120,13 +172,11 @@ class _AdminScreenState extends State<AdminScreen> {
             ],
           ),
           const SizedBox(height: AppLayout.between),
-          Expanded(
-            child: switch (_tab) {
-              0 => const _RosterTab(),
-              1 => const _AccountsTab(),
-              _ => const _AuditTab(),
-            },
-          ),
+          switch (_tab) {
+            0 => const _RosterTab(),
+            1 => const _AccountsTab(),
+            _ => const _AuditTab(),
+          },
         ],
       ),
     );
@@ -141,66 +191,32 @@ class _RosterTab extends StatelessWidget {
     final app = context.watch<AppState>();
     final load = app.rosterLoad;
 
-    return Stack(
+    // A Column in the page's own scroll. The two buttons that used
+    // to be Positioned over this list now belong to the screen, so
+    // they stay put instead of travelling down the page with it.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListView(
-          padding: const EdgeInsets.only(bottom: 96),
-          children: [
-            const Text(
-              'People approved to create an account. Adding someone here '
-              'does not create one — it lets that email register, and their '
-              'name and role come from the entry.',
-              style: AppText.caption,
-            ),
-            const SizedBox(height: 14),
-            if (load.isLoading && app.roster.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: BrutSpinner(),
-                ),
-              )
-            else if (load.hasFailed && app.roster.isEmpty)
-              BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
-            else if (app.roster.isEmpty)
-              const BrutEmptyState(title: 'Nobody on the roster yet')
-            else
-              for (final entry in app.roster) ...[
-                _RosterCard(entry: entry),
-                const SizedBox(height: 10),
-              ],
+        const Text(
+          'People approved to create an account. Adding someone here '
+          'does not create one — it lets that email register, and their '
+          'name and role come from the entry.',
+          style: AppText.caption,
+        ),
+        const SizedBox(height: 14),
+        if (load.isLoading && app.roster.isEmpty)
+          const Center(
+            child: Padding(padding: EdgeInsets.all(24), child: BrutSpinner()),
+          )
+        else if (load.hasFailed && app.roster.isEmpty)
+          BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
+        else if (app.roster.isEmpty)
+          const BrutEmptyState(title: 'Nobody on the roster yet')
+        else
+          for (final entry in app.roster) ...[
+            _RosterCard(entry: entry),
+            const SizedBox(height: 10),
           ],
-        ),
-        // The screen already supplies the side gutter, so this only needs
-        // to clear the bottom.
-        Positioned(
-          right: 0,
-          bottom: AppLayout.gutter,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // A roster arrives as a spreadsheet far more often than one
-              // name at a time, and the route for it was already there
-              // with nothing calling it.
-              FloatingActionButton(
-                heroTag: 'roster-import',
-                onPressed: () => _importRoster(context),
-                tooltip: 'Upload a roster',
-                child: const Icon(Icons.upload_file),
-              ),
-              const SizedBox(width: 10),
-              FloatingActionButton.extended(
-                heroTag: 'roster-add',
-                onPressed: () => BrutSheet.show<void>(
-                  context,
-                  builder: (_) => const _AddRosterSheet(),
-                ),
-                icon: const Icon(Icons.person_add_alt),
-                label: Text('Add to roster', style: AppText.buttonLabel),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -398,55 +414,30 @@ class _AccountsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.usersLoad;
-    final school = app.currentRole?.canAdministerSchool ?? false;
-
-    return Stack(
+    // A Column in the page's own scroll; the Add school account
+    // button belongs to the screen now, so it stays put.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListView(
-          padding: EdgeInsets.only(
-            bottom: school ? 96 : AppLayout.contentPadding,
-          ),
-          children: [
-            const Text(
-              'Accounts that exist. Access is revoked by suspending, which '
-              'keeps everything the account did — there is no delete.',
-              style: AppText.caption,
-            ),
-            const SizedBox(height: 14),
-            if (load.isLoading && app.managedUsers.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: BrutSpinner(),
-                ),
-              )
-            else if (load.hasFailed && app.managedUsers.isEmpty)
-              BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
-            else if (app.managedUsers.isEmpty)
-              const BrutEmptyState(title: 'No accounts in your scope')
-            else
-              for (final user in app.managedUsers) ...[
-                _UserCard(user: user),
-                const SizedBox(height: 10),
-              ],
-          ],
+        const Text(
+          'Accounts that exist. Access is revoked by suspending, which '
+          'keeps everything the account did — there is no delete.',
+          style: AppText.caption,
         ),
-        // Admin, SDS and Signatory accounts never come from the roster.
-        // Without a signatory, no Admin can approve a plain event.
-        if (school)
-          Positioned(
-            right: 0,
-            bottom: AppLayout.gutter,
-            child: FloatingActionButton.extended(
-              heroTag: 'school-account-add',
-              onPressed: () => BrutSheet.show<void>(
-                context,
-                builder: (_) => const _AddSchoolAccountSheet(),
-              ),
-              icon: const Icon(Icons.badge_outlined),
-              label: Text('Add school account', style: AppText.buttonLabel),
-            ),
-          ),
+        const SizedBox(height: 14),
+        if (load.isLoading && app.managedUsers.isEmpty)
+          const Center(
+            child: Padding(padding: EdgeInsets.all(24), child: BrutSpinner()),
+          )
+        else if (load.hasFailed && app.managedUsers.isEmpty)
+          BrutInlineMessage(text: load.error!, tone: BrutTone.coral)
+        else if (app.managedUsers.isEmpty)
+          const BrutEmptyState(title: 'No accounts in your scope')
+        else
+          for (final user in app.managedUsers) ...[
+            _UserCard(user: user),
+            const SizedBox(height: 10),
+          ],
       ],
     );
   }
@@ -768,8 +759,9 @@ class _AuditTab extends StatelessWidget {
     final app = context.watch<AppState>();
     final load = app.auditLoad;
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: AppLayout.contentPadding),
+    // A Column: the page scrolls as one.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
           'A read-only record of administrative changes. Entries cannot be '
