@@ -49,8 +49,17 @@ class _EventsScreenState extends State<EventsScreen> {
   Widget build(BuildContext context) {
     return BrutScreen(
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page — see inventory_screen.dart. The
+      // band, the sort row and the filter bar used to be fixed while
+      // the list scrolled inside what was left.
+      // read, not watch: the gesture only needs the object to call
+      // into, and watching here would rebuild the whole page on every
+      // list change rather than only the Consumer below.
+      onRefresh: () {
+        final app = context.read<AppState>();
+        return app.refreshList(app.loadEvents);
+      },
+      bottomPadding: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -98,85 +107,89 @@ class _EventsScreenState extends State<EventsScreen> {
             onStatus: (value) => setState(() => _status = value),
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: Consumer<AppState>(
-              builder: (context, app, _) {
-                if (app.eventsLoad.isLoading && app.events.isEmpty) {
-                  return Center(child: BrutSpinner());
-                }
-                if (app.eventsLoad.hasFailed && app.events.isEmpty) {
-                  return Center(
-                    child: BrutEmptyState(
-                      title: 'Could not load events',
-                      hint: app.eventsLoad.error,
-                      icon: Icons.cloud_off_outlined,
-                      action: BrutButton(
-                        label: 'Try again',
-                        icon: Icons.refresh,
-                        size: BrutSize.small,
-                        expand: false,
-                        tone: BrutTone.neutral,
-                        onPressed: app.loadEvents,
-                      ),
+          Consumer<AppState>(
+            builder: (context, app, _) {
+              if (app.eventsLoad.isLoading && app.events.isEmpty) {
+                // A height of its own: a Center inside a scroll view
+                // has nothing to centre within.
+                return const SizedBox(
+                  height: 240,
+                  child: Center(child: BrutSpinner()),
+                );
+              }
+              if (app.eventsLoad.hasFailed && app.events.isEmpty) {
+                return Center(
+                  child: BrutEmptyState(
+                    title: 'Could not load events',
+                    hint: app.eventsLoad.error,
+                    icon: Icons.cloud_off_outlined,
+                    action: BrutButton(
+                      label: 'Try again',
+                      icon: Icons.refresh,
+                      size: BrutSize.small,
+                      expand: false,
+                      tone: BrutTone.neutral,
+                      onPressed: app.loadEvents,
                     ),
-                  );
-                }
-                if (app.events.isEmpty) {
-                  final filtered =
-                      app.schoolYearFilter != null ||
-                      app.showOnlyMissingSchoolYear;
-                  return Center(
-                    child: BrutEmptyState(
-                      icon: Icons.event_outlined,
-                      // An active filter is a far likelier reason for
-                      // an empty list than there being none.
-                      title: filtered
-                          ? 'No events match this filter'
-                          : 'No events yet',
-                      hint: filtered
-                          ? 'Clear the filter to see every event.'
-                          : app.mayProposeEvents
-                          ? 'Tap New to submit one.'
-                          : null,
-                    ),
-                  );
-                }
-                // One narrowing, both views: switching to the month
-                // should not quietly widen what is on screen.
-                final events = [
-                  for (final event in app.events)
-                    if (_status.matches(event.status)) event,
-                ]..sort(_sort.compare);
-                if (_calendar) {
-                  return EventCalendar(events: events, onOpen: _open);
-                }
-                if (events.isEmpty) {
-                  return Center(
-                    child: BrutEmptyState(
-                      icon: Icons.filter_alt_outlined,
-                      title: 'Nothing ${_status.label.toLowerCase()}',
-                      hint: 'Tap All to see every proposal again.',
-                    ),
-                  );
-                }
-                return RefreshIndicator(
-                  onRefresh: () => app.refreshList(app.loadEvents),
-                  child: ListView(
-                    // Always scrollable, so a short list can still be
-                    // pulled: a one-event list is exactly when someone
-                    // wonders whether anything has arrived.
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 8),
-                    children: [
-                      for (final event in events) ...[
-                        _EventCard(event: event),
-                        const SizedBox(height: 10),
-                      ],
-                    ],
                   ),
                 );
-              },
-            ),
+              }
+              if (app.events.isEmpty) {
+                final filtered =
+                    app.schoolYearFilter != null ||
+                    app.showOnlyMissingSchoolYear;
+                return Center(
+                  child: BrutEmptyState(
+                    icon: Icons.event_outlined,
+                    // An active filter is a far likelier reason for
+                    // an empty list than there being none.
+                    title: filtered
+                        ? 'No events match this filter'
+                        : 'No events yet',
+                    hint: filtered
+                        ? 'Clear the filter to see every event.'
+                        : app.mayProposeEvents
+                        ? 'Tap New to submit one.'
+                        : null,
+                  ),
+                );
+              }
+              // One narrowing, both views: switching to the month
+              // should not quietly widen what is on screen.
+              final events = [
+                for (final event in app.events)
+                  if (_status.matches(event.status)) event,
+              ]..sort(_sort.compare);
+              if (_calendar) {
+                return EventCalendar(
+                  events: events,
+                  onOpen: _open,
+                  embedded: true,
+                );
+              }
+              if (events.isEmpty) {
+                return Center(
+                  child: BrutEmptyState(
+                    icon: Icons.filter_alt_outlined,
+                    title: 'Nothing ${_status.label.toLowerCase()}',
+                    hint: 'Tap All to see every proposal again.',
+                  ),
+                );
+              }
+              // A Column in the page's own scroll. Pull-to-refresh
+              // moved up with it, so a one-event list — exactly when
+              // somebody wonders whether anything has arrived — can
+              // still be pulled.
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final event in events) ...[
+                    _EventCard(event: event),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            },
           ),
         ],
       ),

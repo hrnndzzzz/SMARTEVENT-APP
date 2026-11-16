@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:smartevent/screens/categories_screen.dart';
+import 'package:smartevent/screens/events_screen.dart';
 import 'package:smartevent/screens/income_screen.dart';
+import 'package:smartevent/screens/proposal_letters_screen.dart';
 import 'package:smartevent/screens/inventory_screen.dart';
 import 'package:smartevent/screens/receipts_screen.dart';
 import 'package:smartevent/screens/risk_screen.dart';
@@ -51,13 +54,33 @@ void main() {
     return app;
   }
 
-  /// Vertically scrolling widgets on screen. Horizontal ones are left
-  /// out on purpose: a chip bar running off the edge is a row of
-  /// filters, not a second page.
-  int verticalScrollers(WidgetTester tester) => tester
-      .widgetList<Scrollable>(find.byType(Scrollable))
-      .where((s) => s.axisDirection == AxisDirection.down)
-      .length;
+  /// Vertically scrolling widgets on screen, not counting the ones
+  /// inside text fields.
+  ///
+  /// Two exclusions, both deliberate. Horizontal scrollers are fine: a
+  /// chip bar running off the edge is a row of filters, not a second
+  /// page. And every `EditableText` carries a vertical Scrollable of
+  /// its own for long input — a screen with a search box and two
+  /// filters was reporting four scrollers and none of them was the
+  /// letterbox.
+  int verticalScrollers(WidgetTester tester) {
+    var count = 0;
+    for (final element in find.byType(Scrollable).evaluate()) {
+      if ((element.widget as Scrollable).axisDirection != AxisDirection.down) {
+        continue;
+      }
+      var insideAField = false;
+      element.visitAncestorElements((ancestor) {
+        if (ancestor.widget is EditableText) {
+          insideAField = true;
+          return false;
+        }
+        return true;
+      });
+      if (!insideAField) count++;
+    }
+    return count;
+  }
 
   testWidgets('the band scrolls away with everything else', (tester) async {
     await open(tester);
@@ -93,15 +116,24 @@ void main() {
   });
 
   group('every module screen built the same way', () {
-    // Seven screens carried `scrollable: false` and a top-level
-    // Expanded. These four are converted; the invariant is checked per
+    // Eight screens carried `scrollable: false` and a top-level
+    // Expanded. These seven are converted; the invariant is checked per
     // screen so the next one to be rebuilt as two halves is caught
     // here rather than on somebody's phone.
+    //
+    // Admin is the one left out, and on purpose: each of its three tabs
+    // keeps its floating buttons in a Positioned inside the scroller,
+    // so making the page scroll as one would send the primary actions
+    // down the page with it. That is a different change from a scroll
+    // fix and wants doing deliberately.
     const screens = <String, Widget>{
       'Inventory': InventoryScreen(),
       'Flagged': RiskScreen(),
       'Income': IncomeScreen(),
       'Receipts': ReceiptsScreen(),
+      'Categories': CategoriesScreen(),
+      'Proposal letters': ProposalLettersScreen(),
+      'Events': EventsScreen(),
     };
 
     screens.forEach((name, screen) {

@@ -64,8 +64,11 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
             )
           : null,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page — see inventory_screen.dart. The
+      // band and the figures used to be fixed while the list scrolled
+      // inside what was left.
+      onRefresh: () => app.refreshList(app.loadLetters),
+      bottomPadding: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -104,30 +107,28 @@ class _ProposalLettersScreenState extends State<ProposalLettersScreen> {
             ),
             const SizedBox(height: 14),
           ],
-          Expanded(
-            child: switch (load) {
-              _ when load.isLoading && app.letters.isEmpty => const Center(
-                child: BrutSpinner(),
-              ),
-              _ when load.hasFailed && app.letters.isEmpty => BrutRetry(
-                title: 'Could not load letters',
-                message: load.error,
-                sessionExpired: load.sessionExpired,
-                onRetry: app.loadLetters,
-              ),
-              _ when app.letters.isEmpty => _Empty(canUpload: canUpload),
-              _ => RefreshIndicator(
-                onRefresh: () => app.refreshList(app.loadLetters),
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 96),
-                  itemCount: app.letters.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _LetterCard(letter: app.letters[i]),
-                ),
-              ),
-            },
-          ),
+          switch (load) {
+            _ when load.isLoading && app.letters.isEmpty => const SizedBox(
+              height: 240,
+              child: Center(child: BrutSpinner()),
+            ),
+            _ when load.hasFailed && app.letters.isEmpty => BrutRetry(
+              title: 'Could not load letters',
+              message: load.error,
+              sessionExpired: load.sessionExpired,
+              onRetry: app.loadLetters,
+            ),
+            _ when app.letters.isEmpty => _Empty(canUpload: canUpload),
+            _ => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, letter) in app.letters.indexed) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _LetterCard(letter: letter),
+                ],
+              ],
+            ),
+          },
         ],
       ),
     );

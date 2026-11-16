@@ -35,8 +35,11 @@ class CategoriesScreen extends StatelessWidget {
             )
           : null,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page — see inventory_screen.dart. The
+      // band and the figures used to be fixed while the list scrolled
+      // inside what was left.
+      onRefresh: () => app.refreshList(app.loadCategories),
+      bottomPadding: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -47,7 +50,7 @@ class CategoriesScreen extends StatelessWidget {
             subtitle: 'Allocation and remaining balance per category.',
           ),
           const SizedBox(height: 14),
-          Expanded(child: _Body(canManage: canManage)),
+          _Body(canManage: canManage),
         ],
       ),
     );
@@ -79,7 +82,9 @@ class _Body extends StatelessWidget {
     final load = app.categoriesLoad;
 
     if (load.isLoading && app.categories.isEmpty) {
-      return Center(child: BrutSpinner());
+      // A fixed height, because a Center inside a scroll view has
+      // nothing to centre within.
+      return const SizedBox(height: 240, child: Center(child: BrutSpinner()));
     }
 
     if (load.hasFailed && app.categories.isEmpty) {
@@ -95,16 +100,15 @@ class _Body extends StatelessWidget {
       return _Empty(canManage: canManage);
     }
 
-    return RefreshIndicator(
-      onRefresh: () => app.refreshList(app.loadCategories),
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 96),
-        itemCount: app.categories.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (_, i) =>
-            _CategoryCard(category: app.categories[i], canManage: canManage),
-      ),
+    // The page owns the scroll and the refresh gesture now.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (i, category) in app.categories.indexed) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _CategoryCard(category: category, canManage: canManage),
+        ],
+      ],
     );
   }
 }

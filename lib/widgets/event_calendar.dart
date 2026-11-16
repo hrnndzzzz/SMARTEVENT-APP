@@ -22,13 +22,30 @@ import 'month_grid.dart';
 /// long after it was filed, and a month that hid them would hide the
 /// term's history.
 class EventCalendar extends StatefulWidget {
-  const EventCalendar({super.key, required this.events, this.onOpen});
+  const EventCalendar({
+    super.key,
+    required this.events,
+    this.onOpen,
+    this.embedded = false,
+  });
+
+  /// Whether something outside is already scrolling.
+  ///
+  /// The Events screen scrolls as one page, so there the calendar must
+  /// be a plain Column — a vertical viewport inside a vertical viewport
+  /// has no height to be given and throws on sight. The dashboard's
+  /// planner sheet is the opposite case: it sizes itself to its content
+  /// and so offers none, which is why it hands the calendar 62% of the
+  /// screen and needs it to scroll within that.
 
   final List<EventItem> events;
 
   /// Opening one. Null makes the agenda read-only, which is what a role
   /// without event access gets.
   final void Function(EventItem event)? onOpen;
+
+  /// See the constructor: true when the page already scrolls.
+  final bool embedded;
 
   @override
   State<EventCalendar> createState() => _EventCalendarState();
@@ -84,8 +101,8 @@ class _EventCalendarState extends State<EventCalendar> {
     final undated = widget.events.where((e) => e.on == null).length;
     final agenda = _on(_selected);
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 8),
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
@@ -200,6 +217,12 @@ class _EventCalendarState extends State<EventCalendar> {
           ),
         ],
       ],
+    );
+
+    if (widget.embedded) return body;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: body,
     );
   }
 }
