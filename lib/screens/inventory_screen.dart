@@ -59,8 +59,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
             )
           : null,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page, rather than a fixed top half and
+      // a list scrolling inside the bottom one.
+      //
+      // The band, the last-change note, four figures, a line of prose
+      // and two rows of filters came to about half the screen and none
+      // of it moved, so the catalogue was read through a letterbox.
+      // Reported as: "pwede ba kapag nag scroll up, nag-scroll up din
+      // lahat — para hindi yung half lang yung nakikita?"
+      //
+      // Pull-to-refresh moves up here with it; the list had its own.
+      onRefresh: app.loadCatalog,
+      // Clear of the New item button.
+      bottomPadding: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -116,29 +127,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: switch (load) {
-              _ when load.isLoading && app.catalog.isEmpty => const Center(
-                child: BrutSpinner(),
-              ),
-              _ when load.hasFailed && app.catalog.isEmpty => BrutRetry(
-                title: 'Could not load inventory',
-                message: load.error,
-                sessionExpired: load.sessionExpired,
-                onRetry: app.loadCatalog,
-              ),
-              _ when app.catalog.isEmpty => _Empty(canManage: canManage),
-              _ => _Grouped(
-                items: [
-                  for (final item in app.catalog)
-                    if (_stock.matches(item)) item,
-                ],
-                onRefresh: () => app.refreshList(app.loadCatalog),
-                emptyLabel: _stock.label.toLowerCase(),
-                canMove: canMove,
-              ),
-            },
-          ),
+          // No longer Expanded: there is one scroll now and this is the
+          // bottom of it. The three states that used to fill the
+          // remaining height are given a height of their own instead,
+          // since a Center with nothing to centre inside collapses.
+          switch (load) {
+            _ when load.isLoading && app.catalog.isEmpty => const SizedBox(
+              height: 240,
+              child: Center(child: BrutSpinner()),
+            ),
+            _ when load.hasFailed && app.catalog.isEmpty => BrutRetry(
+              title: 'Could not load inventory',
+              message: load.error,
+              sessionExpired: load.sessionExpired,
+              onRetry: app.loadCatalog,
+            ),
+            _ when app.catalog.isEmpty => _Empty(canManage: canManage),
+            _ => _Grouped(
+              items: [
+                for (final item in app.catalog)
+                  if (_stock.matches(item)) item,
+              ],
+              onRefresh: () => app.refreshList(app.loadCatalog),
+              emptyLabel: _stock.label.toLowerCase(),
+              canMove: canMove,
+            ),
+          },
         ],
       ),
     );
@@ -627,36 +641,36 @@ class _Grouped extends StatelessWidget {
         return a.toLowerCase().compareTo(b.toLowerCase());
       });
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 96),
-        children: [
-          for (final place in places) ...[
-            BrutSectionTitle(
-              place,
-              aside: MonoLabel('${byPlace[place]!.length}'),
+    // A Column, not a ListView. The page scrolls as one now, so a
+    // second scrollable inside it would be the letterbox again — and
+    // pull-to-refresh lives on the page, where the gesture works
+    // whether or not there is a list under your thumb.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final place in places) ...[
+          BrutSectionTitle(
+            place,
+            aside: MonoLabel('${byPlace[place]!.length}'),
+          ),
+          const SizedBox(height: AppLayout.between),
+          for (final item in byPlace[place]!) ...[
+            _ItemCard(
+              item: item,
+              // A draft has no event to move stock against, so it is
+              // confirmed from its own page before anything moves.
+              onMove: (canMove && item.isUsable)
+                  ? () async {
+                      final moved = await showMovementSheet(context, item);
+                      if (moved) await onRefresh();
+                    }
+                  : null,
             ),
-            const SizedBox(height: AppLayout.between),
-            for (final item in byPlace[place]!) ...[
-              _ItemCard(
-                item: item,
-                // A draft has no event to move stock against, so it is
-                // confirmed from its own page before anything moves.
-                onMove: (canMove && item.isUsable)
-                    ? () async {
-                        final moved = await showMovementSheet(context, item);
-                        if (moved) await onRefresh();
-                      }
-                    : null,
-              ),
-              const SizedBox(height: 10),
-            ],
-            const SizedBox(height: AppLayout.tight),
+            const SizedBox(height: 10),
           ],
+          const SizedBox(height: AppLayout.tight),
         ],
-      ),
+      ],
     );
   }
 }
