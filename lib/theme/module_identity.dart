@@ -17,10 +17,12 @@ import 'app_colors.dart';
 /// The hue is only half of the separation. The other half is weight: a
 /// module is a large, quiet field and a status is a small, bright mark,
 /// so you can tell a band from a chip without knowing either colour.
-/// On the cream the field is the darker of the two; on the navy it is
-/// the dimmer one, and the chip is what stands off the page. Both ways
-/// round the band recedes and the chip does not, which is the thing
-/// that has to stay true.
+/// The band recedes and the chip does not, on the cream and on the navy
+/// alike — which is the thing that has to stay true, and is now a
+/// number rather than a habit. Every colour below is under
+/// [AppColors.bandLuminance] and every accent is over 0.22, so the
+/// seven bands carry one ink and the chips sitting on them carry the
+/// other.
 enum Module {
   events,
   money,
@@ -56,22 +58,34 @@ enum Module {
     Module.search => Icons.search,
   };
 
-  /// On the cream. Money keeps the department's orange — it is the one
-  /// module whose colour was already decided outside this file, so it is
-  /// [AppColors.orange] itself rather than a copy of its hex, and comes
-  /// down with it when the orange does.
+  /// On the cream: every one of them [AppColors.bandOnCream] of itself,
+  /// which is to say under [AppColors.bandLuminance] and carrying light
+  /// ink. Five already were. Two were not:
+  ///
+  /// * **Money** was [AppColors.orange] itself — the department's own
+  ///   colour, the one value here that was decided outside this file —
+  ///   at 0.28, the brightest field in the app. It is that orange still,
+  ///   to the degree and to the percent, held down to the band. The
+  ///   bright one has not gone anywhere: it is what the department pill,
+  ///   the avatar and the peso figure are, and those are chips.
+  /// * **Analytics** was a gold at 0.24, and the same hue deepened.
+  ///
+  /// So a menu of seven blocks prints seven titles in one colour, where
+  /// it used to print five light and two dark. The dashboard had the
+  /// same fault in a smaller place — four tiles whose icon blocks take
+  /// [color], two of them Money's.
   Color get color => switch (this) {
     Module.events => const Color(0xFF2E6F9E),
-    Module.money => AppColors.orange,
+    Module.money => const Color(0xFFAE4E19),
     Module.inventory => const Color(0xFF6F4E8E),
-    Module.reports => const Color(0xFFB5791F),
+    Module.reports => const Color(0xFF906019),
     Module.flagged => const Color(0xFFA8322A),
     Module.admin => const Color(0xFF3F6B4F),
     Module.search => const Color(0xFF5B5750),
   };
 
   /// On the navy: [color] run through [AppColors.onDarkCanvas] at
-  /// [AppColors.darkBandLuminance], which is the whole of the rule.
+  /// [AppColors.bandLuminance], which is the whole of the rule.
   ///
   /// These are the largest areas of colour in the app — a band is the
   /// full width of the screen and a menu block is a quarter of it — so
@@ -89,7 +103,7 @@ enum Module {
     Module.events => const Color(0xFF346F9B),
     Module.money => const Color(0xFF9D5934),
     Module.inventory => const Color(0xFF7F5AA3),
-    Module.reports => const Color(0xFF88642D),
+    Module.reports => const Color(0xFF88632D),
     Module.flagged => const Color(0xFFB6443D),
     Module.admin => const Color(0xFF457556),
     Module.search => const Color(0xFF6E6A61),

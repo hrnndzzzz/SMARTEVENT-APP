@@ -220,7 +220,7 @@ void main() {
     });
   });
 
-  group('the dark canvas has two bands, and neither straddles the line', () {
+  group('the navy has two bands, and neither straddles the line', () {
     // `foregroundOn` picks the ink by measuring the fill against 0.22.
     // A set of fills scattered across that number is a set that prints
     // its labels in two colours, which is what the dark menu did: the
@@ -300,7 +300,7 @@ void main() {
         expect(
           AppColors.onDarkCanvas(
             module.color,
-            luminance: AppColors.darkBandLuminance,
+            luminance: AppColors.bandLuminance,
           ),
           module.colorDark,
           reason: '${module.name} has been set by hand',
@@ -350,16 +350,112 @@ void main() {
     });
   });
 
-  test('a fill that carries ink is light enough to', () {
-    // `foregroundOn` picks ink above 0.22 relative luminance. Every
-    // light-theme accent is meant to be an ink-bearing fill, so one
-    // that drops below the line silently turns its own labels white.
-    for (final entry in accents.entries) {
-      final light = entry.value.$1;
+  group('and so does the cream', () {
+    // The same two bands, the same line, and the same fault before it
+    // was measured — only quieter, because nothing on a cream page
+    // glows. Money sat at 0.28 and Analytics at 0.24 with dark ink on
+    // them while the other five modules carried light ink.
+    const threshold = 0.22;
+
+    test('every accent sits above it', () {
+      // `foregroundOn` picks ink above 0.22 relative luminance. Every
+      // light-theme accent is meant to be an ink-bearing fill, so one
+      // that drops below the line silently turns its own labels white.
+      for (final entry in accents.entries) {
+        final light = entry.value.$1;
+        expect(
+          light.computeLuminance(),
+          greaterThan(threshold),
+          reason: '${entry.key} is too dark to carry ink',
+        );
+      }
+    });
+
+    test('every band and menu block sits under the ceiling', () {
+      // The tolerance is 8-bit quantisation and nothing else: the
+      // solver bisects in HSL and then lands on whichever of the 16.7
+      // million colours is nearest, which can overshoot the target by
+      // a couple of ten-thousandths. The line it must not cross is
+      // 0.22, three quarters of the way away.
+      for (final module in Module.values) {
+        expect(
+          module.color.computeLuminance(),
+          lessThanOrEqualTo(AppColors.bandLuminance + 0.001),
+          reason: '${module.name} is brighter than a large field may be, '
+              'so it takes dark ink while its neighbours take light',
+        );
+      }
+    });
+
+    test('and the small text printed on a block still reads', () {
+      // Same 4.5:1, same light ink: `foregroundOn` hands back
+      // `inkDark` on a dim fill whichever theme asked.
+      for (final module in Module.values) {
+        expect(
+          contrast(module.color, AppColors.inkDark),
+          greaterThanOrEqualTo(4.5),
+          reason: "${module.name}'s subtitle is too faint on it",
+        );
+      }
+    });
+
+    test('every band is bandOnCream of itself', () {
+      // The rule is a ceiling, so it is idempotent: a colour already
+      // under the band comes back untouched. That makes "the set obeys
+      // the rule" and "the set is the rule's output" the same
+      // assertion, which is the thing the dark side needs six separate
+      // equalities to say.
+      for (final module in Module.values) {
+        expect(
+          AppColors.bandOnCream(module.color),
+          module.color,
+          reason: '${module.name} is not where the rule would put it',
+        );
+      }
+    });
+
+    test("Money's band is the department's own orange, held down", () {
+      // The one module whose colour was decided outside the palette, so
+      // the only one where darkening the band is a decision about the
+      // department rather than about brightness. Same hue to a tenth of
+      // a degree; nothing else is claimed.
+      expect(Module.money.color, AppColors.bandOnCream(AppColors.orange));
+      expect(gap(Module.money.color, AppColors.orange), lessThanOrEqualTo(2));
       expect(
-        light.computeLuminance(),
+        AppColors.orange.computeLuminance(),
         greaterThan(0.22),
-        reason: '${entry.key} is too dark to carry ink',
+        reason: 'the bright orange is still a chip colour — the pill, the '
+            'avatar and the peso figure are all it',
+      );
+    });
+
+    test('holding a field down does not move its hue', () {
+      for (final accent in AppColors.accents) {
+        expect(
+          gap(accent, AppColors.bandOnCream(accent)),
+          lessThanOrEqualTo(2),
+          reason: 'bandOnCream changed the colour rather than its strength',
+        );
+      }
+    });
+  });
+
+  test('one grid of blocks prints its titles in one ink', () {
+    // The complaint, as one line, in both themes. `foregroundOn` picks
+    // by a threshold, so a set of module fills is coherent exactly when
+    // every one of them falls on the same side of it — and the menu
+    // draws all seven at once, which is the only place in the app where
+    // the whole set can be seen as a set.
+    for (final onCream in [true, false]) {
+      final inks = {
+        for (final module in Module.values)
+          (onCream ? module.color : module.colorDark).computeLuminance() > 0.22,
+      };
+      expect(
+        inks,
+        hasLength(1),
+        reason: 'the ${onCream ? 'cream' : 'navy'} menu prints its seven '
+            'titles in two different colours',
       );
     }
   });

@@ -25,21 +25,27 @@ import 'package:flutter/material.dart';
 /// them. A colour already quieter than the cap is left where it is — the
 /// cap only ever brings one down.
 ///
-/// **Brightness on the navy** is set outright, because saturation is not
-/// the thing that makes a dark screen glare. A fill is put in one of two
-/// bands by what it is for:
+/// **Brightness** is set outright, because saturation is not the thing
+/// that makes a screen glare. A fill goes into one of two bands by what
+/// it is for, and `foregroundOn` reads the band back off it:
 ///
-/// * [darkAccentLuminance] — chips, badges, buttons, the department pill.
-///   Small marks that have to carry a signal, so they stay above
-///   `foregroundOn`'s 0.22 line and take dark ink.
-/// * [darkBandLuminance] — module bands and menu blocks. Large fields,
-///   so they go well below that line and take light ink.
+/// * Small marks — chips, badges, buttons, the department pill, the icon
+///   block on a dashboard tile. They have to carry a signal, so they
+///   stay above `foregroundOn`'s 0.22 line and take dark ink. On the
+///   navy that is [darkAccentLuminance]; on the cream every accent was
+///   already up there.
+/// * Large fields — module bands and menu blocks. They go below the
+///   line and take light ink, at [bandLuminance] in either theme.
 ///
-/// Neither band touches the line, which is the point. Before this the
-/// dark fills were scattered across it: the Analytics block sat at 0.37
-/// and the Inventory block at 0.19, so the menu showed four blocks, two
-/// of them with dark text and two with light, and the two warm ones were
-/// the brightest things on the screen — brighter than the text.
+/// Neither band touches the line, which is the whole point: a set of
+/// fills scattered across it is a set that prints its labels in two
+/// colours. Both themes did. On the navy the Analytics block sat at 0.37
+/// and Inventory at 0.19, and the two warm ones were the brightest
+/// things on the screen — brighter than the text on them. On the cream
+/// it was quieter and exactly the same fault: Money at 0.28 and
+/// Analytics at 0.24 carried dark ink while the other five carried
+/// light, across one grid of seven menu blocks and one row of four
+/// dashboard tiles.
 class AppColors {
   AppColors._();
 
@@ -69,10 +75,20 @@ class AppColors {
   /// every chip and badge carries dark ink.
   static const double darkAccentLuminance = 0.27;
 
-  /// Where a large one sits: below it, so every band and menu block
-  /// carries light ink. 0.145 is as bright as a block can be and still
-  /// clear 4.5:1 against [inkDark] for the small text printed on it.
-  static const double darkBandLuminance = 0.145;
+  /// Where a large field sits, on either canvas: below the line, so
+  /// every band and menu block carries light ink.
+  ///
+  /// 0.145 is as bright as a block can be and still clear 4.5:1 against
+  /// [inkDark] for the small text printed on it — and [inkDark] is the
+  /// light ink in both themes, which is why one number does for both.
+  ///
+  /// On the navy it is a value: every band is set to it exactly, because
+  /// every band there is derived. On the cream it is a *ceiling*, and
+  /// only the two that were over it came down. Holding the other five up
+  /// to it would have made Inventory, Flagged, Administration and Search
+  /// brighter than they already are, which is the opposite of what was
+  /// asked for.
+  static const double bandLuminance = 0.145;
 
   // ── Accents ───────────────────────────────────────────────────────────
   /// The brand, and every primary action. Blue.
@@ -225,22 +241,44 @@ class AppColors {
   /// strength, so on CITE's dark dashboard the brand pill, the avatar,
   /// the peso figure and the budget bar were all the bright orange while
   /// every other accent on the screen had been held down.
-  static Color onDarkCanvas(Color accent, {double? luminance}) {
-    final target = luminance ?? darkAccentLuminance;
-    final key = (accent.toARGB32(), target);
-    return _held[key] ??= _solve(accent, target);
+  static Color onDarkCanvas(Color accent, {double? luminance}) =>
+      _hold(accent, luminance ?? darkAccentLuminance, darkSaturationCap);
+
+  /// What [accent] becomes as a large field on the cream: the same hue,
+  /// its saturation up to [lightSaturationCap], and its brightness
+  /// brought down to [bandLuminance] if it was over it.
+  ///
+  /// The light twin of [onDarkCanvas], and a ceiling rather than a
+  /// setting — a colour already within both rules is handed back
+  /// untouched rather than put through the round trip, so five of the
+  /// seven module colours are literally unchanged by it.
+  static Color bandOnCream(Color accent) {
+    final hsl = HSLColor.fromColor(accent);
+    if (hsl.saturation <= lightSaturationCap &&
+        accent.computeLuminance() <= bandLuminance) {
+      return accent;
+    }
+    return _hold(accent, bandLuminance, lightSaturationCap);
   }
 
-  static final Map<(int, double), Color> _held = {};
+  static final Map<(int, double, double), Color> _held = {};
+
+  static Color _hold(Color accent, double target, double cap) {
+    final key = (accent.toARGB32(), target, cap);
+    return _held[key] ??= _solve(accent, target, cap);
+  }
 
   /// Bisection, because relative luminance has no closed form in HSL.
   /// Twenty-four halvings of [0, 1] land inside a 24-bit colour's own
   /// precision, so the result is exact for this purpose and stable.
-  static Color _solve(Color accent, double target) {
+  ///
+  /// [cap] is part of the memo key as well as the maths: the two callers
+  /// ask for the same [bandLuminance] under different caps, and keying
+  /// on the target alone would have handed one of them the other's
+  /// answer.
+  static Color _solve(Color accent, double target, double cap) {
     final hsl = HSLColor.fromColor(accent);
-    final held = hsl.withSaturation(
-      math.min(hsl.saturation, darkSaturationCap),
-    );
+    final held = hsl.withSaturation(math.min(hsl.saturation, cap));
     var low = 0.0;
     var high = 1.0;
     for (var i = 0; i < 24; i++) {
