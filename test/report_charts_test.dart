@@ -2,14 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:smartevent/state/demo_data.dart';
 import 'package:smartevent/widgets/report_charts.dart';
 
-/// Five charts, defined once so the tile in the grid and the page it
+/// Six charts, defined once so the tile in the grid and the page it
 /// opens cannot drift apart, and all drawn from the report itself.
 void main() {
   final report = DemoData.financialReport();
 
-  test('there are five of them, the trend first', () {
+  test('there are six of them, the trend first', () {
     final charts = ReportChart.all(report);
-    expect(charts, hasLength(5));
+    expect(charts, hasLength(6));
     expect(charts.first.title, 'Over time');
   });
 
@@ -19,7 +19,7 @@ void main() {
       expect(chart.title.trim(), isNotEmpty);
       expect(chart.explanation.trim(), isNotEmpty);
     }
-    expect({for (final c in charts) c.title}, hasLength(5));
+    expect({for (final c in charts) c.title}, hasLength(6));
   });
 
   test('they cover income as well as spending', () {
@@ -27,10 +27,10 @@ void main() {
     expect(titles.join(' '), allOf(contains('came from'), contains('went')));
   });
 
-  test('no report yet still defines five charts, with no figures', () {
+  test('no report yet still defines six charts, with no figures', () {
     // Nothing loaded is a normal state, not a reason to show nothing.
     final charts = ReportChart.all(null);
-    expect(charts, hasLength(5));
+    expect(charts, hasLength(6));
     expect(charts.every((c) => c.rows.isEmpty), isTrue);
   });
 
@@ -52,10 +52,26 @@ void main() {
   test('income sources are summed by type, largest first', () {
     final types = incomeByType(report.incomeBySource);
     expect(types.first.$2, greaterThanOrEqualTo(types.last.$2));
-    expect(
-      types.fold(0.0, (sum, t) => sum + t.$2),
-      report.totalIncome,
-    );
+    expect(types.fold(0.0, (sum, t) => sum + t.$2), report.totalIncome);
+  });
+
+  test('proposals count every sent event, accepted and rejected', () {
+    // Demo: 1 pending, 1 approved, 1 rejected, 2 drafts, 1 completed.
+    final d = DemoData.dashboard();
+    expect(d.proposedEventCount, 4);
+    expect(d.acceptedEventCount, 2);
+    expect(d.rejectedEventCount, 1);
+
+    final proposals = ReportChart.all(
+      report,
+      dashboard: d,
+      summary: DemoData.proposalSummary(),
+    ).firstWhere((c) => c.title == 'Proposals');
+    expect(proposals.rows.map((r) => r.value), ['4', '2', '1', '1']);
+    expect(proposals.notes.map((n) => n.$2), [
+      DemoData.proposalSummary().accepted,
+      DemoData.proposalSummary().rejected,
+    ]);
   });
 
   test('axis labels stay short', () {

@@ -241,6 +241,7 @@ class OfflineSync extends ChangeNotifier {
         '/inventory/low-stock',
         '/analytics/dashboard',
         '/analytics/threats',
+        '/analytics/proposal-summary',
         '/notifications/unread-count',
       ]) {
         read(path);

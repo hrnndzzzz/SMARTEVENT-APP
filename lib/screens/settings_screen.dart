@@ -5,6 +5,8 @@ import '../state/app_icon.dart';
 import '../state/app_settings.dart';
 import '../state/app_state.dart';
 import '../state/user_role.dart';
+import 'about_screen.dart';
+import 'help_screen.dart';
 import 'sap/sap_review_demo_screen.dart';
 import '../state/sfx.dart';
 import '../widgets/backend_address_card.dart';
@@ -176,6 +178,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'this phone. Add one in the system settings and it will '
                   'be offered here.',
             ),
+          const SizedBox(height: 20),
+          const BrutSectionTitle('More'),
+          const SizedBox(height: 10),
+          BrutListRow(
+            title: 'Help and support',
+            meta: 'How the app actually works',
+            marker: const BrutIconTile(size: 32, icon: Icons.help_outline),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
+          ),
+          const SizedBox(height: 8),
+          BrutListRow(
+            title: 'About SmartEvent',
+            meta: 'Version, modules and credits',
+            marker: const BrutIconTile(size: 32, icon: Icons.info_outline),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
+            ),
+          ),
         ],
       ),
     );

@@ -1066,6 +1066,18 @@ abstract final class DemoData {
     draftInventoryCount: 1,
   );
 
+  /// A fixed stand-in for the AI summary, since the demo asks no server.
+  static ProposalSummary proposalSummary() => const ProposalSummary(
+    accepted:
+        'Accepted proposals arrived with a budget that matched its '
+        'breakdown, a program flow inside the activity window and the '
+        'clearance attached, so reviewers approved them on the first pass.',
+    rejected:
+        'Rejections mostly came down to the budget: totals that did not add '
+        'up or costs without a quotation. Missing clearances and dates too '
+        'close to the activity were the next most common reasons.',
+  );
+
   /// Six months of spending, ending on the current month so the chart
   /// never reads as stale during a walkthrough.
   static List<SpendingTrendPoint> spendingTrends() {

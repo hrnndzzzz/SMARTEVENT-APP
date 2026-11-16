@@ -43,6 +43,8 @@ class ReportChart {
     required this.explanation,
     required this.build,
     this.rows = const [],
+    this.notes = const [],
+    this.notesCaption,
   });
 
   final String title;
@@ -52,8 +54,21 @@ class ReportChart {
   final Widget Function(BuildContext context, bool large) build;
   final List<ChartRow> rows;
 
+  /// Short readings under the chart on its own page, as (heading, text).
+  final List<(String, String)> notes;
+
+  /// Where [notes] came from, said under them.
+  final String? notesCaption;
+
   /// The trend first: it is drawn full width above the others.
-  static List<ReportChart> all(ConsolidatedFinancialReport? report) {
+  ///
+  /// The proposals chart counts events rather than money, so it reads
+  /// [dashboard] instead of the report.
+  static List<ReportChart> all(
+    ConsolidatedFinancialReport? report, {
+    DashboardSummary? dashboard,
+    ProposalSummary? summary,
+  }) {
     final events = report?.events ?? const <FinancialEventSummary>[];
     final budgeted = [
       for (final e in events)
@@ -177,7 +192,92 @@ class ReportChart {
             ),
         ],
       ),
+      ReportChart(
+        title: 'Proposals',
+        explanation:
+            'Every event sent for review, and how many were accepted or '
+            'rejected. Counts every event on record, not only this period.',
+        build: (context, large) =>
+            ProposalsChart(dashboard: dashboard, large: large),
+        rows: [
+          if (dashboard case final d?) ...[
+            ChartRow(label: 'Proposed', value: '${d.proposedEventCount}'),
+            ChartRow(label: 'Accepted', value: '${d.acceptedEventCount}'),
+            ChartRow(label: 'Rejected', value: '${d.rejectedEventCount}'),
+            ChartRow(
+              label: 'Waiting',
+              value:
+                  '${d.proposedEventCount - d.acceptedEventCount - d.rejectedEventCount}',
+              detail: 'Still in review',
+            ),
+          ],
+        ],
+        notes: [
+          (
+            'What gets proposals accepted',
+            summary?.accepted ?? 'Not enough decisions to summarise yet.',
+          ),
+          (
+            'What causes rejections',
+            summary?.rejected ?? 'Not enough decisions to summarise yet.',
+          ),
+        ],
+        notesCaption: "Written by AI from reviewers' remarks.",
+      ),
     ];
+  }
+}
+
+/// Proposed, accepted and rejected as three bars measured against the
+/// proposed total.
+class ProposalsChart extends StatelessWidget {
+  const ProposalsChart({
+    super.key,
+    required this.dashboard,
+    this.large = false,
+  });
+
+  final DashboardSummary? dashboard;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = dashboard;
+    if (d == null || d.proposedEventCount == 0) {
+      return const _NoData(message: 'No proposal has been sent yet.');
+    }
+    final total = d.proposedEventCount;
+    final bars = [
+      ('Proposed', total, BrutTone.brand),
+      ('Accepted', d.acceptedEventCount, BrutTone.mint),
+      ('Rejected', d.rejectedEventCount, BrutTone.coral),
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (label, count, tone) in bars) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppText.body.copyWith(fontSize: 12.5),
+                ),
+              ),
+              Text('$count', style: AppText.number.copyWith(fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          BrutProgressBar(
+            value: count / total,
+            tone: tone,
+            height: large ? 18 : BrutProgressBar.thickness,
+          ),
+          SizedBox(height: large ? 14 : 10),
+        ],
+      ],
+    );
   }
 }
 
@@ -208,8 +308,18 @@ String compactPeso(num value) {
 }
 
 const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 /// "Sep" or "19" on an axis; "September 2026" or "19 Sep 2026" in a list.
@@ -395,12 +505,9 @@ class BudgetVsActualChart extends StatelessWidget {
         _Series('Budget', context.palette.brandTint, [
           for (final e in events) e.allocatedBudget,
         ]),
-        _Series(
-          'Spent',
-          spent,
-          [for (final e in events) e.spentToDate],
-          colourAt: (i) => events[i].isOverBudget ? over : spent,
-        ),
+        _Series('Spent', spent, [
+          for (final e in events) e.spentToDate,
+        ], colourAt: (i) => events[i].isOverBudget ? over : spent),
       ],
       legend: [LegendDot(color: over, label: 'Over budget')],
     );
@@ -545,7 +652,10 @@ class TrendChart extends StatelessWidget {
           isCurved: true,
           preventCurveOverShooting: true,
           dotData: FlDotData(show: points.length <= 12),
-          belowBarData: BarAreaData(show: true, color: c.withValues(alpha: 0.15)),
+          belowBarData: BarAreaData(
+            show: true,
+            color: c.withValues(alpha: 0.15),
+          ),
         );
 
     final chart = LineChart(

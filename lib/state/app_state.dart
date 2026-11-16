@@ -1253,6 +1253,25 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// What reviewers' remarks say about accepted and rejected proposals,
+  /// for the same organization as [loadOrganizationDashboard].
+  ProposalSummary? proposalSummary;
+
+  /// No LoadState and no error shown: the chart's counts are the figures,
+  /// and a summary that could not be written leaves its placeholder.
+  /// Callers do not await it, so a slow AI call never holds up a refresh.
+  Future<void> loadProposalSummary() async {
+    if (_demoMode) return;
+    try {
+      proposalSummary = await _reportsService.proposalSummary(
+        organizationId: reportOrganizationId,
+      );
+    } catch (_) {
+      proposalSummary = null;
+    }
+    notifyListeners();
+  }
+
   Future<void> loadFlaggedExpenses() => _runLoad(flaggedLoad, () async {
     flaggedExpenses = await _reportsService.flagged();
   });
@@ -3925,6 +3944,7 @@ class AppState extends ChangeNotifier {
     financialReport = DemoData.financialReport();
     receipts = DemoData.receipts();
     dashboard = DemoData.dashboard();
+    proposalSummary = DemoData.proposalSummary();
     spendingTrends = DemoData.spendingTrends();
     notices = DemoData.notices();
     unreadNoticeCount = notices.where((n) => n.isUnread).length;
@@ -4091,6 +4111,9 @@ class AppState extends ChangeNotifier {
     await loadSchoolYears();
     await loadScopeOptions();
     await loadDashboard();
+    // The dashboard's chart is one of Analytics' charts, built from this.
+    await loadFinancialReport();
+    unawaited(loadProposalSummary());
     await loadNotices();
     // Officers have no letter access at all, so this is gated too.
     if (currentRole?.canAccessProposalLetters ?? false) await loadLetters();
@@ -4383,6 +4406,7 @@ class AppState extends ChangeNotifier {
     auditLog = [];
     dashboard = null;
     organizationDashboard = null;
+    proposalSummary = null;
     reportOrganizationId = null;
     spendingTrends = [];
     flaggedExpenses = [];

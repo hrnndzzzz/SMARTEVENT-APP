@@ -202,11 +202,34 @@ void main() {
       await open(tester);
 
       final headingBottom = tester.getBottomLeft(find.text('Analytics')).dy;
-      final chartTop = tester
-          .getTopLeft(find.text('SPENDING, LAST 6 MONTHS'))
-          .dy;
+      // The first Analytics chart until another is picked.
+      final chartTop = tester.getTopLeft(find.text('Over time')).dy;
 
       expect(chartTop, greaterThan(headingBottom));
+    });
+
+    testWidgets('Change swaps the chart for another of Analytics\'', (
+      tester,
+    ) async {
+      await open(tester);
+
+      await tester.tap(find.text('Change'));
+      // One frame to start the sheet sliding in, then time for it to land.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Dashboard chart'), findsOneWidget);
+      await tester.tap(find.text('Proposals').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+
+      final settings = tester
+          .element(find.byType(HomeScreen))
+          .read<AppSettings>();
+      expect(settings.dashboardChart, 'Proposals');
+      expect(find.text('Dashboard chart'), findsNothing);
+      expect(find.text('Proposals'), findsOneWidget);
+      expect(find.text('Over time'), findsNothing);
     });
   });
 

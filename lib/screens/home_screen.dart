@@ -17,6 +17,8 @@ import '../widgets/app_header.dart';
 import '../widgets/budget_peek.dart';
 import '../widgets/event_progress_bar.dart';
 import '../widgets/floating_peek.dart';
+import '../widgets/report_charts.dart';
+import '../widgets/report_tiles.dart';
 import 'event_detail_screen.dart';
 import 'events_screen.dart';
 import 'expenses_screen.dart';
@@ -70,6 +72,20 @@ class HomeScreen extends StatelessWidget {
     final remaining = app.remainingBalance;
     final spent = app.totalExpended;
     final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
+
+    // The same scope Analytics shows, so a tap opens the same figures.
+    final charts = ReportChart.all(
+      app.financialReport,
+      dashboard: app.reportOrganizationId == null
+          ? app.dashboard
+          : app.organizationDashboard,
+      summary: app.proposalSummary,
+    );
+    final picked = context.watch<AppSettings>().dashboardChart;
+    final chart = charts.firstWhere(
+      (c) => c.title == picked,
+      orElse: () => charts.first,
+    );
 
     return BrutScreen(
       onRefresh: app.refreshAll,
@@ -203,7 +219,8 @@ class HomeScreen extends StatelessWidget {
                     // waiting on a decision is the same module's
                     // number, about the same events, that somebody can
                     // do something with.
-                    value: '${app.events.where((e) => e.status.isPending).length}',
+                    value:
+                        '${app.events.where((e) => e.status.isPending).length}',
                     label: 'Events waiting',
                     opens: 'events',
                     trend: _Trend.up,
@@ -306,9 +323,10 @@ class HomeScreen extends StatelessWidget {
           // Events tile shows all of it, which is what it was for, and
           // the Events tab is one tap away.
           // ── Analytics ────────────────────────────────────────────
-          // The chart only. The three counts it used to sit under are
-          // in the grid at the top now.
-          if (app.spendingTrends.length > 1) ...[
+          // One of Analytics' own charts, whichever was picked with
+          // Change, so the dashboard and Analytics never draw the same
+          // figures two different ways.
+          if (app.financialReport != null || app.dashboard != null) ...[
             // A section gap, which this heading never had: it sat
             // directly on the tile row above and its text overlapped
             // the cards' drop shadow. Every other block on this screen
@@ -317,12 +335,23 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: AppLayout.section),
             BrutSectionTitle(
               'Analytics',
-              aside: _SeeAll(onTap: () => _open(context, 'reports')),
+              aside: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SeeAll(
+                    label: 'Change',
+                    onTap: () => _pickChart(context, charts, chart.title),
+                  ),
+                  _SeeAll(onTap: () => _open(context, 'reports')),
+                ],
+              ),
             ),
             const SizedBox(height: AppLayout.tight),
             // Whatever is left over, so the page ends exactly at the
             // bottom instead of running past it.
-            Expanded(child: _SpendingTrend(points: app.spendingTrends)),
+            Expanded(
+              child: ReportChartTile(chart: chart, height: null, width: 360),
+            ),
           ],
         ],
       ),
@@ -539,9 +568,10 @@ class _TrendBadge extends StatelessWidget {
 /// The "see all" affordance on a section heading. A section whose title
 /// is not tappable looks like a label; this says the module is there.
 class _SeeAll extends StatelessWidget {
-  const _SeeAll({required this.onTap});
+  const _SeeAll({required this.onTap, this.label = 'See all'});
 
   final VoidCallback onTap;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +585,7 @@ class _SeeAll extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'See all',
+              label,
               style: AppText.caption.copyWith(
                 color: p.muted,
                 fontWeight: FontWeight.w700,
@@ -739,84 +769,38 @@ class _NextUpState extends State<_NextUp> with SingleTickerProviderStateMixin {
   }
 }
 
-/// Six months of spending as bars. Deliberately not a charting library:
-/// the shape is the whole message, and the figures are a tap away in
-/// Reports for anyone who wants them.
-class _SpendingTrend extends StatelessWidget {
-  const _SpendingTrend({required this.points});
-
-  final List<SpendingTrendPoint> points;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final peak = points.fold<double>(
-      0,
-      (most, point) => point.totalAmount > most ? point.totalAmount : most,
-    );
-
-    return BrutCard(
-      radius: AppRadius.rowAll,
-      padding: const EdgeInsets.all(12),
+/// Which Analytics chart the dashboard shows. Kept on this phone.
+void _pickChart(
+  BuildContext context,
+  List<ReportChart> charts,
+  String current,
+) {
+  BrutSheet.show<void>(
+    context,
+    builder: (sheetContext) => BrutSheet(
+      title: 'Dashboard chart',
+      subtitle: 'Pick the Analytics chart to show on the dashboard.',
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const MonoLabel('Spending, last 6 months'),
-          const SizedBox(height: 12),
-          // Takes the height it is given rather than a fixed 56: the
-          // card is the last thing on a page that no longer scrolls,
-          // so its share is whatever the rest did not use.
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final point in points) ...[
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        // Expanded first: a FractionallySizedBox needs a
-                        // bounded height to take a fraction of, and a
-                        // Column hands its children unbounded height.
-                        Expanded(
-                          child: FractionallySizedBox(
-                            alignment: Alignment.bottomCenter,
-                            // A month with nothing spent still gets a
-                            // sliver, so the gap reads as zero rather
-                            // than as missing.
-                            heightFactor: peak == 0
-                                ? 0.04
-                                : (point.totalAmount / peak).clamp(0.04, 1.0),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: point == points.last
-                                    ? p.brandTint
-                                    : p.muted.withValues(alpha: 0.35),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          point.month.substring(5),
-                          style: AppText.caption.copyWith(
-                            fontSize: 9,
-                            color: p.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (point != points.last) const SizedBox(width: 5),
-                ],
-              ],
+          for (final c in charts) ...[
+            BrutListRow(
+              title: c.title,
+              trailing: c.title == current
+                  ? const Icon(Icons.check, size: 18)
+                  : null,
+              onTap: () {
+                context.read<AppSettings>().setDashboardChart(c.title);
+                Navigator.of(sheetContext).pop();
+              },
             ),
-          ),
+            const SizedBox(height: 8),
+          ],
         ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// Where an alert row goes when tapped.

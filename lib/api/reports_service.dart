@@ -26,6 +26,18 @@ class ReportsService {
     return DashboardSummary.fromJson(response as Map<String, dynamic>);
   }
 
+  /// The AI-written reading of reviewers' remarks, in the same scope as
+  /// [dashboard].
+  Future<ProposalSummary> proposalSummary({String? organizationId}) async {
+    final response = await _client.get(
+      '/analytics/proposal-summary',
+      query: organizationId == null
+          ? null
+          : {'organization_id': organizationId},
+    );
+    return ProposalSummary.fromJson(response as Map<String, dynamic>);
+  }
+
   /// Approved-expense totals by month. Grouped by `created_at`, so label
   /// it as "recorded" rather than implying it matches a date-filtered
   /// report.

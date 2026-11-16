@@ -25,11 +25,19 @@ class ReportChartTile extends StatelessWidget {
   final ValueChanged<LedgerFilter>? onFilter;
 
   /// The space the chart is scaled into. A full-width tile is wider.
-  final double height;
+  /// A null height fills whatever height the tile is given.
+  final double? height;
   final double width;
 
   @override
   Widget build(BuildContext context) {
+    // Scaled rather than cropped, so whatever the chart draws is shrunk
+    // to fit instead of having its bottom cut off.
+    final scaled = FittedBox(
+      fit: BoxFit.contain,
+      alignment: Alignment.topCenter,
+      child: SizedBox(width: width, child: chart.build(context, false)),
+    );
     return BrutCard(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -39,7 +47,7 @@ class ReportChartTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: height == null ? MainAxisSize.max : MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -55,17 +63,11 @@ class ReportChartTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          // Scaled rather than cropped. Held to a height so the tiles
-          // make an even grid, and whatever the chart draws is shrunk to
-          // fit instead of having its bottom cut off.
-          SizedBox(
-            height: height,
-            child: FittedBox(
-              fit: BoxFit.contain,
-              alignment: Alignment.topCenter,
-              child: SizedBox(width: width, child: chart.build(context, false)),
-            ),
-          ),
+          // Held to a height so the tiles make an even grid.
+          if (height case final h?)
+            SizedBox(height: h, child: scaled)
+          else
+            Expanded(child: scaled),
         ],
       ),
     );
@@ -93,6 +95,16 @@ class _ChartPage extends StatelessWidget {
           Text(chart.explanation, style: AppText.caption),
           const SizedBox(height: 16),
           BrutCard(child: chart.build(context, true)),
+          for (final (heading, text) in chart.notes) ...[
+            const SizedBox(height: 20),
+            BrutSectionTitle(heading),
+            const SizedBox(height: 8),
+            Text(text, style: AppText.body),
+          ],
+          if (chart.notes.isNotEmpty && chart.notesCaption != null) ...[
+            const SizedBox(height: 8),
+            Text(chart.notesCaption!, style: AppText.caption),
+          ],
           if (chart.rows.isNotEmpty) ...[
             const SizedBox(height: 20),
             const BrutSectionTitle('The figures'),
