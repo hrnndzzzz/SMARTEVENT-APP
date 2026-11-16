@@ -49,6 +49,18 @@ class DashboardSummary {
 
   int get pendingExpenseCount => expensesByStatus['pending'] ?? 0;
 
+  /// Every event that was sent for review: all but the drafts still
+  /// being written (a returned proposal is a draft again until resent).
+  int get proposedEventCount => eventsByStatus.entries
+      .where((e) => e.key != 'draft')
+      .fold(0, (sum, e) => sum + e.value);
+
+  /// Approved, including the ones since held and closed.
+  int get acceptedEventCount =>
+      statusCount(eventsByStatus, ['approved', 'completed']);
+
+  int get rejectedEventCount => eventsByStatus['rejected'] ?? 0;
+
   static Map<String, int> _counts(Object? raw) {
     if (raw is! Map) return const {};
     return {
@@ -73,6 +85,22 @@ class DashboardSummary {
           (json['draft_inventory_count'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// What reviewers' remarks say about accepted and rejected proposals,
+/// written by AI on the server. Either side is null when there were no
+/// remarks to read, or the summary could not be written.
+class ProposalSummary {
+  final String? accepted;
+  final String? rejected;
+
+  const ProposalSummary({this.accepted, this.rejected});
+
+  factory ProposalSummary.fromJson(Map<String, dynamic> json) =>
+      ProposalSummary(
+        accepted: json['accepted'] as String?,
+        rejected: json['rejected'] as String?,
+      );
 }
 
 /// One month of approved spending — `SpendingTrendPoint`.
@@ -514,9 +542,8 @@ class ConsolidatedFinancialReport {
   bool get hasUnassignedSpending => unassignedExpenseTotal > 0;
 
   /// 0..n, where 1 is fully spent. Null when no budget is committed.
-  double? get budgetUsed => totalAllocatedBudget > 0
-      ? totalSpentToDate / totalAllocatedBudget
-      : null;
+  double? get budgetUsed =>
+      totalAllocatedBudget > 0 ? totalSpentToDate / totalAllocatedBudget : null;
 
   static DateTime? _date(Object? raw) =>
       raw == null ? null : DateTime.tryParse(raw as String);
@@ -549,19 +576,25 @@ class ConsolidatedFinancialReport {
       totalAllocatedBudget:
           (json['total_allocated_budget'] as num?)?.toDouble() ?? 0,
       totalSpentToDate: (json['total_spent_to_date'] as num?)?.toDouble() ?? 0,
-      expensesByCategory: _list(json['expenses_by_category'], CategorySpend.fromJson),
+      expensesByCategory: _list(
+        json['expenses_by_category'],
+        CategorySpend.fromJson,
+      ),
       trend: _list(json['trend'], ReportTrendPoint.fromJson),
       ledger: _list(json['ledger'], LedgerEntry.fromJson),
       previous: json['previous'] is Map
-          ? PeriodTotals.fromJson((json['previous'] as Map).cast<String, dynamic>())
+          ? PeriodTotals.fromJson(
+              (json['previous'] as Map).cast<String, dynamic>(),
+            )
           : null,
     );
   }
 
-  static List<T> _list<T>(Object? raw, T Function(Map<String, dynamic>) read) => [
-    for (final row in (raw as List? ?? const []))
-      read((row as Map).cast<String, dynamic>()),
-  ];
+  static List<T> _list<T>(Object? raw, T Function(Map<String, dynamic>) read) =>
+      [
+        for (final row in (raw as List? ?? const []))
+          read((row as Map).cast<String, dynamic>()),
+      ];
 }
 
 /// The four reporting periods.

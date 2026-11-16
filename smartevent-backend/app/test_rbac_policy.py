@@ -160,6 +160,7 @@ def test_protected_route_requires_authentication(client):
         "/expenses",
         "/inventory",
         "/analytics/dashboard",
+        "/analytics/proposal-summary",
         f"/reports/category/{uuid4()}",
         f"/recommendations/event-budget?category_id={uuid4()}",
     ],

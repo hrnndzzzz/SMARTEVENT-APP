@@ -2,21 +2,16 @@ import 'package:flutter/material.dart';
 import 'popover.dart';
 import 'package:provider/provider.dart';
 
-import '../screens/about_screen.dart';
 import '../screens/admin_screen.dart';
 import '../screens/edit_profile_screen.dart';
-import '../screens/help_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/welcome_screen.dart';
 import '../state/app_state.dart';
 import '../state/avatar.dart';
-import '../state/reachability.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
-import '../theme/palette.dart';
-import 'connection_banner.dart';
 import 'user_avatar.dart';
 
 /// The menu behind the avatar.
@@ -154,9 +149,8 @@ class _AccountMenu extends StatelessWidget {
               ),
             ],
           ),
+          // No connection row: the banner and the dot on the avatar say it.
           const SizedBox(height: AppLayout.between),
-          const _StatusRow(),
-          const SizedBox(height: 10),
           _MenuRow(
             icon: Icons.person_outline,
             title: 'Edit profile',
@@ -179,23 +173,8 @@ class _AccountMenu extends StatelessWidget {
           _MenuRow(
             icon: Icons.settings_outlined,
             title: 'Settings',
-            hint: 'Theme and motion on this device',
+            hint: 'Theme, motion, help and about',
             onTap: () => _go(context, const SettingsScreen()),
-          ),
-
-          const SizedBox(height: 6),
-          _MenuRow(
-            icon: Icons.help_outline,
-            title: 'Help and support',
-            hint: 'How the app actually works',
-            onTap: () => _go(context, const HelpScreen()),
-          ),
-          const SizedBox(height: 6),
-          _MenuRow(
-            icon: Icons.info_outline,
-            title: 'About SmartEvent',
-            hint: 'Version, modules and credits',
-            onTap: () => _go(context, const AboutScreen()),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -206,70 +185,6 @@ class _AccountMenu extends StatelessWidget {
               tone: BrutTone.coral,
               size: BrutSize.small,
               onPressed: () => _logOut(context),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Whether the backend is answering, one line, where you would look for
-/// it when something is not saving.
-class _StatusRow extends StatelessWidget {
-  const _StatusRow();
-
-  @override
-  Widget build(BuildContext context) {
-    // The demo talks to nothing, so there is no server to be answering.
-    // Reachability defaults to online when no request has been made, and
-    // in the demo none ever is — which reads as a claim about a server
-    // that was never contacted.
-    final demo = context.watch<AppState>().isDemoMode;
-    final state = context.reachable ?? Reachable.unknown;
-
-    final label = demo
-        ? 'Demo'
-        : switch (state) {
-            Reachable.online => 'Online',
-            Reachable.offline => 'No connection',
-            Reachable.reconnecting => 'Reconnecting',
-            Reachable.unknown => 'Not asked yet',
-          };
-    final detail = demo
-        ? 'Seeded data, nothing is sent'
-        : switch (state) {
-            Reachable.online => 'The server is answering',
-            Reachable.offline => 'Changes will not save',
-            Reachable.reconnecting => 'Trying the server again',
-            Reachable.unknown => 'Nothing has been sent to the server yet',
-          };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: context.palette.canvas,
-        borderRadius: AppRadius.controlAll,
-        border: context.borderAll,
-      ),
-      child: Row(
-        children: [
-          const ConnectionDot(size: 10),
-          const SizedBox(width: AppLayout.tight),
-          Text(
-            label,
-            style: AppText.body.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              '· $detail',
-              style: AppText.caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

@@ -31,6 +31,13 @@ void main() {
     expect(next.accent, Department.cithm);
   });
 
+  test('the dashboard chart picked sticks across a restart', () async {
+    expect((await settings()).dashboardChart, isNull);
+    await (await settings()).setDashboardChart('Proposals');
+
+    expect((await settings()).dashboardChart, 'Proposals');
+  });
+
   test('going back leaves nothing stored, not a sentinel', () async {
     final s = await settings();
     await s.setAccent(Department.case_);

@@ -17,13 +17,20 @@ class AppSettings extends ChangeNotifier {
   static const _themeKey = 'settings.themeMode';
   static const _motionKey = 'settings.reduceMotion';
   static const _accentKey = 'settings.accent';
+  static const _dashboardChartKey = 'settings.dashboardChart';
 
   ThemeMode _themeMode = ThemeMode.system;
   bool _reduceMotion = false;
   Department? _accent;
+  String? _dashboardChart;
   bool _loaded = false;
 
   ThemeMode get themeMode => _themeMode;
+
+  /// The title of the Analytics chart the dashboard shows, or null for
+  /// the first one. A title rather than an index, so adding a chart does
+  /// not move someone's choice onto a different one.
+  String? get dashboardChart => _dashboardChart;
 
   /// A colour chosen on this phone, or null to keep the one that comes
   /// with the account's department.
@@ -55,6 +62,7 @@ class AppSettings extends ChangeNotifier {
       _reduceMotion = prefs.getBool(_motionKey) ?? false;
       final accent = prefs.getString(_accentKey);
       _accent = Department.values.where((d) => d.name == accent).firstOrNull;
+      _dashboardChart = prefs.getString(_dashboardChartKey);
     } catch (_) {
       // Storage is unavailable. The defaults are already correct.
     }
@@ -74,6 +82,13 @@ class AppSettings extends ChangeNotifier {
     _reduceMotion = value;
     notifyListeners();
     await _write((prefs) => prefs.setBool(_motionKey, value));
+  }
+
+  Future<void> setDashboardChart(String title) async {
+    if (title == _dashboardChart) return;
+    _dashboardChart = title;
+    notifyListeners();
+    await _write((prefs) => prefs.setString(_dashboardChartKey, title));
   }
 
   /// Null puts it back to the department's own colour.

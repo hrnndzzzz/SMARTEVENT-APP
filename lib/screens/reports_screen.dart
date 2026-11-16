@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -54,6 +56,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _reload() async {
     if (!mounted) return;
     final app = context.read<AppState>();
+    unawaited(app.loadProposalSummary());
     await Future.wait([
       app.loadFinancialReport(),
       app.reportOrganizationId == null
@@ -376,7 +379,11 @@ class _Overview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final charts = ReportChart.all(report);
+    final charts = ReportChart.all(
+      report,
+      dashboard: dashboard,
+      summary: context.watch<AppState>().proposalSummary,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
