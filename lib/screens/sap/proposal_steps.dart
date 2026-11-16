@@ -47,6 +47,39 @@ abstract final class ProposalSteps {
   static const int partOneEnd = details;
 
   static int get count => labels.length;
+
+  /// Which step the field called [label] is on.
+  ///
+  /// The labels are `SapForm.missingForSubmit`'s, so that "Send for
+  /// review" can say not only what is missing but where it is. Before
+  /// this the button simply went dead: everything required lives on
+  /// steps the proposer has already left, the list of what was missing
+  /// was drawn at the top of the last step, and the button is at the
+  /// bottom — so by the time you pressed it, the explanation was a
+  /// screen and a half above your thumb.
+  ///
+  /// Nearly everything is on Part 1, which is why [details] is the
+  /// fallback rather than a thrown error: it carries thirteen of the
+  /// twenty-eight, and a label this list has not heard of is far better
+  /// sent to the longest step than to none.
+  static int stepForMissing(String label) => switch (label) {
+    'Activity title' ||
+    'Organization' ||
+    'Department type' ||
+    'Department' ||
+    'School year' ||
+    'Date of proposal' => activity,
+    'Activity date' ||
+    'Start time' ||
+    'End time' ||
+    'Modality' ||
+    'Setting' ||
+    'Off-campus agreement' ||
+    'ROC / COC attachment' ||
+    'Venue' => schedule,
+    'Budget breakdown that adds up to the budget' => breakdown,
+    _ => details,
+  };
 }
 
 /// Leaving a part-filled proposal.

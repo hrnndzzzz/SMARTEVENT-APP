@@ -187,6 +187,60 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
     return true;
   }
 
+  /// What is still missing, where it is, and a way straight to it.
+  ///
+  /// The proposer has filled in five steps by the time they reach this
+  /// button, and everything it is waiting on is behind them. Listing it
+  /// by step is the difference between "something is wrong" and "the
+  /// venue is blank, it is on When and where, go".
+  Future<void> _showMissing() async {
+    final byStep = <int, List<String>>{};
+    for (final item in _form.missingForSubmit) {
+      byStep.putIfAbsent(ProposalSteps.stepForMissing(item), () => []).add(item);
+    }
+    final steps = byStep.keys.toList()..sort();
+
+    final go = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Not ready to send'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'The SDS Office will refuse it without these. Tap one to '
+                'go back to the step it is on.',
+              ),
+              const SizedBox(height: 12),
+              for (final step in steps) ...[
+                BrutListRow(
+                  title: ProposalSteps.labels[step],
+                  meta: byStep[step]!.join(', '),
+                  // Only the steps behind this one can be jumped to;
+                  // the breakdown is the step already on screen.
+                  onTap: (widget.onJumpTo != null && step < widget.step!)
+                      ? () => Navigator.of(dialogContext).pop(step)
+                      : null,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+
+    if (go != null) widget.onJumpTo?.call(go);
+  }
+
   Future<void> _save() async {
     final ok = await _saveAll();
     if (!mounted) return;
@@ -204,12 +258,19 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
   }
 
   Future<void> _addBudgetLine() async {
-    final item = await showModalBottomSheet<SapBudgetItem>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => const _BudgetLineSheet(),
-    );
-    if (item != null) _form.setBudgetItems([..._form.budgetItems, item]);
+    // Loops rather than recurses: a breakdown of twenty rows should not
+    // be twenty frames of sheet stacked on top of each other.
+    while (mounted) {
+      final result = await showModalBottomSheet<_BudgetLineResult>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => const _BudgetLineSheet(),
+      );
+      if (result == null) return;
+      final (line, another) = result;
+      _form.setBudgetItems([..._form.budgetItems, line]);
+      if (!another) return;
+    }
   }
 
   Future<void> _addClass() async {
@@ -299,10 +360,12 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
                 label: widget.step == null ? 'Save' : 'Send for review',
                 busy: _form.saving,
                 busyLabel: 'Saving',
-                // As a run's last step this sends it, and a half-filled
-                // proposal is not sent.
-                onPressed: _editable && (widget.step == null || ready)
-                    ? _save
+                // A half-filled proposal is still not sent — but the
+                // button is no longer dead, because a dead button is
+                // the one control that cannot tell you why. It presses,
+                // and says what is missing and which step it is on.
+                onPressed: _editable
+                    ? (widget.step == null || ready ? _save : _showMissing)
                     : null,
               ),
             ),
@@ -488,7 +551,26 @@ class _BudgetLineSheet extends StatefulWidget {
   State<_BudgetLineSheet> createState() => _BudgetLineSheetState();
 }
 
+/// One line, and whether the person wants the sheet straight back.
+typedef _BudgetLineResult = (SapBudgetItem line, bool another);
+
 class _BudgetLineSheetState extends State<_BudgetLineSheet> {
+  void _done({required bool another}) => Navigator.of(context).pop((
+    SapBudgetItem(
+      particulars: _particulars.text.trim(),
+      // Kept as typed text, never re-formatted through a double, so the
+      // decimal the server compares is the one the user wrote.
+      amount: _amount.text.trim().replaceAll(',', ''),
+      // Blank means one of the thing, which is what the server defaults
+      // to as well.
+      quantity: int.tryParse(_quantity.text.trim()) ?? 1,
+      unitCost: _unitCost.text.trim().isEmpty
+          ? null
+          : _unitCost.text.trim().replaceAll(',', ''),
+    ),
+    another,
+  ));
+
   final _particulars = TextEditingController();
   final _quantity = TextEditingController();
   final _unitCost = TextEditingController();
@@ -575,25 +657,29 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),
-          BrutButton(
-            label: 'Add',
-            onPressed: _valid
-                ? () => Navigator.of(context).pop(
-                    SapBudgetItem(
-                      particulars: _particulars.text.trim(),
-                      // Kept as typed text, never re-formatted through a
-                      // double, so the decimal the server compares is the
-                      // one the user wrote.
-                      amount: _amount.text.trim().replaceAll(',', ''),
-                      // Blank means one of the thing, which is what the
-                      // server defaults to as well.
-                      quantity: int.tryParse(_quantity.text.trim()) ?? 1,
-                      unitCost: _unitCost.text.trim().isEmpty
-                          ? null
-                          : _unitCost.text.trim().replaceAll(',', ''),
-                    ),
-                  )
-                : null,
+          // Two ways out, because a breakdown is never one line. Closing
+          // the sheet and reopening it from the bottom of the list for
+          // every row was most of the work of filling this part in.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: BrutButton(
+                    label: 'Add another',
+                    tone: BrutTone.neutral,
+                    onPressed: _valid ? () => _done(another: true) : null,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: BrutButton(
+                    label: 'Add',
+                    onPressed: _valid ? () => _done(another: false) : null,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
