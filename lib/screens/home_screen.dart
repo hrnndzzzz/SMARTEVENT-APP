@@ -72,6 +72,20 @@ class HomeScreen extends StatelessWidget {
     final remaining = app.remainingBalance;
     final spent = app.totalExpended;
     final used = allocated == 0 ? 0.0 : (spent / allocated).clamp(0.0, 1.0);
+    // What the tile's bar draws. It used to draw `used`, so a tile
+    // reading "P35,550 of P50,000 left" filled less than a third of
+    // the way and a glance took the opposite meaning from the
+    // sentence printed above it. A bar under a figure is read as that
+    // figure; these are now the same quantity said twice.
+    final left = allocated == 0 ? 0.0 : (remaining / allocated).clamp(0.0, 1.0);
+
+    // The four figures, named here rather than written inline, because
+    // the size they all print at is decided by the longest of them.
+    final waitingFigure =
+        '${app.events.where((e) => e.status.isPending).length}';
+    final budgetFigure = peso(remaining, decimals: 0);
+    final reviewFigure = '${app.pendingExpenses.length}';
+    final stockFigure = '${app.dashboard?.lowStockItemCount ?? 0}';
 
     // The same scope Analytics shows, so a tap opens the same figures.
     final charts = ReportChart.all(
@@ -90,15 +104,15 @@ class HomeScreen extends StatelessWidget {
     return BrutScreen(
       onRefresh: app.refreshAll,
       topBar: AppHeader(),
-      // Fixed, not scrolling. Everything here is meant to be taken in
-      // at a glance, and a dashboard you have to scroll has already
-      // failed at that. What used to be below the fold is either gone
-      // or behind a hold now, and the chart takes whatever is left.
-      scrollable: false,
+      // Scrolls as one page, like every module screen does since the
+      // letterbox was taken out of them. It was the last fixed page
+      // with a flexible child, and that child was the chart: a
+      // dashboard that must fit exactly one screen can only pay for
+      // anything new by shrinking something already on it.
+      bottomPadding: AppLayout.section,
       // The record button is docked above the navigation bar by the
       // shell now, so this screen no longer reserves room for a button
       // floating over its own content.
-      bottomPadding: AppLayout.section,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -206,113 +220,144 @@ class HomeScreen extends StatelessWidget {
           // Row's height comes from its tallest child, and stretch asks
           // the children to fill a height that is still being measured.
           // Two children, so the extra pass costs nothing worth saving.
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _StatTile(
-                    icon: Module.events.icon,
-                    accent: Module.events.colorIn(context),
-                    // How many exist is a figure nobody acts on, and
-                    // it was the first thing on the dashboard. What is
-                    // waiting on a decision is the same module's
-                    // number, about the same events, that somebody can
-                    // do something with.
-                    value:
-                        '${app.events.where((e) => e.status.isPending).length}',
-                    label: 'Events waiting',
-                    opens: 'events',
-                    trend: _Trend.up,
-                    onTap: () => _open(context, 'events'),
-                    peek: _eventsPeek(app),
-                    // Not a sentence: the same bars the list below draws,
-                    // so a hold answers "where has everything got to?".
-                    peekChild: EventProgressPeek(
-                      events: app.events,
-                      onOpen: (event) => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => EventDetailScreen(event: event),
+          // One LayoutBuilder over both rows. The size the four
+          // figures print at depends on the longest of them and on
+          // how wide a tile actually is; this is the only place
+          // both facts are in scope. Inside a tile only one of them
+          // is, which is how they came to disagree.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Two tiles and the gap between them, each inset by
+              // the card's own 14pt padding on either side.
+              final tileInner =
+                  (constraints.maxWidth - AppLayout.between) / 2 - 28;
+              final figure = sharedFigureSize([
+                waitingFigure,
+                budgetFigure,
+                reviewFigure,
+                stockFigure,
+              ], tileInner);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _StatTile(
+                            icon: Module.events.icon,
+                            accent: Module.events.colorIn(context),
+                            // How many exist is a figure nobody acts on, and
+                            // it was the first thing on the dashboard. What is
+                            // waiting on a decision is the same module's
+                            // number, about the same events, that somebody can
+                            // do something with.
+                            value: waitingFigure,
+                            figureSize: figure,
+                            label: 'Events waiting',
+                            opens: 'events',
+                            trend: _Trend.up,
+                            onTap: () => _open(context, 'events'),
+                            peek: _eventsPeek(app),
+                            // Not a sentence: the same bars the list below draws,
+                            // so a hold answers "where has everything got to?".
+                            peekChild: EventProgressPeek(
+                              events: app.events,
+                              onOpen: (event) => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EventDetailScreen(event: event),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: AppLayout.between),
+                        Expanded(
+                          child: _StatTile(
+                            icon: Module.money.icon,
+                            accent: Module.money.colorIn(context),
+                            value: budgetFigure,
+                            figureSize: figure,
+                            label: 'of ${peso(allocated, decimals: 0)} left',
+                            peekTitle: 'Budget',
+                            opens: 'money',
+                            // The same thing the figure above it names, so the
+                            // two cannot be read against each other. How far
+                            // into the budget you are is still said exactly,
+                            // in the peek, where there is room for a sentence.
+                            fill: left,
+                            // Held, it breaks into categories — the same shape
+                            // the events peek takes, so a hold reads the same
+                            // way wherever it is done.
+                            peekChild: BudgetPeek(categories: app.categories),
+                            trend: used >= 0.9 ? _Trend.down : _Trend.up,
+                            onTap: () => _open(context, 'money'),
+                            peek:
+                                '${peso(allocated, decimals: 0)} allocated, '
+                                '${peso(spent, decimals: 0)} approved.\n'
+                                '${(used * 100).round()}% of the budget is used.',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: AppLayout.between),
-                Expanded(
-                  child: _StatTile(
-                    icon: Module.money.icon,
-                    accent: Module.money.colorIn(context),
-                    value: peso(remaining, decimals: 0),
-                    label: 'of ${peso(allocated, decimals: 0)} left',
-                    peekTitle: 'Budget',
-                    opens: 'money',
-                    // The bar fills with what has been spent while the
-                    // figure counts what is left, so the tile says how
-                    // much remains and shows how far in you are at once.
-                    fill: used,
-                    // Held, it breaks into categories — the same shape
-                    // the events peek takes, so a hold reads the same
-                    // way wherever it is done.
-                    peekChild: BudgetPeek(categories: app.categories),
-                    trend: used >= 0.9 ? _Trend.down : _Trend.up,
-                    onTap: () => _open(context, 'money'),
-                    peek:
-                        '${peso(allocated, decimals: 0)} allocated, '
-                        '${peso(spent, decimals: 0)} approved.\n'
-                        '${(used * 100).round()}% of the budget is used.',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppLayout.between),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _StatTile(
-                    icon: Icons.fact_check_outlined,
-                    value: '${app.pendingExpenses.length}',
-                    label: 'Awaiting review',
-                    opens: 'expenses',
-                    accent: Module.money.colorIn(context),
-                    trend: app.pendingExpenses.isEmpty
-                        ? _Trend.flat
-                        : _Trend.down,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+                  const SizedBox(height: AppLayout.between),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _StatTile(
+                            icon: Icons.fact_check_outlined,
+                            value: reviewFigure,
+                            figureSize: figure,
+                            label: 'Awaiting review',
+                            opens: 'expenses',
+                            accent: Module.money.colorIn(context),
+                            trend: app.pendingExpenses.isEmpty
+                                ? _Trend.flat
+                                : _Trend.down,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ExpensesScreen(),
+                              ),
+                            ),
+                            peek: app.pendingExpenses.isEmpty
+                                ? 'Nothing is waiting on a decision.'
+                                : '${app.pendingExpenses.length} expense'
+                                      '${app.pendingExpenses.length == 1 ? '' : 's'} '
+                                      'waiting on a decision.',
+                          ),
+                        ),
+                        const SizedBox(width: AppLayout.between),
+                        Expanded(
+                          child: _StatTile(
+                            icon: Module.inventory.icon,
+                            value: stockFigure,
+                            figureSize: figure,
+                            label: 'Low stock',
+                            opens: 'inventory',
+                            accent: Module.inventory.colorIn(context),
+                            trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
+                                ? _Trend.flat
+                                : _Trend.down,
+                            onTap: () => _open(context, 'inventory'),
+                            peek: app.dashboard == null
+                                ? 'The figures have not loaded yet.'
+                                : '${app.dashboard!.lowStockItemCount} item(s) at or '
+                                      'below their threshold, '
+                                      '${app.dashboard!.draftInventoryCount} draft '
+                                      'waiting to be confirmed.',
+                          ),
+                        ),
+                      ],
                     ),
-                    peek: app.pendingExpenses.isEmpty
-                        ? 'Nothing is waiting on a decision.'
-                        : '${app.pendingExpenses.length} expense'
-                              '${app.pendingExpenses.length == 1 ? '' : 's'} '
-                              'waiting on a decision.',
                   ),
-                ),
-                const SizedBox(width: AppLayout.between),
-                Expanded(
-                  child: _StatTile(
-                    icon: Module.inventory.icon,
-                    value: '${app.dashboard?.lowStockItemCount ?? 0}',
-                    label: 'Low stock',
-                    opens: 'inventory',
-                    accent: Module.inventory.colorIn(context),
-                    trend: (app.dashboard?.lowStockItemCount ?? 0) == 0
-                        ? _Trend.flat
-                        : _Trend.down,
-                    onTap: () => _open(context, 'inventory'),
-                    peek: app.dashboard == null
-                        ? 'The figures have not loaded yet.'
-                        : '${app.dashboard!.lowStockItemCount} item(s) at or '
-                              'below their threshold, '
-                              '${app.dashboard!.draftInventoryCount} draft '
-                              'waiting to be confirmed.',
-                  ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           ),
 
           // ── Your events ──────────────────────────────────────────
@@ -347,11 +392,15 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppLayout.tight),
-            // Whatever is left over, so the page ends exactly at the
-            // bottom instead of running past it.
-            Expanded(
-              child: ReportChartTile(chart: chart, height: null, width: 360),
-            ),
+            // A height of its own, not the leftovers.
+            //
+            // It used to take whatever space the tiles above had not
+            // eaten, which on this phone was about 90pt — and because
+            // the chart keeps its aspect ratio, a wide short box made
+            // it scale to the *height* and give back the width. The
+            // result was a thumbnail adrift in a full-width card.
+            // 220 is enough to read a trend and its legend.
+            ReportChartTile(chart: chart, height: 220, width: 360),
           ],
         ],
       ),
@@ -415,7 +464,11 @@ class _StatTile extends StatelessWidget {
     this.peekChild,
     this.accent = AppColors.brand,
     this.peekTitle,
+    this.figureSize = 26,
   });
+
+  /// Set by the dashboard so all four agree. See [sharedFigureSize].
+  final double figureSize;
 
   final IconData icon;
   final String value;
@@ -492,13 +545,16 @@ class _StatTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          // The FittedBox stays as a floor under a figure nobody
+          // predicted, but it should never fire now: the size handed
+          // down already fits the longest of the four.
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               value,
               maxLines: 1,
-              style: AppText.heroNumber.copyWith(fontSize: 26),
+              style: AppText.heroNumber.copyWith(fontSize: figureSize),
             ),
           ),
           const SizedBox(height: 2),
@@ -528,9 +584,15 @@ class _StatTile extends StatelessWidget {
                 ? null
                 : BrutProgressBar(
                     value: amount.clamp(0.0, 1.0),
+                    // The bar counts down, not up: it is what is
+                    // left. So an empty one is the alarm and a full
+                    // one is fine, which is the opposite of what
+                    // these thresholds meant when the bar filled with
+                    // spending. Inverted along with it — otherwise a
+                    // budget barely touched drew a full red bar.
                     tone: switch (amount) {
-                      >= 1 => BrutTone.coral,
-                      >= 0.9 => BrutTone.sun,
+                      <= 0 => BrutTone.coral,
+                      <= 0.1 => BrutTone.sun,
                       _ => BrutTone.orange,
                     },
                   ),
@@ -539,6 +601,41 @@ class _StatTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// One type size for all four figures on the dashboard.
+///
+/// Each tile used to scale its own number down to fit, independently
+/// of the other three. With a five-digit budget nothing triggers and
+/// the grid looks right; give the org a seven-digit one and the money
+/// tile alone shrinks, so four figures in one grid print at two
+/// different sizes with nothing to explain why.
+///
+/// Measured rather than guessed from the character count: the figure
+/// style is monospace with tabular figures, so one layout of the
+/// longest string scales linearly to the rest. [cap] is the design
+/// size and is never exceeded — this only ever makes them smaller,
+/// and only when the longest one genuinely does not fit.
+double sharedFigureSize(
+  List<String> values,
+  double maxWidth, {
+  double cap = 26,
+}) {
+  if (maxWidth <= 0 || values.isEmpty) return cap;
+  final longest = values.reduce((a, b) => b.length > a.length ? b : a);
+  if (longest.isEmpty) return cap;
+  final painter = TextPainter(
+    text: TextSpan(
+      text: longest,
+      style: AppText.heroNumber.copyWith(fontSize: cap),
+    ),
+    maxLines: 1,
+    textDirection: TextDirection.ltr,
+  )..layout();
+  if (painter.width <= maxWidth) return cap;
+  // Floor rather than round: a size that lands a tenth of a pixel over
+  // would put FittedBox back in charge of that one tile.
+  return (cap * maxWidth / painter.width).clamp(13.0, cap);
 }
 
 /// The small round arrow beside a figure.

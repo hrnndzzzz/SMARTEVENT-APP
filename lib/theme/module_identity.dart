@@ -74,13 +74,28 @@ enum Module {
   /// it used to print five light and two dark. The dashboard had the
   /// same fault in a smaller place — four tiles whose icon blocks take
   /// [color], two of them Money's.
+  /// Two hues, not seven. SmartEvent is blue and orange — CITE's two
+  /// and the logo's two — and the set had drifted to a purple
+  /// Inventory at 271° and a green Admin at 142°, which belong to
+  /// neither. They are blue now, spread across the family rather than
+  /// stacked on it: Events 205°, Inventory 218°, Admin 234°. Money and
+  /// Analytics are the orange side at 21° and 36°.
+  ///
+  /// Two exceptions, and only two. Flagged keeps its red because that
+  /// is a status, not an identity — the same red that marks a rejected
+  /// proposal. Search is a near-grey at 0.06 saturation, which is the
+  /// absence of a hue rather than a seventh one.
+  ///
+  /// All three blues carry Events' saturation (0.549) as well as the
+  /// band's luminance, because equal luminance alone still let a
+  /// vivid block sit beside a muted one and read as louder.
   Color get color => switch (this) {
     Module.events => const Color(0xFF2E6F9E),
     Module.money => const Color(0xFFAE4E19),
-    Module.inventory => const Color(0xFF6F4E8E),
+    Module.inventory => const Color(0xFF3768BD),
     Module.reports => const Color(0xFF906019),
     Module.flagged => const Color(0xFFA8322A),
-    Module.admin => const Color(0xFF3F6B4F),
+    Module.admin => const Color(0xFF535FCD),
     Module.search => const Color(0xFF5B5750),
   };
 
@@ -102,10 +117,10 @@ enum Module {
   Color get colorDark => switch (this) {
     Module.events => const Color(0xFF346F9B),
     Module.money => const Color(0xFF9D5934),
-    Module.inventory => const Color(0xFF7F5AA3),
+    Module.inventory => const Color(0xFF3D69B7),
     Module.reports => const Color(0xFF88632D),
     Module.flagged => const Color(0xFFB6443D),
-    Module.admin => const Color(0xFF457556),
+    Module.admin => const Color(0xFF5560C6),
     Module.search => const Color(0xFF6E6A61),
   };
 

@@ -33,10 +33,24 @@ class ReportChartTile extends StatelessWidget {
   Widget build(BuildContext context) {
     // Scaled rather than cropped, so whatever the chart draws is shrunk
     // to fit instead of having its bottom cut off.
-    final scaled = FittedBox(
-      fit: BoxFit.contain,
-      alignment: Alignment.topCenter,
-      child: SizedBox(width: width, child: chart.build(context, false)),
+    //
+    // Laid out at the width it is actually being given, not at a fixed
+    // [width] that is then scaled to fit. `contain` keeps the aspect
+    // ratio, so a chart built at 360 and dropped into a box wider than
+    // it is tall scaled down to the *height* and handed the leftover
+    // width back as empty margin — a thumbnail adrift in a full-width
+    // card. Built at the real width it scales by 1 whenever it fits,
+    // which is almost always; [width] is only the fallback for an
+    // unbounded parent, where there is no real width to ask for.
+    final scaled = LayoutBuilder(
+      builder: (context, constraints) => FittedBox(
+        fit: BoxFit.contain,
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: constraints.hasBoundedWidth ? constraints.maxWidth : width,
+          child: chart.build(context, false),
+        ),
+      ),
     );
     return BrutCard(
       onTap: () => Navigator.of(context).push(
@@ -111,9 +125,7 @@ class _ChartPage extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 caption,
-                style: AppText.caption.copyWith(
-                  color: context.palette.subtle,
-                ),
+                style: AppText.caption.copyWith(color: context.palette.subtle),
               ),
             ],
             const SizedBox(height: 8),
