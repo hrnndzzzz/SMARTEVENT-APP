@@ -96,7 +96,7 @@ class _SmartEventAppState extends State<SmartEventApp>
       return;
     }
     _updateShown = true;
-    AppUpdate.promptRequired(context, tag);
+    AppUpdate.prompt(context, tag);
   }
 
   @override

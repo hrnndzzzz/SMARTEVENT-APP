@@ -98,12 +98,26 @@ class _ChartPage extends StatelessWidget {
           for (final (heading, text) in chart.notes) ...[
             const SizedBox(height: 20),
             BrutSectionTitle(heading),
+            // Under the heading, above the writing it describes.
+            //
+            // It used to sit after both notes, so you read two
+            // paragraphs about why proposals get rejected and only then
+            // found out a machine had written them. A disclosure that
+            // arrives after the claim it qualifies is not a disclosure,
+            // and this is a reviewer's remarks being paraphrased by a
+            // model — the one place in the app where the difference
+            // between "the office said" and "a summary says" matters.
+            if (chart.notesCaption case final caption?) ...[
+              const SizedBox(height: 4),
+              Text(
+                caption,
+                style: AppText.caption.copyWith(
+                  color: context.palette.subtle,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Text(text, style: AppText.body),
-          ],
-          if (chart.notes.isNotEmpty && chart.notesCaption != null) ...[
-            const SizedBox(height: 8),
-            Text(chart.notesCaption!, style: AppText.caption),
           ],
           if (chart.rows.isNotEmpty) ...[
             const SizedBox(height: 20),

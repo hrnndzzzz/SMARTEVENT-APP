@@ -176,24 +176,37 @@ class AppUpdate {
 
   /// The blocking prompt. It cannot be dismissed: the only way past it is
   /// the update.
-  static Future<void> promptRequired(BuildContext context, String tag) =>
+  /// Offers the newer release. Returns once the person has dealt with
+  /// it, either way.
+  ///
+  /// It used to be `promptRequired`, and it meant it: no Later, no way
+  /// back, `canPop: false`. An app that stops working the moment a
+  /// release goes out is an app that can stop working in the middle of
+  /// a defence, on a phone with no wifi to download 23 MB over — which
+  /// is not a safety property, it is a hostage situation.
+  ///
+  /// It still opens by itself and still cannot be dismissed by tapping
+  /// the barrier, because an update nobody notices is the reason the
+  /// blocking version was written. It just takes no for an answer, and
+  /// the caller does not ask again until the app is next launched.
+  static Future<void> prompt(BuildContext context, String tag) =>
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => _RequiredUpdate(tag: tag),
+        builder: (_) => _OfferedUpdate(tag: tag),
       );
 }
 
-class _RequiredUpdate extends StatefulWidget {
-  const _RequiredUpdate({required this.tag});
+class _OfferedUpdate extends StatefulWidget {
+  const _OfferedUpdate({required this.tag});
 
   final String tag;
 
   @override
-  State<_RequiredUpdate> createState() => _RequiredUpdateState();
+  State<_OfferedUpdate> createState() => _OfferedUpdateState();
 }
 
-class _RequiredUpdateState extends State<_RequiredUpdate> {
+class _OfferedUpdateState extends State<_OfferedUpdate> {
   bool _busy = false;
   double? _progress;
   String? _error;
@@ -224,26 +237,40 @@ class _RequiredUpdateState extends State<_RequiredUpdate> {
 
   @override
   Widget build(BuildContext context) {
+    // Back closes it, except mid-download, where the only thing it could
+    // do is throw away a part-finished 23 MB.
     return PopScope(
-      canPop: false,
+      canPop: !_busy,
       child: AlertDialog(
-        title: const Text('Update required'),
+        title: const Text('Update available'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'SMARTEVENT ${widget.tag} is out. Install it to keep using '
-              'the app.',
+              'SMARTEVENT ${widget.tag} is out. You can install it now or '
+              'carry on and do it later.',
             ),
             if (_busy) ...[
               const SizedBox(height: 16),
               LinearProgressIndicator(value: _progress),
+              const SizedBox(height: 6),
+              // A bar with no number on it is the same bar whether it is
+              // moving or stuck, which is most of why this felt broken.
+              Text(
+                _progress == null
+                    ? 'Starting the download…'
+                    : '${(_progress! * 100).round()}% downloaded',
+              ),
             ],
             if (_error != null) ...[const SizedBox(height: 12), Text(_error!)],
           ],
         ),
         actions: [
+          TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(),
+            child: const Text('Later'),
+          ),
           TextButton(
             onPressed: _busy ? null : _update,
             child: Text(_apk == null ? 'Update' : 'Install'),

@@ -1,44 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/widgets/page_indicator.dart';
 
-/// The marker points outward to the edge it is nearest, rather than
-/// sitting as a flat block that looks the same wherever it lands.
+/// The marker under the chosen destination is a flat block.
+///
+/// It used to be a gradient that held the outside edge of the bar and
+/// faded towards the middle — a second thing for the eye to resolve on
+/// a control whose whole job is to say which of three places you are
+/// in. Everything else in the app is a flat fill with a hard edge.
+///
+/// This replaces the test that checked the fade, which is why it
+/// checks the absence of one: a gradient is easy to reintroduce by
+/// copying a decoration from somewhere else, and nothing else here
+/// would notice.
 void main() {
-  const colour = Color(0xFFFF7A1A);
+  Future<void> pump(WidgetTester tester, int current) => tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light(),
+      home: Scaffold(
+        body: PageIndicator(
+          current: current,
+          labels: const ['Menu', 'Dashboard', 'Events'],
+          onGo: (_) {},
+        ),
+      ),
+    ),
+  );
 
-  List<Color> colours(int position, int count) =>
-      (PageIndicator.markerFor(position, count, colour) as LinearGradient)
-          .colors;
+  List<BoxDecoration> markers(WidgetTester tester) => [
+    for (final container in tester.widgetList<AnimatedContainer>(
+      find.byType(AnimatedContainer),
+    ))
+      if (container.decoration case final BoxDecoration d) d,
+  ];
 
-  test('the first holds its left and falls away to the right', () {
-    final c = colours(0, 3);
-    expect(c.first.a, 1.0);
-    expect(c.last.a, lessThan(1.0));
-  });
-
-  test('the last holds its right and falls away to the left', () {
-    final c = colours(2, 3);
-    expect(c.first.a, lessThan(1.0));
-    expect(c.last.a, 1.0);
-  });
-
-  test('anything in the middle falls away at both ends', () {
-    final c = colours(1, 3);
-    expect(c.first.a, lessThan(1.0));
-    expect(c.last.a, lessThan(1.0));
-    expect(c[1].a, 1.0, reason: 'solid through the middle');
-  });
-
-  test('it is the same colour throughout, only the alpha moves', () {
-    for (final c in colours(1, 3)) {
-      expect(c.r, colour.r);
-      expect(c.g, colour.g);
-      expect(c.b, colour.b);
+  testWidgets('nothing in the bar is a gradient', (tester) async {
+    await pump(tester, 1);
+    final found = markers(tester);
+    expect(found, isNotEmpty, reason: 'no markers were found to check');
+    for (final decoration in found) {
+      expect(decoration.gradient, isNull);
     }
   });
 
-  test('a single destination still gets a marker', () {
-    expect(colours(0, 1), isNotEmpty);
+  testWidgets('exactly one destination is filled, and it is the current one', (
+    tester,
+  ) async {
+    for (final current in [0, 1, 2]) {
+      await pump(tester, current);
+      final filled = markers(tester).where((d) => d.color != null).toList();
+      expect(
+        filled,
+        hasLength(1),
+        reason: 'page $current should fill one marker and only one',
+      );
+      // Flat means one colour, at full strength — not a wash of it.
+      expect(filled.single.color!.a, 1.0);
+    }
+  });
+
+  testWidgets('and the fill is the department accent it was given', (
+    tester,
+  ) async {
+    const accent = Color(0xFFE27031);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(accent: accent),
+        home: const Scaffold(
+          body: PageIndicator(
+            current: 0,
+            labels: ['Menu', 'Dashboard', 'Events'],
+            onGo: _nothing,
+          ),
+        ),
+      ),
+    );
+    final filled = markers(tester).where((d) => d.color != null).single;
+    expect(filled.color, accent);
   });
 }
+
+void _nothing(int _) {}

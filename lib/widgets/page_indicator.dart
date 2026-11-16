@@ -16,11 +16,6 @@ import '../theme/palette.dart';
 /// "which way is the menu" is on screen rather than something you have to
 /// remember.
 class PageIndicator extends StatelessWidget {
-  /// Where the marker is solid and where it falls away. See
-  /// [_Segment._markerForImpl].
-  static Gradient markerFor(int position, int count, Color colour) =>
-      _Segment._markerForImpl(position, count, colour);
-
   const PageIndicator({
     super.key,
     required this.current,
@@ -101,28 +96,6 @@ class _Segment extends StatelessWidget {
     required this.onTap,
   });
 
-  /// Where the marker is solid and where it falls away.
-  ///
-  /// Solid along the outside edge of the bar and fading towards the
-  /// middle: the first destination holds its left, the last holds its
-  /// right, and anything between them fades at both ends. It points
-  /// outward to the edge you are nearest, instead of sitting as a flat
-  /// block that looks the same wherever it lands.
-  static Gradient _markerForImpl(int position, int count, Color colour) {
-    final soft = colour.withValues(alpha: 0.35);
-
-    if (count <= 1) {
-      return LinearGradient(colors: [soft, colour, soft]);
-    }
-    if (position == 0) {
-      return LinearGradient(colors: [colour, soft]);
-    }
-    if (position == count - 1) {
-      return LinearGradient(colors: [soft, colour]);
-    }
-    return LinearGradient(colors: [soft, colour, soft]);
-  }
-
   final String label;
   final IconData icon;
   final bool active;
@@ -160,10 +133,13 @@ class _Segment extends StatelessWidget {
                 ? Duration.zero
                 : AppMotion.press,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            // Flat. The marker used to be a gradient that faded towards
+            // the middle of the bar, which was a second thing for the
+            // eye to resolve on a control whose whole job is to say
+            // which of three places you are in. Everything else in the
+            // app is a flat block with a hard edge; this is now too.
             decoration: BoxDecoration(
-              gradient: active
-                  ? PageIndicator.markerFor(position, count, chosen)
-                  : null,
+              color: active ? chosen : null,
               borderRadius: BorderRadius.circular(10),
             ),
             // The glyph carries the place and the word underneath names

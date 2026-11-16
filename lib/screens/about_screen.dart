@@ -152,7 +152,7 @@ class _UpdateCheckState extends State<_UpdateCheck> {
     // the person to find it. Same dialog, same download, same install.
     if (found.state == UpdateCheck.available) {
       setState(() => _busy = false);
-      await AppUpdate.promptRequired(context, found.tag!);
+      await AppUpdate.prompt(context, found.tag!);
       return;
     }
 
