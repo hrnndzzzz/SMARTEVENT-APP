@@ -65,10 +65,24 @@ class MenuPanel extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Just the word, at page size. "Everywhere else" under
-                  // a MENU eyebrow was two labels for one screen, and
-                  // the screen is plainly the menu.
-                  const Expanded(child: Text('Menu', style: AppText.display)),
+                  // The same two lines the Events screen opens with: a
+                  // mono count, then the word at page size. The eyebrow
+                  // was dropped once for saying "Everywhere else" over
+                  // a screen plainly titled Menu — a count is not that.
+                  // It is the one fact about this screen that changes
+                  // with who is signed in.
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MonoLabel(
+                          '${areas.length} place${areas.length == 1 ? '' : 's'}',
+                        ),
+                        const SizedBox(height: 2),
+                        const Text('Menu', style: AppText.display),
+                      ],
+                    ),
+                  ),
                   if (onClose != null)
                     BrutIconButton(
                       icon: Icons.close,
@@ -115,13 +129,14 @@ class MenuPanel extends StatelessWidget {
                 ),
               ),
             ),
+            // Edge to edge, like the bands on Events. The grid used to
+            // float inside the page gutter as rounded cards with a
+            // shadow and a 10pt gap, which made the menu the one screen
+            // in the app built out of a different kind of object.
             Expanded(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppLayout.gutter,
-                  0,
-                  AppLayout.gutter,
-                  MediaQuery.viewPaddingOf(context).bottom + AppLayout.tight,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewPaddingOf(context).bottom,
                 ),
                 child: _Grid(areas: areas, app: app),
               ),
@@ -153,32 +168,56 @@ class _Grid extends StatelessWidget {
     for (var i = 0; i < areas.length; i += 2) {
       final left = areas[i];
       final right = i + 1 < areas.length ? areas[i + 1] : null;
-      if (rows.isNotEmpty) rows.add(const SizedBox(height: 10));
+      final lastRow = i + 2 >= areas.length;
       rows.add(
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _Block(area: left, app: app)),
-              if (right != null) ...[
-                const SizedBox(width: 10),
-                Expanded(child: _Block(area: right, app: app)),
-              ],
+              Expanded(
+                child: _Block(
+                  area: left,
+                  app: app,
+                  // The hairline between two blocks is drawn once, by
+                  // the one on the left. Both drawing it put two
+                  // outlines side by side, which on a flat fill reads
+                  // as a seam rather than an edge.
+                  rightEdge: right != null,
+                  bottomEdge: !lastRow,
+                ),
+              ),
+              if (right != null)
+                Expanded(
+                  child: _Block(area: right, app: app, bottomEdge: !lastRow),
+                ),
             ],
           ),
         ),
       );
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
+    );
   }
 }
 
 class _Block extends StatelessWidget {
-  const _Block({required this.area, required this.app});
+  const _Block({
+    required this.area,
+    required this.app,
+    this.rightEdge = false,
+    this.bottomEdge = false,
+  });
 
   final AppArea area;
   final AppState app;
+
+  /// Which sides of this block draw the hairline. The grid decides, so
+  /// no two neighbours draw the same edge twice.
+  final bool rightEdge;
+  final bool bottomEdge;
 
   @override
   Widget build(BuildContext context) {
@@ -190,76 +229,99 @@ class _Block extends StatelessWidget {
         moduleForAreaId(area.id)?.colorIn(context) ?? context.palette.muted;
     final on = context.foregroundOn(fill);
 
-    return BrutSurface(
+    // The same object the Events screen is built from: a flat fill, a
+    // hairline where it meets its neighbour, and nothing lifted off the
+    // page. Not a BrutSurface — that is a card, and a card floats.
+    return GestureDetector(
       onTap: () =>
           Navigator.of(context).push(MaterialPageRoute(builder: area.builder)),
-      semanticLabel: area.title,
-      fill: fill,
-      radius: AppRadius.cardAll,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      behavior: HitTestBehavior.opaque,
+      child: Semantics(
+        label: area.title,
+        button: true,
+        child: Container(
+          // Named, so a test can hold a block without guessing at the
+          // shape of the tree around it. Two of them reached for the
+          // BrutSurface this used to be and broke the moment it stopped
+          // being a card.
+          key: ValueKey('menu-block-${area.id}'),
+          decoration: BoxDecoration(
+            color: fill,
+            border: Border(
+              right: rightEdge ? context.side : BorderSide.none,
+              bottom: bottomEdge ? context.side : BorderSide.none,
+            ),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Punched out of the fill rather than drawn on it, the
-              // same way the band at the top of each module carries its
-              // icon, so the two read as the same object.
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: on.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(area.icon, size: 22, color: on),
+              Row(
+                children: [
+                  // Punched out of the fill rather than drawn on it, the
+                  // same way the band at the top of each module carries its
+                  // icon, so the two read as the same object.
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: on.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(area.icon, size: 22, color: on),
+                  ),
+                  const Spacer(),
+                  if (count != null && count > 0)
+                    _WaitingCount(
+                      count: count,
+                      label: area.badgeLabel,
+                      ring: on,
+                    ),
+                ],
               ),
               const Spacer(),
-              if (count != null && count > 0)
-                _WaitingCount(count: count, label: area.badgeLabel, ring: on),
-            ],
-          ),
-          const Spacer(),
-          // The arrow rides the title, not the blurb. Beside the blurb
-          // it took 24pt off a line of body text, which is a word and a
-          // half at this width: on a 360pt phone every blurb in the
-          // grid ended in an ellipsis while the title beside the arrow
-          // had room to spare.
-          Row(
-            children: [
-              // Scaled down rather than clipped. "Inventory" at 22pt
-              // does not fit a half-width block on a 360pt phone, and
-              // the name of the place is the one thing on this screen
-              // that must survive — an ellipsis in the middle of it is
-              // worse than a point or two of type.
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    area.title,
-                    style: AppText.display.copyWith(
-                      fontSize: 22,
-                      color: on,
-                      height: 1.05,
+              // The arrow rides the title, not the blurb. Beside the blurb
+              // it took 24pt off a line of body text, which is a word and a
+              // half at this width: on a 360pt phone every blurb in the
+              // grid ended in an ellipsis while the title beside the arrow
+              // had room to spare.
+              Row(
+                children: [
+                  // Scaled down rather than clipped. "Inventory" at 22pt
+                  // does not fit a half-width block on a 360pt phone, and
+                  // the name of the place is the one thing on this screen
+                  // that must survive — an ellipsis in the middle of it is
+                  // worse than a point or two of type.
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        area.title,
+                        style: AppText.display.copyWith(
+                          fontSize: 22,
+                          color: on,
+                          height: 1.05,
+                        ),
+                        maxLines: 1,
+                      ),
                     ),
-                    maxLines: 1,
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.arrow_outward, size: 18, color: on),
+                ],
               ),
-              const SizedBox(width: 6),
-              Icon(Icons.arrow_outward, size: 18, color: on),
+              const SizedBox(height: 4),
+              Text(
+                area.blurb,
+                style: AppText.caption.copyWith(
+                  color: on.withValues(alpha: 0.75),
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            area.blurb,
-            style: AppText.caption.copyWith(
-              color: on.withValues(alpha: 0.75),
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+        ),
       ),
     );
   }

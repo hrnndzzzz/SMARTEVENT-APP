@@ -72,11 +72,11 @@ void main() {
         ),
       );
 
-      Rect cell(String label) =>
-          tester.getRect(find.ancestor(
-            of: find.text(label),
-            matching: find.byType(BrutCard),
-          ).first);
+      Rect cell(String label) => tester.getRect(
+        find
+            .ancestor(of: find.text(label), matching: find.byType(BrutCard))
+            .first,
+      );
 
       // Two across: A and B share a top edge, C and D share theirs, and
       // the second row is below the first.
@@ -111,11 +111,11 @@ void main() {
         ),
       );
 
-      Rect cell(String label) =>
-          tester.getRect(find.ancestor(
-            of: find.text(label),
-            matching: find.byType(BrutCard),
-          ).first);
+      Rect cell(String label) => tester.getRect(
+        find
+            .ancestor(of: find.text(label), matching: find.byType(BrutCard))
+            .first,
+      );
 
       // A cell twice the width of its neighbours reads as the important
       // one when it is only the last one.
@@ -127,11 +127,11 @@ void main() {
     testWidgets('the destinations are a 2x2, not five rows', (tester) async {
       await open(tester, const MoneyScreen());
 
-      Rect square(String title) =>
-          tester.getRect(find.ancestor(
-            of: find.text(title),
-            matching: find.byType(BrutCard),
-          ).first);
+      Rect square(String title) => tester.getRect(
+        find
+            .ancestor(of: find.text(title), matching: find.byType(BrutCard))
+            .first,
+      );
 
       expect(square('Expenses').top, square('Receipts').top);
       expect(square('Income').top, square('Categories').top);
@@ -252,10 +252,12 @@ void main() {
       expect(find.text('Events waiting'), findsOneWidget);
       expect(
         find.descendant(
-          of: find.ancestor(
-            of: find.text('Events waiting'),
-            matching: find.byType(BrutCard),
-          ).first,
+          of: find
+              .ancestor(
+                of: find.text('Events waiting'),
+                matching: find.byType(BrutCard),
+              )
+              .first,
           matching: find.text('$waiting'),
         ),
         findsOneWidget,
@@ -279,32 +281,28 @@ void main() {
     testWidgets('the places are two across and fill the screen', (
       tester,
     ) async {
-      await open(
-        tester,
-        const MenuPanel(),
-        size: const Size(411, 890),
-      );
+      await open(tester, const MenuPanel(), size: const Size(411, 890));
 
-      Rect block(String title) => tester.getRect(
-        find.ancestor(
-          of: find.text(title),
-          matching: find.byType(BrutSurface),
-        ).last,
-      );
+      Rect block(String id) =>
+          tester.getRect(find.byKey(ValueKey('menu-block-$id')));
 
-      final money = block('Money');
-      final inventory = block('Inventory');
-      final reports = block('Analytics');
+      final money = block('money');
+      final inventory = block('inventory');
+      final reports = block('reports');
 
-      // Two across.
+      // Two across, and touching. The blocks used to be rounded cards
+      // floating in the page gutter with a 10pt gap, which made the
+      // menu the one screen in the app built out of a different kind
+      // of object. They share an edge now, the way the bands on the
+      // Events screen do, so flush is the assertion rather than near.
       expect(money.top, inventory.top);
-      expect(inventory.left, greaterThan(money.right));
-      // And the next row below, not beside.
-      expect(reports.top, greaterThan(money.bottom));
+      expect(inventory.left, money.right);
+      // And the next row below, not beside — also flush.
+      expect(reports.top, money.bottom);
 
       // Filling what is there. Four rows of list left most of a phone
       // empty, which is the whole complaint.
-      final last = block('Flagged');
+      final last = block('risk');
       expect(
         last.bottom,
         greaterThan(890 * 0.85),
@@ -353,13 +351,13 @@ void main() {
       // Tap the purple block, land on a purple band. The menu used to
       // put the colour in a coin beside the name, so the two screens
       // disagreed about what colour a place is.
-      final surface = tester.widget<BrutSurface>(
-        find.ancestor(
-          of: find.text('Inventory'),
-          matching: find.byType(BrutSurface),
-        ).last,
+      final block = tester.widget<Container>(
+        find.byKey(const ValueKey('menu-block-inventory')),
       );
-      expect(surface.fill, Module.inventory.color);
+      expect(
+        (block.decoration! as BoxDecoration).color,
+        Module.inventory.color,
+      );
     });
   });
 
