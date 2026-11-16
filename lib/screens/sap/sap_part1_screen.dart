@@ -241,6 +241,27 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     return false;
   }
 
+  /// Set the first time Next is refused, and never cleared.
+  ///
+  /// The banner is not shown before that. Every field on a step is
+  /// blank the moment it opens, so a list of what is missing drawn on
+  /// arrival is a page-long complaint about work nobody has had the
+  /// chance to do yet. It appears when the proposer says they are
+  /// finished and they are not, and then keeps up as they fill it in.
+  bool _triedNext = false;
+
+  /// Refuses the step and names what it is waiting for.
+  void _sayMissing(List<String> missing) {
+    setState(() => _triedNext = true);
+    final list = missing.length == 1
+        ? missing.single
+        : '${missing.sublist(0, missing.length - 1).join(', ')} and '
+              '${missing.last}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Still needed here: $list.')));
+  }
+
   Future<void> _save() async {
     _collect();
     // The fields _ready() names are spread across the three steps —
@@ -424,6 +445,13 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
               widget.step != null &&
               widget.step != ProposalSteps.schedule;
 
+          // Only this step's own gaps. The department is on the first
+          // step and the setting on the second, so one list for all of
+          // Part 1 would refuse a page that was filled in correctly.
+          final missingHere = widget.step == null
+              ? const <String>[]
+              : ProposalSteps.missingOn(_form, widget.step!);
+
           final nextLabel = switch (widget.step) {
             ProposalSteps.activity => 'Next: when and where',
             ProposalSteps.schedule => 'Next: about the activity',
@@ -457,13 +485,24 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   ),
             // One back button, in the header. There were two doing the
             // same thing, and neither said whether anything was kept.
+            // Next refuses a step with gaps in it, and says which —
+            // rather than carrying on and leaving the proposer to find
+            // out five steps later, at a dead Send button, that
+            // something near the beginning was never answered.
+            //
+            // It refuses by pressing, not by going grey. Back and Save
+            // as draft are both untouched: a half-written proposal must
+            // still be parkable, or the gate stops being a reminder and
+            // starts being a trap.
             footer: BrutFooter(
               child: BrutButton(
                 label: whole ? 'Save' : nextLabel,
                 busy: _form.saving,
                 busyLabel: 'Saving',
                 onPressed: _editable && !tooSoon && !unacknowledged
-                    ? _save
+                    ? (missingHere.isEmpty
+                          ? _save
+                          : () => _sayMissing(missingHere))
                     : null,
               ),
             ),
@@ -490,6 +529,17 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                           'read-only until it is returned for revision.',
                     ),
                 const SizedBox(height: 12),
+
+                if (_triedNext && missingHere.isNotEmpty) ...[
+                  BrutInlineMessage(
+                    tone: BrutTone.sun,
+                    icon: Icons.edit_note,
+                    text:
+                        'Fill these in before going on: '
+                        '${missingHere.join(', ')}.',
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 if (blockedElsewhere) ...[
                   BrutInlineMessage(

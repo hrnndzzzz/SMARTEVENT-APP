@@ -80,6 +80,17 @@ abstract final class ProposalSteps {
     'Budget breakdown that adds up to the budget' => breakdown,
     _ => details,
   };
+
+  /// What [form] is still missing *on this step alone*.
+  ///
+  /// The same labels [stepForMissing] routes, filtered to one step, so
+  /// Next can refuse a page for its own gaps without naming fields the
+  /// proposer has not reached yet. Asking for all twenty-eight on step
+  /// one would refuse a page that had been filled in correctly.
+  static List<String> missingOn(SapForm form, int step) => [
+    for (final label in form.missingForSubmit)
+      if (stepForMissing(label) == step) label,
+  ];
 }
 
 /// Leaving a part-filled proposal.

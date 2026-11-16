@@ -38,15 +38,54 @@ void main() {
     ),
   );
 
-  /// The three fields the last step of Part 1 refuses to pass without.
-  /// Filled up front so a navigation test is testing navigation.
-  void fillRequired(SapForm form) => form.updateDetails(
-    (d) => d.copyWith(
-      setting: SapSetting.onCampus,
-      departmentType: 'College',
-      department: 'CITE',
-    ),
-  );
+  /// Everything Part 1's three steps refuse to pass without, filled up
+  /// front so that a navigation test is testing navigation.
+  ///
+  /// It used to be three fields, because Next only checked the three
+  /// the event record is built from. Next now refuses any step with a
+  /// gap in it — which is the point of it — so walking the bar means
+  /// having answered the bar.
+  void fillRequired(SapForm form) {
+    form.updateDetails(
+      (d) => d.copyWith(
+        // Step 1: the activity.
+        title: 'Foundation Week Booth',
+        organizationName: 'CITE Student Council',
+        departmentType: 'College',
+        department: 'CITE',
+        schoolYear: '2025-2026',
+        proposalDate: DateTime(2026, 1, 5),
+        // Step 2: when and where. On campus, so none of off-campus's
+        // extra conditions apply.
+        activityDate: DateTime(2026, 3, 10),
+        startTime: const SapTime(8, 0),
+        endTime: const SapTime(16, 0),
+        modality: SapModality.faceToFace,
+        setting: SapSetting.onCampus,
+        venue: 'CITE Quadrangle',
+        // Step 3: about the activity.
+        personsInCharge: 'The council officers',
+        activityTypes: const ['Seminar'],
+        scope: 'College-wide',
+        programTypes: const ['Curricular'],
+        expectedStudents: 120,
+        rationale: 'To mark Foundation Week.',
+        objectives: 'Raise funds for the council.',
+        coreValues: const [SapCoreValue.communityOriented],
+        egas: const [1],
+        emergencyPlan: 'First aid station at the booth.',
+        totalBudget: '2000.00',
+        fundingSource: 'Organization funds',
+      ),
+    );
+    form.setProgramFlow(const [
+      SapProgramFlowItem(
+        start: SapTime(8, 0),
+        end: SapTime(16, 0),
+        activity: 'Booth open',
+      ),
+    ]);
+  }
 
   Future<void> open(WidgetTester tester, SapForm form, {bool created = true,
       VoidCallback? onCreate}) async {
