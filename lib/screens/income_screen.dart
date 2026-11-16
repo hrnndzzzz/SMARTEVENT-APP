@@ -54,8 +54,12 @@ class _IncomeScreenState extends State<IncomeScreen> {
             )
           : null,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page. The band, the figures and the
+      // filters used to be fixed while the list scrolled inside what
+      // was left, so the list was read through a letterbox and a pull
+      // on the top half did nothing. See inventory_screen.dart.
+      onRefresh: () => app.refreshList(app.loadIncomes),
+      bottomPadding: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -68,30 +72,28 @@ class _IncomeScreenState extends State<IncomeScreen> {
           const SizedBox(height: 12),
           if (app.incomes.isNotEmpty) const _Totals(),
           if (app.incomes.isNotEmpty) const SizedBox(height: 12),
-          Expanded(
-            child: switch (load) {
-              _ when load.isLoading && app.incomes.isEmpty => const Center(
-                child: BrutSpinner(),
-              ),
-              _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
-                title: 'Could not load income',
-                message: load.error,
-                sessionExpired: load.sessionExpired,
-                onRetry: app.loadIncomes,
-              ),
-              _ when app.incomes.isEmpty => _Empty(canRecord: canRecord),
-              _ => RefreshIndicator(
-                onRefresh: () => app.refreshList(app.loadIncomes),
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 96),
-                  itemCount: app.incomes.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _IncomeCard(income: app.incomes[i]),
-                ),
-              ),
-            },
-          ),
+          switch (load) {
+            _ when load.isLoading && app.incomes.isEmpty => const SizedBox(
+              height: 240,
+              child: Center(child: BrutSpinner()),
+            ),
+            _ when load.hasFailed && app.incomes.isEmpty => BrutRetry(
+              title: 'Could not load income',
+              message: load.error,
+              sessionExpired: load.sessionExpired,
+              onRetry: app.loadIncomes,
+            ),
+            _ when app.incomes.isEmpty => _Empty(canRecord: canRecord),
+            _ => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, income) in app.incomes.indexed) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _IncomeCard(income: income),
+                ],
+              ],
+            ),
+          },
         ],
       ),
     );

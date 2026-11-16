@@ -36,8 +36,12 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
 
     return BrutScreen(
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page. The band, the figures and the
+      // filters used to be fixed while the list scrolled inside what
+      // was left, so the list was read through a letterbox and a pull
+      // on the top half did nothing. See inventory_screen.dart.
+      onRefresh: () => app.refreshList(app.loadReceipts),
+      bottomPadding: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -50,30 +54,28 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
           const SizedBox(height: 14),
           const _FilterBar(),
           const SizedBox(height: 14),
-          Expanded(
-            child: switch (load) {
-              _ when load.isLoading && app.receipts.isEmpty => const Center(
-                child: BrutSpinner(),
-              ),
-              _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
-                title: 'Could not load receipts',
-                message: load.error,
-                sessionExpired: load.sessionExpired,
-                onRetry: app.loadReceipts,
-              ),
-              _ when app.receipts.isEmpty => const _Empty(),
-              _ => RefreshIndicator(
-                onRefresh: () => app.refreshList(app.loadReceipts),
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 16),
-                  itemCount: app.receipts.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _ReceiptCard(receipt: app.receipts[i]),
-                ),
-              ),
-            },
-          ),
+          switch (load) {
+            _ when load.isLoading && app.receipts.isEmpty => const SizedBox(
+              height: 240,
+              child: Center(child: BrutSpinner()),
+            ),
+            _ when load.hasFailed && app.receipts.isEmpty => BrutRetry(
+              title: 'Could not load receipts',
+              message: load.error,
+              sessionExpired: load.sessionExpired,
+              onRetry: app.loadReceipts,
+            ),
+            _ when app.receipts.isEmpty => const _Empty(),
+            _ => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, receipt) in app.receipts.indexed) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _ReceiptCard(receipt: receipt),
+                ],
+              ],
+            ),
+          },
         ],
       ),
     );

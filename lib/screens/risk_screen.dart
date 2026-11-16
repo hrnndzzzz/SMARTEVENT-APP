@@ -84,8 +84,12 @@ class _RiskScreenState extends State<RiskScreen> {
 
     return BrutScreen(
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
-      scrollable: false,
-      bottomPadding: 0,
+      // One scroll for the whole page. The band, the figures and the
+      // filters used to be fixed while the list scrolled inside what
+      // was left, so the list was read through a letterbox and a pull
+      // on the top half did nothing. See inventory_screen.dart.
+      onRefresh: () => app.refreshList(app.loadFlaggedExpenses),
+      bottomPadding: 16,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -125,32 +129,29 @@ class _RiskScreenState extends State<RiskScreen> {
             ),
             const SizedBox(height: 14),
           ],
-          Expanded(
-            child: switch (load) {
-              _ when load.isLoading && flagged.isEmpty => const Center(
-                child: BrutSpinner(),
-              ),
-              _ when load.hasFailed && flagged.isEmpty => BrutRetry(
-                title: 'Could not load flagged expenses',
-                message: load.error,
-                sessionExpired: load.sessionExpired,
-                onRetry: app.loadFlaggedExpenses,
-              ),
-              _ when flagged.isEmpty => const _NothingFlagged(),
-              _ => RefreshIndicator(
-                onRefresh: () => app.refreshList(app.loadFlaggedExpenses),
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 16),
-                  itemCount: flagged.length + 1,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => i == flagged.length
-                      ? const _CriteriaCard()
-                      : _FlaggedCard(expense: flagged[i]),
-                ),
-              ),
-            },
-          ),
+          switch (load) {
+            _ when load.isLoading && flagged.isEmpty => const SizedBox(
+              height: 240,
+              child: Center(child: BrutSpinner()),
+            ),
+            _ when load.hasFailed && flagged.isEmpty => BrutRetry(
+              title: 'Could not load flagged expenses',
+              message: load.error,
+              sessionExpired: load.sessionExpired,
+              onRetry: app.loadFlaggedExpenses,
+            ),
+            _ when flagged.isEmpty => const _NothingFlagged(),
+            _ => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final expense in flagged) ...[
+                  _FlaggedCard(expense: expense),
+                  const SizedBox(height: 10),
+                ],
+                const _CriteriaCard(),
+              ],
+            ),
+          },
         ],
       ),
     );
@@ -289,9 +290,11 @@ class _NothingFlagged extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
-      children: const [
+    // A Column, not a ListView: the page scrolls as one now, and a
+    // scroller nested in a scroller has no height to be.
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         BrutEmptyState(
           icon: Icons.verified_outlined,
           title: 'Nothing flagged',

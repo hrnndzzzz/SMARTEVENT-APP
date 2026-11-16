@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:smartevent/screens/income_screen.dart';
 import 'package:smartevent/screens/inventory_screen.dart';
+import 'package:smartevent/screens/receipts_screen.dart';
+import 'package:smartevent/screens/risk_screen.dart';
 import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/state/notice_shelf.dart';
@@ -21,28 +24,40 @@ import 'package:smartevent/widgets/module_band.dart';
 /// up, nag-scroll up din lahat — para hindi yung half lang yung
 /// nakikita?"
 void main() {
-  Widget host(AppState app) => MultiProvider(
-    providers: [
-      ChangeNotifierProvider<AppState>.value(value: app),
-      ChangeNotifierProvider(create: (_) => AppSettings()),
-      ChangeNotifierProvider(create: (_) => Reachability()),
-      ChangeNotifierProvider(create: (_) => NoticeShelf()),
-    ],
-    child: MaterialApp(
-      theme: AppTheme.light(accent: app.themeColor),
-      home: const InventoryScreen(),
-    ),
-  );
+  Widget host(AppState app, [Widget screen = const InventoryScreen()]) =>
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AppState>.value(value: app),
+          ChangeNotifierProvider(create: (_) => AppSettings()),
+          ChangeNotifierProvider(create: (_) => Reachability()),
+          ChangeNotifierProvider(create: (_) => NoticeShelf()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(accent: app.themeColor),
+          home: screen,
+        ),
+      );
 
-  Future<AppState> open(WidgetTester tester) async {
+  Future<AppState> open(
+    WidgetTester tester, [
+    Widget screen = const InventoryScreen(),
+  ]) async {
     await tester.binding.setSurfaceSize(const Size(411, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final app = AppState()..enterDemo();
     addTearDown(app.dispose);
-    await tester.pumpWidget(host(app));
+    await tester.pumpWidget(host(app, screen));
     await tester.pump(const Duration(milliseconds: 400));
     return app;
   }
+
+  /// Vertically scrolling widgets on screen. Horizontal ones are left
+  /// out on purpose: a chip bar running off the edge is a row of
+  /// filters, not a second page.
+  int verticalScrollers(WidgetTester tester) => tester
+      .widgetList<Scrollable>(find.byType(Scrollable))
+      .where((s) => s.axisDirection == AxisDirection.down)
+      .length;
 
   testWidgets('the band scrolls away with everything else', (tester) async {
     await open(tester);
@@ -70,18 +85,35 @@ void main() {
   ) async {
     await open(tester);
 
-    // Horizontal ones are allowed: a chip bar that runs off the edge
-    // is a row of filters, not a second page. What must not exist is a
-    // second vertical scroll, because that is the letterbox.
-    final vertical = tester
-        .widgetList<Scrollable>(find.byType(Scrollable))
-        .where((s) => s.axisDirection == AxisDirection.down)
-        .length;
     expect(
-      vertical,
+      verticalScrollers(tester),
       1,
       reason: 'a vertical scroll inside a vertical scroll is the letterbox',
     );
+  });
+
+  group('every module screen built the same way', () {
+    // Seven screens carried `scrollable: false` and a top-level
+    // Expanded. These four are converted; the invariant is checked per
+    // screen so the next one to be rebuilt as two halves is caught
+    // here rather than on somebody's phone.
+    const screens = <String, Widget>{
+      'Inventory': InventoryScreen(),
+      'Flagged': RiskScreen(),
+      'Income': IncomeScreen(),
+      'Receipts': ReceiptsScreen(),
+    };
+
+    screens.forEach((name, screen) {
+      testWidgets('$name scrolls as one page', (tester) async {
+        await open(tester, screen);
+        expect(
+          verticalScrollers(tester),
+          1,
+          reason: '$name has a scroll inside a scroll',
+        );
+      });
+    });
   });
 
   testWidgets('the whole page is still pullable to refresh', (tester) async {
