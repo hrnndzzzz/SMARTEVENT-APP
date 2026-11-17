@@ -60,7 +60,10 @@ void main() {
 
     // Still on the activity step.
     expect(find.text('Activity Details'), findsOneWidget);
-    expect(find.textContaining('Fill these in before going on'), findsOneWidget);
+    expect(
+      find.textContaining('Fill these in before going on'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Activity title'), findsWidgets);
   });
 
@@ -111,6 +114,60 @@ void main() {
           .first,
     );
     expect(button.onPressed, isNotNull);
+  });
+
+  testWidgets('a field filled by typing is a field that is filled', (
+    tester,
+  ) async {
+    // The one the other tests here could not catch, because they all
+    // fill the form through `updateDetails` and a proposer fills it
+    // through the keyboard. Part 1's text fields are deliberately
+    // uncontrolled — they fold into the model in `_collect` and
+    // nowhere else, so that a keystroke does not rebuild the page —
+    // which leaves the model a step behind what is on screen. The gate
+    // read that model, so a title typed and a Next pressed was refused
+    // for a missing title that was sitting right there.
+    //
+    // Everything on the step except the title, so the title is the one
+    // thing the gate can be waiting for. It cannot be cleared after
+    // the fact: `copyWith(title: null)` means "leave it", so a test
+    // that filled it and then nulled it would be asserting nothing.
+    final form = SapForm(eventId: 'e1');
+    form.updateDetails(
+      (d) => d.copyWith(
+        organizationName: 'CITE Student Council',
+        departmentType: 'College',
+        department: 'CITE',
+        schoolYear: '2025-2026',
+        proposalDate: DateTime(2026, 11, 16),
+      ),
+    );
+    await open(tester, form);
+    expect(ProposalSteps.missingOn(form, ProposalSteps.activity), [
+      'Activity title',
+    ], reason: 'the title must be the only thing left for this to test');
+
+    // By the widget's own label, not by its rendered text: MonoLabel
+    // uppercases what it prints, so the screen says ACTIVITY TITLE.
+    final titleField = find.descendant(
+      of: find.byWidgetPredicate(
+        (w) => w is BrutTextField && w.label == 'Activity title',
+      ),
+      matching: find.byType(EditableText),
+    );
+    expect(titleField, findsOneWidget);
+    await tester.enterText(titleField, 'Foundation Week Booth');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Next:'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('When and where'),
+      findsOneWidget,
+      reason: 'the typed title never reached the model the gate reads',
+    );
+    expect(find.textContaining('Still needed here'), findsNothing);
   });
 
   testWidgets('and the way back out is still open', (tester) async {

@@ -250,6 +250,32 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
   /// finished and they are not, and then keeps up as they fill it in.
   bool _triedNext = false;
 
+  /// Next, from the footer.
+  ///
+  /// [_collect] first, and this is the whole of why it is a method
+  /// rather than a condition read off the build. The text fields on
+  /// this screen are deliberately uncontrolled — they fold into the
+  /// model in [_collect] and nowhere else, so that a keystroke does
+  /// not rebuild the page — which means the model is a step behind
+  /// whatever has been typed. The gate read that model, so a title
+  /// typed and a Next pressed was refused for a missing title that
+  /// was sitting there on screen.
+  ///
+  /// The pickers write through as they are touched, which is why the
+  /// date and the times never showed this and only the typed fields
+  /// did.
+  void _onNext() {
+    _collect();
+    final missing = widget.step == null
+        ? const <String>[]
+        : ProposalSteps.missingOn(_form, widget.step!);
+    if (missing.isEmpty) {
+      _save();
+      return;
+    }
+    _sayMissing(missing);
+  }
+
   /// Refuses the step and names what it is waiting for.
   void _sayMissing(List<String> missing) {
     setState(() => _triedNext = true);
@@ -374,9 +400,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     // people filling it in is a form they route around.
     final note = SchoolCalendar.caution(chosen, schoolYear: _d.schoolYear);
     if (note != null && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(note)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(note)));
     }
   }
 
@@ -500,9 +524,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                 busy: _form.saving,
                 busyLabel: 'Saving',
                 onPressed: _editable && !tooSoon && !unacknowledged
-                    ? (missingHere.isEmpty
-                          ? _save
-                          : () => _sayMissing(missingHere))
+                    ? _onNext
                     : null,
               ),
             ),
