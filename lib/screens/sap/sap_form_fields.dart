@@ -4,6 +4,7 @@ import '../../api/models/sap_proposal.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/palette.dart';
 import '../../theme/brut.dart';
+import '../../widgets/brut_time_picker.dart';
 import '../../state/school_calendar.dart';
 
 /// Small pieces the six part screens share.
@@ -136,19 +137,21 @@ class SapTimeField extends StatelessWidget {
   final bool enabled;
 
   Future<void> _pick(BuildContext context) async {
-    final initial = value ?? const SapTime(8, 0);
-    final chosen = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+    final picked = await BrutTimePicker.show(
+      context,
+      initial: value,
+      earliest: SchoolCalendar.earliest,
+      latest: SchoolCalendar.latest,
+      title: label,
     );
-    if (chosen == null) return;
-    final picked = SapTime(chosen.hour, chosen.minute);
+    if (picked == null) return;
 
-    // Material's picker has no way to fence off a range, so the window
-    // is enforced on the way out instead. Before this a proposal could
-    // say the activity began at 12:00 AM, which is not a time anybody
-    // holds one at — it is what the field returns when somebody taps
-    // through it without looking.
+    // The picker offers nothing outside the window, so this should be
+    // unreachable. Kept because the window is a rule about proposals
+    // and this is the only place that enforces it — a second caller,
+    // or a picker that one day offers more, must not get past it.
+    // Material's dial had no way to fence off a range at all, which is
+    // why a proposal could once say the activity began at 12:00 AM.
     if (SchoolCalendar.timeRefusal(picked) case final refused?) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
