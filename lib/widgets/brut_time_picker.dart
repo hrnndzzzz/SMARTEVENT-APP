@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api/models/sap_proposal.dart';
@@ -71,6 +73,17 @@ class BrutTimePicker extends StatefulWidget {
 int _asMinutes(SapTime t) => t.hour * 60 + t.minute;
 
 class _BrutTimePickerState extends State<BrutTimePicker> {
+  /// What the last press could not do, shown until it is stale.
+  ///
+  /// Inside the sheet, not in a snackbar. A snackbar belongs to the
+  /// Scaffold, and this sheet is drawn over the bottom of it — so the
+  /// message appeared underneath the thing that provoked it and was
+  /// never seen. It passed its test because the test rendered the
+  /// picker on a bare Scaffold rather than in a sheet, which is the
+  /// shape it never has in the app.
+  String? _refused;
+  Timer? _fades;
+
   /// Minutes since midnight. One number rather than three fields,
   /// because every arrow on this sheet is the same operation on it and
   /// the window is one comparison instead of three.
@@ -91,16 +104,53 @@ class _BrutTimePickerState extends State<BrutTimePicker> {
     _at = (at != null && at >= _floor && at <= _ceiling) ? at : _floor;
   }
 
+  @override
+  void dispose() {
+    _fades?.cancel();
+    super.dispose();
+  }
+
   bool _can(int delta) {
     final next = _at + delta;
     return next >= _floor && next <= _ceiling;
   }
 
-  /// Null when it would leave the window, which is what greys the arrow
-  /// out. The end of the window is a thing to see rather than an arrow
-  /// that quietly does nothing.
-  VoidCallback? _move(int delta) =>
-      _can(delta) ? () => setState(() => _at += delta) : null;
+  /// Every arrow stays live, and the ones that cannot move say why.
+  ///
+  /// They were greyed, which is the ordinary thing for a stepper at its
+  /// limit and was right for five of the six. It was wrong for the
+  /// half-day arrows: at 12 PM *both* of them die at once, because
+  /// 12 AM is before the window and the next midnight is after it. One
+  /// dead arrow reads as a limit; two read as broken, and the only
+  /// explanation was a caption at the foot of the sheet.
+  ///
+  /// So they refuse out loud, the way Next and Send for review do. A
+  /// control that cannot act and will not say why is the fault this
+  /// whole screen was rebuilt to stop making.
+  VoidCallback _move(int delta) => () {
+    if (_can(delta)) {
+      setState(() {
+        _at += delta;
+        _refused = null;
+      });
+      return;
+    }
+    final blocked = SapTime((_at + delta) ~/ 60 % 24, (_at + delta) % 60);
+    setState(() {
+      _refused =
+          '${blocked.label} is outside '
+          '${widget.earliest.label} – ${widget.latest.label}.';
+    });
+    _fades?.cancel();
+    _fades = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _refused = null);
+    });
+  };
+
+  /// Whether the arrow should look available. Still drawn in full ink
+  /// when it is not — it is pressable, and a muted control that
+  /// responds is a worse lie than a lively one that refuses.
+  bool _open(int delta) => _can(delta);
 
   SapTime get _chosen => SapTime(_at ~/ 60, _at % 60);
 
@@ -131,6 +181,8 @@ class _BrutTimePickerState extends State<BrutTimePicker> {
                 // the arrows are the same operation as the others.
                 up: _move(60),
                 down: _move(-60),
+                upOpen: _open(60),
+                downOpen: _open(-60),
               ),
               const _Colon(),
               _Spin(
@@ -138,26 +190,40 @@ class _BrutTimePickerState extends State<BrutTimePicker> {
                 value: (_at % 60).toString().padLeft(2, '0'),
                 up: _move(BrutTimePicker.minuteStep),
                 down: _move(-BrutTimePicker.minuteStep),
+                upOpen: _open(BrutTimePicker.minuteStep),
+                downOpen: _open(-BrutTimePicker.minuteStep),
               ),
               const SizedBox(width: AppLayout.between),
               _Spin(
                 label: 'AM or PM',
                 value: hour < 12 ? 'AM' : 'PM',
-                // Half a day either way. Only one of the two is ever
-                // available, since the window does not span enough of
-                // the clock for both.
+                // Half a day either way. At noon neither lands inside
+                // the window, which is the case that made all of these
+                // speak up instead of going grey.
                 up: _move(-720),
                 down: _move(720),
+                upOpen: _open(-720),
+                downOpen: _open(720),
               ),
             ],
           ),
           const SizedBox(height: AppLayout.section),
-          Center(
-            child: MonoLabel(
-              'Between ${widget.earliest.label} and ${widget.latest.label}',
-              color: context.palette.muted,
+          // The window, and — when an arrow has just refused — what it
+          // refused. In the same place, because they are the same
+          // fact said twice: once standing, once because you pushed.
+          if (_refused case final said?)
+            BrutInlineMessage(
+              tone: BrutTone.sun,
+              icon: Icons.schedule,
+              text: said,
+            )
+          else
+            Center(
+              child: MonoLabel(
+                'Between ${widget.earliest.label} and ${widget.latest.label}',
+                color: context.palette.muted,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -171,12 +237,19 @@ class _Spin extends StatelessWidget {
     required this.value,
     required this.up,
     required this.down,
+    required this.upOpen,
+    required this.downOpen,
   });
 
   final String label;
   final String value;
-  final VoidCallback? up;
-  final VoidCallback? down;
+  final VoidCallback up;
+  final VoidCallback down;
+
+  /// Whether pressing it moves the time. False still presses — it says
+  /// what is in the way instead.
+  final bool upOpen;
+  final bool downOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -186,11 +259,16 @@ class _Spin extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          BrutIconButton(
-            icon: Icons.keyboard_arrow_up,
-            label: '$label up',
-            size: 38,
-            onPressed: up,
+          Opacity(
+            // Dimmed, not disabled: it still answers, and the dimming
+            // says the answer will be no before the press.
+            opacity: upOpen ? 1 : 0.45,
+            child: BrutIconButton(
+              icon: Icons.keyboard_arrow_up,
+              label: '$label up',
+              size: 38,
+              onPressed: up,
+            ),
           ),
           const SizedBox(height: 6),
           BrutSurface(
@@ -209,11 +287,14 @@ class _Spin extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          BrutIconButton(
-            icon: Icons.keyboard_arrow_down,
-            label: '$label down',
-            size: 38,
-            onPressed: down,
+          Opacity(
+            opacity: downOpen ? 1 : 0.45,
+            child: BrutIconButton(
+              icon: Icons.keyboard_arrow_down,
+              label: '$label down',
+              size: 38,
+              onPressed: down,
+            ),
           ),
         ],
       ),

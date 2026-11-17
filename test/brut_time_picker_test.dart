@@ -13,6 +13,12 @@ import 'package:smartevent/widgets/brut_time_picker.dart';
 /// was to pick it. Here the arrow that would leave the window is grey,
 /// which is the rule before the mistake rather than after it.
 void main() {
+  /// Opened the way the app opens it: a modal sheet over a Scaffold.
+  ///
+  /// Not as a bare Scaffold body, which is how this was written first
+  /// — and why a refusal shown in a snackbar passed its test while
+  /// being invisible on the phone, drawn underneath the sheet that
+  /// provoked it.
   Future<void> open(WidgetTester tester, {SapTime? initial}) async {
     await tester.binding.setSurfaceSize(const Size(420, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -20,28 +26,39 @@ void main() {
       MaterialApp(
         theme: AppTheme.light(),
         home: Scaffold(
-          body: BrutTimePicker(
-            initial: initial,
-            earliest: SchoolCalendar.earliest,
-            latest: SchoolCalendar.latest,
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () => BrutTimePicker.show(
+                  context,
+                  initial: initial,
+                  earliest: SchoolCalendar.earliest,
+                  latest: SchoolCalendar.latest,
+                ),
+                child: const Text('open it'),
+              ),
+            ),
           ),
         ),
       ),
     );
+    await tester.tap(find.text('open it'));
     await tester.pumpAndSettle();
   }
 
-  /// An arrow by the column it belongs to, so a test says which one it
-  /// means rather than counting icons left to right.
-  BrutIconButton arrow(WidgetTester tester, String label) =>
-      tester.widget<BrutIconButton>(
-        find.byWidgetPredicate((w) => w is BrutIconButton && w.label == label),
-      );
+  Finder arrow(String label) =>
+      find.byWidgetPredicate((w) => w is BrutIconButton && w.label == label);
+
+  /// How available an arrow looks. Every one is pressable now; the
+  /// dimming is what says the answer will be no before the press.
+  double dimming(WidgetTester tester, String label) => tester
+      .widget<Opacity>(
+        find.ancestor(of: arrow(label), matching: find.byType(Opacity)).first,
+      )
+      .opacity;
 
   Future<void> press(WidgetTester tester, String label) async {
-    await tester.tap(
-      find.byWidgetPredicate((w) => w is BrutIconButton && w.label == label),
-    );
+    await tester.tap(arrow(label));
     await tester.pumpAndSettle();
   }
 
@@ -54,8 +71,21 @@ void main() {
     // The fault this replaced: a proposal could say an activity began
     // at 12:00 AM, which is not a time anybody holds one at — it is
     // what a dial returns when somebody taps through it.
-    expect(arrow(tester, 'Hour down').onPressed, isNull);
-    expect(arrow(tester, 'Minutes down').onPressed, isNull);
+    expect(dimming(tester, 'Hour down'), lessThan(1));
+    expect(dimming(tester, 'Minutes down'), lessThan(1));
+
+    // And pressing one says what is in the way rather than doing
+    // nothing at all.
+    await press(tester, 'Hour down');
+    expect(find.text('Use 6:00 AM'), findsOneWidget, reason: 'it moved');
+    expect(
+      find.descendant(
+        of: find.byType(BrutTimePicker),
+        matching: find.textContaining('is outside'),
+      ),
+      findsOneWidget,
+      reason: 'said somewhere other than in the sheet it was said about',
+    );
   });
 
   testWidgets('the arrows move it by an hour and by a quarter', (tester) async {
@@ -80,9 +110,9 @@ void main() {
     // 10:15 PM and 11:00 PM are both outside it, so neither arrow is
     // live. Greyed rather than missing: an arrow that vanishes makes
     // the column change shape.
-    expect(arrow(tester, 'Minutes up').onPressed, isNull);
-    expect(arrow(tester, 'Hour up').onPressed, isNull);
-    expect(arrow(tester, 'Hour down').onPressed, isNotNull);
+    expect(dimming(tester, 'Minutes up'), lessThan(1));
+    expect(dimming(tester, 'Hour up'), lessThan(1));
+    expect(dimming(tester, 'Hour down'), 1);
   });
 
   testWidgets('the half-day arrow only goes the way the window allows', (
@@ -114,5 +144,31 @@ void main() {
     // nobody chose wearing the look of one somebody did.
     await open(tester, initial: const SapTime(2, 30));
     expect(find.text('Use 6:00 AM'), findsOneWidget);
+  });
+
+  testWidgets('noon says why it cannot change half of the day', (tester) async {
+    // The case that made all of this speak up. At 12 PM both half-day
+    // arrows are stuck — 12 AM is before the window and the next
+    // midnight is after it — and two dead arrows at once read as
+    // broken rather than as a limit.
+    await open(tester, initial: const SapTime(12, 0));
+    expect(find.text('Use 12:00 PM'), findsOneWidget);
+    expect(dimming(tester, 'AM or PM up'), lessThan(1));
+    expect(dimming(tester, 'AM or PM down'), lessThan(1));
+
+    await press(tester, 'AM or PM up');
+
+    expect(find.text('Use 12:00 PM'), findsOneWidget, reason: 'it moved');
+    // Inside the picker, not in a snackbar: a snackbar belongs to the
+    // Scaffold and this sheet is drawn over the bottom of it, so the
+    // message would be underneath the arrow that caused it.
+    expect(
+      find.descendant(
+        of: find.byType(BrutTimePicker),
+        matching: find.text('12:00 AM is outside 6:00 AM – 10:00 PM.'),
+      ),
+      findsOneWidget,
+      reason: 'it refused without saying why, where it could be seen',
+    );
   });
 }
