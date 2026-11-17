@@ -61,7 +61,7 @@ class ReportChartTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: height == null ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -81,7 +81,14 @@ class ReportChartTile extends StatelessWidget {
           if (height case final h?)
             SizedBox(height: h, child: scaled)
           else
-            Expanded(child: scaled),
+            // No height asked for: the page this is on scrolls, so the
+            // chart takes its own. Drawn straight rather than through
+            // [scaled], because there is nothing to scale it into —
+            // and a fixed height here only ever ends one of two ways,
+            // slack under a short chart or a tall one squeezed. Which
+            // of the two you got depended on which chart the dashboard
+            // had been pointed at, so neither was worth choosing.
+            chart.build(context, false),
         ],
       ),
     );

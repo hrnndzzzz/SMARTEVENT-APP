@@ -400,7 +400,7 @@ class HomeScreen extends StatelessWidget {
             // it scale to the *height* and give back the width. The
             // result was a thumbnail adrift in a full-width card.
             // 220 is enough to read a trend and its legend.
-            ReportChartTile(chart: chart, height: 220, width: 360),
+            ReportChartTile(chart: chart, height: null, width: 360),
           ],
         ],
       ),
