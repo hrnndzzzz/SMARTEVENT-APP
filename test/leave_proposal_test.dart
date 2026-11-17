@@ -61,11 +61,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Save as draft'), findsOneWidget);
-    expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Go back'), findsOneWidget);
+    expect(find.text('Stay here'), findsOneWidget);
+    expect(find.text('Leave without saving'), findsOneWidget);
   });
 
-  testWidgets('cancel keeps you where you are, and saves nothing', (
+  testWidgets('staying keeps you where you are, and saves nothing', (
     tester,
   ) async {
     var saved = false;
@@ -75,14 +75,14 @@ void main() {
         saved = true;
         return true;
       },
-      tap: 'Cancel',
+      tap: 'Stay here',
     );
 
     expect(out, isFalse);
     expect(saved, isFalse);
   });
 
-  testWidgets('go back leaves without saving', (tester) async {
+  testWidgets('leaving without saving does exactly that', (tester) async {
     var saved = false;
     final out = await leave(
       tester,
@@ -90,7 +90,7 @@ void main() {
         saved = true;
         return true;
       },
-      tap: 'Go back',
+      tap: 'Leave without saving',
     );
 
     expect(out, isTrue);

@@ -51,8 +51,7 @@ Future<SapForm> formWithAbsentProposal() async {
   return form;
 }
 
-Widget host(Widget child) =>
-    MaterialApp(theme: AppTheme.light(), home: child);
+Widget host(Widget child) => MaterialApp(theme: AppTheme.light(), home: child);
 
 /// Part 4 and the SDS actions are the SDS Office's alone, so what fills
 /// them in is hosted as an SDS Office account.
@@ -142,10 +141,7 @@ void main() {
     await tester.pumpWidget(host(SapPart1Screen(form: form)));
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('end time has to be after'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('end time has to be after'), findsOneWidget);
   });
 
   testWidgets('Part 1 catches an online setting with a face-to-face modality', (
@@ -162,7 +158,10 @@ void main() {
     await tester.pumpWidget(host(SapPart1Screen(form: form)));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('needs the modality to be online'), findsOneWidget);
+    expect(
+      find.textContaining('needs the modality to be online'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Part 1 will not save without a department', (tester) async {
@@ -471,7 +470,10 @@ void main() {
           p.endsWith('/events/e1/sap-proposal/affected-classes'),
     );
     expect(classes, isNot(-1), reason: 'sent: $paths');
-    expect(classes, greaterThan(paths.indexWhere((p) => p.startsWith('PATCH'))));
+    expect(
+      classes,
+      greaterThan(paths.indexWhere((p) => p.startsWith('PATCH'))),
+    );
   });
 
   testWidgets('Part 4 demands a reason for every not-applicable', (
@@ -516,10 +518,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(
-      find.textContaining('cannot be "none"'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('cannot be "none"'), findsOneWidget);
   });
 
   testWidgets('Part 5 shows nine slots in the paper\'s order', (tester) async {
@@ -553,8 +552,10 @@ void main() {
     // No slots exist on the server until the first submission, so there
     // is nothing to record against.
     expect(find.text('Record'), findsNothing);
-    expect(find.textContaining('open once the proposal is submitted'),
-        findsOneWidget);
+    expect(
+      find.textContaining('open once the proposal is submitted'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Part 6 needs both an outcome and remarks', (tester) async {
@@ -592,10 +593,14 @@ void main() {
     });
   });
 
-  /// The three choices on the way out, which are squared boxes in the
-  /// dialog's body rather than the text links an AlertDialog puts in its
-  /// actions row. Moving them is why these two exist: only the save path
-  /// had a test, so Cancel and Go back were wired without cover.
+  /// The three choices on the way out, which are full-width buttons in
+  /// the dialog's body rather than the text links an AlertDialog puts in
+  /// its actions row. Moving them is why these two exist: only the save
+  /// path had a test, so the other two were wired without cover.
+  ///
+  /// They were "Cancel" and "Go back" until the row became a stack.
+  /// "Go back" read as returning to the form, which is the opposite of
+  /// what it does, so it says what it does now.
   group('leaving a part-filled proposal', () {
     ({SapForm form, List<String> patches}) partOne() {
       final day = DateTime.now().add(const Duration(days: 60));
@@ -632,7 +637,7 @@ void main() {
       );
     }
 
-    testWidgets('Cancel stays, and saves nothing', (tester) async {
+    testWidgets('Stay here stays, and saves nothing', (tester) async {
       final one = partOne();
       await one.form.load();
 
@@ -643,15 +648,15 @@ void main() {
 
       expect(find.text('Leave this proposal?'), findsOneWidget);
 
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.text('Stay here'));
       await tester.pumpAndSettle();
 
       expect(find.text('Leave this proposal?'), findsNothing);
       expect(find.text('ACTIVITY TITLE'), findsOneWidget, reason: 'still here');
-      expect(one.patches, isEmpty, reason: 'Cancel is not a save');
+      expect(one.patches, isEmpty, reason: 'staying is not a save');
     });
 
-    testWidgets('Go back saves nothing either', (tester) async {
+    testWidgets('Leave without saving saves nothing either', (tester) async {
       final one = partOne();
       await one.form.load();
 
@@ -659,14 +664,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Go back'));
+      await tester.tap(find.text('Leave without saving'));
       await tester.pumpAndSettle();
 
       expect(find.text('Leave this proposal?'), findsNothing);
       expect(
         one.patches,
         isEmpty,
-        reason: 'going back is the choice that keeps nothing',
+        reason: 'this is the choice that keeps nothing',
       );
     });
   });

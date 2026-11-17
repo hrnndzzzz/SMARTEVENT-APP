@@ -70,7 +70,10 @@ void main() {
       }
 
       expect((await hub(SapForm())).onPressed, isNull);
-      expect(find.textContaining('To send it for review, fill in:'), findsOneWidget);
+      expect(
+        find.textContaining('To send it for review, fill in:'),
+        findsOneWidget,
+      );
 
       expect((await hub(filledIn(SapForm()))).onPressed, isNotNull);
       expect(find.textContaining('To send it for review'), findsNothing);
@@ -124,29 +127,32 @@ void main() {
 
     bool onRecord() => app.events.any((e) => e.remoteId == id);
 
-    testWidgets('"Go back" deletes the event this visit made', (tester) async {
+    testWidgets('"Leave without saving" deletes the event this visit made', (
+      tester,
+    ) async {
       await setUp(made: true);
       expect(onRecord(), isTrue);
 
-      await leaveBy(tester, 'Go back');
+      await leaveBy(tester, 'Leave without saving');
 
       expect(onRecord(), isFalse, reason: 'starting again made a second one');
       expect(form.hasEvent, isFalse);
     });
 
-    testWidgets('"Save as draft" keeps it, even past a later "Go back"', (
-      tester,
-    ) async {
-      await setUp(made: true);
-      await leaveBy(tester, 'Save as draft');
-      await leaveBy(tester, 'Go back');
+    testWidgets(
+      '"Save as draft" keeps it, even past a later "Leave without saving"',
+      (tester) async {
+        await setUp(made: true);
+        await leaveBy(tester, 'Save as draft');
+        await leaveBy(tester, 'Leave without saving');
 
-      expect(onRecord(), isTrue);
-    });
+        expect(onRecord(), isTrue);
+      },
+    );
 
     testWidgets('a draft opened to carry on is never deleted', (tester) async {
       await setUp(made: false);
-      await leaveBy(tester, 'Go back');
+      await leaveBy(tester, 'Leave without saving');
 
       expect(onRecord(), isTrue);
     });
@@ -176,7 +182,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Leave this proposal?'), findsOneWidget);
 
-      await tester.tap(find.text('Go back'));
+      await tester.tap(find.text('Leave without saving'));
       await tester.pumpAndSettle();
       expect(find.text('open'), findsOneWidget);
     });

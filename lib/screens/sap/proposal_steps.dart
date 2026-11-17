@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../state/sap_form.dart';
 import '../../theme/brut.dart';
-import '../../widgets/report_tiles.dart';
 import 'sap_proposal_flow.dart';
 
 /// Filling in the proposal, as its three parts.
@@ -119,11 +118,18 @@ abstract final class LeaveProposal {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Leave this proposal?'),
-        // The three choices are squared boxes, the same shape the
-        // reports screen uses for a set of actions, rather than the
-        // stacked text links an AlertDialog gives by default — which
-        // looked nothing like the rest of the app and read as a list
-        // of links rather than a choice between three things.
+        // Stacked, full width, one line each.
+        //
+        // They were three boxes across a dialog, so each got a third of
+        // it: "Cancel" and "Go back" fitted, "Save as draft" wrapped to
+        // two lines, and an IntrinsicHeight then made all three as tall
+        // as the tallest. Three different shapes for three choices of
+        // equal weight.
+        //
+        // Ordered by what they do, not by habit: keeping the work
+        // first, losing it last, and the one that loses it says so.
+        // "Go back" read as returning to the form, which is the
+        // opposite of what it does.
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -132,46 +138,28 @@ abstract final class LeaveProposal {
               'Nothing has been sent yet. You can keep what you have '
               'written as a draft and come back to it.',
             ),
-            const SizedBox(height: 16),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: ReportActionTile(
-                      label: 'Cancel',
-                      icon: Icons.close,
-                      dense: true,
-                      onTap: () =>
-                          Navigator.of(dialogContext).pop(_Leaving.stay),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ReportActionTile(
-                      label: 'Go back',
-                      icon: Icons.arrow_back,
-                      dense: true,
-                      // It leaves without keeping anything, which is the
-                      // one choice here that loses work.
-                      tone: BrutTone.coral,
-                      onTap: () =>
-                          Navigator.of(dialogContext).pop(_Leaving.discard),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ReportActionTile(
-                      label: 'Save as draft',
-                      icon: Icons.bookmark_outline,
-                      dense: true,
-                      tone: BrutTone.brand,
-                      onTap: () =>
-                          Navigator.of(dialogContext).pop(_Leaving.save),
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 18),
+            BrutButton(
+              label: 'Save as draft',
+              icon: Icons.bookmark_outline,
+              onPressed: () => Navigator.of(dialogContext).pop(_Leaving.save),
+            ),
+            const SizedBox(height: 8),
+            BrutButton(
+              label: 'Leave without saving',
+              icon: Icons.delete_outline,
+              // The one choice here that loses work, and the only one
+              // that needs to look like it.
+              tone: BrutTone.coral,
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(_Leaving.discard),
+            ),
+            const SizedBox(height: 8),
+            BrutButton(
+              label: 'Stay here',
+              icon: Icons.close,
+              tone: BrutTone.neutral,
+              onPressed: () => Navigator.of(dialogContext).pop(_Leaving.stay),
             ),
           ],
         ),
