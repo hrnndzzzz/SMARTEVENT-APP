@@ -11,6 +11,7 @@ import '../theme/palette.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import '../widgets/module_band.dart';
+import '../widgets/segmented_switch.dart';
 import '../theme/module_identity.dart';
 import '../widgets/report_charts.dart';
 import '../widgets/report_status.dart';
@@ -143,7 +144,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   ///
   /// The snapshot first, so what is about to be exported is visible
   /// before choosing a format, then the three formats as squares.
-  void _openDownloads(BuildContext context, ConsolidatedFinancialReport? report) {
+  void _openDownloads(
+    BuildContext context,
+    ConsolidatedFinancialReport? report,
+  ) {
     BrutSheet.show<void>(
       context,
       builder: (sheetContext) => BrutSheet(
@@ -298,23 +302,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppLayout.between),
-          Row(
-            children: [
-              for (final (tab, label) in const [
-                (_Tab.overview, 'Overview'),
-                (_Tab.events, 'Events'),
-                (_Tab.ledger, 'Ledger'),
-              ]) ...[
-                Expanded(
-                  child: BrutChip(
-                    label: label,
-                    selected: _tab == tab,
-                    onTap: () => setState(() => _tab = tab),
-                  ),
-                ),
-                if (tab != _Tab.ledger) const SizedBox(width: 8),
-              ],
+          const SizedBox(height: AppLayout.section),
+          // Not chips.
+          //
+          // These were a row of BrutChips directly under a chip bar of
+          // BrutChips, so six identical controls sat stacked and only
+          // the top three filtered anything — the bottom three change
+          // which page you are reading. One shape, two jobs, nothing
+          // saying which was which.
+          //
+          // A segmented bar instead: one block, divided, with the
+          // chosen part filled. It reads as "where am I" rather than
+          // as another thing to switch on and off.
+          SegmentedSwitch<_Tab>(
+            value: _tab,
+            onChanged: (tab) => setState(() => _tab = tab),
+            segments: const [
+              (_Tab.overview, 'Overview'),
+              (_Tab.events, 'Events'),
+              (_Tab.ledger, 'Ledger'),
             ],
           ),
           const SizedBox(height: AppLayout.section),
@@ -490,7 +496,10 @@ class _Insights extends StatelessWidget {
           const BrutSectionTitle('Worth knowing'),
           const SizedBox(height: 10),
           if (items.isEmpty)
-            const Text('Nothing unusual in this period.', style: AppText.caption)
+            const Text(
+              'Nothing unusual in this period.',
+              style: AppText.caption,
+            )
           else
             for (final item in items) ...[
               Row(
@@ -693,7 +702,7 @@ class _Figure extends StatelessWidget {
 }
 
 /// Every entry the totals are built from, newest first.
-class _Ledger extends StatelessWidget {
+class _Ledger extends StatefulWidget {
   const _Ledger({
     required this.report,
     required this.filter,
@@ -705,8 +714,26 @@ class _Ledger extends StatelessWidget {
   final ValueChanged<LedgerFilter> onFilter;
 
   @override
+  State<_Ledger> createState() => _LedgerState();
+}
+
+class _LedgerState extends State<_Ledger> {
+  /// Newest first, which is the order a ledger is read in. It had no
+  /// order at all before — whatever the backend sent, which is its own
+  /// choice and not one anybody here made.
+  bool _newestFirst = true;
+
+  @override
   Widget build(BuildContext context) {
-    final rows = report.ledger.where(filter.matches).toList();
+    final report = widget.report;
+    final filter = widget.filter;
+    final onFilter = widget.onFilter;
+    final rows = report.ledger.where(filter.matches).toList()
+      ..sort(
+        (a, b) => _newestFirst
+            ? b.occurredOn.compareTo(a.occurredOn)
+            : a.occurredOn.compareTo(b.occurredOn),
+      );
     var income = 0.0;
     var spending = 0.0;
     for (final row in rows.where((r) => r.counted)) {
@@ -739,9 +766,23 @@ class _Ledger extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        MonoLabel(
-          '${rows.length} ${rows.length == 1 ? 'entry' : 'entries'} · '
-          'in ${peso(income, decimals: 0)} · out ${peso(spending, decimals: 0)}',
+        Row(
+          children: [
+            Expanded(
+              child: MonoLabel(
+                '${rows.length} ${rows.length == 1 ? 'entry' : 'entries'} · '
+                'in ${peso(income, decimals: 0)} · '
+                'out ${peso(spending, decimals: 0)}',
+              ),
+            ),
+            // The direction, said as a word and shown as an arrow. An
+            // arrow alone leaves you working out which way it means.
+            BrutChip(
+              label: _newestFirst ? 'Newest ↓' : 'Oldest ↑',
+              selected: false,
+              onTap: () => setState(() => _newestFirst = !_newestFirst),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         if (rows.isEmpty)
@@ -766,8 +807,18 @@ class _LedgerRow extends StatelessWidget {
   final LedgerEntry row;
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override

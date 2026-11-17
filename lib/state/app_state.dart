@@ -1374,6 +1374,22 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadFinancialReport() {
+    // The demo builds its own, for the period asked for.
+    //
+    // `_runLoad` returns early in demo mode without calling the loader,
+    // which is right for everything that would hit the network — but it
+    // meant the four period chips moved their own highlight and changed
+    // nothing else. Four filters that do nothing, in the screen whose
+    // whole job is filtering.
+    if (_demoMode) {
+      financialReport = DemoData.financialReport(period: reportPeriod);
+      financialReportLoad
+        ..status = LoadStatus.ready
+        ..error = null
+        ..sessionExpired = false;
+      notifyListeners();
+      return Future.value();
+    }
     return _runLoad(financialReportLoad, () async {
       final problem = reportFilterProblem;
       if (problem != null) throw ApiException(422, problem);

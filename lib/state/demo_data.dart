@@ -411,65 +411,179 @@ abstract final class DemoData {
   /// print-ready row the moderator asked for. Only the dashboard
   /// snapshot showed, which offers two formats, so the feature looked
   /// half-built in the one place it gets filmed.
-  static ConsolidatedFinancialReport financialReport() {
-    FinancialEventSummary event({
-      required String id,
-      required String title,
-      required double income,
-      required double expenses,
-      required String status,
-      required double allocated,
-    }) => FinancialEventSummary(
-      eventId: id,
-      title: title,
-      schoolYear: '2026-2027',
-      semester: Semester.first,
-      eventScope: EventScope.organizational,
-      incomeCount: income > 0 ? 2 : 0,
-      expenseCount: expenses > 0 ? 3 : 0,
-      totalIncome: income,
-      totalExpenses: expenses,
-      netBalance: income - expenses,
-      withheldIncomeTotal: 0,
-      withheldIncomeCount: 0,
-      status: status,
-      allocatedBudget: allocated,
-      spentToDate: expenses,
-    );
+  static ConsolidatedFinancialReport financialReport({
+    ReportPeriod period = ReportPeriod.schoolYear,
+    DateTime? now,
+  }) {
+    final today = now ?? DateTime.now();
+    final (from, to) = reportWindow(period, today);
+    final rows = _ledgerRows(today)
+        .where((r) => !r.occurredOn.isBefore(from) && !r.occurredOn.isAfter(to))
+        .toList();
 
-    const hack = 'HACK THE FUTURE: Cybersecurity and Ethical Hacking';
-    const week = 'CITE Week: Opening Ceremony';
+    // Everything below is counted off `rows`, not written beside them.
+    //
+    // It used to be written out by hand to agree with a fixed ledger,
+    // which was fine while the demo only ever showed one period. The
+    // moment the period chips filter — and they do nothing at all
+    // otherwise — a hand-written total is a figure that disagrees with
+    // the rows under it.
+    final income = rows.where((r) => r.isIncome && r.counted);
+    final spending = rows.where((r) => !r.isIncome && r.counted);
+    final totalIncome = income.fold<double>(0, (s, r) => s + r.amount);
+    final totalExpenses = spending.fold<double>(0, (s, r) => s + r.amount);
+
+    final bySource = <FundSource, List<LedgerEntry>>{};
+    for (final r in income) {
+      (bySource[r.sourceType ?? FundSource.donation] ??= []).add(r);
+    }
+    final byCategory = <String, List<LedgerEntry>>{};
+    for (final r in spending) {
+      (byCategory[r.label] ??= []).add(r);
+    }
+    final byMonth = <String, List<LedgerEntry>>{};
+    for (final r in rows) {
+      final key =
+          '${r.occurredOn.year}-'
+          '${r.occurredOn.month.toString().padLeft(2, '0')}';
+      (byMonth[key] ??= []).add(r);
+    }
+
     final events = [
-      event(
-        id: 'demo-ev-1',
-        title: hack,
-        income: 7250,
-        expenses: 2500,
-        status: 'completed',
-        allocated: 5000,
-      ),
-      // Over its budget, so the demo shows what that looks like.
-      event(
-        id: 'demo-ev-2',
-        title: week,
-        income: 12000,
-        expenses: 11950,
-        status: 'approved',
-        allocated: 11000,
-      ),
-      event(
-        id: 'demo-ev-5',
-        title: 'Capstone Project Exhibit',
-        income: 0,
-        expenses: 0,
-        status: 'pending_adviser',
-        allocated: 8000,
-      ),
+      for (final seed in _eventSeeds)
+        if (rows.any((r) => r.eventId == seed.id) || seed.allocated > 0)
+          FinancialEventSummary(
+            eventId: seed.id,
+            title: seed.title,
+            schoolYear: '2026-2027',
+            semester: Semester.first,
+            eventScope: EventScope.organizational,
+            incomeCount: rows
+                .where((r) => r.eventId == seed.id && r.isIncome)
+                .length,
+            expenseCount: rows
+                .where((r) => r.eventId == seed.id && !r.isIncome)
+                .length,
+            totalIncome: rows
+                .where((r) => r.eventId == seed.id && r.isIncome)
+                .fold<double>(0, (s, r) => s + r.amount),
+            totalExpenses: rows
+                .where((r) => r.eventId == seed.id && !r.isIncome)
+                .fold<double>(0, (s, r) => s + r.amount),
+            netBalance:
+                rows
+                    .where((r) => r.eventId == seed.id && r.isIncome)
+                    .fold<double>(0, (s, r) => s + r.amount) -
+                rows
+                    .where((r) => r.eventId == seed.id && !r.isIncome)
+                    .fold<double>(0, (s, r) => s + r.amount),
+            withheldIncomeTotal: 0,
+            withheldIncomeCount: 0,
+            status: seed.status,
+            allocatedBudget: seed.allocated,
+            spentToDate: rows
+                .where((r) => r.eventId == seed.id && !r.isIncome)
+                .fold<double>(0, (s, r) => s + r.amount),
+          ),
     ];
 
+    return ConsolidatedFinancialReport(
+      period: period,
+      startDate: from,
+      endDate: to,
+      schoolYear: period.needsSchoolYear ? '2026-2027' : null,
+      semester: period.needsSemester ? Semester.first : null,
+      eventScope: null,
+      totalIncome: totalIncome,
+      totalExpenses: totalExpenses,
+      unassignedExpenseTotal: 0,
+      netBalance: totalIncome - totalExpenses,
+      events: events,
+      incomeBySource: [
+        for (final entry in bySource.entries)
+          IncomeSourceSummary(
+            sourceType: entry.key,
+            source: entry.key.label,
+            incomeCount: entry.value.length,
+            totalIncome: entry.value.fold<double>(0, (s, r) => s + r.amount),
+          ),
+      ]..sort((a, b) => b.totalIncome.compareTo(a.totalIncome)),
+      withheldIncomeTotal: 0,
+      withheldIncomeCount: 0,
+      totalAllocatedBudget: events.fold<double>(
+        0,
+        (s, e) => s + e.allocatedBudget,
+      ),
+      totalSpentToDate: totalExpenses,
+      expensesByCategory: [
+        for (final entry in byCategory.entries)
+          CategorySpend(
+            categoryId: 'demo-cat-${entry.key.toLowerCase()}',
+            categoryName: entry.key,
+            expenseCount: entry.value.length,
+            totalExpenses: entry.value.fold<double>(0, (s, r) => s + r.amount),
+          ),
+      ]..sort((a, b) => b.totalExpenses.compareTo(a.totalExpenses)),
+      trend: [
+        for (final entry in byMonth.entries)
+          ReportTrendPoint(
+            bucket: entry.key,
+            totalIncome: entry.value
+                .where((r) => r.isIncome)
+                .fold<double>(0, (s, r) => s + r.amount),
+            totalExpenses: entry.value
+                .where((r) => !r.isIncome)
+                .fold<double>(0, (s, r) => s + r.amount),
+          ),
+      ]..sort((a, b) => a.bucket.compareTo(b.bucket)),
+      ledger: rows,
+      previous: PeriodTotals(
+        schoolYear: '2025-2026',
+        totalIncome: 16800,
+        totalExpenses: 12100,
+        netBalance: 4700,
+      ),
+    );
+  }
+
+  /// The window a period covers, the way the backend reads one.
+  ///
+  /// Weekly is Monday to Sunday, monthly is the calendar month, the
+  /// first semester runs August to December and the school year June to
+  /// May — the same shape `SchoolCalendar` uses for everything else.
+  static (DateTime, DateTime) reportWindow(ReportPeriod period, DateTime on) {
+    final day = DateTime(on.year, on.month, on.day);
+    return switch (period) {
+      ReportPeriod.weekly => (
+        day.subtract(Duration(days: day.weekday - 1)),
+        day.add(Duration(days: 7 - day.weekday)),
+      ),
+      ReportPeriod.monthly => (
+        DateTime(on.year, on.month),
+        DateTime(on.year, on.month + 1, 0),
+      ),
+      ReportPeriod.semester =>
+        on.month >= 8
+            ? (DateTime(on.year, 8), DateTime(on.year, 12, 31))
+            : (DateTime(on.year), DateTime(on.year, 5, 31)),
+      ReportPeriod.schoolYear =>
+        on.month >= 6
+            ? (DateTime(on.year, 6), DateTime(on.year + 1, 5, 31))
+            : (DateTime(on.year - 1, 6), DateTime(on.year, 5, 31)),
+    };
+  }
+
+  /// The ledger, dated against [today] rather than against 2026.
+  ///
+  /// Fixed dates made three of the four period chips show an empty
+  /// report, because the seeded rows were all in August and September.
+  /// A demo whose filters all land on nothing demonstrates nothing.
+  static List<LedgerEntry> _ledgerRows(DateTime today) {
+    const hack = 'HACK THE FUTURE: Cybersecurity and Ethical Hacking';
+    const week = 'CITE Week: Opening Ceremony';
+
     LedgerEntry row(
-      int month,
-      int day,
+      int daysAgo,
       String eventId,
       String title,
       String label,
@@ -478,7 +592,11 @@ abstract final class DemoData {
       FundSource? source,
       bool flagged = false,
     }) => LedgerEntry(
-      occurredOn: DateTime(2026, month, day),
+      occurredOn: DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).subtract(Duration(days: daysAgo)),
       isIncome: source != null,
       eventId: eventId,
       eventTitle: title,
@@ -490,101 +608,95 @@ abstract final class DemoData {
       flagged: flagged,
     );
 
-    // Every row below is one the totals are built from, so they add up.
-    final ledger = [
-      row(9, 22, 'demo-ev-1', hack, 'Faculty', 'Prize pool', 1250,
-          source: FundSource.donation),
-      row(9, 20, 'demo-ev-1', hack, 'Alumni chapter', 'Snacks', 250,
-          source: FundSource.sponsorship),
-      row(9, 19, 'demo-ev-1', hack, 'Equipment', 'Router rental', 2450,
-          flagged: true),
-      row(9, 19, 'demo-ev-1', hack, 'Marketing', 'Printed certificates', 50),
-      row(9, 18, 'demo-ev-1', hack, 'Participants', 'Registration', 5750,
-          source: FundSource.registrationFees),
-      row(8, 28, 'demo-ev-2', week, 'TechCorp PH', 'Gold sponsor', 3250,
-          source: FundSource.sponsorship),
-      row(8, 27, 'demo-ev-2', week, 'Venue', 'Sound system and stage', 4300),
-      row(8, 27, 'demo-ev-2', week, 'Marketing', 'Tarpaulins', 1450),
-      row(8, 26, 'demo-ev-2', week, 'Catering', 'Packed meals', 6200),
-      row(8, 25, 'demo-ev-2', week, 'Participants', 'Registration', 8750,
-          source: FundSource.registrationFees),
-    ];
-
-    CategorySpend category(String id, String name, int count, double total) =>
-        CategorySpend(
-          categoryId: id,
-          categoryName: name,
-          expenseCount: count,
-          totalExpenses: total,
-        );
-
-    final income = events.fold<double>(0, (sum, e) => sum + e.totalIncome);
-    final spent = events.fold<double>(0, (sum, e) => sum + e.totalExpenses);
-
-    // The school year, because that is the period Analytics opens on.
-    return ConsolidatedFinancialReport(
-      period: ReportPeriod.schoolYear,
-      startDate: null,
-      endDate: null,
-      schoolYear: '2026-2027',
-      semester: null,
-      eventScope: null,
-      totalIncome: income,
-      totalExpenses: spent,
-      unassignedExpenseTotal: 0,
-      netBalance: income - spent,
-      events: events,
-      incomeBySource: [
-        IncomeSourceSummary(
-          sourceType: FundSource.registrationFees,
-          source: 'Registration fees',
-          incomeCount: 2,
-          totalIncome: 14500,
-        ),
-        IncomeSourceSummary(
-          sourceType: FundSource.sponsorship,
-          source: 'Sponsorship',
-          incomeCount: 1,
-          totalIncome: 3500,
-        ),
-        IncomeSourceSummary(
-          sourceType: FundSource.donation,
-          source: 'Donation',
-          incomeCount: 1,
-          totalIncome: 1250,
-        ),
-      ],
-      withheldIncomeTotal: 0,
-      withheldIncomeCount: 0,
-      totalAllocatedBudget: 16000,
-      totalSpentToDate: 14450,
-      expensesByCategory: [
-        category('demo-cat-catering', 'Catering', 1, 6200),
-        category('demo-cat-venue', 'Venue', 1, 4300),
-        category('demo-cat-equipment', 'Equipment', 1, 2450),
-        category('demo-cat-marketing', 'Marketing', 2, 1500),
-      ],
-      trend: [
-        ReportTrendPoint(
-          bucket: '2026-08',
-          totalIncome: 12000,
-          totalExpenses: 11950,
-        ),
-        ReportTrendPoint(
-          bucket: '2026-09',
-          totalIncome: 7250,
-          totalExpenses: 2500,
-        ),
-      ],
-      ledger: ledger,
-      previous: PeriodTotals(
-        schoolYear: '2025-2026',
-        totalIncome: 16800,
-        totalExpenses: 12100,
-        netBalance: 4700,
+    return [
+      // This week — today itself, so the weekly chip is never empty
+      // whichever day the demo is opened on.
+      row(
+        0,
+        'demo-ev-1',
+        hack,
+        'Faculty',
+        'Prize pool',
+        1250,
+        source: FundSource.donation,
       ),
-    );
+      row(
+        1,
+        'demo-ev-1',
+        hack,
+        'Alumni chapter',
+        'Snacks',
+        250,
+        source: FundSource.sponsorship,
+      ),
+      // Earlier this month.
+      row(
+        3,
+        'demo-ev-1',
+        hack,
+        'Equipment',
+        'Router rental',
+        2450,
+        flagged: true,
+      ),
+      row(10, 'demo-ev-1', hack, 'Marketing', 'Printed certificates', 50),
+      row(
+        14,
+        'demo-ev-1',
+        hack,
+        'Participants',
+        'Registration',
+        5750,
+        source: FundSource.registrationFees,
+      ),
+      // Earlier in the semester.
+      row(
+        68,
+        'demo-ev-2',
+        week,
+        'TechCorp PH',
+        'Gold sponsor',
+        3250,
+        source: FundSource.sponsorship,
+      ),
+      row(69, 'demo-ev-2', week, 'Venue', 'Sound system and stage', 4300),
+      row(70, 'demo-ev-2', week, 'Marketing', 'Tarpaulins', 1450),
+      row(71, 'demo-ev-2', week, 'Catering', 'Packed meals', 6200),
+      row(
+        72,
+        'demo-ev-2',
+        week,
+        'Participants',
+        'Registration',
+        8750,
+        source: FundSource.registrationFees,
+      ),
+    ];
   }
+
+  static const List<
+    ({String id, String title, String status, double allocated})
+  >
+  _eventSeeds = [
+    (
+      id: 'demo-ev-1',
+      title: 'HACK THE FUTURE: Cybersecurity and Ethical Hacking',
+      status: 'completed',
+      allocated: 5000,
+    ),
+    (
+      id: 'demo-ev-2',
+      title: 'CITE Week: Opening Ceremony',
+      status: 'approved',
+      allocated: 11000,
+    ),
+    (
+      id: 'demo-ev-5',
+      title: 'Capstone Project Exhibit',
+      status: 'pending_adviser',
+      allocated: 8000,
+    ),
+  ];
 
   /// One event's finances, for the demo. The real one comes from
   /// `/reports/event/{id}`, which the demo cannot call.
