@@ -13,6 +13,13 @@ import 'package:smartevent/widgets/connection_banner.dart';
 /// header for three seconds. It is the header now: the brand pill
 /// extends to make room for the word and takes the colour of what
 /// happened, then goes back to the department accent.
+/// A client that never answers, so a Reachability built on it reports
+/// what an unreachable server reports.
+http.Client _dead() => MockClient((_) async {
+  await Future<void>.delayed(const Duration(seconds: 2));
+  throw http.ClientException('down');
+});
+
 void main() {
   Widget host(Reachability reach, {bool withPill = true}) =>
       ChangeNotifierProvider<Reachability>.value(
@@ -224,5 +231,65 @@ void main() {
 
     expect(find.text('SmartEvent'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the wordmark carries no second mark beside it', (tester) async {
+    // The bolt was a glyph standing next to the name, and the name is
+    // the mark. Checked by its code point rather than by eye, because
+    // an icon is easy to put back without anyone noticing.
+    await tester.pumpWidget(host(Reachability(httpClient: _dead())));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final icons = tester
+        .widgetList<Icon>(
+          find.descendant(
+            of: find.byType(BrandPill),
+            matching: find.byType(Icon),
+          ),
+        )
+        .toList();
+    expect(icons, isEmpty, reason: 'something is drawn beside the wordmark');
+    expect(find.text('SmartEvent'), findsOneWidget);
+  });
+
+  testWidgets('tapping it asks where the server stands, and it answers', (
+    tester,
+  ) async {
+    // Before, the answer only ever arrived unprompted: you watched the
+    // dot on the avatar, or you waited for the connection to change
+    // and hoped you were looking when it did.
+    final reach = Reachability(httpClient: _dead());
+    await tester.pumpWidget(host(reach));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Online'), findsNothing);
+    expect(find.text('Offline'), findsNothing);
+
+    await tester.tap(find.text('SmartEvent'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Nothing has reported a working server in this test, so the
+    // honest answer is the unreachable one.
+    expect(
+      find.textContaining(RegExp('Online|Offline')),
+      findsOneWidget,
+      reason: 'the pill was asked and said nothing',
+    );
+  });
+
+  testWidgets('and the answer goes away on its own', (tester) async {
+    final reach = Reachability(httpClient: _dead());
+    await tester.pumpWidget(host(reach));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(find.text('SmartEvent'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining(RegExp('Online|Offline')), findsOneWidget);
+
+    // A status that has to be dismissed is a status in the way.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining(RegExp('Online|Offline')), findsNothing);
   });
 }

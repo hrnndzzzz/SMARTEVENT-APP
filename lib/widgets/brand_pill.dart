@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../state/reachability.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
@@ -32,6 +35,42 @@ class BrandPill extends StatefulWidget {
 class _BrandPillState extends State<BrandPill> {
   ConnectionNews? _news;
 
+  /// Clears a status the pill was asked for, as opposed to one the
+  /// connection announced — those are cleared by whoever announced
+  /// them.
+  Timer? _asked;
+
+  /// How long a status sits there when somebody taps for it. The same
+  /// few seconds the banner gives an announcement, so asking and being
+  /// told look like one behaviour.
+  static const Duration _hold = Duration(seconds: 3);
+
+  /// Says where the server stands, because somebody asked.
+  ///
+  /// The wordmark is the one thing on every screen that is always in
+  /// the same place, so it is where the question gets asked. Before,
+  /// the answer only ever arrived unprompted — you could watch the
+  /// dot on the avatar, or wait for the connection to change and hope
+  /// you were looking.
+  /// [online] is read during build and handed in, because
+  /// `context.reachable` watches, and watching from a tap callback is
+  /// reading the tree at a moment the tree is not being built.
+  void _sayWhereWeStand({required bool online}) {
+    final news = _news;
+    if (news == null) return;
+    final tone = online ? BrutTone.mint : BrutTone.coral;
+
+    news.say(online ? 'Online' : 'Offline', offline: !online);
+    _asked?.cancel();
+    _asked = Timer(_hold, () {
+      if (mounted) news.clear();
+    });
+
+    // The wash is the same colour as the word, so the flourish is part
+    // of the answer rather than decoration over it.
+    ColourPulse.show(context, colour: tone.fill(context));
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -47,6 +86,7 @@ class _BrandPillState extends State<BrandPill> {
 
   @override
   void dispose() {
+    _asked?.cancel();
     _news?.release();
     super.dispose();
   }
@@ -66,6 +106,8 @@ class _BrandPillState extends State<BrandPill> {
               ? BrutTone.coral.fill(context)
               : BrutTone.mint.fill(context));
 
+    // Watched here, in the build, and carried to the callback.
+    final online = context.reachable != Reachable.offline;
     final still = MediaQuery.disableAnimationsOf(context);
     final duration = still ? Duration.zero : BrandPill.motion;
     final canPop = Navigator.of(context).canPop();
@@ -86,15 +128,20 @@ class _BrandPillState extends State<BrandPill> {
           fill: fill,
           radius: AppRadius.pill,
           shadow: AppShadows.sm,
-          padding: const EdgeInsets.fromLTRB(10, 5, 14, 5),
+          // Even now the glyph has gone: it was inset on the left to
+          // make room for the bolt.
+          padding: const EdgeInsets.fromLTRB(14, 5, 14, 5),
           // Whether it has somewhere to go is a question the navigator
           // can already answer: anywhere with a route under it is a
           // screen you arrived at, and the way out is home.
-          semanticLabel: message ??
-              (canPop ? 'Back to the dashboard' : 'SmartEvent'),
+          semanticLabel:
+              message ?? (canPop ? 'Back to the dashboard' : 'SmartEvent'),
+          // Somewhere to go, and it goes there. Nowhere to go — the
+          // dashboard — and it answers the question the wordmark is
+          // standing next to instead.
           onTap: () => canPop
               ? Navigator.of(context).popUntil((route) => route.isFirst)
-              : ColourPulse.show(context),
+              : _sayWhereWeStand(online: online),
           child: AnimatedSize(
             duration: duration,
             curve: Curves.easeOutCubic,
@@ -105,9 +152,12 @@ class _BrandPillState extends State<BrandPill> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.bolt, size: 15, color: ink),
-                const SizedBox(width: 5),
-                Text('SmartEvent', style: AppText.wordmark.copyWith(color: ink)),
+                // The wordmark alone. The bolt was a second mark
+                // beside the name, and the name is the mark.
+                Text(
+                  'SmartEvent',
+                  style: AppText.wordmark.copyWith(color: ink),
+                ),
                 if (message != null) ...[
                   const SizedBox(width: 7),
                   // A rule rather than a middle dot: the dot is how
@@ -121,10 +171,7 @@ class _BrandPillState extends State<BrandPill> {
                   const SizedBox(width: 7),
                   Text(
                     message,
-                    style: AppText.monoLabel.copyWith(
-                      fontSize: 11,
-                      color: ink,
-                    ),
+                    style: AppText.monoLabel.copyWith(fontSize: 11, color: ink),
                   ),
                 ],
               ],

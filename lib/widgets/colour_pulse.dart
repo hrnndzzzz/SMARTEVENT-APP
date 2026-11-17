@@ -35,23 +35,35 @@ abstract final class ColourPulse {
 
   /// Returns whether it actually ran, which is false when motion is
   /// turned down or there is no overlay to put it in.
-  static bool show(BuildContext context) {
+  ///
+  /// [colour] washes the screen in one stated colour instead of a
+  /// random pair. The connection status uses it, so the flourish and
+  /// the word it accompanies are saying the same thing — a green
+  /// message under a violet wash is two answers to one question.
+  static bool show(BuildContext context, {Color? colour}) {
     if (MediaQuery.disableAnimationsOf(context)) return false;
 
     final overlay = Overlay.maybeOf(context);
     if (overlay == null) return false;
 
     late final OverlayEntry entry;
-    entry = OverlayEntry(builder: (_) => _Pulse(onDone: entry.remove));
+    entry = OverlayEntry(
+      builder: (_) => _Pulse(onDone: entry.remove, stated: colour),
+    );
     overlay.insert(entry);
     return true;
   }
 }
 
 class _Pulse extends StatefulWidget {
-  const _Pulse({required this.onDone});
+  const _Pulse({required this.onDone, this.stated});
 
   final VoidCallback onDone;
+
+  /// Given, both stops of the gradient are this one colour, the second
+  /// a little deeper, so the wash reads as that colour rather than as
+  /// a blend of it with something else.
+  final Color? stated;
 
   @override
   State<_Pulse> createState() => _PulseState();
@@ -63,8 +75,10 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
     duration: const Duration(milliseconds: 900),
   );
 
-  late final Color _colour = ColourPulse.pick();
-  late final Color _second = ColourPulse.pick(avoiding: _colour);
+  late final Color _colour = widget.stated ?? ColourPulse.pick();
+  late final Color _second = widget.stated == null
+      ? ColourPulse.pick(avoiding: _colour)
+      : Color.lerp(widget.stated!, Colors.black, 0.25)!;
 
   @override
   void initState() {
