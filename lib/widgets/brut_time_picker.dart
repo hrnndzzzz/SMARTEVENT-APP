@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/models/sap_proposal.dart';
 import '../theme/app_layout.dart';
+import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../theme/palette.dart';
 
@@ -38,11 +39,10 @@ class BrutTimePicker extends StatefulWidget {
   final String title;
   final String? subtitle;
 
-  /// The minutes offered. Quarters, because a student activity is
-  /// scheduled to the quarter hour and a field that offers sixty
-  /// choices makes you read all of them to find the four you wanted.
-  /// A time already set to something else keeps it — see [_minutes].
-  static const List<int> quarters = [0, 15, 30, 45];
+  /// What one press of a minute arrow moves. An activity is scheduled
+  /// to the quarter hour, and a stepper that moves a minute at a time
+  /// needs sixty presses to cross an hour.
+  static const int minuteStep = 15;
 
   static Future<SapTime?> show(
     BuildContext context, {
@@ -68,9 +68,16 @@ class BrutTimePicker extends StatefulWidget {
   State<BrutTimePicker> createState() => _BrutTimePickerState();
 }
 
+int _asMinutes(SapTime t) => t.hour * 60 + t.minute;
+
 class _BrutTimePickerState extends State<BrutTimePicker> {
-  late int _hour;
-  late int _minute;
+  /// Minutes since midnight. One number rather than three fields,
+  /// because every arrow on this sheet is the same operation on it and
+  /// the window is one comparison instead of three.
+  late int _at;
+
+  int get _floor => _asMinutes(widget.earliest);
+  int get _ceiling => _asMinutes(widget.latest);
 
   @override
   void initState() {
@@ -79,45 +86,28 @@ class _BrutTimePickerState extends State<BrutTimePicker> {
     // A time outside the window is not a starting point, however it got
     // into the record — and half of one is worse than none. Clamping
     // the hour alone turned 2:30 AM into 6:30 AM, which is a time
-    // nobody chose and which looks like one somebody did. Out of the
-    // window opens at the start of it.
-    final usable = start != null && _allows(start.hour, start.minute);
-    _hour = usable ? start.hour : widget.earliest.hour;
-    _minute = usable ? start.minute : widget.earliest.minute;
+    // nobody chose and which looks like one somebody did.
+    final at = start == null ? null : _asMinutes(start);
+    _at = (at != null && at >= _floor && at <= _ceiling) ? at : _floor;
   }
 
-  bool _allows(int hour, int minute) {
-    final at = SapTime(hour, minute);
-    return at.compareTo(widget.earliest) >= 0 &&
-        at.compareTo(widget.latest) <= 0;
+  bool _can(int delta) {
+    final next = _at + delta;
+    return next >= _floor && next <= _ceiling;
   }
 
-  /// The quarters, plus whatever the record already held if it is not
-  /// one of them — a time saved as 8:05 must still be shown as 8:05,
-  /// not silently rounded by the thing that is supposed to display it.
-  List<int> get _minutes {
-    final odd = widget.initial?.minute;
-    final all = {
-      ...BrutTimePicker.quarters,
-      if (odd != null && _hour == widget.initial!.hour) odd,
-    }.toList()..sort();
-    return all;
-  }
+  /// Null when it would leave the window, which is what greys the arrow
+  /// out. The end of the window is a thing to see rather than an arrow
+  /// that quietly does nothing.
+  VoidCallback? _move(int delta) =>
+      _can(delta) ? () => setState(() => _at += delta) : null;
 
-  SapTime get _chosen => SapTime(_hour, _minute);
-
-  /// `8 AM`, `12 PM`, `10 PM`.
-  String _hourLabel(int hour) {
-    final suffix = hour < 12 ? 'AM' : 'PM';
-    final h = hour % 12 == 0 ? 12 : hour % 12;
-    return '$h $suffix';
-  }
+  SapTime get _chosen => SapTime(_at ~/ 60, _at % 60);
 
   @override
   Widget build(BuildContext context) {
-    final hours = [
-      for (var h = widget.earliest.hour; h <= widget.latest.hour; h++) h,
-    ];
+    final hour = _at ~/ 60;
+    final shownHour = hour % 12 == 0 ? 12 : hour % 12;
 
     return BrutSheet(
       title: widget.title,
@@ -130,50 +120,38 @@ class _BrutTimePickerState extends State<BrutTimePicker> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const MonoLabel('Hour'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              for (final h in hours)
-                IntrinsicWidth(
-                  child: BrutChip(
-                    label: _hourLabel(h),
-                    selected: h == _hour,
-                    onTap: () => setState(() {
-                      _hour = h;
-                      // The last hour has only its first minutes, so a
-                      // minute carried into it can be one the window
-                      // does not reach.
-                      if (!_allows(h, _minute)) _minute = 0;
-                    }),
-                  ),
-                ),
+              _Spin(
+                label: 'Hour',
+                value: '$shownHour',
+                // An hour is sixty minutes whichever way you go, so
+                // the arrows are the same operation as the others.
+                up: _move(60),
+                down: _move(-60),
+              ),
+              const _Colon(),
+              _Spin(
+                label: 'Minutes',
+                value: (_at % 60).toString().padLeft(2, '0'),
+                up: _move(BrutTimePicker.minuteStep),
+                down: _move(-BrutTimePicker.minuteStep),
+              ),
+              const SizedBox(width: AppLayout.between),
+              _Spin(
+                label: 'AM or PM',
+                value: hour < 12 ? 'AM' : 'PM',
+                // Half a day either way. Only one of the two is ever
+                // available, since the window does not span enough of
+                // the clock for both.
+                up: _move(-720),
+                down: _move(720),
+              ),
             ],
           ),
           const SizedBox(height: AppLayout.section),
-          const MonoLabel('Minutes'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in _minutes)
-                IntrinsicWidth(
-                  child: BrutChip(
-                    label: ':${m.toString().padLeft(2, '0')}',
-                    selected: m == _minute,
-                    // Shown and refused, so the end of the window is
-                    // visible rather than a chip that does nothing.
-                    onTap: _allows(_hour, m)
-                        ? () => setState(() => _minute = m)
-                        : null,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: AppLayout.between),
           Center(
             child: MonoLabel(
               'Between ${widget.earliest.label} and ${widget.latest.label}',
@@ -182,6 +160,75 @@ class _BrutTimePickerState extends State<BrutTimePicker> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// One column: an arrow, a value, an arrow.
+class _Spin extends StatelessWidget {
+  const _Spin({
+    required this.label,
+    required this.value,
+    required this.up,
+    required this.down,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback? up;
+  final VoidCallback? down;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      value: value,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BrutIconButton(
+            icon: Icons.keyboard_arrow_up,
+            label: '$label up',
+            size: 38,
+            onPressed: up,
+          ),
+          const SizedBox(height: 6),
+          BrutSurface(
+            radius: AppRadius.controlAll,
+            fill: context.palette.surface,
+            shadow: AppShadows.none,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: 34,
+              child: Text(
+                value,
+                textAlign: TextAlign.center,
+                style: AppText.moneyLarge.copyWith(fontSize: 20),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          BrutIconButton(
+            icon: Icons.keyboard_arrow_down,
+            label: '$label down',
+            size: 38,
+            onPressed: down,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Colon extends StatelessWidget {
+  const _Colon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Text(':', style: AppText.moneyLarge.copyWith(fontSize: 20)),
     );
   }
 }
