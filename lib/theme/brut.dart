@@ -1214,7 +1214,23 @@ class BrutScreen extends StatelessWidget {
       child: child,
     );
     if (onRefresh == null) return view;
-    return RefreshIndicator(onRefresh: onRefresh!, child: view);
+    return Builder(
+      builder: (context) {
+        final palette = context.palette;
+        // Material's own spinner, wearing the app's colours rather
+        // than the framework's purple-on-white. The shape is Android's
+        // and stays Android's: replacing it means writing a sliver
+        // refresh control, and a pull gesture that behaves like every
+        // other app's is worth more than a bespoke circle.
+        return RefreshIndicator(
+          onRefresh: onRefresh!,
+          color: palette.ink,
+          backgroundColor: palette.surface,
+          strokeWidth: 2.5,
+          child: view,
+        );
+      },
+    );
   }
 }
 
@@ -2048,9 +2064,7 @@ class BrutChip extends StatelessWidget {
           // fill is one of the accents — which are light too, so the
           // chosen answer was the one word on the row you could not
           // read.
-          color: selected
-              ? context.foregroundOn(fill)
-              : context.palette.subtle,
+          color: selected ? context.foregroundOn(fill) : context.palette.subtle,
         ),
       ),
     );

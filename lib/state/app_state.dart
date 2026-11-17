@@ -386,13 +386,29 @@ class LoadState {
   /// again.
   bool sessionExpired = false;
 
-  bool get isLoading => status == LoadStatus.loading;
+  /// This load was asked for by a pull, which is already drawing a
+  /// spinner of its own at the top of the page.
+  bool pulled = false;
+
+  /// Whether a screen should draw a spinner for this.
+  ///
+  /// False during a pull-to-refresh even though the load is genuinely
+  /// running: the gesture puts Android's indicator at the top of the
+  /// page, and the screen's own spinner then appeared underneath it —
+  /// two spinners, in two shapes, for one load. Reported on an empty
+  /// list, which is exactly when somebody pulls.
+  bool get isLoading => status == LoadStatus.loading && !pulled;
+
+  /// The load itself, whoever asked for it. For anything that must not
+  /// fire a second request while one is in flight.
+  bool get isBusy => status == LoadStatus.loading;
   bool get hasFailed => status == LoadStatus.failed;
 
   void reset() {
     status = LoadStatus.idle;
     error = null;
     sessionExpired = false;
+    pulled = false;
   }
 }
 
@@ -489,10 +505,21 @@ class AppState extends ChangeNotifier {
     await retryOfflinePreparation(waitForDownload: false);
   }
 
+  /// True while a pull is driving a load, so the load can be run
+  /// without the screen drawing a second spinner under the one the
+  /// gesture is already showing.
+  bool _pulling = false;
+
   /// A list's own pull-to-refresh: its [loader] while connected, and a
   /// reconnect (which reloads it too) while showing saved data.
-  Future<void> refreshList(Future<void> Function() loader) =>
-      isOfflineViewing || requiresOnlineSignIn ? reconnect() : loader();
+  Future<void> refreshList(Future<void> Function() loader) async {
+    _pulling = true;
+    try {
+      await (isOfflineViewing || requiresOnlineSignIn ? reconnect() : loader());
+    } finally {
+      _pulling = false;
+    }
+  }
 
   Future<void> retryOfflinePreparation({bool waitForDownload = true}) async {
     if (_revalidating ||
@@ -722,7 +749,8 @@ class AppState extends ChangeNotifier {
     state
       ..status = LoadStatus.loading
       ..error = null
-      ..sessionExpired = false;
+      ..sessionExpired = false
+      ..pulled = _pulling;
     notifyListeners();
 
     try {
