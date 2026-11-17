@@ -6,6 +6,7 @@ import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../widgets/brut_date_picker.dart';
 import 'sap_form_fields.dart';
 import 'sap_proposal_flow.dart';
 
@@ -444,11 +445,13 @@ class _RecordSheetState extends State<_RecordSheet> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final chosen = await showDatePicker(
-      context: context,
-      initialDate: _signedOn ?? now,
+    final chosen = await BrutDatePicker.show(
+      context,
+      initial: _signedOn ?? now,
       firstDate: DateTime(now.year - 1),
+      // Nothing is signed in the future.
       lastDate: now,
+      title: 'Date signed',
     );
     if (chosen != null) setState(() => _signedOn = chosen);
   }

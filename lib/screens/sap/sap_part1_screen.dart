@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/school_calendar.dart';
+import '../../widgets/brut_date_picker.dart';
 import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
 import '../../theme/app_theme.dart';
@@ -194,11 +195,13 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
   Future<void> _pickProposalDate() async {
     final now = DateTime.now();
-    final chosen = await showDatePicker(
-      context: context,
-      initialDate: _d.proposalDate ?? now,
+    final chosen = await BrutDatePicker.show(
+      context,
+      initial: _d.proposalDate ?? now,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 2),
+      title: 'Date of proposal',
+      subtitle: 'The day this is being filed, not the day it happens.',
     );
     if (chosen != null) {
       _form.updateDetails((d) => d.copyWith(proposalDate: chosen));
@@ -381,16 +384,18 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final chosen = await showDatePicker(
-      context: context,
-      initialDate: _firstOpenDay(_d.activityDate ?? now),
+    final chosen = await BrutDatePicker.show(
+      context,
+      initial: _firstOpenDay(_d.activityDate ?? now),
       // Not last year. An activity cannot be proposed for a day that
       // has gone, and offering the whole of it invited exactly that.
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: DateTime(now.year + 2),
-      // Holidays and past days are greyed out rather than tapped and
-      // then rejected, so the rule is visible before the mistake.
-      selectableDayPredicate: SchoolCalendar.selectable,
+      title: 'Activity date',
+      subtitle: 'Holidays and days gone are shown but cannot be taken.',
+      // Greyed out rather than tapped and then rejected, so the rule is
+      // visible before the mistake.
+      selectableDay: SchoolCalendar.selectable,
     );
     if (chosen == null) return;
     _form.updateDetails((d) => d.copyWith(activityDate: chosen));
