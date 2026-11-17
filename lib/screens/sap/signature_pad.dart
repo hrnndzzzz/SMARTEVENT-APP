@@ -166,17 +166,31 @@ class _SapSignaturePadState extends State<SapSignaturePad> {
   }
 }
 
-/// A pan that does not give way to the scroll view it sits in.
+/// A pan that takes the gesture outright rather than sharing it.
 ///
 /// The pad lives inside a scrollable page. A vertical stroke — the stem
 /// of a letter, most of a signature — is a vertical drag, and the
-/// scrollable wins that contest: the page scrolls and the stroke is
-/// never drawn. Refusing to be rejected keeps the gesture here, which is
-/// what a drawing surface wants. Scrolling past the pad is done from
-/// either side of it.
+/// scrollable claims those, so the page scrolled and the stroke was
+/// never drawn.
+///
+/// This used to answer that by overriding `rejectGesture` to accept
+/// instead. That does not win the contest: `rejectGesture` is called
+/// *after* something else has already won it, so accepting there simply
+/// added the pad as a second handler of the same finger. The page
+/// scrolled and the pad drew, at once, from one touch — which is both
+/// halves of what was reported: a signature that will not go on, and a
+/// scroll past the pad that leaves a mark behind it.
+///
+/// Resolving at pointer-down takes the arena before the scrollable is
+/// in it. A touch that starts on a drawing surface is a stroke; the
+/// page is scrolled from either side of the pad, which is the ordinary
+/// way to live beside a canvas.
 class _PadPanRecognizer extends PanGestureRecognizer {
   @override
-  void rejectGesture(int pointer) => acceptGesture(pointer);
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
 }
 
 class _SignaturePainter extends CustomPainter {
