@@ -396,6 +396,10 @@ class _Overview extends StatelessWidget {
         _Kpis(report: report),
         const SizedBox(height: AppLayout.section),
         _Insights(items: reportInsights(report)),
+        if (context.watch<AppState>().financialReading case final reading?) ...[
+          const SizedBox(height: AppLayout.section),
+          _AiReading(reading: reading),
+        ],
         const SizedBox(height: AppLayout.section),
         const BrutSectionTitle('Charts'),
         const SizedBox(height: 10),
@@ -520,6 +524,51 @@ class _Insights extends StatelessWidget {
               ),
               if (item != items.last) const SizedBox(height: 10),
             ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The AI-written reading of the same figures, labeled as such. Shown
+/// only when there is one; the "Worth knowing" card stands without it.
+class _AiReading extends StatelessWidget {
+  const _AiReading({required this.reading});
+
+  final FinancialReading reading;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget line(IconData icon, String text) => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: context.palette.subtle),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: AppText.body)),
+      ],
+    );
+    return BrutCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const BrutSectionTitle('AI reading'),
+          const SizedBox(height: 4),
+          const Text(
+            'Written by AI from the figures above. Check it against them.',
+            style: AppText.caption,
+          ),
+          if (reading.headline case final headline?) ...[
+            const SizedBox(height: 10),
+            Text(headline, style: AppText.body),
+          ],
+          for (final point in reading.points) ...[
+            const SizedBox(height: 10),
+            line(Icons.auto_awesome, point),
+          ],
+          if (reading.suggestion case final suggestion?) ...[
+            const SizedBox(height: 10),
+            line(Icons.arrow_forward, suggestion),
+          ],
         ],
       ),
     );

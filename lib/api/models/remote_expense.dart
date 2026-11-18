@@ -280,6 +280,10 @@ class ScannedReceipt {
   /// name, amount and day. Shown before saving; saving flags it as well.
   final List<DuplicateExpense> possibleDuplicates;
 
+  /// The AI's pick among the organization's categories, or null. A
+  /// suggestion only: the officer still chooses before saving.
+  final String? suggestedCategoryId;
+
   ScannedReceipt({
     required this.receiptUrl,
     required this.merchant,
@@ -287,6 +291,7 @@ class ScannedReceipt {
     required this.amount,
     required this.items,
     this.possibleDuplicates = const [],
+    this.suggestedCategoryId,
   });
 
   factory ScannedReceipt.fromJson(Map<String, dynamic> json) {
@@ -305,6 +310,7 @@ class ScannedReceipt {
         for (final row in (json['possible_duplicates'] as List? ?? const []))
           DuplicateExpense.fromJson((row as Map).cast<String, dynamic>()),
       ],
+      suggestedCategoryId: json['suggested_category_id'] as String?,
     );
   }
 

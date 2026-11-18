@@ -163,6 +163,7 @@ def test_protected_route_requires_authentication(client):
         "/analytics/proposal-summary",
         f"/reports/category/{uuid4()}",
         f"/recommendations/event-budget?category_id={uuid4()}",
+        "/reports/financial/ai-reading?period=monthly",
     ],
 )
 def test_sds_staff_cannot_read_operational_modules(client, user, path):

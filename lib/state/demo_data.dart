@@ -1190,6 +1190,32 @@ abstract final class DemoData {
         'close to the activity were the next most common reasons.',
   );
 
+  /// A fixed stand-in for the AI reading of the financial report.
+  static FinancialReading financialReading() => const FinancialReading(
+    headline:
+        'Spending is within budget overall, though one event ran past its '
+        'allocation and supplies take the largest share.',
+    points: [
+      'One event spent more than it budgeted; its next proposal should '
+          'carry quotations for the costliest items.',
+      'Supplies account for the biggest share of spending this period.',
+      'Most income comes from registration fees, so turnout drives the '
+          'balance.',
+    ],
+    suggestion:
+        'Set aside a small contingency in each event budget for the next '
+        'semester.',
+  );
+
+  /// A fixed stand-in for the AI budget suggestion on the proposal form.
+  static BudgetSuggestion budgetSuggestion() => const BudgetSuggestion(
+    amount: 2500,
+    reason:
+        'Similar past activities planned around this amount and spent '
+        'close to it.',
+    similarTitles: ['Acquaintance Party', 'Tech Talk Series'],
+  );
+
   /// Six months of spending, ending on the current month so the chart
   /// never reads as stale during a walkthrough.
   static List<SpendingTrendPoint> spendingTrends() {
@@ -1319,6 +1345,7 @@ abstract final class DemoData {
         category: ItemCategory.asset,
       ),
     ],
+    suggestedCategoryId: 'demo-cat-2', // Materials and supplies
   );
 
   static List<AppNotice> notices() => [

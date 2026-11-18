@@ -757,6 +757,8 @@ class ScanReceiptResponse(BaseModel):
     amount: float | None
     items: list[ScannedReceiptItem]
     possible_duplicates: list[DuplicateExpense] = Field(default_factory=list)
+    # The AI's pick among the organization's categories; the officer still chooses.
+    suggested_category_id: uuid.UUID | None = None
 
 
 class ActivityNoteOut(BaseModel):

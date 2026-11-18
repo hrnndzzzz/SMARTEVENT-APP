@@ -104,6 +104,48 @@ class ReportsService {
     );
   }
 
+  /// The AI-written reading of the same report [financialReport] returns,
+  /// with the same filters.
+  Future<FinancialReading> financialReading({
+    required ReportPeriod period,
+    DateTime? referenceDate,
+    String? schoolYear,
+    Semester? semester,
+    EventScope? eventScope,
+    String? organizationId,
+  }) async {
+    final response = await _client.get(
+      '/reports/financial/ai-reading',
+      query: _financialQuery(
+        period: period,
+        referenceDate: referenceDate,
+        schoolYear: schoolYear,
+        semester: semester,
+        eventScope: eventScope,
+        organizationId: organizationId,
+      ),
+    );
+    return FinancialReading.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// An AI-suggested budget for a new event, from similar past ones.
+  Future<BudgetSuggestion> budgetSuggestion({
+    required String title,
+    String? description,
+    String? organizationId,
+  }) async {
+    final response = await _client.post(
+      '/recommendations/event-budget/ai',
+      body: {
+        'title': title,
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        'organization_id': ?organizationId,
+      },
+    );
+    return BudgetSuggestion.fromJson(response as Map<String, dynamic>);
+  }
+
   Future<BudgetRecommendation> budgetRecommendation(String categoryId) async {
     final response = await _client.get(
       '/recommendations/event-budget',
