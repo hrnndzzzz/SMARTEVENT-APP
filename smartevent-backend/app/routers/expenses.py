@@ -45,7 +45,8 @@ from app.services.ocr import ReceiptParseError, parse_receipt_image, parse_recei
 from app.services.storage import StorageError, canonical_file_url, prepare_image_for_upload, upload_receipt_image
 from app.services.access_audit import record_access_change
 from app.services.receipt_validation import (
-    assert_receipt_review_complete, duplicate_note, possible_duplicate_expenses, receipt_for_transaction, sync_expense_receipt,
+    assert_receipt_review_complete, duplicate_note, normalized, possible_duplicate_expenses, receipt_for_transaction,
+    sync_expense_receipt,
 )
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -136,8 +137,10 @@ def scan_receipt(
     except StorageError:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Receipt storage upload failed")
 
+    categories = db.query(Category.id, Category.name).filter(Category.organization_id == organization.id).all()
+    category_ids = {normalized(name): category_id for category_id, name in categories}
     try:
-        parsed = parse_receipt_image(processed_bytes, content_type)
+        parsed = parse_receipt_image(processed_bytes, content_type, [name for _, name in categories])
     except RuntimeError:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Receipt service is unavailable")
     except ReceiptParseError:
@@ -154,6 +157,8 @@ def scan_receipt(
         # Warned now, before the form is filled in; saving flags it too.
         possible_duplicates=possible_duplicate_expenses(
             db, organization.id, [parsed["merchant"]], parsed["amount"], parsed["date"]),
+        # Only an exact (case-insensitive) match to one of the listed names counts.
+        suggested_category_id=category_ids.get(normalized(parsed.get("expense_category"))),
     )
 
 

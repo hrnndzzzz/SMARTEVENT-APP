@@ -103,6 +103,45 @@ class ProposalSummary {
       );
 }
 
+/// The AI-written reading of a financial report — `FinancialReading`.
+/// Empty when there was nothing to read or the AI could not be reached.
+class FinancialReading {
+  final String? headline;
+  final List<String> points;
+  final String? suggestion;
+
+  const FinancialReading({this.headline, this.points = const [], this.suggestion});
+
+  bool get isEmpty => headline == null && points.isEmpty && suggestion == null;
+
+  factory FinancialReading.fromJson(Map<String, dynamic> json) =>
+      FinancialReading(
+        headline: json['headline'] as String?,
+        points: [for (final p in (json['points'] as List? ?? const [])) p as String],
+        suggestion: json['suggestion'] as String?,
+      );
+}
+
+/// An AI-suggested budget for a new event — `BudgetSuggestion`, with the
+/// past events it was compared against so a person can check it.
+class BudgetSuggestion {
+  final double? amount;
+  final String? reason;
+  final List<String> similarTitles;
+
+  const BudgetSuggestion({this.amount, this.reason, this.similarTitles = const []});
+
+  factory BudgetSuggestion.fromJson(Map<String, dynamic> json) =>
+      BudgetSuggestion(
+        amount: (json['amount'] as num?)?.toDouble(),
+        reason: json['reason'] as String?,
+        similarTitles: [
+          for (final e in (json['similar_events'] as List? ?? const []))
+            (e as Map)['title'] as String,
+        ],
+      );
+}
+
 /// One month of approved spending — `SpendingTrendPoint`.
 ///
 /// Grouped by the expense's `created_at`, **not** its `expense_date`, so

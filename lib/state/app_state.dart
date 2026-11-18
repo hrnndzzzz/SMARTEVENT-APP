@@ -1383,6 +1383,7 @@ class AppState extends ChangeNotifier {
     // whole job is filtering.
     if (_demoMode) {
       financialReport = DemoData.financialReport(period: reportPeriod);
+      financialReading = DemoData.financialReading();
       financialReportLoad
         ..status = LoadStatus.ready
         ..error = null
@@ -1402,7 +1403,53 @@ class AppState extends ChangeNotifier {
         eventScope: reportEventScope,
         organizationId: reportOrganizationId,
       );
+      // Not awaited, so a slow AI call never holds up the figures.
+      unawaited(_loadFinancialReading());
     });
+  }
+
+  /// The AI-written reading of [financialReport], for the same filters.
+  /// Null while loading, when there is nothing to say, or on any failure:
+  /// the report and its "Worth knowing" card stand on their own.
+  FinancialReading? financialReading;
+
+  Future<void> _loadFinancialReading() async {
+    financialReading = null;
+    notifyListeners();
+    try {
+      final reading = await _reportsService.financialReading(
+        period: reportPeriod,
+        referenceDate: reportReferenceDate,
+        schoolYear: reportSchoolYear,
+        semester: reportSemester,
+        eventScope: reportEventScope,
+        organizationId: reportOrganizationId,
+      );
+      financialReading = reading.isEmpty ? null : reading;
+    } catch (_) {
+      financialReading = null;
+    }
+    notifyListeners();
+  }
+
+  /// An AI-suggested budget for a new event, or null when there is none
+  /// to give (too little history, no AI, offline or any failure).
+  Future<BudgetSuggestion?> suggestBudget({
+    required String title,
+    String? description,
+    String? organizationId,
+  }) async {
+    if (_demoMode) return DemoData.budgetSuggestion();
+    try {
+      final suggestion = await _reportsService.budgetSuggestion(
+        title: title,
+        description: description,
+        organizationId: organizationId,
+      );
+      return suggestion.amount == null ? null : suggestion;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Downloads the consolidated report using **the filters currently on
@@ -3998,6 +4045,7 @@ class AppState extends ChangeNotifier {
     catalog = DemoData.catalog();
     letters = DemoData.letters();
     financialReport = DemoData.financialReport();
+    financialReading = DemoData.financialReading();
     receipts = DemoData.receipts();
     dashboard = DemoData.dashboard();
     proposalSummary = DemoData.proposalSummary();
@@ -4511,6 +4559,7 @@ class AppState extends ChangeNotifier {
     spendingTrends = [];
     flaggedExpenses = [];
     financialReport = null;
+    financialReading = null;
     letters = [];
     catalog = [];
     incomes = [];

@@ -48,6 +48,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool _manualEntry = false;
 
   String? _categoryId;
+
+  /// The category the AI suggested from the receipt, while it is still
+  /// the one chosen. Choosing another clears the "suggested" note.
+  String? _aiCategoryId;
   String? _eventId;
   DateTime? _expenseDate;
 
@@ -203,9 +207,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
       return;
     }
 
+    final suggested = scan.suggestedCategoryId;
+    final offered = context.read<AppState>().categories.any(
+      (c) => c.id == suggested,
+    );
     setState(() {
       _scanning = false;
       _scan = scan;
+      // A suggestion never replaces a category the officer chose.
+      if (offered && (_categoryId == null || _categoryId == _aiCategoryId)) {
+        _categoryId = _aiCategoryId = suggested;
+      }
       // Prefilled from the reading, all of it editable.
       _merchantController.text = scan.merchant ?? '';
       _vendorController.text = scan.merchant ?? '';
@@ -516,6 +528,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
               scan: _scan,
               categories: app.categories,
               categoryId: _categoryId,
+              aiSuggestedCategory:
+                  _aiCategoryId != null && _categoryId == _aiCategoryId,
               onCategoryChanged: (id) => setState(() => _categoryId = id),
               events: app.events,
               eventId: _eventId,
@@ -693,6 +707,7 @@ class _ReviewCard extends StatelessWidget {
     required this.scan,
     required this.categories,
     required this.categoryId,
+    this.aiSuggestedCategory = false,
     required this.onCategoryChanged,
     required this.events,
     required this.eventId,
@@ -710,6 +725,9 @@ class _ReviewCard extends StatelessWidget {
   final ScannedReceipt? scan;
   final List<Category> categories;
   final String? categoryId;
+
+  /// The chosen category is the AI's suggestion, not yet changed.
+  final bool aiSuggestedCategory;
   final ValueChanged<String?> onCategoryChanged;
   final List<EventItem> events;
   final String? eventId;
@@ -816,6 +834,21 @@ class _ReviewCard extends StatelessWidget {
               if (made.length == 1) onCategoryChanged(made.single.id);
             },
           ),
+          if (aiSuggestedCategory) ...[
+            const SizedBox(height: 4),
+            const Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 14),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Suggested by AI from the receipt. Check it.',
+                    style: AppText.caption,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           BrutDropdown<String>(
             label: 'Event',

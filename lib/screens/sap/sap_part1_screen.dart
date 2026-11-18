@@ -1,7 +1,10 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../api/models/sap_proposal.dart';
+import '../../state/app_state.dart';
+import '../../theme/peso.dart';
 import '../../state/school_calendar.dart';
 import '../../widgets/brut_date_picker.dart';
 import '../../state/sap_form.dart';
@@ -115,6 +118,37 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
   SapDetails get _d => _form.details;
   bool get _editable => _form.canEditProposerParts;
+
+  /// The AI's budget suggestion, asked for on demand rather than on
+  /// every keystroke. [_noSuggestion] once it was asked and had none.
+  BudgetSuggestion? _suggestion;
+  bool _suggesting = false;
+  bool _noSuggestion = false;
+
+  Future<void> _suggestBudget() async {
+    final title = _title.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Give the activity a title first.')),
+      );
+      return;
+    }
+    setState(() {
+      _suggesting = true;
+      _noSuggestion = false;
+    });
+    final suggestion = await context.read<AppState>().suggestBudget(
+      title: title,
+      description: _rationale.text.trim(),
+      organizationId: _form.scopeOrganizationId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _suggesting = false;
+      _suggestion = suggestion;
+      _noSuggestion = suggestion == null;
+    });
+  }
 
   @override
   void dispose() {
@@ -1038,6 +1072,48 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                       decimal: true,
                     ),
                   ),
+                  if (_editable) ...[
+                    const SizedBox(height: 8),
+                    if (_suggestion case final s?) ...[
+                      BrutInlineMessage(
+                        tone: BrutTone.mint,
+                        icon: Icons.auto_awesome,
+                        text: [
+                          'AI suggests ${peso(s.amount!)}'
+                              '${s.similarTitles.isEmpty ? '' : ', like ${s.similarTitles.join(', ')}'}.',
+                          ?s.reason,
+                        ].join(' '),
+                      ),
+                      const SizedBox(height: 8),
+                      BrutButton(
+                        label: 'Use ${peso(s.amount!)}',
+                        icon: Icons.check,
+                        tone: BrutTone.neutral,
+                        size: BrutSize.small,
+                        onPressed: () => setState(() {
+                          _budget.text = s.amount!.toStringAsFixed(2);
+                          _suggestion = null;
+                        }),
+                      ),
+                    ] else
+                      BrutButton(
+                        label: 'Suggest a budget',
+                        icon: Icons.auto_awesome,
+                        tone: BrutTone.neutral,
+                        size: BrutSize.small,
+                        busy: _suggesting,
+                        busyLabel: 'Asking the AI',
+                        onPressed: _suggestBudget,
+                      ),
+                    if (_noSuggestion) ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        'No suggestion this time. It needs at least two past '
+                        'approved events to compare with, and a connection.',
+                        style: AppText.caption,
+                      ),
+                    ],
+                  ],
                   const SizedBox(height: 14),
                   BrutTextField(
                     controller: _funding,
