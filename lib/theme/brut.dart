@@ -341,7 +341,15 @@ class BrutButton extends StatelessWidget {
       padding: EdgeInsets.symmetric(
         horizontal: size == BrutSize.small ? 12 : 16,
       ),
-      alignment: Alignment.center,
+      // Only when it is meant to fill. A Container with an alignment
+      // grows to whatever width it is offered, so `expand: false` did
+      // nothing under loose bounded constraints — inside an Expanded,
+      // a Flexible or an Align the button still took the whole row and
+      // stranded its label in the middle. Without an alignment it sizes
+      // to its child, and the Row inside already centres the content.
+      // A stretch Column passes a tight width, so buttons there are
+      // full-width either way.
+      alignment: expand ? Alignment.center : null,
       child: content,
     );
   }

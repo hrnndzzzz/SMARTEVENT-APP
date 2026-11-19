@@ -237,26 +237,35 @@ class _InventoryScreenState extends State<InventoryScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _InventorySortButton(
-                    sort: _sort,
-                    onChanged: (value) => setState(() => _sort = value),
-                  ),
-                ),
+              // A plain Row child, not an Expanded holding an Align:
+              // BrutSurface sets an alignment, and a Container with one
+              // grows to whatever width it is offered, so the button
+              // came out spanning the row with its label stranded in
+              // the middle. A Row gives a non-flex child unbounded
+              // width, which is what makes it shrink to its content.
+              // Two controls and room for both, so the sort keeps its
+              // natural width and Places is pushed to the right edge
+              // by an Align rather than by a Spacer competing with it
+              // for space.
+              _InventorySortButton(
+                sort: _sort,
+                onChanged: (value) => setState(() => _sort = value),
               ),
-              const SizedBox(width: AppLayout.tight),
               // Where everything is kept, which until now could only be
               // learned by scrolling the whole list and reading the
               // headings.
-              BrutButton(
-                label: _place ?? 'Places',
-                icon: Icons.warehouse_outlined,
-                tone: _place == null ? BrutTone.neutral : BrutTone.dark,
-                size: BrutSize.small,
-                expand: false,
-                onPressed: () => _choosePlace(context),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: BrutButton(
+                    label: _place ?? 'Places',
+                    icon: Icons.warehouse_outlined,
+                    tone: _place == null ? BrutTone.neutral : BrutTone.dark,
+                    size: BrutSize.small,
+                    expand: false,
+                    onPressed: () => _choosePlace(context),
+                  ),
+                ),
               ),
             ],
           ),

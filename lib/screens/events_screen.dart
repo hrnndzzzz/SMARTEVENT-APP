@@ -75,13 +75,16 @@ class _EventsScreenState extends State<EventsScreen> {
               // the left two thirds of it were empty and the three
               // controls were crushed into the right edge; the sort now
               // uses that space to say something.
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _SortButton(
-                    sort: _sort,
-                    onChanged: (v) => setState(() => _sort = v),
-                  ),
+              // No Spacer. A Spacer is an Expanded with flex 1, so it
+              // and a Flexible sort button split the free space evenly
+              // and the button was handed 27px for 48px of icons —
+              // which is what the 360dp overflow actually was. With
+              // the fixed-width controls laid out first, the sort gets
+              // whatever is left and shrinks only on a narrow phone.
+              Flexible(
+                child: _SortButton(
+                  sort: _sort,
+                  onChanged: (v) => setState(() => _sort = v),
                 ),
               ),
               const SizedBox(width: AppLayout.tight),
@@ -99,7 +102,11 @@ class _EventsScreenState extends State<EventsScreen> {
                   // and it says what it makes.
                   label: 'New event',
                   icon: Icons.add,
+                  // The emphasis is the fill and the full label, not
+                  // the height: a 44pt button here costs the sort
+                  // control the room it needs at 360dp.
                   tone: BrutTone.brand,
+                  size: BrutSize.small,
                   expand: false,
                   onPressed: () {
                     final app = context.read<AppState>();
@@ -247,7 +254,7 @@ class _SortButton extends StatelessWidget {
         // what it will do tells you nothing about the list in front of
         // you; one that names the order answers the question people
         // actually have.
-        label: sort.label,
+        label: sort.short,
         trailingIcon: Icons.expand_more,
         // Marked when it is not the default, so a list in an unexpected
         // order says so rather than looking wrong.
@@ -508,14 +515,23 @@ class _EventFilterBar extends StatelessWidget {
 /// Only the list: the month view is already ordered by the calendar,
 /// and sorting it would mean nothing.
 enum _EventSort {
-  dateAsc('Soonest first', Icons.arrow_upward),
-  dateDesc('Latest first', Icons.arrow_downward),
-  title('By name', Icons.sort_by_alpha),
-  status('By status', Icons.flag_outlined);
+  dateAsc('Soonest first', 'Soonest', Icons.arrow_upward),
+  dateDesc('Latest first', 'Latest', Icons.arrow_downward),
+  title('By name', 'Name', Icons.sort_by_alpha),
+  status('By status', 'Status', Icons.flag_outlined);
 
-  const _EventSort(this.label, this.icon);
+  const _EventSort(this.label, this.short, this.icon);
 
+  /// The full wording, used where there is room for it: the chooser,
+  /// and what a screen reader is told.
   final String label;
+
+  /// What the button says. The row also carries a view toggle and the
+  /// New event button, and at 1080px "Soonest first" came out as
+  /// "Soonest…" — an ellipsis in a control that exists to tell you
+  /// what order the list is in.
+  final String short;
+
   final IconData icon;
 
   /// An event with no date sorts to the end either way round, rather
