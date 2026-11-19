@@ -617,6 +617,8 @@ class BrutMetricTile extends StatelessWidget {
     this.tone = BrutTone.neutral,
     this.onTap,
     this.footnote,
+    this.countTo,
+    this.format,
   });
 
   final String label;
@@ -625,9 +627,44 @@ class BrutMetricTile extends StatelessWidget {
   final VoidCallback? onTap;
   final String? footnote;
 
+  /// Counts up to this when the tile first appears, instead of printing
+  /// [value] straight away. [format] turns each step into the text.
+  ///
+  /// Both or neither: without a formatter there is no way to render an
+  /// intermediate figure, so [value] is shown as it always was.
+  ///
+  /// The count is a reading aid, not decoration — it puts the figure on
+  /// a scale, so 60% arrives having passed 30% rather than simply being
+  /// there. It is skipped whenever motion is reduced.
+  final double? countTo;
+  final String Function(double)? format;
+
   @override
   Widget build(BuildContext context) {
     final foreground = tone.foreground(context);
+    final to = countTo;
+    final fmt = format;
+    final still = MediaQuery.disableAnimationsOf(context);
+    final figure = (to == null || fmt == null || still)
+        ? Text(
+            value,
+            style: AppText.moneyLarge.copyWith(color: foreground),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        : TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: to),
+            duration: const Duration(milliseconds: 900),
+            // Fast at the start and settling at the end, so the last
+            // few units are readable rather than a blur stopping dead.
+            curve: Curves.easeOutCubic,
+            builder: (context, t, _) => Text(
+              fmt(t),
+              style: AppText.moneyLarge.copyWith(color: foreground),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
     return BrutSurface(
       onTap: onTap,
       fill: tone.fill(context),
@@ -646,12 +683,7 @@ class BrutMetricTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppText.moneyLarge.copyWith(color: foreground),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          figure,
           if (footnote != null) ...[
             const SizedBox(height: 4),
             Text(footnote!, style: AppText.caption.copyWith(color: foreground)),

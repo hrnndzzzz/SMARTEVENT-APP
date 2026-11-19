@@ -281,6 +281,12 @@ class HomeScreen extends StatelessWidget {
                             value: budgetFigure,
                             figureSize: figure,
                             label: 'of ${peso(allocated, decimals: 0)} left',
+                            // The one figure on this screen that is
+                            // nobody else's business.
+                            hidden: context.watch<AppSettings>().balanceHidden,
+                            onToggleHidden: () => context
+                                .read<AppSettings>()
+                                .toggleBalanceHidden(),
                             peekTitle: 'Budget',
                             opens: 'money',
                             // The same thing the figure above it names, so the
@@ -380,6 +386,10 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: AppLayout.section),
             BrutSectionTitle(
               'Analytics',
+              // Two actions that do very different things, so they no
+              // longer look identical. "Change" swaps the chart on this
+              // screen and stays a quiet text link; "See all" leaves for
+              // Analytics, which is the bigger move, so it is a button.
               aside: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -387,7 +397,15 @@ class HomeScreen extends StatelessWidget {
                     label: 'Change',
                     onTap: () => _pickChart(context, charts, chart.title),
                   ),
-                  _SeeAll(onTap: () => _open(context, 'reports')),
+                  const SizedBox(width: 6),
+                  BrutButton(
+                    label: 'See all',
+                    trailingIcon: Icons.arrow_outward,
+                    tone: BrutTone.brand,
+                    size: BrutSize.small,
+                    expand: false,
+                    onPressed: () => _open(context, 'reports'),
+                  ),
                 ],
               ),
             ),
@@ -465,7 +483,21 @@ class _StatTile extends StatelessWidget {
     this.accent = AppColors.brand,
     this.peekTitle,
     this.figureSize = 26,
+    this.onToggleHidden,
+    this.hidden = false,
   });
+
+  /// Given only to a tile whose figure is worth covering. The eye is
+  /// drawn where the trend badge sits; everything else on the tile is
+  /// unchanged.
+  final VoidCallback? onToggleHidden;
+
+  /// Covers the figure, the label and the bar.
+  ///
+  /// The bar matters as much as the number: a budget bar at four
+  /// fifths says roughly what is left to anyone who glances at it, so
+  /// covering the figure alone would be theatre.
+  final bool hidden;
 
   /// Set by the dashboard so all four agree. See [sharedFigureSize].
   final double figureSize;
@@ -504,16 +536,28 @@ class _StatTile extends StatelessWidget {
   void _showPeek(BuildContext context) => showFloatingPeek(
     context,
     title: peekTitle ?? label,
-    subtitle: value,
+    // The peek spells the same figures out to the decimal. Covering the
+    // tile and then handing them over on a long press would be no
+    // protection at all.
+    subtitle: hidden ? _masked : value,
     openLabel: 'Open $opens',
     onOpen: onTap,
-    child: peekChild ?? Text(peek, style: AppText.body),
+    child: hidden
+        ? const Text(
+            'The balance is covered. Show it with the eye on the tile.',
+            style: AppText.body,
+          )
+        : peekChild ?? Text(peek, style: AppText.body),
   );
+
+  /// Enough dots to read as money without hinting at how many digits
+  /// the real figure has.
+  static const _masked = '₱ ••••••';
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final amount = fill;
+    final amount = hidden ? null : fill;
     return BrutCard(
       onTap: onTap,
       onLongPress: () => _showPeek(context),
@@ -541,6 +585,30 @@ class _StatTile extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              if (onToggleHidden != null) ...[
+                // Its own tap target inside the card. The inner handler
+                // wins the arena, so the eye never opens Money by
+                // accident on the way past.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onToggleHidden,
+                  child: Semantics(
+                    button: true,
+                    label: hidden ? 'Show the balance' : 'Hide the balance',
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        hidden
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 18,
+                        color: p.muted,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
               _TrendBadge(trend: trend),
             ],
           ),
@@ -552,14 +620,16 @@ class _StatTile extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              value,
+              hidden ? _masked : value,
               maxLines: 1,
               style: AppText.heroNumber.copyWith(fontSize: figureSize),
             ),
           ),
           const SizedBox(height: 2),
           Text(
-            label,
+            // "of P50,000 left" names the allocation, which is most of
+            // the story on its own.
+            hidden ? 'Tap the eye to show' : label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppText.caption.copyWith(color: p.muted),

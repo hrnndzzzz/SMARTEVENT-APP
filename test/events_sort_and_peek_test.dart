@@ -69,9 +69,11 @@ void main() {
       await tester.tap(find.bySemanticsLabel(RegExp('Sort events')));
       await tester.pump(const Duration(milliseconds: 400));
 
-      // Twice for the one in force: once as the panel's subtitle,
-      // saying what the order is now, and once as a choice.
-      expect(find.text('Soonest first'), findsNWidgets(2));
+      // Three times for the one in force: on the button itself, which
+      // now names the current order rather than showing a bare
+      // swap-arrows icon, again as the panel's subtitle, and once more
+      // as a choice in the list.
+      expect(find.text('Soonest first'), findsNWidgets(3));
       expect(find.text('Latest first'), findsOneWidget);
       expect(find.text('By name'), findsOneWidget);
       expect(find.text('By status'), findsOneWidget);

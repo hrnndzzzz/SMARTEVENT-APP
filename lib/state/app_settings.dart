@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'app_state.dart' show Department;
-
 /// Preferences that belong to this device rather than to the account.
 ///
 /// There is no settings endpoint, so these do not follow you to another
@@ -16,12 +14,10 @@ import 'app_state.dart' show Department;
 class AppSettings extends ChangeNotifier {
   static const _themeKey = 'settings.themeMode';
   static const _motionKey = 'settings.reduceMotion';
-  static const _accentKey = 'settings.accent';
   static const _dashboardChartKey = 'settings.dashboardChart';
 
   ThemeMode _themeMode = ThemeMode.system;
   bool _reduceMotion = false;
-  Department? _accent;
   String? _dashboardChart;
   bool _loaded = false;
 
@@ -32,16 +28,20 @@ class AppSettings extends ChangeNotifier {
   /// not move someone's choice onto a different one.
   String? get dashboardChart => _dashboardChart;
 
-  /// A colour chosen on this phone, or null to keep the one that comes
-  /// with the account's department.
+  /// Whether the dashboard's money figure is covered.
   ///
-  /// The palette is the departments' own rather than a free colour
-  /// wheel. Every one of these was picked to work as a fill with ink on
-  /// top, in both themes, and none of them is coral — coral means "a
-  /// problem", and a whole app wearing it would read as one. A picker
-  /// that let someone choose otherwise would be offering a way to make
-  /// the app unreadable.
-  Department? get accent => _accent;
+  /// Deliberately not persisted. Every launch starts covered, because
+  /// the point of it is the person standing next to you — and a setting
+  /// that remembers "shown" would be uncovered on the one occasion it
+  /// mattered. Uncovering is a decision made in the moment and it lasts
+  /// only as long as the app is open.
+  bool get balanceHidden => _balanceHidden;
+  bool _balanceHidden = true;
+
+  void toggleBalanceHidden() {
+    _balanceHidden = !_balanceHidden;
+    notifyListeners();
+  }
 
   /// Turns off the press animation, screen transitions and every other
   /// movement in the app. The OS-level setting is honoured too, so a
@@ -60,8 +60,10 @@ class AppSettings extends ChangeNotifier {
           ThemeMode.values.where((m) => m.name == stored).firstOrNull ??
           ThemeMode.system;
       _reduceMotion = prefs.getBool(_motionKey) ?? false;
-      final accent = prefs.getString(_accentKey);
-      _accent = Department.values.where((d) => d.name == accent).firstOrNull;
+      // The per-phone accent was removed. Clearing the key means a
+      // phone that had chosen one goes back to its department's
+      // colour instead of keeping a choice it can no longer change.
+      await prefs.remove('settings.accent');
       _dashboardChart = prefs.getString(_dashboardChartKey);
     } catch (_) {
       // Storage is unavailable. The defaults are already correct.
@@ -89,21 +91,6 @@ class AppSettings extends ChangeNotifier {
     _dashboardChart = title;
     notifyListeners();
     await _write((prefs) => prefs.setString(_dashboardChartKey, title));
-  }
-
-  /// Null puts it back to the department's own colour.
-  Future<void> setAccent(Department? value) async {
-    if (value == _accent) return;
-    _accent = value;
-    notifyListeners();
-    await _write(
-      (prefs) => value == null
-          // Removed rather than stored as a sentinel, so "never chose"
-          // and "chose to go back" are the same state on the next
-          // launch — which they are.
-          ? prefs.remove(_accentKey)
-          : prefs.setString(_accentKey, value.name),
-    );
   }
 
   /// The choice is applied immediately and persisted afterwards, so a

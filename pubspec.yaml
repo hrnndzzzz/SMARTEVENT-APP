@@ -41,6 +41,13 @@ dependencies:
   camera_android: ^0.10.10
   image: ^4.5.4
   image_picker: ^1.2.3
+  # Declared directly only so main.dart can switch the Android
+  # implementation to the system photo picker. Without this the
+  # plugin opens an ACTION_GET_CONTENT chooser, which on a Samsung
+  # hands the job to whichever gallery app is the default — Google
+  # Photos here — instead of the picker built into Android.
+  image_picker_android: ^0.8.13+19
+  image_picker_platform_interface: ^2.11.1
   # The signed scan is a PDF; image_picker cannot offer one.
   file_picker: ^13.1.0
   # Short interface sounds; see lib/state/sfx.dart.

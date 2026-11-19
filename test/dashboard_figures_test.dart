@@ -33,6 +33,14 @@ void main() {
     ),
   );
 
+  /// The budget figure starts covered, so a test about the figure or
+  /// the bar has to uncover it first. The eye is the only way in, which
+  /// is also the point of it.
+  Future<void> reveal(WidgetTester tester) async {
+    await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   group('the budget tile agrees with itself', () {
     testWidgets('the bar draws what is left, not what is spent', (
       tester,
@@ -44,6 +52,7 @@ void main() {
 
       await tester.pumpWidget(host(app));
       await tester.pump(const Duration(milliseconds: 400));
+      await reveal(tester);
 
       final allocated = app.totalAllocated;
       expect(allocated, greaterThan(0), reason: 'the demo has no budget');

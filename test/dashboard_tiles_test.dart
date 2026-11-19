@@ -29,6 +29,14 @@ void main() {
     child: const MaterialApp(home: Scaffold(body: HomeScreen())),
   );
 
+  /// The budget figure starts covered, so a test about the figure or
+  /// the bar has to uncover it first. The eye is the only way in, which
+  /// is also the point of it.
+  Future<void> reveal(WidgetTester tester) async {
+    await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   Future<AppState> open(WidgetTester tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(411, 2600);
@@ -39,6 +47,7 @@ void main() {
     // Not pumpAndSettle: the bell rings on a repeating controller while
     // anything is unread, so nothing ever settles.
     await tester.pump(const Duration(milliseconds: 400));
+    await reveal(tester);
     return app;
   }
 

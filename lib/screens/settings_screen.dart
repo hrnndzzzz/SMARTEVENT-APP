@@ -11,9 +11,7 @@ import 'sap/sap_review_demo_screen.dart';
 import '../state/sfx.dart';
 import '../widgets/backend_address_card.dart';
 import '../widgets/brand_mark.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import '../theme/palette.dart';
 import '../theme/brut.dart';
 
 /// Device settings.
@@ -117,8 +115,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const BrutSectionTitle('Appearance'),
           const SizedBox(height: 10),
           const _ThemePicker(),
-          const SizedBox(height: 16),
-          const _AccentPicker(),
           // Only on Android: the swap is two manifest components being
           // enabled and disabled, and there is nothing behind it
           // anywhere else.
@@ -128,7 +124,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
             const _IconPicker(),
           ],
-          const SizedBox(height: 18),
+          // Sound and motion had no heading of their own and sat loose
+          // under whatever block happened to come before them. They are
+          // one subject and now say so.
+          const SizedBox(height: 20),
+          const BrutSectionTitle('Sound and motion'),
+          const SizedBox(height: 10),
           _SwitchTile(
             label: 'Sound and vibration',
             subtitle:
@@ -177,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const BackendAddressCard(),
           ],
           const SizedBox(height: 20),
-          const BrutSectionTitle('This device'),
+          const BrutSectionTitle('Privacy and security'),
           const SizedBox(height: 10),
           // Only where the hardware is there and enrolled. A switch
           // that cannot work is worse than no switch, and this one
@@ -422,103 +423,6 @@ class _DemoRolePicker extends StatelessWidget {
               'Looking at the same seeded records as '
               '${current?.label ?? 'nobody'}. Nothing is sent anywhere.',
         ),
-      ],
-    );
-  }
-}
-
-/// Which colour the app wears.
-///
-/// The accent comes from the account's department, and for a CITE
-/// account that is orange whether or not anyone likes orange. This
-/// overrides it on this phone without touching the account: the
-/// department is still what the records belong to, and still what the
-/// brand pill says — this only changes the paint.
-///
-/// The swatches are the departments' own palette rather than a colour
-/// wheel. Each one was chosen to carry ink on top in both themes, and
-/// none of them is coral, which means "a problem" everywhere else in
-/// the app. A free picker would be a way to make the app unreadable.
-class _AccentPicker extends StatelessWidget {
-  const _AccentPicker();
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = context.watch<AppSettings>();
-    final own = context.watch<AppState>().themeDepartment;
-    final chosen = settings.accent;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final option in Department.values)
-              BrutSurface(
-                onTap: () => settings.setAccent(
-                  // Picking the department's own colour is the same
-                  // thing as not having picked, and storing it as a
-                  // choice would freeze the app on today's department
-                  // if the account ever moved.
-                  option == own ? null : option,
-                ),
-                semanticLabel: option.label,
-                radius: AppRadius.controlAll,
-                shadow: chosen == option || (chosen == null && option == own)
-                    ? AppShadows.base
-                    : AppShadows.none,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: option.color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: context.palette.ink,
-                          width: AppBorders.width,
-                        ),
-                      ),
-                      child:
-                          chosen == option || (chosen == null && option == own)
-                          ? Icon(Icons.check, size: 12, color: AppColors.ink)
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      option == own ? '${option.label} · yours' : option.label,
-                      style: AppText.buttonLabel.copyWith(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          chosen == null
-              ? 'Following ${own.label}, the department on your account.'
-              : 'Chosen on this phone. ${own.label} is still the department '
-                    'your records belong to.',
-          style: AppText.caption,
-        ),
-        if (chosen != null) ...[
-          const SizedBox(height: 10),
-          BrutButton(
-            label: 'Use my department\'s colour',
-            icon: Icons.restart_alt,
-            tone: BrutTone.neutral,
-            onPressed: () => settings.setAccent(null),
-          ),
-        ],
       ],
     );
   }

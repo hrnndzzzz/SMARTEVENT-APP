@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_state.dart';
+import '../state/school_calendar.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
@@ -157,12 +158,28 @@ class _EventCalendarState extends State<EventCalendar> {
           dotsFor: (day) => [
             for (final e in _on(day)) eventStatusTone(e.status),
           ],
+          // The holidays were computed from the day this calendar was
+          // written and then never drawn anywhere, so nobody could find
+          // them. SchoolCalendar already refuses them at the proposal
+          // picker; this is the same knowledge, said out loud.
+          holidayFor: SchoolCalendar.holidayOn,
         ),
         const SizedBox(height: AppLayout.section),
         BrutSectionTitle(
           _heading(_selected, today),
           aside: agenda.isEmpty ? null : MonoLabel('${agenda.length}'),
         ),
+        // Which holiday, by name. The coloured date in the grid says a
+        // day is one; only this says which, and the name is the part
+        // that settles whether the hall will be open.
+        if (SchoolCalendar.holidayOn(_selected) case final name?) ...[
+          const SizedBox(height: AppLayout.between),
+          BrutInlineMessage(
+            tone: BrutTone.coral,
+            icon: Icons.flag_outlined,
+            text: '$name — a regular holiday.',
+          ),
+        ],
         const SizedBox(height: AppLayout.between),
         if (agenda.isEmpty)
           BrutCard(

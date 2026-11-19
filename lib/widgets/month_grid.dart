@@ -43,6 +43,7 @@ class MonthGrid extends StatelessWidget {
     required this.onSelect,
     this.dotsFor,
     this.isEnabled,
+    this.holidayFor,
   });
 
   /// Any day in the month to draw; only its year and month are read.
@@ -57,6 +58,14 @@ class MonthGrid extends StatelessWidget {
 
   /// Days this grid refuses. Null allows every day.
   final bool Function(DateTime day)? isEnabled;
+
+  /// The name of the holiday on a day, or null for an ordinary one.
+  ///
+  /// Drawn as the day's own colour rather than another dot: the dots
+  /// already mean "an event is on", and a holiday is a property of the
+  /// date itself. A calendar that knows about Good Friday and does not
+  /// say so is worse than one that never knew.
+  final String? Function(DateTime day)? holidayFor;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +119,7 @@ class MonthGrid extends StatelessWidget {
               enabled: isEnabled?.call(day) ?? true,
               tones: dotsFor?.call(day).take(3).toList() ?? const [],
               more: (dotsFor?.call(day).length ?? 0) > 3,
+              holiday: holidayFor?.call(day),
               onTap: () => onSelect(day),
             );
           },
@@ -127,6 +137,7 @@ class MonthGrid extends StatelessWidget {
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
+    required this.holiday,
     required this.isToday,
     required this.isSelected,
     required this.enabled,
@@ -136,6 +147,7 @@ class _DayCell extends StatelessWidget {
   });
 
   final int day;
+  final String? holiday;
   final bool isToday;
   final bool isSelected;
   final bool enabled;
@@ -150,16 +162,22 @@ class _DayCell extends StatelessWidget {
         ? context.palette.muted
         : isSelected
         ? context.palette.canvas
+        // A holiday reads like a Sunday, because that is what it is.
+        : holiday != null
+        ? BrutTone.coral.fill(context)
         : context.palette.ink;
 
     return Semantics(
       selected: isSelected,
       enabled: enabled,
       button: true,
-      label: tones.isEmpty
-          ? '$day'
-          : '$day, ${tones.length}${more ? ' or more' : ''} event'
-                '${tones.length == 1 && !more ? '' : 's'}',
+      label: [
+        '$day',
+        ?holiday,
+        if (tones.isNotEmpty)
+          '${tones.length}${more ? ' or more' : ''} event'
+              '${tones.length == 1 && !more ? '' : 's'}',
+      ].join(', '),
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         behavior: HitTestBehavior.opaque,

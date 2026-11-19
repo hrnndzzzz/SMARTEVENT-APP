@@ -453,24 +453,36 @@ class _Kpis extends StatelessWidget {
         BrutMetricTile(
           label: 'Income',
           value: peso(report.totalIncome, decimals: 0),
+          countTo: report.totalIncome.toDouble(),
+          format: (t) => peso(t, decimals: 0),
           tone: BrutTone.mint,
           footnote: _change(report.totalIncome, before?.totalIncome),
         ),
         BrutMetricTile(
           label: 'Spending',
           value: peso(report.totalExpenses, decimals: 0),
+          countTo: report.totalExpenses.toDouble(),
+          format: (t) => peso(t, decimals: 0),
           tone: BrutTone.orange,
           footnote: _change(report.totalExpenses, before?.totalExpenses),
         ),
         BrutMetricTile(
           label: 'Net balance',
           value: peso(net, decimals: 0),
+          // Counts from zero towards a negative too, which is the right
+          // direction for it: a deficit should be seen falling.
+          countTo: net.toDouble(),
+          format: (t) => peso(t, decimals: 0),
           tone: net < 0 ? BrutTone.coral : BrutTone.neutral,
           footnote: _change(net, before?.netBalance),
         ),
         BrutMetricTile(
           label: 'Budget used',
           value: used == null ? '—' : '${(used * 100).round()}%',
+          // Nothing to count to when there is no budget: an em dash
+          // cannot be interpolated.
+          countTo: used == null ? null : used * 100,
+          format: used == null ? null : (t) => '${t.round()}%',
           tone: used == null
               ? BrutTone.neutral
               : used > 1

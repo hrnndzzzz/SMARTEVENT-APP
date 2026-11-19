@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/event_picker_items.dart';
+import '../widgets/floating_peek.dart';
 import '../widgets/last_change_note.dart';
 import '../widgets/module_band.dart';
 import '../widgets/stat_grid.dart';
@@ -25,6 +26,32 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   _StockFilter _stock = _StockFilter.all;
+  _ItemSort _sort = _ItemSort.place;
+
+  /// What was typed into the search box, already trimmed and lowered.
+  String _query = '';
+  final _search = TextEditingController();
+
+  /// One storage place, or null for all of them. Set from the places
+  /// sheet, which is the only screen that lists them.
+  String? _place;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Name, description and location, so "cabinet" finds both an item
+  /// called one and everything kept in one.
+  bool _matchesQuery(RemoteInventoryItem item) {
+    if (_query.isEmpty) return true;
+    return [
+      item.itemName,
+      item.description ?? '',
+      item.location ?? '',
+    ].any((field) => field.toLowerCase().contains(_query));
+  }
 
   @override
   void initState() {
@@ -32,6 +59,89 @@ class _InventoryScreenState extends State<InventoryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<AppState>().loadCatalog();
     });
+  }
+
+  /// The heading an item files under. One definition, used by the
+  /// filter, the places sheet and the grouping, so they cannot drift
+  /// apart and show three different counts for the same shelf.
+  static String _placeOf(RemoteInventoryItem item) =>
+      (item.location?.trim().isNotEmpty ?? false)
+      ? item.location!.trim()
+      : _unplaced;
+
+  static const _unplaced = 'No location recorded';
+
+  /// What the empty state should say was not found. Naming the search
+  /// first matters: "nothing low stock" is confusing when the real
+  /// reason nothing showed up is a typo in the search box.
+  String get _emptyLabel {
+    if (_query.isNotEmpty) return 'matching "$_query"';
+    if (_place != null) return 'in $_place';
+    return _stock.label.toLowerCase();
+  }
+
+  Future<void> _choosePlace(BuildContext context) async {
+    final catalog = context.read<AppState>().catalog;
+    final counts = <String, int>{};
+    for (final item in catalog) {
+      counts.update(_placeOf(item), (n) => n + 1, ifAbsent: () => 1);
+    }
+    final places = counts.keys.toList()
+      ..sort((a, b) {
+        if (a == _unplaced) return 1;
+        if (b == _unplaced) return -1;
+        return a.toLowerCase().compareTo(b.toLowerCase());
+      });
+
+    if (!context.mounted) return;
+    await BrutSheet.show<void>(
+      context,
+      builder: (sheetContext) => BrutSheet(
+        title: 'Storage places',
+        subtitle: places.isEmpty
+            ? 'Nothing has a location yet.'
+            : '${places.length} in the catalogue',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            BrutListRow(
+              title: 'Everywhere',
+              meta: '${catalog.length} items',
+              marker: const BrutIconTile(
+                size: 32,
+                icon: Icons.all_inbox_outlined,
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                setState(() => _place = null);
+              },
+            ),
+            const SizedBox(height: 8),
+            for (final place in places) ...[
+              BrutListRow(
+                title: place,
+                meta:
+                    '${counts[place]} '
+                    '${counts[place] == 1 ? 'item' : 'items'}',
+                marker: BrutIconTile(
+                  size: 32,
+                  icon: place == _unplaced
+                      ? Icons.help_outline
+                      : Icons.warehouse_outlined,
+                  tone: place == _unplaced ? BrutTone.sun : BrutTone.neutral,
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  setState(() => _place = place);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -113,6 +223,44 @@ class _InventoryScreenState extends State<InventoryScreen> {
             style: AppText.caption,
           ),
           const SizedBox(height: 12),
+          // Find a thing by name before narrowing by anything else.
+          // A catalogue you can only browse is a catalogue you have to
+          // already know your way around.
+          BrutTextField(
+            controller: _search,
+            label: 'Search',
+            hint: 'Name, description or where it is kept',
+            prefixIcon: Icons.search,
+            onChanged: (value) =>
+                setState(() => _query = value.trim().toLowerCase()),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _InventorySortButton(
+                    sort: _sort,
+                    onChanged: (value) => setState(() => _sort = value),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppLayout.tight),
+              // Where everything is kept, which until now could only be
+              // learned by scrolling the whole list and reading the
+              // headings.
+              BrutButton(
+                label: _place ?? 'Places',
+                icon: Icons.warehouse_outlined,
+                tone: _place == null ? BrutTone.neutral : BrutTone.dark,
+                size: BrutSize.small,
+                expand: false,
+                onPressed: () => _choosePlace(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           const _FilterBar(),
           const SizedBox(height: 8),
           BrutChipBar(
@@ -146,10 +294,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
             _ => _Grouped(
               items: [
                 for (final item in app.catalog)
-                  if (_stock.matches(item)) item,
+                  if (_stock.matches(item) &&
+                      _matchesQuery(item) &&
+                      (_place == null || _placeOf(item) == _place))
+                    item,
               ],
+              sort: _sort,
               onRefresh: () => app.refreshList(app.loadCatalog),
-              emptyLabel: _stock.label.toLowerCase(),
+              emptyLabel: _emptyLabel,
               canMove: canMove,
             ),
           },
@@ -602,12 +754,17 @@ enum _StockFilter {
 class _Grouped extends StatelessWidget {
   const _Grouped({
     required this.items,
+    required this.sort,
     required this.onRefresh,
     required this.emptyLabel,
     required this.canMove,
   });
 
   final List<RemoteInventoryItem> items;
+
+  /// Whether to keep the location headings, and the order within
+  /// whatever is drawn.
+  final _ItemSort sort;
   final Future<void> Function() onRefresh;
   final String emptyLabel;
 
@@ -621,8 +778,32 @@ class _Grouped extends StatelessWidget {
         child: BrutEmptyState(
           icon: Icons.filter_alt_outlined,
           title: 'Nothing $emptyLabel',
-          hint: 'Tap All to see the whole catalogue.',
+          hint: 'Clear the search, or tap All to see the whole catalogue.',
         ),
+      );
+    }
+
+    // Sorted by something other than place, the headings would be a
+    // lie: an A–Z list printed under five shelf names is five A–Z
+    // lists. So the groups go and one flat ordered list takes over.
+    if (!sort.groups) {
+      final ordered = [...items]..sort(sort.compare);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final item in ordered) ...[
+            _ItemCard(
+              item: item,
+              onMove: (canMove && item.isUsable)
+                  ? () async {
+                      final moved = await showMovementSheet(context, item);
+                      if (moved) await onRefresh();
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
       );
     }
 
@@ -654,7 +835,7 @@ class _Grouped extends StatelessWidget {
             aside: MonoLabel('${byPlace[place]!.length}'),
           ),
           const SizedBox(height: AppLayout.between),
-          for (final item in byPlace[place]!) ...[
+          for (final item in byPlace[place]!..sort(sort.compare)) ...[
             _ItemCard(
               item: item,
               // A draft has no event to move stock against, so it is
@@ -671,6 +852,89 @@ class _Grouped extends StatelessWidget {
           const SizedBox(height: AppLayout.tight),
         ],
       ],
+    );
+  }
+}
+
+/// How the catalogue is ordered.
+///
+/// [place] is the order this screen has always drawn — grouped by where
+/// a thing is kept — and it stays the default, because "which shelf" is
+/// how people look for equipment. The other three answer different
+/// questions and flatten the groups to do it.
+enum _ItemSort {
+  place('By place', Icons.warehouse_outlined),
+  nameAsc('Name A–Z', Icons.sort_by_alpha),
+  nameDesc('Name Z–A', Icons.sort_by_alpha),
+  mostStock('Most stock', Icons.arrow_downward),
+  leastStock('Least stock', Icons.arrow_upward);
+
+  const _ItemSort(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+
+  /// Whether the list keeps its location headings. Only [place] does:
+  /// sorting by name and then printing the names under five headings
+  /// is not a sorted list.
+  bool get groups => this == _ItemSort.place;
+
+  int compare(RemoteInventoryItem a, RemoteInventoryItem b) => switch (this) {
+    _ItemSort.place || _ItemSort.nameAsc => a.itemName.toLowerCase().compareTo(
+      b.itemName.toLowerCase(),
+    ),
+    _ItemSort.nameDesc => b.itemName.toLowerCase().compareTo(
+      a.itemName.toLowerCase(),
+    ),
+    _ItemSort.mostStock => b.quantity.compareTo(a.quantity),
+    _ItemSort.leastStock => a.quantity.compareTo(b.quantity),
+  };
+}
+
+class _InventorySortButton extends StatelessWidget {
+  const _InventorySortButton({required this.sort, required this.onChanged});
+
+  final _ItemSort sort;
+  final ValueChanged<_ItemSort> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return BrutButton(
+      icon: sort.icon,
+      label: sort.label,
+      trailingIcon: Icons.expand_more,
+      tone: sort == _ItemSort.place ? BrutTone.neutral : BrutTone.dark,
+      size: BrutSize.small,
+      expand: false,
+      onPressed: () async {
+        final picked = await showFloatingPeek<_ItemSort>(
+          context,
+          title: 'Sort inventory',
+          subtitle: sort.label,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final option in _ItemSort.values) ...[
+                BrutListRow(
+                  title: option.label,
+                  marker: BrutIconTile(
+                    size: 32,
+                    icon: option.icon,
+                    tone: option == sort ? BrutTone.dark : BrutTone.neutral,
+                  ),
+                  trailing: option == sort
+                      ? const Icon(Icons.check, size: 18)
+                      : null,
+                  onTap: () => Navigator.of(context).pop(option),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        );
+        if (picked != null) onChanged(picked);
+      },
     );
   }
 }

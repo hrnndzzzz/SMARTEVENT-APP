@@ -70,10 +70,19 @@ class _EventsScreenState extends State<EventsScreen> {
           // title, and at 360dp that left the New button a stub.
           Row(
             children: [
-              const Spacer(),
-              _SortButton(
-                sort: _sort,
-                onChanged: (v) => setState(() => _sort = v),
+              // The order the list is in, named rather than hidden
+              // behind an icon. This row used to open with a Spacer, so
+              // the left two thirds of it were empty and the three
+              // controls were crushed into the right edge; the sort now
+              // uses that space to say something.
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _SortButton(
+                    sort: _sort,
+                    onChanged: (v) => setState(() => _sort = v),
+                  ),
+                ),
               ),
               const SizedBox(width: AppLayout.tight),
               _ViewToggle(
@@ -85,9 +94,12 @@ class _EventsScreenState extends State<EventsScreen> {
               // propose.
               if (context.watch<AppState>().mayProposeEvents)
                 BrutButton(
-                  label: 'New',
+                  // The reason anyone opens this screen with something
+                  // in mind, so it is the one filled button in the row
+                  // and it says what it makes.
+                  label: 'New event',
                   icon: Icons.add,
-                  size: BrutSize.small,
+                  tone: BrutTone.brand,
                   expand: false,
                   onPressed: () {
                     final app = context.read<AppState>();
@@ -221,14 +233,29 @@ class _SortButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BrutIconButton(
-      icon: Icons.swap_vert,
+    // The visible label is the current order, which is what a reader
+    // wants; the spoken label still says what the control is, which is
+    // what a screen reader wants. Without this the button announced
+    // "Soonest first" and nothing about being a sort.
+    return Semantics(
+      button: true,
       label: 'Sort events, currently ${sort.label}',
-      // Marked when it is not the default, so a list in an unexpected
-      // order says so rather than looking wrong.
-      tone: sort == _EventSort.dateAsc ? BrutTone.neutral : BrutTone.dark,
-      size: 36,
-      onPressed: () => _choose(context),
+      excludeSemantics: true,
+      child: BrutButton(
+        icon: sort.icon,
+        // The current order, not the word "Sort". A control that names
+        // what it will do tells you nothing about the list in front of
+        // you; one that names the order answers the question people
+        // actually have.
+        label: sort.label,
+        trailingIcon: Icons.expand_more,
+        // Marked when it is not the default, so a list in an unexpected
+        // order says so rather than looking wrong.
+        tone: sort == _EventSort.dateAsc ? BrutTone.neutral : BrutTone.dark,
+        size: BrutSize.small,
+        expand: false,
+        onPressed: () => _choose(context),
+      ),
     );
   }
 }

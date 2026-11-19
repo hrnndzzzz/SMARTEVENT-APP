@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'state/app_settings.dart';
@@ -34,6 +36,15 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  // Pick photos with Android's own picker rather than an
+  // ACTION_GET_CONTENT chooser. The chooser hands the job to whatever
+  // gallery app is the default, which on a Samsung is Google Photos —
+  // so asking for a photo opened an account's cloud library instead of
+  // the phone's. The system picker also needs no storage permission.
+  final picker = ImagePickerPlatform.instance;
+  if (picker is ImagePickerAndroid) {
+    picker.useAndroidPhotoPicker = true;
+  }
   // Before the first request, so a device pointed at its own backend
   // address never fires one at the build's address first.
   await ApiConfig.load();
@@ -133,7 +144,7 @@ class _SmartEventAppState extends State<SmartEventApp>
       ],
       child: Consumer2<AppState, AppSettings>(
         builder: (context, app, settings, _) {
-          final accent = settings.accent?.color ?? app.themeColor;
+          final accent = app.themeColor;
           return MaterialApp(
             title: 'SmartEvent',
             navigatorKey: _navigatorFor(app),
