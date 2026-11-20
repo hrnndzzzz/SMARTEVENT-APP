@@ -629,6 +629,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _title,
                     label: 'Activity title',
+                    required: true,
                     hint: 'HACK THE FUTURE: Cybersecurity…',
                     enabled: _editable,
                     maxLines: 2,
@@ -638,6 +639,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _organization,
                     label: 'Organization',
+                    required: true,
                     hint: 'Association of Computer Engineering Students',
                     enabled: _editable,
                     textCapitalization: TextCapitalization.words,
@@ -645,6 +647,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   const SizedBox(height: 14),
                   SapSingleChoice<String>(
                     label: 'Department type',
+                    required: true,
                     options: SapPart1Screen.departmentTypes,
                     labelOf: (v) => v,
                     value: d.departmentType,
@@ -658,6 +661,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                     BrutTextField(
                       controller: _department,
                       label: 'Department',
+                      required: true,
                       hint: 'College of Information Technology',
                       enabled: _editable,
                       maxLength: 100,
@@ -668,12 +672,14 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _schoolYear,
                     label: 'School year',
+                    required: true,
                     hint: '2026-2027',
                     enabled: _editable,
                   ),
                   const SizedBox(height: 14),
                   BrutDateField(
                     label: 'Date of proposal',
+                    required: true,
                     value: d.proposalDate,
                     hint: 'Pick a date',
                     onTap: _editable ? _pickProposalDate : () {},
@@ -707,6 +713,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   ),
                   BrutDateField(
                     label: 'Activity date',
+                    required: true,
                     value: d.activityDate,
                     hint: 'Pick a date',
                     onTap: _editable ? _pickDate : () {},
@@ -766,6 +773,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
                   SapSingleChoice<SapModality>(
                     label: 'Modality',
+                    required: true,
                     options: SapModality.values,
                     labelOf: (m) => m.label,
                     value: d.modality,
@@ -782,6 +790,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   if (_asksSetting)
                     SapSingleChoice<SapSetting>(
                       label: 'Setting',
+                      required: true,
                       options: SapSetting.values,
                       labelOf: (s) => s.label,
                       value: d.setting,
@@ -883,6 +892,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _venue,
                     label: 'Venue',
+                    required: true,
                     hint: 'Zoom Platform',
                     enabled: _editable,
                   ),
@@ -897,6 +907,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _pic,
                     label: 'Personnel-in-charge',
+                    required: true,
                     hint: 'Engr. Aileen M. Habaradas, Engr. Glazen M. Perez',
                     enabled: _editable,
                     maxLines: 2,
@@ -921,6 +932,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   ),
                   SapMultiChoice<String>(
                     label: 'Activity type',
+                    required: true,
                     options: const [
                       'Co-Curricular',
                       'Extra-Curricular',
@@ -937,6 +949,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
                   SapSingleChoice<String>(
                     label: 'Scope',
+                    required: true,
                     // The paper offers five. This workflow keeps the existing
                     // two-value scope, so only those can be chosen.
                     options: const ['organizational', 'departmental'],
@@ -952,6 +965,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
                   SapMultiChoice<String>(
                     label: 'Program',
+                    required: true,
                     options: const [
                       'Team Building',
                       'Leadership Summit',
@@ -972,6 +986,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _students,
                     label: 'Number of students',
+                    required: true,
                     hint: '145',
                     enabled: _editable,
                     keyboardType: TextInputType.number,
@@ -985,6 +1000,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _rationale,
                     label: 'Rationale',
+                    required: true,
                     hint: 'Why the activity is being proposed',
                     enabled: _editable,
                     maxLines: 6,
@@ -996,6 +1012,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _objectives,
                     label: 'Objectives',
+                    required: true,
                     hint: 'One per line',
                     enabled: _editable,
                     maxLines: 6,
@@ -1006,6 +1023,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
                   SapMultiChoice<SapCoreValue>(
                     label: 'Augustinian core values',
+                    required: true,
                     options: SapCoreValue.values,
                     labelOf: (c) => c.label,
                     selected: d.coreValues,
@@ -1017,6 +1035,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 
                   SapMultiChoice<int>(
                     label: 'Expected graduate attributes',
+                    required: true,
                     options: const [1, 2, 3, 4],
                     labelOf: (i) => switch (i) {
                       1 => 'EGA 1 · Critical and Creative Thinker',
@@ -1051,6 +1070,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _emergency,
                     label: 'Emergency plan',
+                    required: true,
                     hint: 'What happens if something goes wrong',
                     enabled: _editable,
                     maxLines: 6,
@@ -1066,6 +1086,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _budget,
                     label: 'Budget',
+                    required: true,
                     hint: '2500.00',
                     enabled: _editable,
                     keyboardType: const TextInputType.numberWithOptions(
@@ -1118,6 +1139,7 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   BrutTextField(
                     controller: _funding,
                     label: 'Source of budget',
+                    required: true,
                     hint: 'Organizational funds',
                     enabled: _editable,
                   ),

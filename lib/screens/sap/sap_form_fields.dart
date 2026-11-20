@@ -24,9 +24,13 @@ class SapSingleChoice<T> extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.enabled = true,
+    this.required = false,
   });
 
   final String label;
+
+  /// Marks the label with an asterisk. See [RequiredLabel].
+  final bool required;
   final List<T> options;
   final String Function(T) labelOf;
   final T? value;
@@ -74,9 +78,13 @@ class SapMultiChoice<T> extends StatelessWidget {
     required this.selected,
     required this.onChanged,
     this.enabled = true,
+    this.required = false,
   });
 
   final String label;
+
+  /// Marks the label with an asterisk. See [RequiredLabel].
+  final bool required;
   final List<T> options;
   final String Function(T) labelOf;
   final List<T> selected;
@@ -129,9 +137,13 @@ class SapTimeField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.enabled = true,
+    this.required = false,
   });
 
   final String label;
+
+  /// Marks the label with an asterisk. See [RequiredLabel].
+  final bool required;
   final SapTime? value;
   final ValueChanged<SapTime> onChanged;
   final bool enabled;
@@ -173,7 +185,7 @@ class SapTimeField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        MonoLabel(label),
+        RequiredLabel(label, required: required),
         const SizedBox(height: 6),
         BrutSurface(
           onTap: enabled ? () => _pick(context) : null,

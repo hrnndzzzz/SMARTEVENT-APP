@@ -526,6 +526,40 @@ class MonoLabel extends StatelessWidget {
   }
 }
 
+/// A field's eyebrow, with an asterisk when the field has to be filled.
+///
+/// The asterisk is coral — the colour this app uses for "a problem" —
+/// and it is the only punctuation on the label, so it reads as a mark
+/// rather than as part of the name. Screen readers are told "required"
+/// in words: an asterisk is announced as "star", which means nothing.
+class RequiredLabel extends StatelessWidget {
+  const RequiredLabel(this.text, {super.key, this.required = false});
+
+  final String text;
+  final bool required;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!required) return MonoLabel(text);
+    return Semantics(
+      label: '$text, required',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: MonoLabel(text)),
+          Text(
+            ' *',
+            style: AppText.monoLabel.copyWith(
+              color: BrutTone.coral.fill(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A rounded square holding one icon. Marks what a card or row is about.
 class BrutIconTile extends StatelessWidget {
   const BrutIconTile({
@@ -1756,7 +1790,21 @@ class BrutTextField extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.textCapitalization = TextCapitalization.none,
+    this.required = false,
   });
+
+  /// Marks the label with a coral asterisk.
+  ///
+  /// Asked for by a survey reviewer: "Include indicators that a part is
+  /// required, like 'Event name' marked with * or similar to further
+  /// decrease mistake chance." Before this the only way to learn a
+  /// field was required was to fill in everything else, press Next and
+  /// be refused — which is exactly the mistake the marker prevents.
+  ///
+  /// A flag rather than an asterisk typed into the label, so every
+  /// required field is marked the same way and a screen reader is told
+  /// in words rather than being read a punctuation mark.
+  final bool required;
 
   /// A mono eyebrow above the field.
   final String? label;
@@ -1812,7 +1860,7 @@ class _BrutTextFieldState extends State<BrutTextField> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.label != null) ...[
-          MonoLabel(widget.label!),
+          RequiredLabel(widget.label!, required: widget.required),
           const SizedBox(height: 6),
         ],
         AnimatedContainer(
@@ -1917,10 +1965,14 @@ class BrutDropdown<T> extends StatelessWidget {
     required this.onChanged,
     this.label,
     this.enabled = true,
+    this.required = false,
   });
 
   /// A mono eyebrow above the control.
   final String? label;
+
+  /// Marks the label with an asterisk. See [RequiredLabel].
+  final bool required;
   final T? value;
   final String hint;
   final List<DropdownMenuItem<T>> items;
@@ -1947,7 +1999,10 @@ class BrutDropdown<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null) ...[MonoLabel(label!), const SizedBox(height: 6)],
+        if (label != null) ...[
+          RequiredLabel(label!, required: required),
+          const SizedBox(height: 6),
+        ],
         BrutSurface(
           onTap: _live ? () => _open(context) : null,
           enabled: _live,
@@ -2148,9 +2203,13 @@ class BrutDateField extends StatelessWidget {
     required this.hint,
     required this.onTap,
     this.label,
+    this.required = false,
   });
 
   final String? label;
+
+  /// Marks the label with an asterisk. See [RequiredLabel].
+  final bool required;
   final DateTime? value;
   final String hint;
   final VoidCallback onTap;
@@ -2167,7 +2226,10 @@ class BrutDateField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null) ...[MonoLabel(label!), const SizedBox(height: 6)],
+        if (label != null) ...[
+          RequiredLabel(label!, required: required),
+          const SizedBox(height: 6),
+        ],
         BrutSurface(
           onTap: onTap,
           radius: AppRadius.controlAll,
