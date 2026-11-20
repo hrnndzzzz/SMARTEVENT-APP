@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMARTEVENT</title>
+<meta name="description" content="Inventory, finances, events and reports for the student organizations of the LCUP CITE Department.">
+<link rel="icon" href="assets/app-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* The app's own tokens, so the site and the product are plainly the
+   same thing. Values are lifted from lib/theme/app_colors.dart. */
+:root {
+  --cream:   #F1E7D5;
+  --surface: #FCF4E4;
+  --ink:     #14110C;
+  --navy:    #0C1F3D;
+  --navy-2:  #14294A;
+  --blue:    #639AE9;
+  --orange:  #E27031;
+  --sun:     #E3BB3F;
+  --mint:    #6AB472;
+  --coral:   #E2543F;
+
+  --bg: var(--cream);
+  --fg: var(--ink);
+  --card: var(--surface);
+  --line: var(--ink);
+  --muted: rgba(20,17,12,0.66);
+
+  --display: 'Lexend', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: var(--navy);
+    --fg: #EDF2F9;
+    --card: var(--navy-2);
+    --line: #EDF2F9;
+    --muted: rgba(237,242,249,0.66);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: var(--navy);
+  --fg: #EDF2F9;
+  --card: var(--navy-2);
+  --line: #EDF2F9;
+  --muted: rgba(237,242,249,0.66);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--display);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation: none !important; transition: none !important; }
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+}
+
+.mono {
+  font-family: var(--mono);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--orange);
+}
+
+h1, h2, h3 { font-weight: 600; line-height: 1.08; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(38px, 7vw, 68px); letter-spacing: -0.03em; }
+h2 { font-size: clamp(28px, 4.4vw, 42px); letter-spacing: -0.02em; }
+h3 { font-size: 19px; }
+p { margin: 0; }
+a { color: inherit; }
+
+/* ── bar ─────────────────────────────────────────────────────── */
+.bar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 2px solid var(--line);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 11;
+  background: var(--bg);
+}
+.bar .wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-block: 12px;
+}
+.logo {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: #0C295A;
+  overflow: hidden;
+  display: grid; place-items: center;
+  flex: none;
+}
+.logo img { width: 150%; height: 150%; object-fit: contain; }
+.bar .name {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.bar nav {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bar nav a {
+  font-size: 14px;
+  text-decoration: none;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--muted);
+}
+.bar nav a:hover { color: var(--fg); background: var(--card); }
+.bar nav a.cta {
+  background: var(--orange);
+  color: var(--navy);
+  border: 2px solid var(--line);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* On a phone the four links wrapped onto four lines and made the bar
+   340px tall before the page had said anything. The section links go;
+   the page is one scroll and the only one worth keeping is the one
+   that does something. */
+@media (max-width: 700px) {
+  .bar nav a:not(.cta) { display: none; }
+  .bar .name { font-size: 17px; }
+}
+
+/* ── sections ────────────────────────────────────────────────── */
+/* Clears the sticky bar: a jump to #get used to put the
+   section's own eyebrow underneath it. */
+section { padding-block: clamp(56px, 8vw, 96px); scroll-margin-top: 84px; }
+.eyebrow { margin-bottom: 14px; }
+.lede { font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); max-width: 62ch; margin-top: 18px; }
+
+.hero { padding-top: clamp(40px, 5vw, 64px); padding-bottom: clamp(40px, 5vw, 64px); }
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: clamp(28px, 5vw, 56px);
+  align-items: center;
+}
+@media (max-width: 820px) { .hero-grid { grid-template-columns: 1fr; } }
+.hero h1 span { color: var(--orange); }
+
+.phone {
+  border: 3px solid var(--line);
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: 10px 10px 0 var(--line);
+  max-width: 100%;
+}
+/* The screenshots are whole phones, 1080x2310. Left at their natural
+   aspect they made the hero 1600px tall with the headline floating in
+   the middle of an empty column, so each one is given a height and
+   shows its top. */
+.phone img { width: 100%; display: block; object-fit: cover; object-position: top; }
+.hero .phone img { height: clamp(360px, 46vw, 520px); }
+.gallery .phone img { height: 300px; }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 13px 22px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--card);
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--line);
+}
+.btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--line); }
+.btn.primary { background: var(--orange); color: var(--navy); }
+.btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+
+/* ── features ────────────────────────────────────────────────── */
+.feat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+  gap: 16px;
+  margin-top: 36px;
+}
+.feat {
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 20px;
+  box-shadow: 5px 5px 0 var(--line);
+  min-width: 0;
+}
+.feat .tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--navy);
+  background: var(--sun);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 9px;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+.feat h3 { font-family: var(--mono); font-size: 16px; letter-spacing: -0.01em; }
+.feat p { margin-top: 8px; font-size: 15px; color: var(--muted); }
+
+/* ── roles ───────────────────────────────────────────────────── */
+.roles { display: grid; gap: 2px; margin-top: 34px; border: 2px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--line); }
+.role { background: var(--card); padding: 20px 22px; display: grid; grid-template-columns: 14px 1fr; gap: 16px; align-items: start; min-width: 0; }
+.dot { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--line); margin-top: 7px; }
+.role h3 { font-size: 17px; }
+.role p { font-size: 15px; color: var(--muted); margin-top: 4px; }
+
+/* ── gallery ─────────────────────────────────────────────────── */
+.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; margin-top: 34px; }
+.gallery figure { margin: 0; min-width: 0; }
+.gallery .phone { box-shadow: 6px 6px 0 var(--line); border-width: 2px; border-radius: 18px; }
+.gallery figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+/* ── band ────────────────────────────────────────────────────── */
+.band { background: var(--navy); color: #EDF2F9; border-block: 3px solid var(--line); }
+.band .mono { color: var(--blue); }
+.band .lede { color: rgba(237,242,249,0.76); }
+
+/* ── form ────────────────────────────────────────────────────── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 30px; }
+.form-grid .full { grid-column: 1 / -1; }
+@media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+label { display: block; }
+.lbl {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(237,242,249,0.8);
+  margin-bottom: 7px;
+  display: block;
+}
+.req { color: var(--coral); }
+input, select, textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid #EDF2F9;
+  background: var(--navy-2);
+  color: #EDF2F9;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+textarea { min-height: 96px; resize: vertical; }
+.hint { font-size: 13px; color: rgba(237,242,249,0.6); margin-top: 7px; }
+.note {
+  border: 2px dashed rgba(237,242,249,0.45);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 26px;
+  font-size: 15px;
+  color: rgba(237,242,249,0.82);
+}
+.status { margin-top: 18px; font-size: 15px; min-height: 1.6em; }
+.status.ok { color: var(--mint); }
+.status.bad { color: var(--coral); }
+
+/* ── footer ──────────────────────────────────────────────────── */
+footer { border-top: 2px solid var(--line); }
+footer .wrap { padding-block: 40px; display: grid; gap: 26px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+footer h3 { font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--orange); }
+footer p, footer li { font-size: 15px; color: var(--muted); }
+footer ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 5px; }
+.stack { display: flex; justify-content: space-between; gap: 14px; font-size: 14px; }
+.stack b { font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <span class="logo"><img src="assets/app-icon.png" alt=""></span>
+    <span class="name">SMARTEVENT</span>
+    <nav>
+      <a href="#what">What it does</a>
+      <a href="#who">Who it is for</a>
+      <a href="#screens">Screens</a>
+      <a href="#get" class="cta">Get the app</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="mono eyebrow">LCUP · CITE Department</p>
+      <h1>Inventory, money, events and reports.<br><span>One phone.</span></h1>
+      <p class="lede">
+        Student organizations run on spreadsheets, paper and Messenger. Records go
+        missing, budgets are unclear, equipment is untracked, and every turnover of
+        officers starts again from nothing. SMARTEVENT puts all of it in one place,
+        on the device officers already carry.
+      </p>
+      <div class="btn-row">
+        <a class="btn primary" href="#get">Request the app →</a>
+        <a class="btn" href="#what">See what it does</a>
+      </div>
+    </div>
+    <div class="phone">
+      <img src="assets/shots/dashboard.png" alt="The SMARTEVENT dashboard" width="1080" height="2310">
+    </div>
+  </div>
+</section>
+
+<section id="what">
+  <div class="wrap">
+    <p class="mono eyebrow">What it does</p>
+    <h2>Eight things, properly</h2>
+    <p class="lede">Every one of these is built and running. Nothing here is planned.</p>
+
+    <div class="feat-grid">
+      <article class="feat">
+        <span class="tag">Events</span>
+        <h3>Event proposals</h3>
+        <p>Submit a proposal, follow every approval step, and generate the signed SAP form as a PDF.</p>
+      </article>
+      <article class="feat">
+        <span class="tag">Money</span>
+        <h3>Money and budgets</h3>
+        <p>Record expenses and income. Balances deduct themselves, so nobody is adding up receipts by hand.</p>
+      </article>
+      <article class="feat">
+        <span class="tag">Money</span>
+        <h3>Receipt scanning</h3>
+        <p>Photograph a receipt and the app reads the vendor, the date and the amount off it.</p>
+      </article>
+      <article class="feat">
+        <span class="tag">Inventory</span>
+        <h3>Inventory</h3>
+        <p>Stock, movements and low-stock items, grouped by where each thing is kept.</p>
+      </article>
+      <article class="feat">
+        <span class="tag">Reports</span>
+        <h3>Reports and exports</h3>
+        <p>Financial reports as PDF, CSV or print-ready, plus Excel exports for anyone who wants the rows.</p>
+      </article>
+      <article class="feat">
+        <span class="tag">AI</span>
+        <h3>AI assistance</h3>
+        <p>A budget suggested from similar past events, a category suggested for a scanned receipt, and a plain-language reading of the report. Every one is a suggestion: nothing is saved until a person acts on it.</p>
+      </article>
+      <article class="feat">
+        <span class="tag">Anywhere</span>
+        <h3>Works offline</h3>
+        <p>Record expenses and movements without signal. Everything syncs when the phone reconnects.</p>
+      </article>
+      <article class="feat">
+        <span class="tag">Access</span>
+        <h3>Role-based access</h3>
+        <p>Officers, advisers, the SDS Office and administrators each see only what their role allows.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="who" class="band">
+  <div class="wrap">
+    <p class="mono eyebrow">Who it is for</p>
+    <h2>Four roles, one record</h2>
+    <p class="lede">Everyone reads the same figures. Nobody sees more than their role allows.</p>
+
+    <div class="roles">
+      <div class="role">
+        <span class="dot" style="background:var(--orange)"></span>
+        <div>
+          <h3>Student organization officers</h3>
+          <p>Presidents, treasurers and inventory officers, who keep the records, the budgets and the events.</p>
+        </div>
+      </div>
+      <div class="role">
+        <span class="dot" style="background:var(--blue)"></span>
+        <div>
+          <h3>Faculty moderators and advisers</h3>
+          <p>Review event proposals and budget requests, watch balances, and read the reports and analytics.</p>
+        </div>
+      </div>
+      <div class="role">
+        <span class="dot" style="background:var(--mint)"></span>
+        <div>
+          <h3>Student Development Services</h3>
+          <p>Review submitted proposals, sign off on the SAP form, and monitor events across organizations.</p>
+        </div>
+      </div>
+      <div class="role">
+        <span class="dot" style="background:var(--sun)"></span>
+        <div>
+          <h3>System administrators</h3>
+          <p>Configure the system and manage who may hold an account.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="screens">
+  <div class="wrap">
+    <p class="mono eyebrow">Screens</p>
+    <h2>What it looks like</h2>
+    <p class="lede">Taken from the running app, not from a mock-up.</p>
+
+    <div class="gallery">
+      <figure>
+        <div class="phone"><img src="assets/shots/report.png" alt="Financial report" loading="lazy"></div>
+        <figcaption>Income, spending, net balance and budget used, for any period.</figcaption>
+      </figure>
+      <figure>
+        <div class="phone"><img src="assets/shots/inventory.png" alt="Inventory" loading="lazy"></div>
+        <figcaption>Stock, locations and low-stock items at a glance.</figcaption>
+      </figure>
+      <figure>
+        <div class="phone"><img src="assets/shots/ai.png" alt="AI reading of the report" loading="lazy"></div>
+        <figcaption>The AI reading, labelled as such, beside the rule-based one.</figcaption>
+      </figure>
+      <figure>
+        <div class="phone"><img src="assets/shots/menu.png" alt="Menu" loading="lazy"></div>
+        <figcaption>An administrator sees five places; an officer sees four.</figcaption>
+      </figure>
+      <figure>
+        <div class="phone"><img src="assets/shots/roster.png" alt="Approved roster" loading="lazy"></div>
+        <figcaption>The roster: who is approved to create an account.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="get" class="band">
+  <div class="wrap">
+    <p class="mono eyebrow">Get the app</p>
+    <h2>Request access</h2>
+    <p class="lede">
+      SMARTEVENT is not on the Play Store. It is distributed to the student
+      organizations of the LCUP CITE Department, so the download goes out by
+      request. Fill this in and an administrator will review it; if it is
+      approved, the link is emailed to the address you give here.
+    </p>
+
+    <form id="request-form" class="form-grid" novalidate>
+      <label>
+        <span class="lbl">Full name <span class="req" aria-hidden="true">*</span></span>
+        <input id="rq-name" name="name" type="text" autocomplete="name" required>
+      </label>
+      <label>
+        <span class="lbl">LCUP email <span class="req" aria-hidden="true">*</span></span>
+        <input id="rq-email" name="email" type="email" autocomplete="email"
+               placeholder="yourname@lcup.edu.ph" required>
+      </label>
+      <label>
+        <span class="lbl">Organization <span class="req" aria-hidden="true">*</span></span>
+        <input id="rq-org" name="organization" type="text" required>
+      </label>
+      <label>
+        <span class="lbl">Your role <span class="req" aria-hidden="true">*</span></span>
+        <select id="rq-role" name="role" required>
+          <option value="">Choose one</option>
+          <option value="officer">Officer</option>
+          <option value="treasurer">Treasurer</option>
+          <option value="adviser">Adviser or moderator</option>
+          <option value="sds_staff">SDS Office</option>
+          <option value="admin">Administrator</option>
+        </select>
+      </label>
+      <label class="full">
+        <span class="lbl">Why you need it</span>
+        <textarea id="rq-reason" name="reason"
+                  placeholder="Which organization, and what you will be using it for."></textarea>
+      </label>
+      <div class="full">
+        <button class="btn primary" type="submit" id="rq-submit">Send the request</button>
+        <p class="status" id="rq-status" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+
+    <div class="note">
+      <b>What happens to what you type.</b> The request is held until an
+      administrator reviews it, and the email address is used to send you the
+      link and nothing else. Approval is a person's decision, not an automatic
+      one, so it will not be instant.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <h3>SMARTEVENT</h3>
+      <p>Mobile-Based Inventory, Financial Management, Event Monitoring, and Data Analytics Reporting System for Student Organizations.</p>
+      <p style="margin-top:10px">Evaluated against ISO/IEC 25010:2023.</p>
+    </div>
+    <div>
+      <h3>Built with</h3>
+      <ul>
+        <li class="stack"><span>App</span><b>Flutter · Dart</b></li>
+        <li class="stack"><span>Backend</span><b>Python · FastAPI</b></li>
+        <li class="stack"><span>Database</span><b>PostgreSQL</b></li>
+        <li class="stack"><span>Security</span><b>JWT · Argon2</b></li>
+        <li class="stack"><span>AI &amp; OCR</span><b>Google Gemini</b></li>
+      </ul>
+    </div>
+    <div>
+      <h3>The researchers</h3>
+      <ul>
+        <li>Rohn Monrhey Bañares</li>
+        <li>John Paul Buffe</li>
+        <li>Jasper Robin Hernandez</li>
+        <li>Daniela Mayormita</li>
+        <li>Leon Antonio Puerto</li>
+        <li>Sean Ashley Reyes</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Contact</h3>
+      <p>College of Information Technology and Engineering<br>
+         La Consolacion University Philippines<br>
+         City of Malolos, Bulacan</p>
+      <p style="margin-top:10px"><a href="mailto:cite@email.lcup.edu.ph">cite@email.lcup.edu.ph</a></p>
+      <p style="margin-top:10px">S.Y. 2026–2027</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Where the request goes. Same host the app talks to.
+  var ENDPOINT = 'https://api.smartevent.date/download-requests';
+
+  var form = document.getElementById('request-form');
+  var status = document.getElementById('rq-status');
+  var submit = document.getElementById('rq-submit');
+
+  function say(text, kind) {
+    status.textContent = text;
+    status.className = 'status' + (kind ? ' ' + kind : '');
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    var data = {
+      name: document.getElementById('rq-name').value.trim(),
+      email: document.getElementById('rq-email').value.trim(),
+      organization: document.getElementById('rq-org').value.trim(),
+      role: document.getElementById('rq-role').value,
+      reason: document.getElementById('rq-reason').value.trim()
+    };
+
+    // Said here rather than left to the browser, so the message names
+    // the field instead of being a tooltip on whichever one lost.
+    if (!data.name || !data.email || !data.organization || !data.role) {
+      say('Fill in your name, email, organization and role first.', 'bad');
+      return;
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) {
+      say('That email address does not look right.', 'bad');
+      return;
+    }
+
+    submit.disabled = true;
+    say('Sending…');
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(function (response) {
+      if (response.ok) {
+        form.reset();
+        say('Request sent. An administrator will review it, and the link goes to ' +
+            data.email + ' if it is approved.', 'ok');
+      } else if (response.status === 409) {
+        say('There is already a request from that address waiting to be reviewed.', 'bad');
+      } else {
+        say('The server refused that request. Email cite@email.lcup.edu.ph instead.', 'bad');
+      }
+    }).catch(function () {
+      // Offline, DNS, CORS — the visitor cannot tell these apart and
+      // does not need to. Give them the way through that always works.
+      say('Could not reach the server. Email cite@email.lcup.edu.ph instead.', 'bad');
+    }).finally(function () {
+      submit.disabled = false;
+    });
+  });
+})();
+</script>
+</body>
+</html>
