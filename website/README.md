@@ -13,6 +13,18 @@ python3 -m http.server 4173 --directory website
 Then open `http://localhost:4173`. Opening `index.html` straight off
 disk works too, but a server is closer to how it will be served.
 
+## The shape of it
+
+A bordered console: a fixed icon rail down the left, a yellow command
+strip across the top, flat bordered cards in the middle, and one
+orange action bar pinned to the bottom. Hard 2px rules and flat fills
+throughout — no soft shadows anywhere. Below 760px the rail becomes a
+horizontally scrolling strip above the content.
+
+The theme toggle lives in the top strip rather than at the foot of the
+rail, where the reference would put it: the rail scrolls sideways on a
+phone, so anything at its end sits off-screen.
+
 ## Where the design comes from
 
 The colours in `:root` are lifted from `lib/theme/app_colors.dart` and

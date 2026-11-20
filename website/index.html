@@ -5,13 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SMARTEVENT</title>
 <meta name="description" content="Inventory, finances, events and reports for the student organizations of the LCUP CITE Department.">
-<link rel="icon" href="assets/app-icon.png">
+<link rel="icon" href="assets/app-tile.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* The app's own tokens, so the site and the product are plainly the
-   same thing. Values are lifted from lib/theme/app_colors.dart. */
+/* Layout: a bordered console — fixed icon rail down the left, a yellow
+   command strip across the top, flat bordered cards in the middle, and
+   one orange action bar pinned to the bottom. Everything is drawn with
+   hard 2px rules and flat fills; no soft shadows anywhere. */
 :root {
   --cream:   #F1E7D5;
   --surface: #FCF4E4;
@@ -24,33 +26,40 @@
   --mint:    #6AB472;
   --coral:   #E2543F;
 
-  --bg: var(--cream);
-  --fg: var(--ink);
-  --card: var(--surface);
-  --line: var(--ink);
-  --muted: rgba(20,17,12,0.66);
+  --bg:    var(--cream);
+  --panel: var(--surface);
+  --fg:    var(--ink);
+  --line:  var(--ink);
+  --muted: rgba(20,17,12,0.62);
+  --rail:  #EBDFC9;
+  --strip: var(--sun);
+  --onAccent: var(--ink);
 
-  --display: 'Lexend', system-ui, sans-serif;
-  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --display: 'Lexend', system-ui, -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  --rail-w: 92px;
   color-scheme: light;
 }
-
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: var(--navy);
+    --panel: var(--navy-2);
     --fg: #EDF2F9;
-    --card: var(--navy-2);
     --line: #EDF2F9;
-    --muted: rgba(237,242,249,0.66);
+    --muted: rgba(237,242,249,0.64);
+    --rail: #0A1B33;
+    --strip: #C9A433;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: var(--navy);
+  --panel: var(--navy-2);
   --fg: #EDF2F9;
-  --card: var(--navy-2);
   --line: #EDF2F9;
-  --muted: rgba(237,242,249,0.66);
+  --muted: rgba(237,242,249,0.64);
+  --rail: #0A1B33;
+  --strip: #C9A433;
   color-scheme: dark;
 }
 
@@ -61,521 +70,751 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--display);
-  font-size: 17px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.58;
   -webkit-font-smoothing: antialiased;
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  * { animation: none !important; transition: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-
-.wrap {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding-left: max(20px, env(safe-area-inset-left, 0px));
-  padding-right: max(20px, env(safe-area-inset-right, 0px));
-}
+p { margin: 0; }
+a { color: inherit; }
+h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.1; text-wrap: balance; }
 
 .mono {
   font-family: var(--mono);
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 12px;
-  color: var(--orange);
+  letter-spacing: 0.09em;
+  font-size: 11px;
 }
 
-h1, h2, h3 { font-weight: 600; line-height: 1.08; text-wrap: balance; margin: 0; }
-h1 { font-size: clamp(38px, 7vw, 68px); letter-spacing: -0.03em; }
-h2 { font-size: clamp(28px, 4.4vw, 42px); letter-spacing: -0.02em; }
-h3 { font-size: 19px; }
-p { margin: 0; }
-a { color: inherit; }
+/* ── shell ───────────────────────────────────────────────────── */
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
 
-/* ── bar ─────────────────────────────────────────────────────── */
-.bar {
+/* ── left rail ───────────────────────────────────────────────── */
+.rail {
   position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 10;
-  background: var(--bg);
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  background: var(--rail);
+  border-right: 2px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-block: 14px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.rail .tile {
+  width: 44px; height: 44px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid; place-items: center;
+  margin-bottom: 18px;
+  flex: none;
+}
+.rail .tile img { width: 100%; height: 100%; display: block; }
+.rail a, .rail .railbtn {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 9px 2px;
+  text-decoration: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.rail a:hover, .rail .railbtn:hover { color: var(--fg); }
+.rail a.on { color: var(--orange); }
+.rail svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.rail a:focus-visible, .rail .railbtn:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
+
+/* ── top strip ───────────────────────────────────────────────── */
+.strip {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: var(--strip);
+  color: var(--ink);
   border-bottom: 2px solid var(--line);
-}
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0 0 auto;
-  height: env(safe-area-inset-top, 0px);
-  z-index: 11;
-  background: var(--bg);
-}
-.bar .wrap {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding-block: 12px;
-}
-.logo {
-  width: 40px; height: 40px;
-  border-radius: 10px;
-  background: #0C295A;
-  overflow: hidden;
-  display: grid; place-items: center;
-  flex: none;
-}
-.logo img { width: 150%; height: 150%; object-fit: contain; }
-.bar .name {
-  font-family: var(--mono);
-  font-weight: 500;
-  font-size: 19px;
-  letter-spacing: -0.02em;
-}
-.bar nav {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
+  padding: 13px 20px;
+  padding-top: calc(13px + env(safe-area-inset-top, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
   flex-wrap: wrap;
 }
-.bar nav a {
-  font-size: 14px;
-  text-decoration: none;
-  padding: 7px 12px;
-  border-radius: 999px;
-  color: var(--muted);
-}
-.bar nav a:hover { color: var(--fg); background: var(--card); }
-.bar nav a.cta {
-  background: var(--orange);
-  color: var(--navy);
-  border: 2px solid var(--line);
-  font-weight: 600;
-  white-space: nowrap;
-}
-/* On a phone the four links wrapped onto four lines and made the bar
-   340px tall before the page had said anything. The section links go;
-   the page is one scroll and the only one worth keeping is the one
-   that does something. */
-@media (max-width: 700px) {
-  .bar nav a:not(.cta) { display: none; }
-  .bar .name { font-size: 17px; }
-}
+.strip .word { font-family: var(--mono); font-weight: 600; font-size: 19px; }
+.strip .sub { font-size: 12.5px; color: rgba(20,17,12,0.7); }
+.strip .right { margin-left: auto; display: flex; align-items: center; gap: 9px; }
+.strip .btn { border-color: var(--ink); color: var(--ink); background: var(--surface); }
+.strip .btn.orange { background: var(--orange); }
 
-/* ── sections ────────────────────────────────────────────────── */
-/* Clears the sticky bar: a jump to #get used to put the
-   section's own eyebrow underneath it. */
-section { padding-block: clamp(56px, 8vw, 96px); scroll-margin-top: 84px; }
-.eyebrow { margin-bottom: 14px; }
-.lede { font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); max-width: 62ch; margin-top: 18px; }
-
-.hero { padding-top: clamp(40px, 5vw, 64px); padding-bottom: clamp(40px, 5vw, 64px); }
-.hero-grid {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: clamp(28px, 5vw, 56px);
-  align-items: center;
-}
-@media (max-width: 820px) { .hero-grid { grid-template-columns: 1fr; } }
-.hero h1 span { color: var(--orange); }
-
-.phone {
-  border: 3px solid var(--line);
-  border-radius: 26px;
-  overflow: hidden;
-  background: var(--card);
-  box-shadow: 10px 10px 0 var(--line);
-  max-width: 100%;
-}
-/* The screenshots are whole phones, 1080x2310. Left at their natural
-   aspect they made the hero 1600px tall with the headline floating in
-   the middle of an empty column, so each one is given a height and
-   shows its top. */
-.phone img { width: 100%; display: block; object-fit: cover; object-position: top; }
-.hero .phone img { height: clamp(360px, 46vw, 520px); }
-.gallery .phone img { height: 300px; }
-
-.btn-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+/* ── buttons ─────────────────────────────────────────────────── */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font: inherit;
-  font-weight: 600;
-  font-size: 16px;
-  padding: 13px 22px;
-  border-radius: 12px;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--display);
+  font-weight: 600; font-size: 14px;
+  padding: 10px 16px;
   border: 2px solid var(--line);
-  background: var(--card);
+  border-radius: 8px;
+  background: var(--panel);
   color: var(--fg);
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 4px 4px 0 var(--line);
+  line-height: 1.2;
 }
-.btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--line); }
-.btn.primary { background: var(--orange); color: var(--navy); }
-.btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.btn.orange { background: var(--orange); color: var(--onAccent); border-color: var(--ink); }
+.btn:hover { filter: brightness(1.05); }
+.btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* The toggle keeps its icon and drops its word where the strip is
+   tight; the icon alone still says which way it goes. */
+@media (max-width: 560px) { #theme-btn span { display: none; } #theme-btn { padding: 10px 11px; } }
 
-/* ── features ────────────────────────────────────────────────── */
-.feat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
-  gap: 16px;
-  margin-top: 36px;
+/* ── content ─────────────────────────────────────────────────── */
+.main { min-width: 0; padding-bottom: 94px; }
+.pad {
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  padding-block: 30px;
+  max-width: 1180px;
 }
-.feat {
+section { scroll-margin-top: 92px; }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 7px 13px;
   border: 2px solid var(--line);
-  border-radius: 14px;
-  background: var(--card);
-  padding: 20px;
-  box-shadow: 5px 5px 0 var(--line);
-  min-width: 0;
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--fg);
+  text-decoration: none;
 }
-.feat .tag {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--navy);
-  background: var(--sun);
-  border: 1.5px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 9px;
-  display: inline-block;
-  margin-bottom: 12px;
-}
-.feat h3 { font-family: var(--mono); font-size: 16px; letter-spacing: -0.01em; }
-.feat p { margin-top: 8px; font-size: 15px; color: var(--muted); }
+.chip.on { background: var(--orange); color: var(--onAccent); }
 
-/* ── roles ───────────────────────────────────────────────────── */
-.roles { display: grid; gap: 2px; margin-top: 34px; border: 2px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--line); }
-.role { background: var(--card); padding: 20px 22px; display: grid; grid-template-columns: 14px 1fr; gap: 16px; align-items: start; min-width: 0; }
-.dot { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--line); margin-top: 7px; }
-.role h3 { font-size: 17px; }
-.role p { font-size: 15px; color: var(--muted); margin-top: 4px; }
+.head { margin-top: 26px; }
+.head .mono { color: var(--orange); display: block; margin-bottom: 9px; }
+.head h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.02em; }
+.head p { color: var(--muted); margin-top: 12px; max-width: 64ch; }
+
+/* The reference's card grid: one outer rule, hairlines between. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  margin-top: 22px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cell {
+  background: var(--panel);
+  padding: 18px;
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.cell .row { display: flex; align-items: flex-start; gap: 12px; }
+.cell .ico {
+  width: 40px; height: 40px; flex: none;
+  border: 2px solid var(--line); border-radius: 8px;
+  background: var(--bg);
+  display: grid; place-items: center;
+}
+.cell .ico svg { width: 21px; height: 21px; fill: none; stroke: var(--fg); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.cell h3 { font-family: var(--mono); font-size: 14px; }
+.cell .no { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--orange); letter-spacing: 0.1em; }
+.cell p { font-size: 14px; color: var(--muted); }
+
+/* ── hero ────────────────────────────────────────────────────── */
+.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 28px; align-items: center; margin-top: 26px; }
+@media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+.hero h1 { font-size: clamp(34px, 5.2vw, 54px); letter-spacing: -0.03em; }
+.hero h1 em { font-style: normal; color: var(--orange); }
+.hero .lede { font-size: clamp(16px, 1.6vw, 18px); color: var(--muted); margin-top: 16px; max-width: 54ch; }
+.acts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+
+.frame { border: 2px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+.frame img { width: 100%; display: block; object-fit: cover; object-position: top; }
+.hero .frame img { height: clamp(300px, 38vw, 430px); }
+
+/* ── try it ──────────────────────────────────────────────────── */
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); margin-top: 22px; border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
+.step { background: var(--panel); padding: 18px; min-width: 0; box-shadow: 0 0 0 1px var(--line); }
+.step b.n { display: block; font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; color: var(--orange); margin-bottom: 8px; }
+.step h3 { font-size: 16px; }
+.step p { font-size: 14px; color: var(--muted); margin-top: 6px; }
+.tryrow { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,250px); gap: 22px; align-items: start; margin-top: 22px; }
+@media (max-width: 860px) { .tryrow { grid-template-columns: 1fr; } }
 
 /* ── gallery ─────────────────────────────────────────────────── */
-.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; margin-top: 34px; }
-.gallery figure { margin: 0; min-width: 0; }
-.gallery .phone { box-shadow: 6px 6px 0 var(--line); border-width: 2px; border-radius: 18px; }
-.gallery figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 16px; margin-top: 22px; }
+.shots figure { margin: 0; min-width: 0; }
+.shots .frame img { height: 272px; }
+.shots figcaption { font-size: 13px; color: var(--muted); margin-top: 9px; }
 
-/* ── band ────────────────────────────────────────────────────── */
-.band { background: var(--navy); color: #EDF2F9; border-block: 3px solid var(--line); }
-.band .mono { color: var(--blue); }
-.band .lede { color: rgba(237,242,249,0.76); }
+/* ── roles ───────────────────────────────────────────────────── */
+.roles { margin-top: 22px; border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
+.role { background: var(--panel); padding: 16px 18px; display: grid; grid-template-columns: 13px minmax(0,1fr); gap: 14px; align-items: start; }
+.role + .role { border-top: 2px solid var(--line); }
+.role .dot { width: 13px; height: 13px; border-radius: 4px; border: 2px solid var(--line); margin-top: 6px; }
+.role h3 { font-size: 16px; }
+.role p { font-size: 14px; color: var(--muted); margin-top: 3px; }
 
 /* ── form ────────────────────────────────────────────────────── */
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 30px; }
-.form-grid .full { grid-column: 1 / -1; }
-@media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
-label { display: block; }
-.lbl {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(237,242,249,0.8);
-  margin-bottom: 7px;
-  display: block;
-}
+.formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+.formgrid .full { grid-column: 1 / -1; }
+@media (max-width: 720px) { .formgrid { grid-template-columns: 1fr; } }
+.lbl { display: block; font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
 .req { color: var(--coral); }
 input, select, textarea {
-  width: 100%;
-  font: inherit;
-  font-size: 16px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 2px solid #EDF2F9;
-  background: var(--navy-2);
-  color: #EDF2F9;
+  width: 100%; font: inherit; font-size: 15px;
+  padding: 11px 13px;
+  border: 2px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--fg);
 }
-input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 3px solid var(--blue);
-  outline-offset: 2px;
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+textarea { min-height: 92px; resize: vertical; }
+.status { margin-top: 14px; font-size: 14px; min-height: 1.5em; }
+.status.ok { color: var(--mint); font-weight: 600; }
+.status.bad { color: var(--coral); font-weight: 600; }
+.note { border: 2px solid var(--line); border-radius: 9px; padding: 14px 16px; margin-top: 20px; font-size: 14px; color: var(--muted); background: var(--panel); }
+.note b { color: var(--fg); }
+
+/* ── bottom action bar ───────────────────────────────────────── */
+.dock {
+  position: fixed;
+  left: var(--rail-w); right: 0; bottom: 0;
+  z-index: 9;
+  background: var(--orange);
+  color: var(--onAccent);
+  border-top: 2px solid var(--line);
+  display: flex; align-items: center; gap: 13px;
+  padding: 11px 20px;
+  padding-bottom: calc(11px + env(safe-area-inset-bottom, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
 }
-textarea { min-height: 96px; resize: vertical; }
-.hint { font-size: 13px; color: rgba(237,242,249,0.6); margin-top: 7px; }
-.note {
-  border: 2px dashed rgba(237,242,249,0.45);
-  border-radius: 12px;
-  padding: 16px 18px;
-  margin-top: 26px;
-  font-size: 15px;
-  color: rgba(237,242,249,0.82);
-}
-.status { margin-top: 18px; font-size: 15px; min-height: 1.6em; }
-.status.ok { color: var(--mint); }
-.status.bad { color: var(--coral); }
+.dock .tile { width: 36px; height: 36px; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; flex: none; }
+.dock .tile img { width: 100%; height: 100%; display: block; }
+.dock .txt { min-width: 0; color: var(--ink); }
+.dock .txt b { display: block; font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+.dock .txt span { font-size: 12px; color: rgba(20,17,12,0.72); }
+.dock .acts { margin-left: auto; margin-top: 0; display: flex; gap: 9px; flex-wrap: wrap; }
+.dock .btn { background: var(--surface); color: var(--ink); border-color: var(--ink); }
+.dock .btn.ghost { background: transparent; }
 
 /* ── footer ──────────────────────────────────────────────────── */
-footer { border-top: 2px solid var(--line); }
-footer .wrap { padding-block: 40px; display: grid; gap: 26px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-footer h3 { font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--orange); }
-footer p, footer li { font-size: 15px; color: var(--muted); }
-footer ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 5px; }
-.stack { display: flex; justify-content: space-between; gap: 14px; font-size: 14px; }
-.stack b { font-weight: 500; }
+footer { border-top: 2px solid var(--line); background: var(--panel); }
+footer .pad { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+footer h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--orange); }
+footer p, footer li { font-size: 14px; color: var(--muted); }
+footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4px; }
+/* Capped, or the dotted-leader gap across a wide column reads
+   as two unrelated lists side by side. */
+.kv { display: flex; justify-content: space-between; gap: 12px; max-width: 250px; }
+.kv b { font-weight: 500; color: var(--fg); }
+
+/* ── phone ───────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  :root { --rail-w: 0px; }
+  .shell { grid-template-columns: 1fr; }
+  .rail {
+    position: sticky; top: 0; height: auto;
+    flex-direction: row; align-items: center;
+    border-right: 0; border-bottom: 2px solid var(--line);
+    padding: 8px 10px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    overflow-x: auto;
+    z-index: 9;
+  }
+  .rail .tile { margin-bottom: 0; margin-right: 10px; width: 38px; height: 38px; }
+  /* "Try it" was wrapping onto two lines and making the whole rail
+     taller than the content behind it. */
+  .rail a, .rail .railbtn { width: auto; padding: 6px 11px; gap: 3px; white-space: nowrap; }
+  .strip { position: static; }
+  .strip .sub { display: none; }
+  .dock { left: 0; padding-inline: 12px; gap: 10px; }
+  .dock .txt { display: none; }
+  /* Two buttons stacked turned the dock into a 150px block over the
+     page. They stay on one line and give up some padding instead. */
+  .dock .acts { flex-wrap: nowrap; }
+  .dock .btn { padding: 9px 12px; font-size: 13px; white-space: nowrap; }
+}
 </style>
 </head>
 <body>
 
-<header class="bar">
-  <div class="wrap">
-    <span class="logo"><img src="assets/app-icon.png" alt=""></span>
-    <span class="name">SMARTEVENT</span>
-    <nav>
-      <a href="#what">What it does</a>
-      <a href="#who">Who it is for</a>
-      <a href="#screens">Screens</a>
-      <a href="#get" class="cta">Get the app</a>
-    </nav>
-  </div>
-</header>
+<div class="shell">
 
-<main>
+  <nav class="rail" aria-label="Sections">
+    <span class="tile"><img src="assets/app-tile.png" alt="SMARTEVENT"></span>
 
-<section class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <p class="mono eyebrow">LCUP · CITE Department</p>
-      <h1>Inventory, money, events and reports.<br><span>One phone.</span></h1>
-      <p class="lede">
-        Student organizations run on spreadsheets, paper and Messenger. Records go
-        missing, budgets are unclear, equipment is untracked, and every turnover of
-        officers starts again from nothing. SMARTEVENT puts all of it in one place,
-        on the device officers already carry.
-      </p>
-      <div class="btn-row">
-        <a class="btn primary" href="#get">Request the app →</a>
-        <a class="btn" href="#what">See what it does</a>
+    <a href="#top" class="on">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      Home
+    </a>
+    <a href="#what">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Features
+    </a>
+    <a href="#try">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>
+      Try it
+    </a>
+    <a href="#who">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 11h4M19 9v4"/></svg>
+      Roles
+    </a>
+    <a href="#screens">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.5h2"/></svg>
+      Screens
+    </a>
+    <a href="#get">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 20h16"/></svg>
+      Download
+    </a>
+
+  </nav>
+
+  <div class="main" id="top">
+
+    <div class="strip">
+      <div>
+        <div class="word">SMARTEVENT</div>
+        <div class="sub">LCUP · CITE Department · S.Y. 2026–2027</div>
+      </div>
+      <div class="right">
+        <button class="btn sq" id="theme-btn" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="theme-path" d="M21 13.2A8.5 8.5 0 1 1 10.8 3a7 7 0 0 0 10.2 10.2z"/></svg>
+          <span id="theme-txt">Dark</span>
+        </button>
+        <a class="btn" href="#try">Try it</a>
+        <a class="btn orange" href="#get">Get the app</a>
       </div>
     </div>
-    <div class="phone">
-      <img src="assets/shots/dashboard.png" alt="The SMARTEVENT dashboard" width="1080" height="2310">
-    </div>
-  </div>
-</section>
 
-<section id="what">
-  <div class="wrap">
-    <p class="mono eyebrow">What it does</p>
-    <h2>Eight things, properly</h2>
-    <p class="lede">Every one of these is built and running. Nothing here is planned.</p>
+    <main>
 
-    <div class="feat-grid">
-      <article class="feat">
-        <span class="tag">Events</span>
-        <h3>Event proposals</h3>
-        <p>Submit a proposal, follow every approval step, and generate the signed SAP form as a PDF.</p>
-      </article>
-      <article class="feat">
-        <span class="tag">Money</span>
-        <h3>Money and budgets</h3>
-        <p>Record expenses and income. Balances deduct themselves, so nobody is adding up receipts by hand.</p>
-      </article>
-      <article class="feat">
-        <span class="tag">Money</span>
-        <h3>Receipt scanning</h3>
-        <p>Photograph a receipt and the app reads the vendor, the date and the amount off it.</p>
-      </article>
-      <article class="feat">
-        <span class="tag">Inventory</span>
-        <h3>Inventory</h3>
-        <p>Stock, movements and low-stock items, grouped by where each thing is kept.</p>
-      </article>
-      <article class="feat">
-        <span class="tag">Reports</span>
-        <h3>Reports and exports</h3>
-        <p>Financial reports as PDF, CSV or print-ready, plus Excel exports for anyone who wants the rows.</p>
-      </article>
-      <article class="feat">
-        <span class="tag">AI</span>
-        <h3>AI assistance</h3>
-        <p>A budget suggested from similar past events, a category suggested for a scanned receipt, and a plain-language reading of the report. Every one is a suggestion: nothing is saved until a person acts on it.</p>
-      </article>
-      <article class="feat">
-        <span class="tag">Anywhere</span>
-        <h3>Works offline</h3>
-        <p>Record expenses and movements without signal. Everything syncs when the phone reconnects.</p>
-      </article>
-      <article class="feat">
-        <span class="tag">Access</span>
-        <h3>Role-based access</h3>
-        <p>Officers, advisers, the SDS Office and administrators each see only what their role allows.</p>
-      </article>
-    </div>
-  </div>
-</section>
+    <section class="pad">
+      <div class="chips">
+        <a class="chip on" href="#what">Features</a>
+        <a class="chip" href="#try">Try it</a>
+        <a class="chip" href="#who">Roles</a>
+        <a class="chip" href="#screens">Screens</a>
+        <a class="chip" href="#get">Download</a>
+      </div>
 
-<section id="who" class="band">
-  <div class="wrap">
-    <p class="mono eyebrow">Who it is for</p>
-    <h2>Four roles, one record</h2>
-    <p class="lede">Everyone reads the same figures. Nobody sees more than their role allows.</p>
-
-    <div class="roles">
-      <div class="role">
-        <span class="dot" style="background:var(--orange)"></span>
+      <div class="hero">
         <div>
-          <h3>Student organization officers</h3>
-          <p>Presidents, treasurers and inventory officers, who keep the records, the budgets and the events.</p>
+          <h1>Inventory, money, events and reports.<br><em>One phone.</em></h1>
+          <p class="lede">
+            Student organizations run on spreadsheets, paper and Messenger.
+            Records go missing, budgets are unclear, equipment is untracked,
+            and every turnover of officers starts again from nothing.
+            SMARTEVENT puts all of it in one place, on the device officers
+            already carry.
+          </p>
+          <div class="acts">
+            <a class="btn orange" href="#get">Request the app</a>
+            <a class="btn" href="#try">Try it without an account</a>
+          </div>
+        </div>
+        <div class="frame">
+          <img src="assets/shots/dashboard.png" alt="The SMARTEVENT dashboard" width="1080" height="2310">
         </div>
       </div>
-      <div class="role">
-        <span class="dot" style="background:var(--blue)"></span>
-        <div>
-          <h3>Faculty moderators and advisers</h3>
-          <p>Review event proposals and budget requests, watch balances, and read the reports and analytics.</p>
+    </section>
+
+    <section class="pad" id="what">
+      <div class="head">
+        <span class="mono">What it does</span>
+        <h2>Eight things, properly</h2>
+        <p>Every one of these is built and running. Nothing here is planned.</p>
+      </div>
+
+      <div class="grid">
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="m9 13 2 2 4-4"/></svg></span>
+            <div style="min-width:0"><span class="no">01</span><h3>Event proposals</h3></div>
+          </div>
+          <p>Submit a proposal, follow every approval step, and generate the signed SAP form as a PDF.</p>
+        </article>
+
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg></span>
+            <div style="min-width:0"><span class="no">02</span><h3>Money and budgets</h3></div>
+          </div>
+          <p>Record expenses and income. Balances deduct themselves, so nobody is adding up receipts by hand.</p>
+        </article>
+
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span>
+            <div style="min-width:0"><span class="no">03</span><h3>Receipt scanning</h3></div>
+          </div>
+          <p>Photograph a receipt and the app reads the vendor, the date and the amount off it.</p>
+        </article>
+
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-5 9 5v10l-9 5-9-5z"/><path d="m3 9 9 5 9-5M12 14v10"/></svg></span>
+            <div style="min-width:0"><span class="no">04</span><h3>Inventory</h3></div>
+          </div>
+          <p>Stock, movements and low-stock items, grouped by where each thing is kept.</p>
+        </article>
+
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 16V9M12 16v-4M16 16V9"/></svg></span>
+            <div style="min-width:0"><span class="no">05</span><h3>Reports and exports</h3></div>
+          </div>
+          <p>Financial reports as PDF, CSV or print-ready, plus Excel exports for anyone who wants the rows.</p>
+        </article>
+
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z"/><path d="m18 15 .9 2.3 2.1.9-2.1.9L18 21l-.9-1.9-2.1-.9 2.1-.9z"/></svg></span>
+            <div style="min-width:0"><span class="no">06</span><h3>AI assistance</h3></div>
+          </div>
+          <p>A budget suggested from similar past events, a category suggested for a scanned receipt, and a plain-language reading of the report. Every one is a suggestion: nothing is saved until a person acts on it.</p>
+        </article>
+
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.5A3.5 3.5 0 0 1 19 18z"/><path d="m3 3 18 18"/></svg></span>
+            <div style="min-width:0"><span class="no">07</span><h3>Works offline</h3></div>
+          </div>
+          <p>Record expenses and movements without signal. Everything syncs when the phone reconnects.</p>
+        </article>
+
+        <article class="cell">
+          <div class="row">
+            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 11h4M19 9v4"/></svg></span>
+            <div style="min-width:0"><span class="no">08</span><h3>Role-based access</h3></div>
+          </div>
+          <p>Officers, advisers, the SDS Office and administrators each see only what their role allows.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="pad" id="try">
+      <div class="head">
+        <span class="mono">Try it</span>
+        <h2>Look around without an account</h2>
+        <p>
+          The app carries a demo inside it. It runs on seeded records with no
+          server behind it, so you can open every screen, propose an event and
+          record an expense without touching anybody's real data — and without
+          waiting to be approved.
+        </p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <b class="n">Step 01</b>
+          <h3>Install it</h3>
+          <p>Request the APK below. The demo is in every build; there is no separate one to download.</p>
+        </div>
+        <div class="step">
+          <b class="n">Step 02</b>
+          <h3>Open Sign in</h3>
+          <p>From the welcome screen, tap <b>Sign in</b>. Do not type anything.</p>
+        </div>
+        <div class="step">
+          <b class="n">Step 03</b>
+          <h3>Hold the heading</h3>
+          <p>Press and hold <b>Welcome back</b> for a second. A dialog offers demo mode.</p>
+        </div>
+        <div class="step">
+          <b class="n">Step 04</b>
+          <h3>Enter demo</h3>
+          <p>You start as a treasurer. Settings has a role picker for the officer, the adviser, the SDS Office and the administrators.</p>
         </div>
       </div>
-      <div class="role">
-        <span class="dot" style="background:var(--mint)"></span>
+
+      <div class="tryrow">
         <div>
-          <h3>Student Development Services</h3>
-          <p>Review submitted proposals, sign off on the SAP form, and monitor events across organizations.</p>
+          <div class="note" style="margin-top:0">
+            <b>What the demo does and does not do.</b>
+            Nothing leaves the phone: there is no server call, so exports and
+            anything else needing the backend say so rather than pretending.
+            The records are seeded and reset with the app. Signing in with a
+            real account is a different thing entirely, and the demo holds no
+            session.
+          </div>
+          <div class="acts">
+            <a class="btn orange" href="#get">Request the app</a>
+            <a class="btn" href="#screens">See the screens first</a>
+          </div>
+        </div>
+        <div class="frame">
+          <img src="assets/shots/menu.png" alt="The menu in demo mode" style="height:256px">
         </div>
       </div>
-      <div class="role">
-        <span class="dot" style="background:var(--sun)"></span>
-        <div>
-          <h3>System administrators</h3>
-          <p>Configure the system and manage who may hold an account.</p>
+    </section>
+
+    <section class="pad" id="who">
+      <div class="head">
+        <span class="mono">Who it is for</span>
+        <h2>Four roles, one record</h2>
+        <p>Everyone reads the same figures. Nobody sees more than their role allows.</p>
+      </div>
+
+      <div class="roles">
+        <div class="role">
+          <span class="dot" style="background:var(--orange)"></span>
+          <div>
+            <h3>Student organization officers</h3>
+            <p>Presidents, treasurers and inventory officers, who keep the records, the budgets and the events.</p>
+          </div>
+        </div>
+        <div class="role">
+          <span class="dot" style="background:var(--blue)"></span>
+          <div>
+            <h3>Faculty moderators and advisers</h3>
+            <p>Review event proposals and budget requests, watch balances, and read the reports and analytics.</p>
+          </div>
+        </div>
+        <div class="role">
+          <span class="dot" style="background:var(--mint)"></span>
+          <div>
+            <h3>Student Development Services</h3>
+            <p>Review submitted proposals, sign off on the SAP form, and monitor events across organizations.</p>
+          </div>
+        </div>
+        <div class="role">
+          <span class="dot" style="background:var(--sun)"></span>
+          <div>
+            <h3>System administrators</h3>
+            <p>Configure the system and manage who may hold an account.</p>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<section id="screens">
-  <div class="wrap">
-    <p class="mono eyebrow">Screens</p>
-    <h2>What it looks like</h2>
-    <p class="lede">Taken from the running app, not from a mock-up.</p>
-
-    <div class="gallery">
-      <figure>
-        <div class="phone"><img src="assets/shots/report.png" alt="Financial report" loading="lazy"></div>
-        <figcaption>Income, spending, net balance and budget used, for any period.</figcaption>
-      </figure>
-      <figure>
-        <div class="phone"><img src="assets/shots/inventory.png" alt="Inventory" loading="lazy"></div>
-        <figcaption>Stock, locations and low-stock items at a glance.</figcaption>
-      </figure>
-      <figure>
-        <div class="phone"><img src="assets/shots/ai.png" alt="AI reading of the report" loading="lazy"></div>
-        <figcaption>The AI reading, labelled as such, beside the rule-based one.</figcaption>
-      </figure>
-      <figure>
-        <div class="phone"><img src="assets/shots/menu.png" alt="Menu" loading="lazy"></div>
-        <figcaption>An administrator sees five places; an officer sees four.</figcaption>
-      </figure>
-      <figure>
-        <div class="phone"><img src="assets/shots/roster.png" alt="Approved roster" loading="lazy"></div>
-        <figcaption>The roster: who is approved to create an account.</figcaption>
-      </figure>
-    </div>
-  </div>
-</section>
-
-<section id="get" class="band">
-  <div class="wrap">
-    <p class="mono eyebrow">Get the app</p>
-    <h2>Request access</h2>
-    <p class="lede">
-      SMARTEVENT is not on the Play Store. It is distributed to the student
-      organizations of the LCUP CITE Department, so the download goes out by
-      request. Fill this in and an administrator will review it; if it is
-      approved, the link is emailed to the address you give here.
-    </p>
-
-    <form id="request-form" class="form-grid" novalidate>
-      <label>
-        <span class="lbl">Full name <span class="req" aria-hidden="true">*</span></span>
-        <input id="rq-name" name="name" type="text" autocomplete="name" required>
-      </label>
-      <label>
-        <span class="lbl">LCUP email <span class="req" aria-hidden="true">*</span></span>
-        <input id="rq-email" name="email" type="email" autocomplete="email"
-               placeholder="yourname@lcup.edu.ph" required>
-      </label>
-      <label>
-        <span class="lbl">Organization <span class="req" aria-hidden="true">*</span></span>
-        <input id="rq-org" name="organization" type="text" required>
-      </label>
-      <label>
-        <span class="lbl">Your role <span class="req" aria-hidden="true">*</span></span>
-        <select id="rq-role" name="role" required>
-          <option value="">Choose one</option>
-          <option value="officer">Officer</option>
-          <option value="treasurer">Treasurer</option>
-          <option value="adviser">Adviser or moderator</option>
-          <option value="sds_staff">SDS Office</option>
-          <option value="admin">Administrator</option>
-        </select>
-      </label>
-      <label class="full">
-        <span class="lbl">Why you need it</span>
-        <textarea id="rq-reason" name="reason"
-                  placeholder="Which organization, and what you will be using it for."></textarea>
-      </label>
-      <div class="full">
-        <button class="btn primary" type="submit" id="rq-submit">Send the request</button>
-        <p class="status" id="rq-status" role="status" aria-live="polite"></p>
+    <section class="pad" id="screens">
+      <div class="head">
+        <span class="mono">Screens</span>
+        <h2>What it looks like</h2>
+        <p>Taken from the running app, not from a mock-up.</p>
       </div>
-    </form>
 
-    <div class="note">
-      <b>What happens to what you type.</b> The request is held until an
-      administrator reviews it, and the email address is used to send you the
-      link and nothing else. Approval is a person's decision, not an automatic
-      one, so it will not be instant.
-    </div>
+      <div class="shots">
+        <figure>
+          <div class="frame"><img src="assets/shots/report.png" alt="Financial report" loading="lazy"></div>
+          <figcaption>Income, spending, net balance and budget used, for any period.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><img src="assets/shots/inventory.png" alt="Inventory" loading="lazy"></div>
+          <figcaption>Stock, locations and low-stock items at a glance.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><img src="assets/shots/ai.png" alt="AI reading of the report" loading="lazy"></div>
+          <figcaption>The AI reading, labelled as such, beside the rule-based one.</figcaption>
+        </figure>
+        <figure>
+          <div class="frame"><img src="assets/shots/roster.png" alt="Approved roster" loading="lazy"></div>
+          <figcaption>The roster: who is approved to create an account.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="pad" id="get">
+      <div class="head">
+        <span class="mono">Get the app</span>
+        <h2>Request access</h2>
+        <p>
+          SMARTEVENT is not on the Play Store. It is distributed to the student
+          organizations of the LCUP CITE Department, so the download goes out by
+          request. Fill this in and an administrator will review it; if it is
+          approved, the link is emailed to the address you give here.
+        </p>
+      </div>
+
+      <form id="request-form" class="formgrid" novalidate>
+        <label>
+          <span class="lbl">Full name <span class="req" aria-hidden="true">*</span></span>
+          <input id="rq-name" name="name" type="text" autocomplete="name" required>
+        </label>
+        <label>
+          <span class="lbl">LCUP email <span class="req" aria-hidden="true">*</span></span>
+          <input id="rq-email" name="email" type="email" autocomplete="email" placeholder="yourname@lcup.edu.ph" required>
+        </label>
+        <label>
+          <span class="lbl">Organization <span class="req" aria-hidden="true">*</span></span>
+          <input id="rq-org" name="organization" type="text" required>
+        </label>
+        <label>
+          <span class="lbl">Your role <span class="req" aria-hidden="true">*</span></span>
+          <select id="rq-role" name="role" required>
+            <option value="">Choose one</option>
+            <option value="officer">Officer</option>
+            <option value="treasurer">Treasurer</option>
+            <option value="adviser">Adviser or moderator</option>
+            <option value="sds_staff">SDS Office</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </label>
+        <label class="full">
+          <span class="lbl">Why you need it</span>
+          <textarea id="rq-reason" name="reason" placeholder="Which organization, and what you will be using it for."></textarea>
+        </label>
+        <div class="full">
+          <button class="btn orange" type="submit" id="rq-submit">Send the request</button>
+          <p class="status" id="rq-status" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+
+      <div class="note">
+        <b>What happens to what you type.</b>
+        The request is held until an administrator reviews it, and the email
+        address is used to send you the link and nothing else. Approval is a
+        person's decision, not an automatic one, so it will not be instant.
+      </div>
+    </section>
+
+    </main>
+
+    <footer>
+      <div class="pad">
+        <div>
+          <h3>SMARTEVENT</h3>
+          <p>Mobile-Based Inventory, Financial Management, Event Monitoring, and Data Analytics Reporting System for Student Organizations.</p>
+          <p style="margin-top:9px">Evaluated against ISO/IEC 25010:2023.</p>
+        </div>
+        <div>
+          <h3>Built with</h3>
+          <ul>
+            <li class="kv"><span>App</span><b>Flutter · Dart</b></li>
+            <li class="kv"><span>Backend</span><b>Python · FastAPI</b></li>
+            <li class="kv"><span>Database</span><b>PostgreSQL</b></li>
+            <li class="kv"><span>Security</span><b>JWT · Argon2</b></li>
+            <li class="kv"><span>AI &amp; OCR</span><b>Google Gemini</b></li>
+          </ul>
+        </div>
+        <div>
+          <h3>The researchers</h3>
+          <ul>
+            <li>Rohn Monrhey Bañares</li>
+            <li>John Paul Buffe</li>
+            <li>Jasper Robin Hernandez</li>
+            <li>Daniela Mayormita</li>
+            <li>Leon Antonio Puerto</li>
+            <li>Sean Ashley Reyes</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Contact</h3>
+          <p>College of Information Technology and Engineering<br>
+             La Consolacion University Philippines<br>
+             City of Malolos, Bulacan</p>
+          <p style="margin-top:9px"><a href="mailto:cite@email.lcup.edu.ph">cite@email.lcup.edu.ph</a></p>
+        </div>
+      </div>
+    </footer>
+
   </div>
-</section>
+</div>
 
-</main>
-
-<footer>
-  <div class="wrap">
-    <div>
-      <h3>SMARTEVENT</h3>
-      <p>Mobile-Based Inventory, Financial Management, Event Monitoring, and Data Analytics Reporting System for Student Organizations.</p>
-      <p style="margin-top:10px">Evaluated against ISO/IEC 25010:2023.</p>
-    </div>
-    <div>
-      <h3>Built with</h3>
-      <ul>
-        <li class="stack"><span>App</span><b>Flutter · Dart</b></li>
-        <li class="stack"><span>Backend</span><b>Python · FastAPI</b></li>
-        <li class="stack"><span>Database</span><b>PostgreSQL</b></li>
-        <li class="stack"><span>Security</span><b>JWT · Argon2</b></li>
-        <li class="stack"><span>AI &amp; OCR</span><b>Google Gemini</b></li>
-      </ul>
-    </div>
-    <div>
-      <h3>The researchers</h3>
-      <ul>
-        <li>Rohn Monrhey Bañares</li>
-        <li>John Paul Buffe</li>
-        <li>Jasper Robin Hernandez</li>
-        <li>Daniela Mayormita</li>
-        <li>Leon Antonio Puerto</li>
-        <li>Sean Ashley Reyes</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Contact</h3>
-      <p>College of Information Technology and Engineering<br>
-         La Consolacion University Philippines<br>
-         City of Malolos, Bulacan</p>
-      <p style="margin-top:10px"><a href="mailto:cite@email.lcup.edu.ph">cite@email.lcup.edu.ph</a></p>
-      <p style="margin-top:10px">S.Y. 2026–2027</p>
-    </div>
+<div class="dock">
+  <span class="tile"><img src="assets/app-tile.png" alt=""></span>
+  <div class="txt">
+    <b>SMARTEVENT for Android</b>
+    <span>Distributed by request to CITE organizations</span>
   </div>
-</footer>
+  <div class="acts">
+    <a class="btn ghost" href="#try">Try it</a>
+    <a class="btn" href="#get">Request the app</a>
+  </div>
+</div>
 
 <script>
 (function () {
-  // Where the request goes. Same host the app talks to.
+  /* ── theme ──────────────────────────────────────────────────
+     Follows the system until somebody says otherwise; the choice
+     is then remembered on this device only. */
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-btn');
+  var txt = document.getElementById('theme-txt');
+  var path = document.getElementById('theme-path');
+
+  var MOON = 'M21 13.2A8.5 8.5 0 1 1 10.8 3a7 7 0 0 0 10.2 10.2z';
+  var SUN = 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4';
+
+  function systemDark() {
+    try { return window.matchMedia('(prefers-color-scheme: dark)').matches; }
+    catch (e) { return false; }
+  }
+  function isDark() {
+    var set = root.getAttribute('data-theme');
+    return set ? set === 'dark' : systemDark();
+  }
+  function paint() {
+    var dark = isDark();
+    // The button offers the other one, which is what a toggle is for.
+    txt.textContent = dark ? 'Light' : 'Dark';
+    path.setAttribute('d', dark ? SUN : MOON);
+    btn.setAttribute('aria-pressed', String(dark));
+    btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+
+  try {
+    var saved = localStorage.getItem('smartevent.theme');
+    if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved);
+  } catch (e) { /* private window or blocked storage — follow the system */ }
+
+  paint();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('smartevent.theme', next); } catch (e) {}
+    paint();
+  });
+
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+      if (!root.getAttribute('data-theme')) paint();
+    });
+  } catch (e) {}
+
+  /* ── which section the rail marks ───────────────────────── */
+  var links = [].slice.call(document.querySelectorAll('.rail a[href^="#"]'));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  if (window.IntersectionObserver) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var i = targets.indexOf(entry.target);
+        if (i < 0) return;
+        links.forEach(function (a) { a.classList.remove('on'); });
+        links[i].classList.add('on');
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    targets.forEach(function (t) { if (t) io.observe(t); });
+  }
+
+  /* ── the request ────────────────────────────────────────── */
   var ENDPOINT = 'https://api.smartevent.date/download-requests';
 
   var form = document.getElementById('request-form');
