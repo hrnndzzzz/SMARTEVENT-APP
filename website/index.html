@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: a bordered console — fixed icon rail down the left, a yellow
-   command strip across the top, flat bordered cards in the middle, and
-   one orange action bar pinned to the bottom. Everything is drawn with
-   hard 2px rules and flat fills; no soft shadows anywhere. */
+/* Layout: one yellow command bar across the top carrying the mark, the
+   navigation and the actions — nothing else competes with it — then
+   flat bordered cards down the page and a single orange action bar at
+   the foot. Hard 2px rules and flat fills; no soft shadows. */
 :root {
   --cream:   #F1E7D5;
   --surface: #FCF4E4;
@@ -31,13 +31,11 @@
   --fg:    var(--ink);
   --line:  var(--ink);
   --muted: rgba(20,17,12,0.62);
-  --rail:  #EBDFC9;
   --strip: var(--sun);
   --onAccent: var(--ink);
 
   --display: 'Lexend', system-ui, -apple-system, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
-  --rail-w: 92px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -47,7 +45,6 @@
     --fg: #EDF2F9;
     --line: #EDF2F9;
     --muted: rgba(237,242,249,0.64);
-    --rail: #0A1B33;
     --strip: #C9A433;
     color-scheme: dark;
   }
@@ -58,7 +55,6 @@
   --fg: #EDF2F9;
   --line: #EDF2F9;
   --muted: rgba(237,242,249,0.64);
-  --rail: #0A1B33;
   --strip: #C9A433;
   color-scheme: dark;
 }
@@ -72,6 +68,7 @@ body {
   font-family: var(--display);
   font-size: 16px;
   line-height: 1.58;
+  padding-bottom: 86px;
   -webkit-font-smoothing: antialiased;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -90,88 +87,67 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.1; text-wrap: balance; 
   font-size: 11px;
 }
 
-/* ── shell ───────────────────────────────────────────────────── */
-.shell {
-  display: grid;
-  grid-template-columns: var(--rail-w) minmax(0, 1fr);
-  min-height: 100vh;
-}
-
-/* ── left rail ───────────────────────────────────────────────── */
-.rail {
+/* ── the one bar ─────────────────────────────────────────────── */
+.bar {
   position: sticky;
   top: 0;
-  align-self: start;
-  height: 100vh;
-  background: var(--rail);
-  border-right: 2px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-block: 14px;
-  padding-top: calc(14px + env(safe-area-inset-top, 0px));
-  padding-left: env(safe-area-inset-left, 0px);
-}
-.rail .tile {
-  width: 44px; height: 44px;
-  border: 2px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  display: grid; place-items: center;
-  margin-bottom: 18px;
-  flex: none;
-}
-.rail .tile img { width: 100%; height: 100%; display: block; }
-.rail a, .rail .railbtn {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  width: 100%;
-  padding: 9px 2px;
-  text-decoration: none;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-.rail a:hover, .rail .railbtn:hover { color: var(--fg); }
-.rail a.on { color: var(--orange); }
-.rail svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.rail a:focus-visible, .rail .railbtn:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
-
-/* ── top strip ───────────────────────────────────────────────── */
-.strip {
-  position: sticky;
-  top: 0;
-  z-index: 8;
+  z-index: 10;
   background: var(--strip);
   color: var(--ink);
-  border-bottom: 2px solid var(--line);
+  border-bottom: 2px solid var(--ink);
+}
+.bar .in {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 13px 20px;
-  padding-top: calc(13px + env(safe-area-inset-top, 0px));
+  gap: 12px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-block: 11px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
   padding-right: max(20px, env(safe-area-inset-right, 0px));
-  flex-wrap: wrap;
+  padding-top: calc(11px + env(safe-area-inset-top, 0px));
 }
-.strip .word { font-family: var(--mono); font-weight: 600; font-size: 19px; }
-.strip .sub { font-size: 12.5px; color: rgba(20,17,12,0.7); }
-.strip .right { margin-left: auto; display: flex; align-items: center; gap: 9px; }
-.strip .btn { border-color: var(--ink); color: var(--ink); background: var(--surface); }
-.strip .btn.orange { background: var(--orange); }
+.bar .tile {
+  width: 38px; height: 38px;
+  border: 2px solid var(--ink);
+  border-radius: 9px;
+  overflow: hidden;
+  flex: none;
+}
+.bar .tile img { width: 100%; height: 100%; display: block; }
+.bar .word { font-family: var(--mono); font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
 
-/* ── buttons ─────────────────────────────────────────────────── */
+.bar nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 14px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bar nav::-webkit-scrollbar { display: none; }
+.bar nav a {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(20,17,12,0.68);
+  padding: 8px 11px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.bar nav a:hover { color: var(--ink); }
+.bar nav a.on { color: var(--ink); background: rgba(20,17,12,0.12); }
+.bar .acts { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+
 .btn {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 7px;
   font-family: var(--display);
   font-weight: 600; font-size: 14px;
-  padding: 10px 16px;
+  padding: 9px 15px;
   border: 2px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -179,44 +155,30 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.1; text-wrap: balance; 
   text-decoration: none;
   cursor: pointer;
   line-height: 1.2;
+  white-space: nowrap;
 }
-.btn.orange { background: var(--orange); color: var(--onAccent); border-color: var(--ink); }
+.btn.orange { background: var(--orange); color: var(--onAccent); }
 .btn:hover { filter: brightness(1.05); }
 .btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* The toggle keeps its icon and drops its word where the strip is
-   tight; the icon alone still says which way it goes. */
-@media (max-width: 560px) { #theme-btn span { display: none; } #theme-btn { padding: 10px 11px; } }
+.bar .btn { border-color: var(--ink); color: var(--ink); background: var(--surface); }
+.bar .btn.orange { background: var(--orange); }
 
 /* ── content ─────────────────────────────────────────────────── */
-.main { min-width: 0; padding-bottom: 94px; }
 .pad {
+  max-width: 1180px;
+  margin: 0 auto;
   padding-left: max(20px, env(safe-area-inset-left, 0px));
   padding-right: max(20px, env(safe-area-inset-right, 0px));
-  padding-block: 30px;
-  max-width: 1180px;
+  padding-block: 34px;
 }
-section { scroll-margin-top: 92px; }
+section { scroll-margin-top: 78px; }
 
-.chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.chip {
-  font-family: var(--mono); font-size: 11px; font-weight: 600;
-  letter-spacing: 0.07em; text-transform: uppercase;
-  padding: 7px 13px;
-  border: 2px solid var(--line);
-  border-radius: 7px;
-  background: var(--panel);
-  color: var(--fg);
-  text-decoration: none;
-}
-.chip.on { background: var(--orange); color: var(--onAccent); }
-
-.head { margin-top: 26px; }
+.head { margin-bottom: 4px; }
 .head .mono { color: var(--orange); display: block; margin-bottom: 9px; }
 .head h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.02em; }
 .head p { color: var(--muted); margin-top: 12px; max-width: 64ch; }
 
-/* The reference's card grid: one outer rule, hairlines between. */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
@@ -245,7 +207,7 @@ section { scroll-margin-top: 92px; }
 .cell p { font-size: 14px; color: var(--muted); }
 
 /* ── hero ────────────────────────────────────────────────────── */
-.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 28px; align-items: center; margin-top: 26px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 30px; align-items: center; }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
 .hero h1 { font-size: clamp(34px, 5.2vw, 54px); letter-spacing: -0.03em; }
 .hero h1 em { font-style: normal; color: var(--orange); }
@@ -255,15 +217,6 @@ section { scroll-margin-top: 92px; }
 .frame { border: 2px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
 .frame img { width: 100%; display: block; object-fit: cover; object-position: top; }
 .hero .frame img { height: clamp(300px, 38vw, 430px); }
-
-/* ── try it ──────────────────────────────────────────────────── */
-.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); margin-top: 22px; border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
-.step { background: var(--panel); padding: 18px; min-width: 0; box-shadow: 0 0 0 1px var(--line); }
-.step b.n { display: block; font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; color: var(--orange); margin-bottom: 8px; }
-.step h3 { font-size: 16px; }
-.step p { font-size: 14px; color: var(--muted); margin-top: 6px; }
-.tryrow { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,250px); gap: 22px; align-items: start; margin-top: 22px; }
-@media (max-width: 860px) { .tryrow { grid-template-columns: 1fr; } }
 
 /* ── gallery ─────────────────────────────────────────────────── */
 .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 16px; margin-top: 22px; }
@@ -302,24 +255,24 @@ textarea { min-height: 92px; resize: vertical; }
 /* ── bottom action bar ───────────────────────────────────────── */
 .dock {
   position: fixed;
-  left: var(--rail-w); right: 0; bottom: 0;
+  left: 0; right: 0; bottom: 0;
   z-index: 9;
   background: var(--orange);
-  color: var(--onAccent);
-  border-top: 2px solid var(--line);
-  display: flex; align-items: center; gap: 13px;
-  padding: 11px 20px;
-  padding-bottom: calc(11px + env(safe-area-inset-bottom, 0px));
-  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  color: var(--ink);
+  border-top: 2px solid var(--ink);
 }
-.dock .tile { width: 36px; height: 36px; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; flex: none; }
-.dock .tile img { width: 100%; height: 100%; display: block; }
-.dock .txt { min-width: 0; color: var(--ink); }
+.dock .in {
+  max-width: 1180px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px;
+  padding-block: 10px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.dock .txt { min-width: 0; }
 .dock .txt b { display: block; font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
 .dock .txt span { font-size: 12px; color: rgba(20,17,12,0.72); }
-.dock .acts { margin-left: auto; margin-top: 0; display: flex; gap: 9px; flex-wrap: wrap; }
-.dock .btn { background: var(--surface); color: var(--ink); border-color: var(--ink); }
-.dock .btn.ghost { background: transparent; }
+.dock .btn { margin-left: auto; background: var(--surface); color: var(--ink); border-color: var(--ink); }
 
 /* ── footer ──────────────────────────────────────────────────── */
 footer { border-top: 2px solid var(--line); background: var(--panel); }
@@ -327,423 +280,325 @@ footer .pad { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, 
 footer h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--orange); }
 footer p, footer li { font-size: 14px; color: var(--muted); }
 footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4px; }
-/* Capped, or the dotted-leader gap across a wide column reads
-   as two unrelated lists side by side. */
 .kv { display: flex; justify-content: space-between; gap: 12px; max-width: 250px; }
 .kv b { font-weight: 500; color: var(--fg); }
 
 /* ── phone ───────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .bar .word { display: none; }
+  .bar nav { margin-left: 4px; }
+}
+/* Narrower than this the links were being squeezed to "FEAT…" by the
+   actions beside them. The page is one scroll, so they go and the
+   mark, the theme and the one action stay. */
+@media (max-width: 620px) {
+  .bar nav { display: none; }
+}
 @media (max-width: 760px) {
-  :root { --rail-w: 0px; }
-  .shell { grid-template-columns: 1fr; }
-  .rail {
-    position: sticky; top: 0; height: auto;
-    flex-direction: row; align-items: center;
-    border-right: 0; border-bottom: 2px solid var(--line);
-    padding: 8px 10px;
-    padding-top: calc(8px + env(safe-area-inset-top, 0px));
-    overflow-x: auto;
-    z-index: 9;
-  }
-  .rail .tile { margin-bottom: 0; margin-right: 10px; width: 38px; height: 38px; }
-  /* "Try it" was wrapping onto two lines and making the whole rail
-     taller than the content behind it. */
-  .rail a, .rail .railbtn { width: auto; padding: 6px 11px; gap: 3px; white-space: nowrap; }
-  .strip { position: static; }
-  .strip .sub { display: none; }
-  .dock { left: 0; padding-inline: 12px; gap: 10px; }
   .dock .txt { display: none; }
-  /* Two buttons stacked turned the dock into a 150px block over the
-     page. They stay on one line and give up some padding instead. */
-  .dock .acts { flex-wrap: nowrap; }
-  .dock .btn { padding: 9px 12px; font-size: 13px; white-space: nowrap; }
+  .dock .btn { margin-left: 0; }
+  .dock .in { justify-content: space-between; }
+}
+@media (max-width: 420px) {
+  #theme-btn span { display: none; }
+  #theme-btn { padding: 9px 10px; }
 }
 </style>
 </head>
-<body>
+<body id="top">
 
-<div class="shell">
-
-  <nav class="rail" aria-label="Sections">
+<header class="bar">
+  <div class="in">
     <span class="tile"><img src="assets/app-tile.png" alt="SMARTEVENT"></span>
+    <span class="word">SMARTEVENT</span>
 
-    <a href="#top" class="on">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-      Home
-    </a>
-    <a href="#what">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-      Features
-    </a>
-    <a href="#try">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="m10.5 9.5 4 2.5-4 2.5z"/></svg>
-      Try it
-    </a>
-    <a href="#who">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 11h4M19 9v4"/></svg>
-      Roles
-    </a>
-    <a href="#screens">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.5h2"/></svg>
-      Screens
-    </a>
-    <a href="#get">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 20h16"/></svg>
-      Download
-    </a>
+    <nav aria-label="Sections">
+      <a href="#what">Features</a>
+      <a href="#who">Roles</a>
+      <a href="#screens">Screens</a>
+      <a href="#get">Download</a>
+    </nav>
 
-  </nav>
+    <div class="acts">
+      <button class="btn" id="theme-btn" type="button" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="theme-path" d="M21 13.2A8.5 8.5 0 1 1 10.8 3a7 7 0 0 0 10.2 10.2z"/></svg>
+        <span id="theme-txt">Dark</span>
+      </button>
+      <a class="btn orange" href="#get">Get the app</a>
+    </div>
+  </div>
+</header>
 
-  <div class="main" id="top">
+<main>
 
-    <div class="strip">
-      <div>
-        <div class="word">SMARTEVENT</div>
-        <div class="sub">LCUP · CITE Department · S.Y. 2026–2027</div>
-      </div>
-      <div class="right">
-        <button class="btn sq" id="theme-btn" type="button" aria-pressed="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="theme-path" d="M21 13.2A8.5 8.5 0 1 1 10.8 3a7 7 0 0 0 10.2 10.2z"/></svg>
-          <span id="theme-txt">Dark</span>
-        </button>
-        <a class="btn" href="#try">Try it</a>
-        <a class="btn orange" href="#get">Get the app</a>
+<section class="pad">
+  <div class="hero">
+    <div>
+      <p class="mono" style="color:var(--orange)">LCUP · CITE Department</p>
+      <h1 style="margin-top:12px">Inventory, money, events and reports.<br><em>One phone.</em></h1>
+      <p class="lede">
+        Student organizations run on spreadsheets, paper and Messenger.
+        Records go missing, budgets are unclear, equipment is untracked,
+        and every turnover of officers starts again from nothing.
+        SMARTEVENT puts all of it in one place, on the device officers
+        already carry.
+      </p>
+      <div class="acts">
+        <a class="btn orange" href="#get">Request the app</a>
+        <a class="btn" href="#what">See what it does</a>
       </div>
     </div>
-
-    <main>
-
-    <section class="pad">
-      <div class="chips">
-        <a class="chip on" href="#what">Features</a>
-        <a class="chip" href="#try">Try it</a>
-        <a class="chip" href="#who">Roles</a>
-        <a class="chip" href="#screens">Screens</a>
-        <a class="chip" href="#get">Download</a>
-      </div>
-
-      <div class="hero">
-        <div>
-          <h1>Inventory, money, events and reports.<br><em>One phone.</em></h1>
-          <p class="lede">
-            Student organizations run on spreadsheets, paper and Messenger.
-            Records go missing, budgets are unclear, equipment is untracked,
-            and every turnover of officers starts again from nothing.
-            SMARTEVENT puts all of it in one place, on the device officers
-            already carry.
-          </p>
-          <div class="acts">
-            <a class="btn orange" href="#get">Request the app</a>
-            <a class="btn" href="#try">Try it without an account</a>
-          </div>
-        </div>
-        <div class="frame">
-          <img src="assets/shots/dashboard.png" alt="The SMARTEVENT dashboard" width="1080" height="2310">
-        </div>
-      </div>
-    </section>
-
-    <section class="pad" id="what">
-      <div class="head">
-        <span class="mono">What it does</span>
-        <h2>Eight things, properly</h2>
-        <p>Every one of these is built and running. Nothing here is planned.</p>
-      </div>
-
-      <div class="grid">
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="m9 13 2 2 4-4"/></svg></span>
-            <div style="min-width:0"><span class="no">01</span><h3>Event proposals</h3></div>
-          </div>
-          <p>Submit a proposal, follow every approval step, and generate the signed SAP form as a PDF.</p>
-        </article>
-
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg></span>
-            <div style="min-width:0"><span class="no">02</span><h3>Money and budgets</h3></div>
-          </div>
-          <p>Record expenses and income. Balances deduct themselves, so nobody is adding up receipts by hand.</p>
-        </article>
-
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span>
-            <div style="min-width:0"><span class="no">03</span><h3>Receipt scanning</h3></div>
-          </div>
-          <p>Photograph a receipt and the app reads the vendor, the date and the amount off it.</p>
-        </article>
-
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-5 9 5v10l-9 5-9-5z"/><path d="m3 9 9 5 9-5M12 14v10"/></svg></span>
-            <div style="min-width:0"><span class="no">04</span><h3>Inventory</h3></div>
-          </div>
-          <p>Stock, movements and low-stock items, grouped by where each thing is kept.</p>
-        </article>
-
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 16V9M12 16v-4M16 16V9"/></svg></span>
-            <div style="min-width:0"><span class="no">05</span><h3>Reports and exports</h3></div>
-          </div>
-          <p>Financial reports as PDF, CSV or print-ready, plus Excel exports for anyone who wants the rows.</p>
-        </article>
-
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z"/><path d="m18 15 .9 2.3 2.1.9-2.1.9L18 21l-.9-1.9-2.1-.9 2.1-.9z"/></svg></span>
-            <div style="min-width:0"><span class="no">06</span><h3>AI assistance</h3></div>
-          </div>
-          <p>A budget suggested from similar past events, a category suggested for a scanned receipt, and a plain-language reading of the report. Every one is a suggestion: nothing is saved until a person acts on it.</p>
-        </article>
-
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.5A3.5 3.5 0 0 1 19 18z"/><path d="m3 3 18 18"/></svg></span>
-            <div style="min-width:0"><span class="no">07</span><h3>Works offline</h3></div>
-          </div>
-          <p>Record expenses and movements without signal. Everything syncs when the phone reconnects.</p>
-        </article>
-
-        <article class="cell">
-          <div class="row">
-            <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 11h4M19 9v4"/></svg></span>
-            <div style="min-width:0"><span class="no">08</span><h3>Role-based access</h3></div>
-          </div>
-          <p>Officers, advisers, the SDS Office and administrators each see only what their role allows.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="pad" id="try">
-      <div class="head">
-        <span class="mono">Try it</span>
-        <h2>Look around without an account</h2>
-        <p>
-          The app carries a demo inside it. It runs on seeded records with no
-          server behind it, so you can open every screen, propose an event and
-          record an expense without touching anybody's real data — and without
-          waiting to be approved.
-        </p>
-      </div>
-
-      <div class="steps">
-        <div class="step">
-          <b class="n">Step 01</b>
-          <h3>Install it</h3>
-          <p>Request the APK below. The demo is in every build; there is no separate one to download.</p>
-        </div>
-        <div class="step">
-          <b class="n">Step 02</b>
-          <h3>Open Sign in</h3>
-          <p>From the welcome screen, tap <b>Sign in</b>. Do not type anything.</p>
-        </div>
-        <div class="step">
-          <b class="n">Step 03</b>
-          <h3>Hold the heading</h3>
-          <p>Press and hold <b>Welcome back</b> for a second. A dialog offers demo mode.</p>
-        </div>
-        <div class="step">
-          <b class="n">Step 04</b>
-          <h3>Enter demo</h3>
-          <p>You start as a treasurer. Settings has a role picker for the officer, the adviser, the SDS Office and the administrators.</p>
-        </div>
-      </div>
-
-      <div class="tryrow">
-        <div>
-          <div class="note" style="margin-top:0">
-            <b>What the demo does and does not do.</b>
-            Nothing leaves the phone: there is no server call, so exports and
-            anything else needing the backend say so rather than pretending.
-            The records are seeded and reset with the app. Signing in with a
-            real account is a different thing entirely, and the demo holds no
-            session.
-          </div>
-          <div class="acts">
-            <a class="btn orange" href="#get">Request the app</a>
-            <a class="btn" href="#screens">See the screens first</a>
-          </div>
-        </div>
-        <div class="frame">
-          <img src="assets/shots/menu.png" alt="The menu in demo mode" style="height:256px">
-        </div>
-      </div>
-    </section>
-
-    <section class="pad" id="who">
-      <div class="head">
-        <span class="mono">Who it is for</span>
-        <h2>Four roles, one record</h2>
-        <p>Everyone reads the same figures. Nobody sees more than their role allows.</p>
-      </div>
-
-      <div class="roles">
-        <div class="role">
-          <span class="dot" style="background:var(--orange)"></span>
-          <div>
-            <h3>Student organization officers</h3>
-            <p>Presidents, treasurers and inventory officers, who keep the records, the budgets and the events.</p>
-          </div>
-        </div>
-        <div class="role">
-          <span class="dot" style="background:var(--blue)"></span>
-          <div>
-            <h3>Faculty moderators and advisers</h3>
-            <p>Review event proposals and budget requests, watch balances, and read the reports and analytics.</p>
-          </div>
-        </div>
-        <div class="role">
-          <span class="dot" style="background:var(--mint)"></span>
-          <div>
-            <h3>Student Development Services</h3>
-            <p>Review submitted proposals, sign off on the SAP form, and monitor events across organizations.</p>
-          </div>
-        </div>
-        <div class="role">
-          <span class="dot" style="background:var(--sun)"></span>
-          <div>
-            <h3>System administrators</h3>
-            <p>Configure the system and manage who may hold an account.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="pad" id="screens">
-      <div class="head">
-        <span class="mono">Screens</span>
-        <h2>What it looks like</h2>
-        <p>Taken from the running app, not from a mock-up.</p>
-      </div>
-
-      <div class="shots">
-        <figure>
-          <div class="frame"><img src="assets/shots/report.png" alt="Financial report" loading="lazy"></div>
-          <figcaption>Income, spending, net balance and budget used, for any period.</figcaption>
-        </figure>
-        <figure>
-          <div class="frame"><img src="assets/shots/inventory.png" alt="Inventory" loading="lazy"></div>
-          <figcaption>Stock, locations and low-stock items at a glance.</figcaption>
-        </figure>
-        <figure>
-          <div class="frame"><img src="assets/shots/ai.png" alt="AI reading of the report" loading="lazy"></div>
-          <figcaption>The AI reading, labelled as such, beside the rule-based one.</figcaption>
-        </figure>
-        <figure>
-          <div class="frame"><img src="assets/shots/roster.png" alt="Approved roster" loading="lazy"></div>
-          <figcaption>The roster: who is approved to create an account.</figcaption>
-        </figure>
-      </div>
-    </section>
-
-    <section class="pad" id="get">
-      <div class="head">
-        <span class="mono">Get the app</span>
-        <h2>Request access</h2>
-        <p>
-          SMARTEVENT is not on the Play Store. It is distributed to the student
-          organizations of the LCUP CITE Department, so the download goes out by
-          request. Fill this in and an administrator will review it; if it is
-          approved, the link is emailed to the address you give here.
-        </p>
-      </div>
-
-      <form id="request-form" class="formgrid" novalidate>
-        <label>
-          <span class="lbl">Full name <span class="req" aria-hidden="true">*</span></span>
-          <input id="rq-name" name="name" type="text" autocomplete="name" required>
-        </label>
-        <label>
-          <span class="lbl">LCUP email <span class="req" aria-hidden="true">*</span></span>
-          <input id="rq-email" name="email" type="email" autocomplete="email" placeholder="yourname@lcup.edu.ph" required>
-        </label>
-        <label>
-          <span class="lbl">Organization <span class="req" aria-hidden="true">*</span></span>
-          <input id="rq-org" name="organization" type="text" required>
-        </label>
-        <label>
-          <span class="lbl">Your role <span class="req" aria-hidden="true">*</span></span>
-          <select id="rq-role" name="role" required>
-            <option value="">Choose one</option>
-            <option value="officer">Officer</option>
-            <option value="treasurer">Treasurer</option>
-            <option value="adviser">Adviser or moderator</option>
-            <option value="sds_staff">SDS Office</option>
-            <option value="admin">Administrator</option>
-          </select>
-        </label>
-        <label class="full">
-          <span class="lbl">Why you need it</span>
-          <textarea id="rq-reason" name="reason" placeholder="Which organization, and what you will be using it for."></textarea>
-        </label>
-        <div class="full">
-          <button class="btn orange" type="submit" id="rq-submit">Send the request</button>
-          <p class="status" id="rq-status" role="status" aria-live="polite"></p>
-        </div>
-      </form>
-
-      <div class="note">
-        <b>What happens to what you type.</b>
-        The request is held until an administrator reviews it, and the email
-        address is used to send you the link and nothing else. Approval is a
-        person's decision, not an automatic one, so it will not be instant.
-      </div>
-    </section>
-
-    </main>
-
-    <footer>
-      <div class="pad">
-        <div>
-          <h3>SMARTEVENT</h3>
-          <p>Mobile-Based Inventory, Financial Management, Event Monitoring, and Data Analytics Reporting System for Student Organizations.</p>
-          <p style="margin-top:9px">Evaluated against ISO/IEC 25010:2023.</p>
-        </div>
-        <div>
-          <h3>Built with</h3>
-          <ul>
-            <li class="kv"><span>App</span><b>Flutter · Dart</b></li>
-            <li class="kv"><span>Backend</span><b>Python · FastAPI</b></li>
-            <li class="kv"><span>Database</span><b>PostgreSQL</b></li>
-            <li class="kv"><span>Security</span><b>JWT · Argon2</b></li>
-            <li class="kv"><span>AI &amp; OCR</span><b>Google Gemini</b></li>
-          </ul>
-        </div>
-        <div>
-          <h3>The researchers</h3>
-          <ul>
-            <li>Rohn Monrhey Bañares</li>
-            <li>John Paul Buffe</li>
-            <li>Jasper Robin Hernandez</li>
-            <li>Daniela Mayormita</li>
-            <li>Leon Antonio Puerto</li>
-            <li>Sean Ashley Reyes</li>
-          </ul>
-        </div>
-        <div>
-          <h3>Contact</h3>
-          <p>College of Information Technology and Engineering<br>
-             La Consolacion University Philippines<br>
-             City of Malolos, Bulacan</p>
-          <p style="margin-top:9px"><a href="mailto:cite@email.lcup.edu.ph">cite@email.lcup.edu.ph</a></p>
-        </div>
-      </div>
-    </footer>
-
+    <div class="frame">
+      <img src="assets/shots/dashboard.png" alt="The SMARTEVENT dashboard" width="1080" height="2310">
+    </div>
   </div>
-</div>
+</section>
+
+<section class="pad" id="what">
+  <div class="head">
+    <span class="mono">What it does</span>
+    <h2>Eight things, properly</h2>
+    <p>Every one of these is built and running. Nothing here is planned.</p>
+  </div>
+
+  <div class="grid">
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="m9 13 2 2 4-4"/></svg></span>
+        <div style="min-width:0"><span class="no">01</span><h3>Event proposals</h3></div>
+      </div>
+      <p>Submit a proposal, follow every approval step, and generate the signed SAP form as a PDF.</p>
+    </article>
+
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4M18 10v4"/></svg></span>
+        <div style="min-width:0"><span class="no">02</span><h3>Money and budgets</h3></div>
+      </div>
+      <p>Record expenses and income. Balances deduct themselves, so nobody is adding up receipts by hand.</p>
+    </article>
+
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span>
+        <div style="min-width:0"><span class="no">03</span><h3>Receipt scanning</h3></div>
+      </div>
+      <p>Photograph a receipt and the app reads the vendor, the date and the amount off it.</p>
+    </article>
+
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-5 9 5v10l-9 5-9-5z"/><path d="m3 9 9 5 9-5M12 14v10"/></svg></span>
+        <div style="min-width:0"><span class="no">04</span><h3>Inventory</h3></div>
+      </div>
+      <p>Stock, movements and low-stock items, grouped by where each thing is kept.</p>
+    </article>
+
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 16V9M12 16v-4M16 16V9"/></svg></span>
+        <div style="min-width:0"><span class="no">05</span><h3>Reports and exports</h3></div>
+      </div>
+      <p>Financial reports as PDF, CSV or print-ready, plus Excel exports for anyone who wants the rows.</p>
+    </article>
+
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.8 4.6L18 9.4l-4.2 1.8L12 16l-1.8-4.8L6 9.4l4.2-1.8z"/><path d="m18 15 .9 2.3 2.1.9-2.1.9L18 21l-.9-1.9-2.1-.9 2.1-.9z"/></svg></span>
+        <div style="min-width:0"><span class="no">06</span><h3>AI assistance</h3></div>
+      </div>
+      <p>A budget suggested from similar past events, a category suggested for a scanned receipt, and a plain-language reading of the report. Every one is a suggestion: nothing is saved until a person acts on it.</p>
+    </article>
+
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.5A3.5 3.5 0 0 1 19 18z"/><path d="m3 3 18 18"/></svg></span>
+        <div style="min-width:0"><span class="no">07</span><h3>Works offline</h3></div>
+      </div>
+      <p>Record expenses and movements without signal. Everything syncs when the phone reconnects.</p>
+    </article>
+
+    <article class="cell">
+      <div class="row">
+        <span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M17 11h4M19 9v4"/></svg></span>
+        <div style="min-width:0"><span class="no">08</span><h3>Role-based access</h3></div>
+      </div>
+      <p>Officers, advisers, the SDS Office and administrators each see only what their role allows.</p>
+    </article>
+  </div>
+</section>
+
+<section class="pad" id="who">
+  <div class="head">
+    <span class="mono">Who it is for</span>
+    <h2>Four roles, one record</h2>
+    <p>Everyone reads the same figures. Nobody sees more than their role allows.</p>
+  </div>
+
+  <div class="roles">
+    <div class="role">
+      <span class="dot" style="background:var(--orange)"></span>
+      <div>
+        <h3>Student organization officers</h3>
+        <p>Presidents, treasurers and inventory officers, who keep the records, the budgets and the events.</p>
+      </div>
+    </div>
+    <div class="role">
+      <span class="dot" style="background:var(--blue)"></span>
+      <div>
+        <h3>Faculty moderators and advisers</h3>
+        <p>Review event proposals and budget requests, watch balances, and read the reports and analytics.</p>
+      </div>
+    </div>
+    <div class="role">
+      <span class="dot" style="background:var(--mint)"></span>
+      <div>
+        <h3>Student Development Services</h3>
+        <p>Review submitted proposals, sign off on the SAP form, and monitor events across organizations.</p>
+      </div>
+    </div>
+    <div class="role">
+      <span class="dot" style="background:var(--sun)"></span>
+      <div>
+        <h3>System administrators</h3>
+        <p>Configure the system and manage who may hold an account.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pad" id="screens">
+  <div class="head">
+    <span class="mono">Screens</span>
+    <h2>What it looks like</h2>
+    <p>Taken from the running app, not from a mock-up.</p>
+  </div>
+
+  <div class="shots">
+    <figure>
+      <div class="frame"><img src="assets/shots/report.png" alt="Financial report" loading="lazy"></div>
+      <figcaption>Income, spending, net balance and budget used, for any period.</figcaption>
+    </figure>
+    <figure>
+      <div class="frame"><img src="assets/shots/inventory.png" alt="Inventory" loading="lazy"></div>
+      <figcaption>Stock, locations and low-stock items at a glance.</figcaption>
+    </figure>
+    <figure>
+      <div class="frame"><img src="assets/shots/ai.png" alt="AI reading of the report" loading="lazy"></div>
+      <figcaption>The AI reading, labelled as such, beside the rule-based one.</figcaption>
+    </figure>
+    <figure>
+      <div class="frame"><img src="assets/shots/menu.png" alt="Menu" loading="lazy"></div>
+      <figcaption>An administrator sees five places; an officer sees four.</figcaption>
+    </figure>
+    <figure>
+      <div class="frame"><img src="assets/shots/roster.png" alt="Approved roster" loading="lazy"></div>
+      <figcaption>The roster: who is approved to create an account.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="pad" id="get">
+  <div class="head">
+    <span class="mono">Get the app</span>
+    <h2>Request access</h2>
+    <p>
+      SMARTEVENT is not on the Play Store. It is distributed to the student
+      organizations of the LCUP CITE Department, so the download goes out by
+      request. Fill this in and an administrator will review it; if it is
+      approved, the link is emailed to the address you give here.
+    </p>
+  </div>
+
+  <form id="request-form" class="formgrid" novalidate>
+    <label>
+      <span class="lbl">Full name <span class="req" aria-hidden="true">*</span></span>
+      <input id="rq-name" name="name" type="text" autocomplete="name" required>
+    </label>
+    <label>
+      <span class="lbl">LCUP email <span class="req" aria-hidden="true">*</span></span>
+      <input id="rq-email" name="email" type="email" autocomplete="email" placeholder="yourname@lcup.edu.ph" required>
+    </label>
+    <label>
+      <span class="lbl">Organization <span class="req" aria-hidden="true">*</span></span>
+      <input id="rq-org" name="organization" type="text" required>
+    </label>
+    <label>
+      <span class="lbl">Your role <span class="req" aria-hidden="true">*</span></span>
+      <select id="rq-role" name="role" required>
+        <option value="">Choose one</option>
+        <option value="officer">Officer</option>
+        <option value="treasurer">Treasurer</option>
+        <option value="adviser">Adviser or moderator</option>
+        <option value="sds_staff">SDS Office</option>
+        <option value="admin">Administrator</option>
+      </select>
+    </label>
+    <label class="full">
+      <span class="lbl">Why you need it</span>
+      <textarea id="rq-reason" name="reason" placeholder="Which organization, and what you will be using it for."></textarea>
+    </label>
+    <div class="full">
+      <button class="btn orange" type="submit" id="rq-submit">Send the request</button>
+      <p class="status" id="rq-status" role="status" aria-live="polite"></p>
+    </div>
+  </form>
+
+  <div class="note">
+    <b>What happens to what you type.</b>
+    The request is held until an administrator reviews it, and the email
+    address is used to send you the link and nothing else. Approval is a
+    person's decision, not an automatic one, so it will not be instant.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="pad">
+    <div>
+      <h3>SMARTEVENT</h3>
+      <p>Mobile-Based Inventory, Financial Management, Event Monitoring, and Data Analytics Reporting System for Student Organizations.</p>
+      <p style="margin-top:9px">Evaluated against ISO/IEC 25010:2023.</p>
+    </div>
+    <div>
+      <h3>Built with</h3>
+      <ul>
+        <li class="kv"><span>App</span><b>Flutter · Dart</b></li>
+        <li class="kv"><span>Backend</span><b>Python · FastAPI</b></li>
+        <li class="kv"><span>Database</span><b>PostgreSQL</b></li>
+        <li class="kv"><span>Security</span><b>JWT · Argon2</b></li>
+        <li class="kv"><span>AI &amp; OCR</span><b>Google Gemini</b></li>
+      </ul>
+    </div>
+    <div>
+      <h3>The researchers</h3>
+      <ul>
+        <li>Rohn Monrhey Bañares</li>
+        <li>John Paul Buffe</li>
+        <li>Jasper Robin Hernandez</li>
+        <li>Daniela Mayormita</li>
+        <li>Leon Antonio Puerto</li>
+        <li>Sean Ashley Reyes</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Contact</h3>
+      <p>College of Information Technology and Engineering<br>
+         La Consolacion University Philippines<br>
+         City of Malolos, Bulacan</p>
+      <p style="margin-top:9px"><a href="mailto:cite@email.lcup.edu.ph">cite@email.lcup.edu.ph</a></p>
+      <p style="margin-top:9px">S.Y. 2026–2027</p>
+    </div>
+  </div>
+</footer>
 
 <div class="dock">
-  <span class="tile"><img src="assets/app-tile.png" alt=""></span>
-  <div class="txt">
-    <b>SMARTEVENT for Android</b>
-    <span>Distributed by request to CITE organizations</span>
-  </div>
-  <div class="acts">
-    <a class="btn ghost" href="#try">Try it</a>
+  <div class="in">
+    <div class="txt">
+      <b>SMARTEVENT for Android</b>
+      <span>Distributed by request to CITE organizations</span>
+    </div>
     <a class="btn" href="#get">Request the app</a>
   </div>
 </div>
@@ -798,8 +653,8 @@ footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4
     });
   } catch (e) {}
 
-  /* ── which section the rail marks ───────────────────────── */
-  var links = [].slice.call(document.querySelectorAll('.rail a[href^="#"]'));
+  /* ── which section the bar marks ────────────────────────── */
+  var links = [].slice.call(document.querySelectorAll('.bar nav a[href^="#"]'));
   var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
   if (window.IntersectionObserver) {
     var io = new IntersectionObserver(function (entries) {

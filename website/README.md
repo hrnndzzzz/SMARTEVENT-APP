@@ -15,15 +15,16 @@ disk works too, but a server is closer to how it will be served.
 
 ## The shape of it
 
-A bordered console: a fixed icon rail down the left, a yellow command
-strip across the top, flat bordered cards in the middle, and one
-orange action bar pinned to the bottom. Hard 2px rules and flat fills
-throughout — no soft shadows anywhere. Below 760px the rail becomes a
-horizontally scrolling strip above the content.
+One yellow command bar across the top carrying the mark, the
+navigation and the actions — nothing else competes with it — then flat
+bordered cards down the page and a single orange action bar at the
+foot. Hard 2px rules and flat fills; no soft shadows anywhere.
 
-The theme toggle lives in the top strip rather than at the foot of the
-rail, where the reference would put it: the rail scrolls sideways on a
-phone, so anything at its end sits off-screen.
+There was a left icon rail and a separate top strip before. Two
+navigation surfaces on one page read as clutter, so they are one.
+Below 860px the wordmark goes, and below 620px the links go too: the
+page is one scroll, and the mark, the theme and the one action are
+enough.
 
 ## Where the design comes from
 
@@ -79,12 +80,29 @@ the browser will block the POST and the visitor will see the
 
 ## Publishing it
 
-GitHub Pages, from this folder:
+Vercel, with this folder as the project root. `vercel.json` sits here
+and sets clean URLs plus cache headers for `assets/`.
 
-1. Settings → Pages → Source: *Deploy from a branch*
-2. Branch `develop`, folder `/website`
-3. For the custom domain, add a `CNAME` file here containing the
-   hostname, and point that name at GitHub in DNS
+**From the dashboard** (no CLI, and it redeploys on every push):
 
-The URL then goes on the brochure, replacing the placeholder in
-`brochure.html`.
+1. vercel.com → Add New → Project → import `hrnndzzzz/SMARTEVENT-APP`
+2. **Root Directory: `website`** — this is the one that matters; left
+   at the repo root it will try to build the Flutter app
+3. Framework Preset: *Other*. No build command, no output directory
+4. Deploy
+
+**From the CLI**, if you would rather:
+
+```
+npx vercel --cwd website
+```
+
+It asks you to sign in the first time, then `npx vercel --cwd website --prod`
+publishes.
+
+For `smartevent.date`: Project → Settings → Domains, add the hostname,
+and point DNS where Vercel tells you. The API already answers on
+`api.smartevent.date`, so the apex or `www` is free for this.
+
+Once it is live the URL goes on the brochure, replacing the
+placeholder in `brochure.html`, and the QR code is generated from it.
