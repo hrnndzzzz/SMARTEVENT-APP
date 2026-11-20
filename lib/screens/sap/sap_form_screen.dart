@@ -11,6 +11,7 @@ import '../../widgets/last_change_note.dart';
 import 'sap_attachment_rows.dart';
 import 'sap_part1_screen.dart';
 import 'sap_part2_screen.dart';
+import '../../widgets/sap_timeline.dart';
 import 'sap_part3_screen.dart';
 import 'sap_part4_screen.dart';
 import 'sap_part5_screen.dart';
@@ -182,6 +183,16 @@ class _SapFormScreenState extends State<SapFormScreen> {
                   const Center(child: BrutSpinner()),
                   const SizedBox(height: 40),
                 ] else ...[
+                  // The whole journey, before anything about today. The
+                  // screen named only the hand the proposal was in, which
+                  // says nothing about what is behind it or still to come.
+                  SapTimeline(
+                    // Null until the proposal exists on the server,
+                    // which is a draft by any other name — and the
+                    // journey ahead is worth seeing before sending.
+                    state: form.state ?? SapState.draft,
+                  ),
+                  const SizedBox(height: 14),
                   // Who has the proposal, before the six parts. Sending it
                   // goes to the Moderator and the Dean first, and the
                   // proposal used to read as nothing in particular while

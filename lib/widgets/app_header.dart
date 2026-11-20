@@ -63,25 +63,38 @@ class AppHeader extends StatelessWidget {
       // avatar right.
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        if (onBack != null) ...[
-          BrutIconButton(
-            icon: Icons.arrow_back,
-            label: 'Back',
-            onPressed: onBack,
+        // The back button and the wordmark are one group, not two
+        // children of the row. spaceBetween spreads whatever it is
+        // given, so as three children it put the gap between the
+        // arrow and the wordmark and left the wordmark sitting in the
+        // middle of the header on every pushed screen.
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onBack != null) ...[
+                BrutIconButton(
+                  icon: Icons.arrow_back,
+                  label: 'Back',
+                  onPressed: onBack,
+                ),
+                const SizedBox(width: 10),
+              ],
+              // One row, three things, all on the same baseline. The role used
+              // to sit under the wordmark, which pushed the pill half a line
+              // above the two buttons it is supposed to line up with.
+              // The wordmark goes home. On the dashboard, where home already
+              // is, it does the one thing it can usefully do instead of
+              // nothing — and it is where the connection reports itself.
+              // Flexible so that on a genuinely narrow phone it
+              // shortens rather than striping the header. It should
+              // not have to: with the free space no longer split,
+              // there is room for the whole wordmark beside an
+              // extended notice pill at 411dp.
+              const Flexible(child: BrandPill()),
+            ],
           ),
-          const SizedBox(width: 10),
-        ],
-        // One row, three things, all on the same baseline. The role used
-        // to sit under the wordmark, which pushed the pill half a line
-        // above the two buttons it is supposed to line up with.
-        // The wordmark goes home. On the dashboard, where home already
-        // is, it does the one thing it can usefully do instead of
-        // nothing — and it is where the connection reports itself.
-        // Flexible so that on a genuinely narrow phone it shortens
-        // rather than striping the header. It should not have to:
-        // with the free space no longer split, there is room for the
-        // whole wordmark beside an extended notice pill at 411dp.
-        const Flexible(child: BrandPill()),
+        ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
