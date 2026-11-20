@@ -141,7 +141,10 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.1; text-wrap: balance; 
 }
 .bar nav a:hover { color: var(--ink); }
 .bar nav a.on { color: var(--ink); background: rgba(20,17,12,0.12); }
-.bar .acts { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+/* margin-top: 0 because .acts is also the hero's button row, which
+   carries a 20px top margin — shared class, and it was pushing this
+   one 10px below the mark beside it. */
+.bar .acts { margin-left: auto; margin-top: 0; display: flex; align-items: center; gap: 8px; flex: none; }
 
 .btn {
   display: inline-flex; align-items: center; gap: 7px;
@@ -161,8 +164,24 @@ h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.1; text-wrap: balance; 
 .btn:hover { filter: brightness(1.05); }
 .btn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.bar .btn { border-color: var(--ink); color: var(--ink); background: var(--surface); }
-.bar .btn.orange { background: var(--orange); }
+/* A square control, the same height as the mark beside it, so the
+   row reads as one line rather than three things of three sizes. */
+.iconbtn {
+  width: 38px; height: 38px;
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.iconbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.iconbtn:hover { filter: brightness(1.05); }
+.iconbtn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+/* Only where the links have nowhere to sit. */
+#menu-btn { display: none; }
 
 /* ── content ─────────────────────────────────────────────────── */
 .pad {
@@ -292,27 +311,46 @@ footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4
    actions beside them. The page is one scroll, so they go and the
    mark, the theme and the one action stay. */
 @media (max-width: 620px) {
+  #menu-btn { display: inline-flex; }
   .bar nav { display: none; }
+  /* Opened, the links drop out of the bar as a list rather than
+     being squeezed into it. */
+  .bar nav.open {
+    display: flex;
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    margin: 0;
+    padding: 8px max(20px, env(safe-area-inset-left, 0px));
+    background: var(--strip);
+    border-bottom: 2px solid var(--ink);
+    overflow: visible;
+  }
+  .bar nav.open a { padding: 11px 12px; font-size: 12px; }
 }
 @media (max-width: 760px) {
   .dock .txt { display: none; }
   .dock .btn { margin-left: 0; }
   .dock .in { justify-content: space-between; }
 }
-@media (max-width: 420px) {
-  #theme-btn span { display: none; }
-  #theme-btn { padding: 9px 10px; }
-}
+
 </style>
 </head>
 <body id="top">
 
 <header class="bar">
   <div class="in">
+    <button class="iconbtn" id="menu-btn" type="button"
+            aria-expanded="false" aria-controls="bar-nav" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path id="menu-path" d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+
     <span class="tile"><img src="assets/app-tile.png" alt="SMARTEVENT"></span>
     <span class="word">SMARTEVENT</span>
 
-    <nav aria-label="Sections">
+    <nav id="bar-nav" aria-label="Sections">
       <a href="#what">Features</a>
       <a href="#who">Roles</a>
       <a href="#screens">Screens</a>
@@ -320,11 +358,9 @@ footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4
     </nav>
 
     <div class="acts">
-      <button class="btn" id="theme-btn" type="button" aria-pressed="false">
+      <button class="iconbtn" id="theme-btn" type="button" aria-pressed="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path id="theme-path" d="M21 13.2A8.5 8.5 0 1 1 10.8 3a7 7 0 0 0 10.2 10.2z"/></svg>
-        <span id="theme-txt">Dark</span>
       </button>
-      <a class="btn orange" href="#get">Get the app</a>
     </div>
   </div>
 </header>
@@ -610,7 +646,6 @@ footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4
      is then remembered on this device only. */
   var root = document.documentElement;
   var btn = document.getElementById('theme-btn');
-  var txt = document.getElementById('theme-txt');
   var path = document.getElementById('theme-path');
 
   var MOON = 'M21 13.2A8.5 8.5 0 1 1 10.8 3a7 7 0 0 0 10.2 10.2z';
@@ -626,8 +661,8 @@ footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4
   }
   function paint() {
     var dark = isDark();
-    // The button offers the other one, which is what a toggle is for.
-    txt.textContent = dark ? 'Light' : 'Dark';
+    // The icon offers the other one, which is what a toggle is for.
+    // It carries no word, so the label is the only thing naming it.
     path.setAttribute('d', dark ? SUN : MOON);
     btn.setAttribute('aria-pressed', String(dark));
     btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
@@ -651,6 +686,33 @@ footer ul { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 4
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
       if (!root.getAttribute('data-theme')) paint();
     });
+  } catch (e) {}
+
+  /* ── the menu, where the links do not fit ───────────────── */
+  var menuBtn = document.getElementById('menu-btn');
+  var nav = document.getElementById('bar-nav');
+
+  function closeMenu() {
+    nav.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+  }
+  menuBtn.addEventListener('click', function () {
+    var open = nav.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded', String(open));
+  });
+  // Following a link is the end of using the menu.
+  nav.addEventListener('click', function (e) {
+    if (e.target.closest('a')) closeMenu();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && nav.classList.contains('open')) {
+      closeMenu();
+      menuBtn.focus();
+    }
+  });
+  // Widening past the breakpoint leaves the list stranded open.
+  try {
+    window.matchMedia('(min-width: 621px)').addEventListener('change', closeMenu);
   } catch (e) {}
 
   /* ── which section the bar marks ────────────────────────── */
