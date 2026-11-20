@@ -154,9 +154,19 @@ class _BrandPillState extends State<BrandPill> {
               children: [
                 // The wordmark alone. The bolt was a second mark
                 // beside the name, and the name is the mark.
-                Text(
-                  'SmartEvent',
-                  style: AppText.wordmark.copyWith(color: ink),
+                //
+                // Flexible because the bell beside it grows: on a
+                // 360dp phone a back button, this, an extended notice
+                // pill and the avatar are about 38px too much. The
+                // name shortens for the few seconds the notice is out
+                // rather than the header striping.
+                Flexible(
+                  child: Text(
+                    'SmartEvent',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.wordmark.copyWith(color: ink),
+                  ),
                 ),
                 if (message != null) ...[
                   const SizedBox(width: 7),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'account_menu.dart';
 import 'user_avatar.dart';
 import 'brand_pill.dart';
 import 'connection_banner.dart';
+import 'notice_kind.dart';
 import 'notification_menu.dart';
 
 /// The top bar on every section screen: the brand pill, who you are signed
@@ -67,7 +69,11 @@ class AppHeader extends StatelessWidget {
         // The wordmark goes home. On the dashboard, where home already
         // is, it does the one thing it can usefully do instead of
         // nothing — and it is where the connection reports itself.
-        const BrandPill(),
+        // Flexible, because the bell beside it grows: at 360dp a back
+        // button, a full wordmark, an extended notice pill and the
+        // avatar do not all fit, and the wordmark is the one of those
+        // that can give a little without losing its meaning.
+        const Flexible(child: BrandPill()),
         const Spacer(),
         const _BellWithBadge(),
         const SizedBox(width: 8),
@@ -136,6 +142,21 @@ class _BellWithBadgeState extends State<_BellWithBadge>
     duration: const Duration(seconds: 8),
   );
 
+  /// The newest unread notice the pill has already shown. Kept so a
+  /// rebuild for some unrelated reason does not announce the same
+  /// arrival again.
+  String? _announced;
+
+  /// What the pill is saying right now, or null when it is just a
+  /// bell. Set when a notice arrives, cleared a few seconds later.
+  NoticeBadge? _saying;
+  Timer? _hold;
+
+  /// The same few seconds the wordmark gives the connection, so being
+  /// told something by the header reads as one behaviour wherever it
+  /// happens.
+  static const Duration _holdFor = Duration(seconds: 3);
+
   @override
   void initState() {
     super.initState();
@@ -143,7 +164,38 @@ class _BellWithBadgeState extends State<_BellWithBadge>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // build() watches AppState, so this runs whenever it notifies.
+    // Reading here rather than watching: watch belongs in build.
+    final app = context.read<AppState>();
+    final newest = app.notices.where((n) => n.isUnread).firstOrNull;
+
+    if (newest == null) {
+      _announced = null;
+      return;
+    }
+    if (newest.id == _announced) return;
+    _announced = newest.id;
+    _say(noticeBadge(newest.kind));
+  }
+
+  /// Extends the pill, holds, and lets it shrink back.
+  void _say(NoticeBadge badge) {
+    _hold?.cancel();
+    // Not inside the build that discovered it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _saying = badge);
+      _hold = Timer(_holdFor, () {
+        if (mounted) setState(() => _saying = null);
+      });
+    });
+  }
+
+  @override
   void dispose() {
+    _hold?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -192,11 +244,14 @@ class _BellWithBadgeState extends State<_BellWithBadge>
     // gesture wrapper outside and an onPressed inside, and the inner one
     // won every tap — which is why this still opened a screen after it
     // was supposed to open a window.
-    final bell = BrutIconButton(
-      icon: Icons.notifications_none,
-      label: count > 0 ? 'Notifications, $count unread' : 'Notifications',
+    final saying = still ? null : _saying;
+
+    final bell = _NoticePill(
+      count: count,
+      saying: saying,
+      flush: 0,
+      angle: 0,
       onPressed: () => NotificationMenu.show(context),
-      size: 38,
     );
 
     if (count == 0) return bell;
@@ -220,10 +275,14 @@ class _BellWithBadgeState extends State<_BellWithBadge>
               // whole button turned the square, which read as the
               // interface wobbling rather than something arriving. The
               // box pulses red once instead, on the same swell.
-              return _RingingBell(
+              return _NoticePill(
                 angle: angle,
-                flush: envelope,
+                // The box does not flush red while it is already
+                // wearing the notice's own colour: two colours
+                // fighting over one pill says nothing.
+                flush: saying == null ? envelope : 0,
                 count: count,
+                saying: saying,
                 onPressed: () => NotificationMenu.show(context),
               );
             },
@@ -292,52 +351,108 @@ class _Badge extends StatelessWidget {
   }
 }
 
-/// The bell mid-ring: the icon turns, the box flushes red, the square
-/// stays square.
-class _RingingBell extends StatelessWidget {
-  const _RingingBell({
+/// The bell, and the word when there is something to say.
+///
+/// A pill rather than a square, so the three things in the header —
+/// the wordmark, this, the avatar — share one shape language. It is a
+/// bell on its own, and when a notice arrives it extends to the right
+/// to make room for one word naming what the notice is about, takes
+/// that notice's colour, and shrinks back a few seconds later.
+///
+/// Deliberately the same behaviour as the wordmark reporting the
+/// connection: nothing new appears over the header, nothing is
+/// covered, and the thing that was already there grows to tell you.
+class _NoticePill extends StatelessWidget {
+  const _NoticePill({
+    required this.count,
+    required this.saying,
     required this.angle,
     required this.flush,
-    required this.count,
     required this.onPressed,
   });
+
+  final int count;
+
+  /// The word and the colour, or null when the pill is just a bell.
+  final NoticeBadge? saying;
 
   /// Radians to turn the bell by, this frame.
   final double angle;
 
-  /// 0 to 1 across the swell, for how red the box is.
+  /// 0 to 1 across the attention swell, for how red the box is.
   final double flush;
 
-  final int count;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final resting = BrutTone.neutral.fill(context);
-    // Same two fixes as the badge: the tone, and an icon measured
-    // against the colour the box actually is this frame. Mid-flush it
-    // is neither of the two ends.
-    final fill =
-        Color.lerp(resting, BrutTone.coral.fill(context), flush * 0.85) ??
-        resting;
+    final badge = saying;
+    final target = badge == null
+        ? Color.lerp(resting, BrutTone.coral.fill(context), flush * 0.85) ??
+              resting
+        : badge.tone.fill(context);
 
-    return BrutSurface(
-      onTap: onPressed,
-      semanticLabel: 'Notifications, $count unread',
-      fill: fill,
-      radius: AppRadius.controlAll,
-      shadow: AppShadows.sm,
-      width: 38,
-      height: 38,
-      alignment: Alignment.center,
-      child: Transform.rotate(
-        angle: angle,
-        child: Icon(
-          Icons.notifications_none,
-          size: 38 * 0.45,
-          color: context.foregroundOn(fill),
-        ),
-      ),
+    final still = MediaQuery.disableAnimationsOf(context);
+    final duration = still ? Duration.zero : BrandPill.motion;
+
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: target),
+      duration: duration,
+      curve: Curves.easeOut,
+      builder: (context, colour, _) {
+        final fill = colour ?? target;
+        // Measured against the colour the pill is on this frame, not
+        // the one it is heading for: mid-fade it is neither.
+        final ink = context.foregroundOn(fill);
+
+        return BrutSurface(
+          onTap: onPressed,
+          semanticLabel: switch ((count, badge)) {
+            (0, _) => 'Notifications',
+            (_, final b?) => 'Notifications, $count unread, newest: ${b.label}',
+            _ => 'Notifications, $count unread',
+          },
+          fill: fill,
+          radius: AppRadius.pill,
+          shadow: AppShadows.sm,
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          child: AnimatedSize(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            // Grows to the right, away from the avatar it sits beside,
+            // so the bell itself never moves.
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Transform.rotate(
+                  angle: angle,
+                  child: Icon(Icons.notifications_none, size: 17, color: ink),
+                ),
+                if (badge != null) ...[
+                  const SizedBox(width: 6),
+                  // Flexible so a narrow phone shortens the word
+                  // rather than striping the header.
+                  Flexible(
+                    child: Text(
+                      badge.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.monoLabel.copyWith(
+                        fontSize: 11,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
