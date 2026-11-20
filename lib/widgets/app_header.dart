@@ -54,6 +54,14 @@ class AppHeader extends StatelessWidget {
     final app = context.watch<AppState>();
 
     return Row(
+      // spaceBetween rather than a Spacer. A Spacer is an Expanded
+      // with flex 1, so it and the Flexible wordmark split the free
+      // space evenly and the wordmark came out as "Smar…" on a 411dp
+      // phone that had room for all of it. With no Spacer the
+      // wordmark is the only flexible child, takes its natural width,
+      // and the leftover becomes the gap that pushes the bell and the
+      // avatar right.
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         if (onBack != null) ...[
           BrutIconButton(
@@ -69,17 +77,21 @@ class AppHeader extends StatelessWidget {
         // The wordmark goes home. On the dashboard, where home already
         // is, it does the one thing it can usefully do instead of
         // nothing — and it is where the connection reports itself.
-        // Flexible, because the bell beside it grows: at 360dp a back
-        // button, a full wordmark, an extended notice pill and the
-        // avatar do not all fit, and the wordmark is the one of those
-        // that can give a little without losing its meaning.
+        // Flexible so that on a genuinely narrow phone it shortens
+        // rather than striping the header. It should not have to:
+        // with the free space no longer split, there is room for the
+        // whole wordmark beside an extended notice pill at 411dp.
         const Flexible(child: BrandPill()),
-        const Spacer(),
-        const _BellWithBadge(),
-        const SizedBox(width: 8),
-        _Avatar(
-          name: app.currentAccount?.name ?? 'Guest',
-          onTap: onAvatarTap ?? () => AccountMenu.show(context),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _BellWithBadge(),
+            const SizedBox(width: 8),
+            _Avatar(
+              name: app.currentAccount?.name ?? 'Guest',
+              onTap: onAvatarTap ?? () => AccountMenu.show(context),
+            ),
+          ],
         ),
       ],
     );

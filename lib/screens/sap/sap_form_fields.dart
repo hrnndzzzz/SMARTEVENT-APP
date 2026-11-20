@@ -42,7 +42,7 @@ class SapSingleChoice<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: AppText.monoLabel),
+        RequiredLabel(label, required: required),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -96,7 +96,7 @@ class SapMultiChoice<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: AppText.monoLabel),
+        RequiredLabel(label, required: required),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,

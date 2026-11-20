@@ -35,6 +35,12 @@ void main() {
 
     // Named in SapForm's own `missing` list, so the marker and the
     // refusal cannot disagree about what has to be filled in.
+    //
+    // The choice fields are in here deliberately. They rendered their
+    // own `Text(label.toUpperCase())` instead of going through the
+    // shared label, so they took the flag and ignored it — eight of
+    // the twenty-two required fields were silently unmarked, and a
+    // list of only text fields did not notice.
     for (final name in [
       'Activity title',
       'Organization',
@@ -43,6 +49,12 @@ void main() {
       'Objectives',
       'Emergency plan',
       'Source of budget',
+      'Department type',
+      'Modality',
+      'Setting',
+      'Activity type',
+      'Scope',
+      'Augustinian core values',
     ]) {
       expect(
         labelFor(name).required,
