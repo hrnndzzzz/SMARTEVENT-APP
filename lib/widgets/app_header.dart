@@ -244,7 +244,13 @@ class _BellWithBadgeState extends State<_BellWithBadge>
     // gesture wrapper outside and an onPressed inside, and the inner one
     // won every tap — which is why this still opened a screen after it
     // was supposed to open a window.
-    final saying = still ? null : _saying;
+    // The wordmark beside this one goes coloured when the connection
+    // changes. Two tinted pills in one header read as two status
+    // indicators disagreeing with each other, so only one of them
+    // speaks at a time and the connection wins: it is the more urgent
+    // of the two, and a notice keeps until the inbox is opened.
+    final connectionSpeaking = ConnectionNews.maybeOf(context)?.message != null;
+    final saying = (still || connectionSpeaking) ? null : _saying;
 
     final bell = _NoticePill(
       count: count,
