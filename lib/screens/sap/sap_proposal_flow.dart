@@ -7,6 +7,7 @@ import '../../state/sap_form.dart';
 import '../../theme/app_layout.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../widgets/outcome.dart';
 import 'sap_cover_screen.dart';
 import 'sap_part1_screen.dart';
 import 'sap_steps_screen.dart';
@@ -130,25 +131,58 @@ abstract final class SapProposalFlow {
           onCreateEvent: (partContext) =>
               _createEventIfNeeded(partContext, form),
           onSubmit: (partContext) async {
+            // Six parts of work ends in a modal, not a snackbar. A
+            // strip at the foot of the screen for four seconds is
+            // easy to miss, and missing it leaves the proposer
+            // unsure whether the thing they spent an hour on went.
+            //
+            // The navigator is held rather than the context: the
+            // success path pops the parts away, so the context that
+            // started this is gone by the time there is anything to
+            // say. A NavigatorState outlives the route.
+            final nav = Navigator.of(partContext);
+            BrutSheet.show<void>(
+              partContext,
+              builder: (_) => const OutcomeSheet(
+                kind: OutcomeKind.working,
+                title: 'Sending the proposal',
+              ),
+            );
+
             final ok = await form.submit();
-            if (!partContext.mounted) return;
+            if (!nav.mounted) return;
 
             if (!ok) {
-              ScaffoldMessenger.of(partContext).showSnackBar(
-                SnackBar(content: Text(form.error ?? 'Could not send it.')),
+              nav.pop();
+              if (!nav.mounted) return;
+              await BrutSheet.show<void>(
+                nav.context,
+                builder: (_) => OutcomeSheet(
+                  kind: OutcomeKind.problem,
+                  title: 'It was not sent',
+                  body: form.error ?? 'Could not send it.',
+                  actionLabel: 'Back to the form',
+                ),
               );
               return;
             }
 
             // Out of the three parts entirely: they are not editable
             // now, so leaving them to go back into would be offering
-            // something that no longer works.
-            Navigator.of(partContext).popUntil((route) => route.isFirst);
-            if (partContext.mounted) {
-              ScaffoldMessenger.of(partContext).showSnackBar(
-                const SnackBar(content: Text('Sent for department review.')),
-              );
-            }
+            // something that no longer works. This closes the waiting
+            // sheet with them.
+            nav.popUntil((route) => route.isFirst);
+            if (!nav.mounted) return;
+            await BrutSheet.show<void>(
+              nav.context,
+              builder: (_) => const OutcomeSheet(
+                kind: OutcomeKind.done,
+                title: 'Sent for department review.',
+                body:
+                    'The Moderator sees it first, then the Dean. '
+                    'Their approval is what passes it to the SDS Office.',
+              ),
+            );
           },
         ),
       ),
