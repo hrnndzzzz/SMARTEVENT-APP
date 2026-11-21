@@ -5,6 +5,7 @@ import '../api/models/sap_proposal.dart';
 import '../state/app_state.dart';
 import '../state/demo_data.dart';
 import '../state/sap_form.dart';
+import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 import 'sap/sds_summary_screen.dart';
@@ -69,7 +70,7 @@ class SdsProposalsScreen extends StatelessWidget {
                 : '${waiting.length} submitted across the school.',
             style: AppText.caption,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppLayout.between),
           if (waiting.isEmpty)
             const BrutEmptyState(
               icon: Icons.inbox_outlined,
@@ -79,7 +80,7 @@ class SdsProposalsScreen extends StatelessWidget {
           else
             for (final event in waiting) ...[
               _ProposalCard(event: event),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppLayout.between),
             ],
         ],
       ),

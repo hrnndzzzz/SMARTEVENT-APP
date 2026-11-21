@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
+import '../../theme/app_layout.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import 'sap_form_fields.dart';
@@ -218,7 +219,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SapSdsOnlyNotice(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppLayout.section),
 
               if (!_open)
                 BrutInlineMessage(
@@ -229,7 +230,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                       : 'Only a proposal waiting on the SDS Office can be '
                             'reviewed here.',
                 ),
-              if (!_open) const SizedBox(height: 16),
+              if (!_open) const SizedBox(height: AppLayout.section),
 
               // The remarks typed here stay put through a reload: they live
               // in this screen's fields, not in what the form reloads.
@@ -249,11 +250,11 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                   busyLabel: 'Reloading',
                   onPressed: _form.load,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppLayout.section),
               ],
 
               const BrutSectionTitle('Remarks'),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppLayout.tight),
               BrutTextField(
                 controller: _overall,
                 label: 'Overall',
@@ -263,13 +264,13 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 maxLength: 3000,
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppLayout.section),
 
               Text(
                 'Against a section, if it belongs to one:',
                 style: AppText.caption,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppLayout.tight),
               for (final section in SapRemarkSection.values) ...[
                 BrutTextField(
                   controller: _sections[section]!,
@@ -278,10 +279,10 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                   maxLines: 2,
                   maxLength: 1000,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppLayout.between),
               ],
 
-              const SizedBox(height: 6),
+              const SizedBox(height: AppLayout.tight),
               BrutButton(
                 label: 'Save remarks',
                 tone: BrutTone.neutral,
@@ -292,9 +293,9 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                     : null,
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: AppLayout.section),
               const BrutSectionTitle('Return or reject'),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppLayout.tight),
               if (_open && !_hasReason) ...[
                 const BrutInlineMessage(
                   tone: BrutTone.neutral,
@@ -324,7 +325,7 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
                 onPressed: _canDecide ? _reject : null,
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: AppLayout.section),
               const BrutSectionTitle('Signature'),
               const SizedBox(height: 10),
               if (_open && !_cleared) ...[

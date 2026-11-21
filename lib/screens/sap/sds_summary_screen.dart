@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
+import '../../theme/app_layout.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import '../../theme/peso.dart';
@@ -100,34 +101,40 @@ class _SdsSummaryScreenState extends State<SdsSummaryScreen> {
                       ].join(' · '),
                       style: AppText.caption,
                     ),
-                    const SizedBox(height: 16),
 
+                    // One scale, not a gap chosen per block. This screen
+                    // had 16, 20, 20 and 14 before its four headings and
+                    // 10, 10, 8, 8 under them — which is what made it
+                    // read as unorganised rather than any one gap being
+                    // wrong. AppLayout exists for this and the screen
+                    // was not using it.
+                    const SizedBox(height: AppLayout.section),
                     _Facts(details: d),
-                    const SizedBox(height: 16),
 
+                    const SizedBox(height: AppLayout.section),
                     const BrutSectionTitle('What is being asked for'),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppLayout.tight),
                     _Money(form: form),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppLayout.between),
                     _Support(form: form),
 
                     if (form.attachments.isNotEmpty) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppLayout.section),
                       const BrutSectionTitle('Supporting documents'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppLayout.tight),
                       SapAttachmentRows(form: form),
                     ],
 
                     if (d.rationale?.isNotEmpty == true) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppLayout.section),
                       const BrutSectionTitle('Why'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppLayout.tight),
                       Text(d.rationale!, style: AppText.body),
                     ],
                     if (d.objectives?.isNotEmpty == true) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppLayout.section),
                       const BrutSectionTitle('Objectives'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppLayout.tight),
                       Text(d.objectives!, style: AppText.body),
                     ],
                   ],
