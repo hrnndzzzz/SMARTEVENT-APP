@@ -16,11 +16,13 @@
 ///
 /// ## What actually exists today
 ///
-/// The backend raises two kinds: `registration_confirmation`, and
-/// `sap_workflow` for every step of a proposal's life. The second one
-/// is the reason [noticeBadge] takes an action as well as a kind —
-/// `sap_workflow` is the same string whether a proposal was approved
-/// or rejected, and the step itself travels in the notice's payload as
+/// The backend raises three kinds: `registration_confirmation`,
+/// `sap_workflow` for every step of a proposal's life, and
+/// `download_request` when somebody asks for the app on the website.
+///
+/// `sap_workflow` is the reason [noticeBadge] takes an action as well as
+/// a kind: it is the same string whether a proposal was approved or
+/// rejected, and the step itself travels in the notice's payload as
 /// `action`. The kind alone gives the word; the action gives the
 /// colour. The expense, inventory and report kinds below are the ones
 /// the demo seeds; against the real server they will not appear until
@@ -43,6 +45,7 @@ String noticeArea(String kind) {
     'inventory' || 'stock' => 'Inventory',
     'registration' || 'account' || 'user' => 'Account',
     'report' || 'export' => 'Report',
+    'download' => 'Download',
     'budget' => 'Budget',
     _ => 'Update',
   };

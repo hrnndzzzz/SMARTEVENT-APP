@@ -156,4 +156,12 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
 - `DATABASE_URL` must be Supabase's **Session pooler** address (Render has no
   IPv6) ending in `?sslmode=verify-full&sslrootcert=/srv/certs/supabase-ca.crt`.
   The certificate comes from Supabase → Project Settings → Database → SSL.
+- **The website's request form needs two settings**, or it silently falls back to
+  telling visitors to email the department. `ALLOWED_ORIGINS` must include
+  `https://smartevent-website.vercel.app` — without it the browser blocks the POST
+  and the visitor sees "could not reach the server" while the server is perfectly
+  healthy. `APP_DOWNLOAD_URL` is where an approved request is pointed, and should be
+  the GitHub **releases page** rather than one APK, so a link sent in March still
+  reaches the current build. Unset, approvals are recorded and no email goes out,
+  and the request's `email_status` stays `not_sent` to say the link is still owed.
 

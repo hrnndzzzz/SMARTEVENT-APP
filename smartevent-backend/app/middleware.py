@@ -11,6 +11,10 @@ PUBLIC_AUTH_PATHS = {
 # /auth/refresh is left out on purpose: its 384-bit key cannot be guessed, and a
 # campus behind one address would otherwise be sent back to the sign-in screen.
 
+# Public forms with no account behind them, rate-limited the same way and
+# for the same reason: anybody on the internet can post to them.
+PUBLIC_FORM_PATHS = {"/download-requests"}
+
 
 class RequestSecurityMiddleware:
     def __init__(self, app, auth_rate_limits=None, max_body_bytes=12 * 1024 * 1024, max_auth_requests=30):
@@ -38,7 +42,12 @@ class RequestSecurityMiddleware:
         async def reject(status, detail, headers=None):
             await JSONResponse({"detail": detail}, status_code=status, headers=headers)(scope, receive, secure_send)
 
-        if scope["method"] == "POST" and get_route_path(scope).rstrip("/") in PUBLIC_AUTH_PATHS:
+        path = get_route_path(scope).rstrip("/")
+        if scope["method"] == "POST" and path in PUBLIC_AUTH_PATHS | PUBLIC_FORM_PATHS:
+            # The same counter and the same ceiling; only the wording differs,
+            # because "authentication" would be a lie on a download request.
+            too_many = ("Too many authentication requests" if path in PUBLIC_AUTH_PATHS
+                        else "Too many requests")
             now = monotonic()
             address = (scope.get("client") or ("unknown",))[0]
             limits = self.auth_rate_limits
@@ -47,12 +56,12 @@ class RequestSecurityMiddleware:
                     if now - start >= 60:
                         del limits[key]
                 if address not in limits and len(limits) >= 2000:
-                    return await reject(429, "Too many authentication requests", {"Retry-After": "60"})
+                    return await reject(429, too_many, {"Retry-After": "60"})
             start, count = limits.get(address, (now, 0))
             if now - start >= 60:
                 start, count = now, 0
             if count >= self.max_auth_requests:
-                return await reject(429, "Too many authentication requests", {"Retry-After": str(max(1, int(60 - now + start)))})
+                return await reject(429, too_many, {"Retry-After": str(max(1, int(60 - now + start)))})
             # ponytail: per-worker IP limits; enforce aggregate limits at the deployment proxy.
             limits[address] = (start, count + 1)
 

@@ -87,3 +87,7 @@ JWT_EXPIRE_MINUTES=60
 # Where a browser-based client is served from. The phone app does not
 # need to be listed here; CORS only applies to browsers.
 ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+# Where an approved website download request is pointed. The releases page, not
+# one APK, so a link sent months ago still reaches the current build. Left empty,
+# approvals are recorded but no email is sent.
+APP_DOWNLOAD_URL=

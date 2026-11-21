@@ -20,6 +20,7 @@ from app.routers import (
     compliance,
     closure,
     departments,
+    download_requests,
     events,
     exports,
     expenses,
@@ -100,12 +101,15 @@ async def database_error(request, exc):
 app.include_router(auth.router)
 app.include_router(notifications.router)
 app.include_router(sap.public_router)
+# The website's request form, posted from a browser with no account.
+app.include_router(download_requests.public_router)
 
 for protected_router in (
     sap.router, categories.router, events.router, compliance.router, closure.router, expenses.router, inventory.router,
     incomes.router, analytics.router, reports.router, recommendations.router,
     cite_members.router, departments.router, proposal_letters.router, users.router,
     organizations.router, audit_logs.router, exports.router, receipts.router, files.router,
+    download_requests.router,
 ):
     app.include_router(protected_router, dependencies=[Depends(enforce_read_only)])
 

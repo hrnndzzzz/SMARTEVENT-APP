@@ -49,6 +49,15 @@ void main() {
       ));
     });
 
+    test('a request for the app says so', () {
+      // Raised by the website's request form, for administrators. It is
+      // news rather than a verdict, so it carries no colour.
+      expect(noticeBadge('download_request'), (
+        label: 'Download',
+        tone: BrutTone.neutral,
+      ));
+    });
+
     test('a kind with no outcome is not given one', () {
       expect(noticeOutcome('sap'), BrutTone.neutral);
       expect(noticeOutcome('sap_reminder'), BrutTone.neutral);

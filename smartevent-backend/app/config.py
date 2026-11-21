@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     supabase_receipts_bucket: str = "receipts"
     supabase_proposal_letters_bucket: str = "proposal-letters"
     sap_verification_base_url: str | None = None
+    # Where an approved download request is pointed. The releases page
+    # rather than one asset, so a link sent in March still reaches the
+    # current build. Unset means approvals are recorded but no email
+    # goes out, which is the right default for a server with no mailer.
+    app_download_url: str | None = None
     gemini_api_key: str | None = Field(default=None, repr=False)
     gemini_model: str = "gemini-3.5-flash-lite"
     resend_api_key: str | None = Field(default=None, repr=False)
@@ -44,6 +49,15 @@ class Settings(BaseSettings):
         if "*" in origins and len(origins) != 1:
             raise ValueError("Wildcard origins cannot be combined with explicit origins")
         return ",".join(dict.fromkeys(origins))
+
+    @field_validator('app_download_url')
+    @classmethod
+    def validate_download_url(cls, value):
+        if value:
+            parsed = urlsplit(value)
+            if parsed.scheme != 'https' or not parsed.netloc or parsed.username:
+                raise ValueError('The app download link must be an HTTPS URL without credentials')
+        return value
 
     @field_validator('sap_verification_base_url')
     @classmethod

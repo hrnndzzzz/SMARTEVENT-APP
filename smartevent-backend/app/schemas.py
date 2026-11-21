@@ -977,3 +977,65 @@ class EventProposalLetterOut(BaseModel):
     document_url: str
     submitted_by: uuid.UUID
     created_at: datetime
+
+
+class DownloadRequestCreate(BaseModel):
+    """What the public website's request form sends.
+
+    `extra="forbid"` as everywhere else, so a form that grows a field
+    without the server learning about it fails loudly in testing rather
+    than silently dropping what somebody typed.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: str = Field(min_length=2, max_length=150)
+    email: AccountEmail
+    organization: str = Field(min_length=2, max_length=150)
+    # Wider than RosterRole on purpose: this is what a visitor claims to
+    # be, not a role anybody has granted. The form offers the real list,
+    # and a reader of the request can see whatever came through.
+    role: str = Field(min_length=2, max_length=50)
+    reason: str = Field(min_length=10, max_length=2000)
+
+
+class DownloadRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    email: EmailStr
+    organization: str
+    role: str
+    reason: str
+    status: Literal["pending", "approved", "rejected"]
+    decided_by: uuid.UUID | None
+    decided_at: datetime | None
+    note: str | None
+    email_status: Literal["not_sent", "sent", "failed"]
+    created_at: datetime
+
+
+class DownloadRequestAck(BaseModel):
+    """What the visitor's browser gets back. Deliberately not the row:
+    the website is public, and the id, the reason and the decision are
+    the department's business."""
+
+    status: Literal["pending"]
+    message: str
+
+
+class DownloadRequestDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    approve: bool
+    # Why, for the department's own record. Required on a refusal,
+    # because "rejected" with no reason is not something anyone can act
+    # on later.
+    note: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def refusal_needs_a_reason(self):
+        if not self.approve and not (self.note or "").strip():
+            raise ValueError("Say why the request was refused")
+        return self

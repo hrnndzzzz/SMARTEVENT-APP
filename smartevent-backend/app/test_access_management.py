@@ -155,6 +155,13 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
                 continue  # stock movements and adding/removing items are open to every officer
             if (method, route_path) in OFFICER_FINANCE_WRITES:
                 continue  # officers record money like the treasurer
+            if (method, route_path) == ("POST", "/download-requests"):
+                # The website's request form, which anybody on the internet
+                # posts to without an account — so 403 is the wrong answer
+                # and 422 is what an empty body earns. Deciding those
+                # requests is a write route like any other and is still
+                # checked below. test_download_requests covers both halves.
+                continue
             if (method, route_path) in {
                 ("POST", "/events"), ("PATCH", "/events/{event_id}"),
                 ("DELETE", "/events/{event_id}"), ("POST", "/events/{event_id}/submit"),

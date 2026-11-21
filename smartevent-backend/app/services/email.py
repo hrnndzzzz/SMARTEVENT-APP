@@ -84,3 +84,25 @@ def send_otp_email(to_email: str, full_name: str, otp_code: str, purpose: str) -
         )
 
     send_email(to_email, subject, body)
+
+
+def send_download_link_email(to_email: str, full_name: str, download_url: str) -> None:
+    """Tells somebody their request for the app was approved, and where to get it.
+
+    Plain text, like every other mail here. The link is the releases
+    page rather than one APK, so this mail does not go stale the next
+    time a build goes out.
+    """
+    subject = "Your SMARTEVENT download request was approved"
+    body = (
+        f"Hi {full_name},\n\n"
+        f"The CITE Department has approved your request for the SMARTEVENT app. "
+        f"You can download it here:\n\n"
+        f"    {download_url}\n\n"
+        f"It is an Android app, installed from the file rather than from the Play Store, "
+        f"so your phone will ask you to allow an install from this source.\n\n"
+        f"You will still need an account to sign in. If you do not have one, reply to the "
+        f"department and say which organization you are with.\n\n"
+        f"- SMARTEVENT, LCUP CITE Department\n"
+    )
+    send_email(to_email, subject, body)
