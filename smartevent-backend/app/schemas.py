@@ -331,6 +331,7 @@ class EventOut(BaseModel):
     proposed_by: uuid.UUID
     status: EventStatus
     review_round: int = 1
+    sent_for_review: bool = False  # a draft sent even once is kept, never deleted
     completed_on: date | None = None
     completed_at: datetime | None = None
     completed_by: uuid.UUID | None = None

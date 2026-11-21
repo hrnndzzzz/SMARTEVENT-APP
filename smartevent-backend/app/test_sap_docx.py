@@ -73,6 +73,10 @@ def test_empty_values_leave_the_form_blank():
     doc = Document(BytesIO(fill_form(data)))
     assert cell_after(doc, 'Program Flow:') == ''
     assert cell_after(doc, 'Attire:') == ''
+    # Attached as a file instead of rows: the box points to it.
+    data['attachments'] = [{'category': 'program_flow', 'file_name': 'Flow.pdf'}]
+    doc = Document(BytesIO(fill_form(data)))
+    assert cell_after(doc, 'Program Flow:') == 'See the attached program flow.'
 
 
 def cell_with(doc, text):

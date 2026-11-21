@@ -2,7 +2,7 @@
 from copy import deepcopy
 import hashlib
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 import pytest
@@ -10,7 +10,8 @@ from pypdf import PdfReader
 from fastapi import HTTPException
 from app.test_access_management import system
 from app.config import settings
-from app.models import DocumentRouting, Notification, Organization
+from app.models import Category, DeletedEvent, DocumentRouting, Notification, Organization
+from app.services.draft_trash import purge_deleted_drafts
 from app.models_sap import SAPAttachment, SAPItem, SAPProposal, SAPRevision, SAPFinalCopy, SAPReview
 from app.schemas_sap import validate_submission
 from app.services.sap_pdf import render_proposal, signature_slots
@@ -41,6 +42,8 @@ def sap_system(system, monkeypatch):
     client, db, users, orgs, resources, login = system
     event = resources[0]['events']
     event.status, event.allocated_budget, event.remaining_budget = 'draft', 2500, 2500
+    for category in db.query(Category):  # enough left in the budget for the fixture's ₱2,500
+        category.remaining_budget = 2500
     db.commit()
     monkeypatch.setattr('app.services.sap.institution_today', lambda: date(2026, 9, 27))
     monkeypatch.setattr(settings, 'sap_verification_base_url', 'https://example.org/sap/verify')
@@ -280,6 +283,7 @@ def test_creator_or_admin_deletes_a_never_sent_draft_with_its_proposal(sap_syste
     flow = fixture_data()['collections']['program-flow']
     saved = client.put(draft + '/sap-proposal/program-flow', json={'expected_version': proposal.version, 'items': flow})
     assert saved.status_code == 200, saved.text
+    assert client.get(draft).json()['sent_for_review'] is False
     login('officer')  # not the one who made it
     assert client.delete(draft).status_code == 403
     login(deleter)
@@ -288,15 +292,57 @@ def test_creator_or_admin_deletes_a_never_sent_draft_with_its_proposal(sap_syste
     assert db.query(SAPProposal).filter_by(id=proposal.id).count() == 0
     assert db.query(SAPItem).filter_by(proposal_id=proposal.id).count() == 0
     assert db.query(SAPAttachment).filter_by(proposal_id=proposal.id).count() == 0
-    assert removed == [['private/test-budget.pdf']]
+    # Kept whole for 30 days, files included, before the purge removes it.
+    assert removed == []
+    kept = db.query(DeletedEvent).one()
+    assert kept.title == 'Started then dropped' and kept.storage_refs == ['private/test-budget.pdf']
+    assert kept.snapshot['proposal']['id'] == str(proposal.id) and kept.snapshot['items']
+    assert purge_deleted_drafts(db) == 0 and removed == []
+    assert purge_deleted_drafts(db, now=datetime.now(timezone.utc) + timedelta(days=31)) == 1
+    assert removed == [['private/test-budget.pdf']] and db.query(DeletedEvent).count() == 0
 
 
 def test_a_draft_once_sent_for_review_keeps_its_record(sap_system):
     client, db, users, event, login, base = sap_system
     db.query(SAPProposal).one().revision_no = 1  # sent once, then withdrawn or returned
     db.commit()
+    assert client.get(f'/events/{event.id}').json()['sent_for_review'] is True  # so the app offers no delete
     response = client.delete(f'/events/{event.id}')
     assert response.status_code == 409 and 'sent for review before' in response.json()['detail']
+
+
+def test_program_flow_file_stands_in_for_the_rows(sap_system):
+    client, db, users, event, login, base = sap_system
+    data = fixture_data()
+    data['collections']['program-flow'] = []
+    with pytest.raises(AssertionError, match='program flow'):
+        send(sap_system, deepcopy(data))
+    db.add(SAPAttachment(proposal_id=db.query(SAPProposal).one().id, revision_no=1, category='program_flow',
+        display_name='Flow.pdf', file_name='Flow.pdf', content_type='application/pdf',
+        storage_ref='private/flow.pdf', sha256='b' * 64, uploaded_by=users['treasurer'].id))
+    db.commit()
+    assert send(sap_system, data)['revision_no'] == 1
+
+
+def test_budget_over_what_is_left_is_not_sent(sap_system):
+    client, db, users, event, login, base = sap_system
+    for category in db.query(Category):
+        category.remaining_budget = 2000
+    db.commit()
+    with pytest.raises(AssertionError, match='more than the ₱2,000.00 available'):
+        send(sap_system)
+
+
+def test_budget_is_capped_at_one_hundred_thousand():
+    from pydantic import ValidationError
+    from app.schemas_sap import BudgetItem, Details
+    assert BudgetItem.model_validate({'particulars': 'Venue', 'amount': '100000.00'}).amount == 100000
+    for row in ({'particulars': 'Venue', 'amount': '100000.01'},
+                {'particulars': 'Venue', 'amount': '1.00', 'unit_cost': '1000000.00'}):
+        with pytest.raises(ValidationError):
+            BudgetItem.model_validate(row)
+    with pytest.raises(ValidationError):
+        Details.model_validate(fixture_data()['details'] | {'total_budget': '1000000.00'})
 
 
 def test_final_scan_requires_all_slots_and_valid_pdf(sap_system):

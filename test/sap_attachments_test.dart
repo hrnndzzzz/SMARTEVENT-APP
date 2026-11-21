@@ -147,9 +147,16 @@ void main() {
   });
 
   test('every category the server keeps has a name here', () {
-    for (final wire in ['apf', 'pcf', 'appendix', 'roc_coc', 'other']) {
+    for (final wire in [
+      'apf',
+      'pcf',
+      'appendix',
+      'roc_coc',
+      'program_flow',
+      'other',
+    ]) {
       expect(SapAttachmentCategory.fromWire(wire), isNotNull, reason: wire);
     }
-    expect(SapAttachmentCategory.values, hasLength(5));
+    expect(SapAttachmentCategory.values, hasLength(6));
   });
 }

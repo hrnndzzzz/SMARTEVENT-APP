@@ -243,7 +243,9 @@ def fill_form(snapshot, *, review=None, signer_name=None, signature_strokes=None
         _write(value(label), d.get(key))
     _write(value('Time:'), f"{_clean(d.get('start_time'))} - {_clean(d.get('end_time'))}")
     _write(value('Program Flow:'), '\n'.join(
-        f"{_clean(row.get('start'))} - {_clean(row.get('end'))}  {_clean(row.get('activity'))}" for row in flow))
+        f"{_clean(row.get('start'))} - {_clean(row.get('end'))}  {_clean(row.get('activity'))}" for row in flow)
+        or ('See the attached program flow.' if any(
+            a.get('category') == 'program_flow' for a in snapshot.get('attachments') or []) else ''))
 
     _tick_matching(value('Modality:').paragraphs, ('Face-to-face', 'Online', 'Hybrid'), d.get('modality'))
     setting_row = next(r for r in part1.rows if any(c.text.strip() == 'Setting:' for c in r.cells))

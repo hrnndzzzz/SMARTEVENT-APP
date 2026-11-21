@@ -1,10 +1,11 @@
 """SAP 001 is independent of generic document routing."""
 import uuid
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, JSON, LargeBinary, UniqueConstraint, CheckConstraint, and_, func, or_
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, JSON, LargeBinary, UniqueConstraint, CheckConstraint, and_, exists, func, or_
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import deferred
+from sqlalchemy.orm import column_property, deferred
 from app.database import Base
+from app.models import Event
 
 # States in which a proposal is the SDS Office's work; before them it is the proposer's or the department's.
 SDS_STATES = ('pending_sap_review', 'sds_signed', 'approved', 'completed', 'rejected')
@@ -34,6 +35,11 @@ class SAPProposal(Base):
     @seen_by_sds.expression
     def seen_by_sds(cls):
         return or_(cls.state.in_(SDS_STATES), and_(cls.state == 'revision_requested', cls.returned_by == 'sds'))
+
+
+# A draft whose proposal was ever sent is kept as the record, so the app offers deleting only the others.
+Event.sent_for_review = column_property(
+    exists().where(SAPProposal.event_id == Event.id, SAPProposal.revision_no > 0))
 
 
 class SAPItem(Base):

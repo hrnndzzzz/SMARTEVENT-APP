@@ -316,6 +316,11 @@ abstract final class SapProposalFlow {
     final account = app.currentAccount;
     if (account == null) return;
     if (app.isDepartmentless) form.noDepartment = true;
+    // What is left in the budget, the figure Part 1 shows under Budget.
+    // With no categories loaded there is nothing to measure against.
+    form.availableBudget = app.categories.isEmpty
+        ? null
+        : app.remainingBalance;
 
     // The account's own names first; the lists are only a fallback for an
     // older backend that sends the ids alone.

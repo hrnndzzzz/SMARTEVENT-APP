@@ -4,9 +4,10 @@ from decimal import Decimal
 import hashlib
 import secrets
 from fastapi import HTTPException
-from app.dependencies import assert_record_scope
+from sqlalchemy import func
+from app.dependencies import assert_record_scope, scope_query_by_department
 from app.rbac_policy import can_propose_events
-from app.models import Event, User, Notification
+from app.models import Category, Event, User, Notification
 from app.models_compliance import EventLogistics
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPEvaluation, SAPAttachment, SAPReview
 from app.schemas_sap import plain_error, validate_submission
@@ -163,8 +164,18 @@ def submit(db, event, proposal, user, verification_base):
         validate_school_year(d.school_year)
         if (d.activity_date - institution_today()).days < 30:
             raise ValueError('Submit at least 30 calendar days before the activity')
-        if d.setting == 'off_campus' and not db.query(SAPAttachment.id).filter_by(proposal_id=proposal.id, revision_no=proposal.revision_no + 1, category='roc_coc').first():
+        files = {row.category for row in db.query(SAPAttachment.category).filter_by(
+            proposal_id=proposal.id, revision_no=proposal.revision_no + 1)}
+        if d.setting == 'off_campus' and 'roc_coc' not in files:
             raise ValueError('Off-campus activities require an ROC/COC attachment for this revision')
+        if not data['collections'].get('program-flow') and 'program_flow' not in files:
+            raise ValueError('Add the program flow rows, or attach the program flow file')
+        available = scope_query_by_department(
+            db.query(func.count(Category.id), func.coalesce(func.sum(Category.remaining_budget), 0)),
+            Category.department_id, user).one()
+        # No budget categories yet means nothing to measure against, so it is not checked.
+        if available[0] and d.total_budget > Decimal(available[1]):
+            raise ValueError(f'The budget is more than the ₱{Decimal(available[1]):,.2f} available')
         if event.semester not in {'1st', '2nd', 'summer'}:
             raise ValueError('Set the event semester before submission')
         if event.department_id is not None and not d.department:

@@ -37,6 +37,7 @@ class BrutAmountField extends StatefulWidget {
     this.enabled = true,
     this.steps = const [100, 500, 1000],
     this.onChanged,
+    this.errorText,
   });
 
   final TextEditingController controller;
@@ -50,6 +51,9 @@ class BrutAmountField extends StatefulWidget {
   final List<int> steps;
 
   final ValueChanged<String>? onChanged;
+
+  /// Shown under the figure, as a text field shows it.
+  final String? errorText;
 
   @override
   State<BrutAmountField> createState() => _BrutAmountFieldState();
@@ -105,6 +109,7 @@ class _BrutAmountFieldState extends State<BrutAmountField> {
                   controller: widget.controller,
                   hint: widget.hint,
                   enabled: widget.enabled,
+                  errorText: widget.errorText,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),

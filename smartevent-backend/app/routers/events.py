@@ -1,8 +1,8 @@
-import logging
 import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,10 +18,9 @@ from app.dependencies import (
     resolve_organization_id,
     scope_query_by_department,
 )
-from app.models import Approval, Category, DocumentRouting, Event, EventParticipant, EventRequirement, RequirementPreset, User
+from app.models import Approval, Category, DeletedEvent, DocumentRouting, Event, EventParticipant, EventRequirement, RequirementPreset, User
 from app.models_compliance import EventLogistics, EventPersonnel, EventVehicle, EventComplianceDocument
 from app.models_sap import SAPAttachment, SAPItem, SAPProposal, SAPRevision
-from app.services import storage
 from app.services.compliance import invalidate_clearance
 from app.schemas import (
     ApprovalDecision,
@@ -44,7 +43,6 @@ from app.services.event_routing import (
 )
 
 router = APIRouter(prefix="/events", tags=["events"])
-logger = logging.getLogger(__name__)
 ADVISER_PENDING_STATUSES = {"pending", "pending_adviser"}
 
 
@@ -489,33 +487,43 @@ def delete_event(
     # Every draft made in the app carries a proposal. One that was never sent goes with it;
     # one sent for review even once is part of the paper trail and stays.
     files = []
+    kept = {"event": _row(event)}
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if proposal:
         if proposal.revision_no or db.query(SAPRevision.id).filter_by(proposal_id=proposal.id).first():
             raise HTTPException(409, "This proposal has been sent for review before, so its record is kept")
         attachments = db.query(SAPAttachment).filter_by(proposal_id=proposal.id).all()
+        items = db.query(SAPItem).filter_by(proposal_id=proposal.id).all()
         files = [row.storage_ref for row in attachments]
-        for row in attachments + db.query(SAPItem).filter_by(proposal_id=proposal.id).all():
+        kept.update(proposal=_row(proposal), items=[_row(r) for r in items], attachments=[_row(r) for r in attachments])
+        for row in attachments + items:
             db.delete(row)
         db.flush()  # the rows before the proposal they point at
         db.delete(proposal)
     logistics = db.get(EventLogistics, event.id)
     if logistics:
+        kept["logistics"] = _row(logistics)
         db.delete(logistics)
-    for step in routing_steps(db, event):
+    steps = routing_steps(db, event)
+    kept["routing"] = [_row(step) for step in steps]
+    for step in steps:
         db.delete(step)
     try:
         db.flush()
         # The name goes with the entry: the row it points at is about to go.
         record_access_change(db, current_user, "event.deleted", event, {"name": event.title})
+        # Kept whole for 30 days, files too; the daily purge removes it for good.
+        db.add(DeletedEvent(event_id=event.id, organization_id=event.organization_id, title=event.title,
+                            deleted_by=current_user.id, snapshot=kept, storage_refs=files))
         db.delete(event)
         db.commit()
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail="This draft is referenced by other records and cannot be deleted") from exc
-    if files:
-        try:
-            storage.delete_uploaded_file(files)
-        except Exception:
-            logger.warning("Could not remove a deleted draft's attachments from storage")
     return None
+
+
+def _row(obj) -> dict:
+    """A row as plain JSON, money as exact strings."""
+    return jsonable_encoder({a.key: getattr(obj, a.key) for a in obj.__mapper__.column_attrs},
+                            custom_encoder={Decimal: str})

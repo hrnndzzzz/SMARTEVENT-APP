@@ -207,6 +207,10 @@ class EventItem {
   /// matches the signed-in user. The API enforces it too.
   String? proposedBy;
 
+  /// Its proposal was sent for review at least once, so as a draft again
+  /// it is kept as the record: the server will not delete it.
+  bool sentForReview;
+
   /// True when any academic field is missing.
   bool get hasIncompleteAcademicMetadata =>
       schoolYear == null || semester == null || eventScope == null;
@@ -267,6 +271,7 @@ class EventItem {
     this.semester,
     this.eventScope,
     this.proposedBy,
+    this.sentForReview = false,
   });
 }
 
@@ -2591,6 +2596,7 @@ class AppState extends ChangeNotifier {
       semester: remote.semester,
       eventScope: remote.eventScope,
       proposedBy: remote.proposedBy,
+      sentForReview: remote.sentForReview,
     );
   }
 
@@ -3515,6 +3521,7 @@ class AppState extends ChangeNotifier {
       !isOfflineViewing &&
       event.remoteId != null &&
       event.status == EventApprovalStatus.draft &&
+      !event.sentForReview &&
       ((currentRole?.isAdministrator ?? false) ||
           (currentAccount?.id != null &&
               event.proposedBy == currentAccount!.id));
