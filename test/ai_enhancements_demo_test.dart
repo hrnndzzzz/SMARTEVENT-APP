@@ -24,11 +24,13 @@ void main() {
     );
   });
 
-  test('the financial report comes with an AI reading', () async {
+  test('the financial report comes with an AI analysis', () async {
     final app = treasurer();
     await app.loadFinancialReport();
 
     expect(app.financialReading?.headline, isNotNull);
-    expect(app.financialReading?.points, isNotEmpty);
+    expect(app.financialReading?.happened, isNotEmpty);
+    expect(app.financialReading?.outlook, isNotEmpty);
+    expect(app.financialReading?.actions, isNotEmpty);
   });
 }

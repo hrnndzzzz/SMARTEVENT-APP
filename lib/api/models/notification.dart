@@ -8,8 +8,9 @@
 /// approved, evaluated, withdrawn, and each signature checkpoint. Those
 /// carry a [payload] naming the event they are about.
 ///
-/// Still do not promise device delivery, mark-all-read or deletion —
-/// none of those exist.
+/// The phone shows new ones as notifications through a background check
+/// (`PhoneAlerts`), not a push service. There is no mark-all-read or
+/// deletion.
 class AppNotice {
   final String id;
 

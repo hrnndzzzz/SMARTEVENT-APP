@@ -403,8 +403,7 @@ class SapProposalStatus extends StatelessWidget {
       SapState.rejected => (
         'Rejected',
         [
-          'The SDS Office rejected this proposal. It is final; start a new '
-              'one to try again.',
+          '${form.rejectedBy}. It is final; start a new one to try again.',
           ...form.sdsRemarkLines(overall: true),
         ].join('\n'),
         BrutTone.coral,

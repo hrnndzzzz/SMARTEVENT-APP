@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- Lets the app hand a downloaded update to Android's installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- New notices shown as phone notifications (asked for on Android 13+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="smartevent"
         android:name="${applicationName}"

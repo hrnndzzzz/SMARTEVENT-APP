@@ -42,7 +42,8 @@ void main() {
     expect(find.text('Charts'), findsOneWidget);
     expect(find.text('BUDGET USED'), findsOneWidget);
     expect(find.text('Worth knowing'), findsOneWidget);
-    expect(find.text('AI reading'), findsOneWidget);
+    expect(find.text('AI analysis'), findsOneWidget);
+    expect(find.text('WHAT MAY HAPPEN'), findsOneWidget);
 
     await tester.tap(find.text('Events'));
     await tester.pump(const Duration(milliseconds: 400));

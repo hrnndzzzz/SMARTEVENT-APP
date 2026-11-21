@@ -542,8 +542,9 @@ class _Insights extends StatelessWidget {
   }
 }
 
-/// The AI-written reading of the same figures, labeled as such. Shown
-/// only when there is one; the "Worth knowing" card stands without it.
+/// The AI-written analysis of the same figures, labeled as such: what
+/// happened and why, then what may come and what to do. Shown only when
+/// there is one; the "Worth knowing" card stands without it.
 class _AiReading extends StatelessWidget {
   const _AiReading({required this.reading});
 
@@ -559,28 +560,35 @@ class _AiReading extends StatelessWidget {
         Expanded(child: Text(text, style: AppText.body)),
       ],
     );
+    List<Widget> group(String label, IconData icon, List<String> points) => [
+      if (points.isNotEmpty) ...[
+        const SizedBox(height: 14),
+        MonoLabel(label, color: context.palette.subtle),
+        for (final point in points) ...[
+          const SizedBox(height: 8),
+          line(icon, point),
+        ],
+      ],
+    ];
     return BrutCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const BrutSectionTitle('AI reading'),
+          const BrutSectionTitle('AI analysis'),
           const SizedBox(height: 4),
           const Text(
-            'Written by AI from the figures above. Check it against them.',
+            'Written by AI from the figures above. What may happen is an '
+            'estimate; check it against them.',
             style: AppText.caption,
           ),
           if (reading.headline case final headline?) ...[
             const SizedBox(height: 10),
             Text(headline, style: AppText.body),
           ],
-          for (final point in reading.points) ...[
-            const SizedBox(height: 10),
-            line(Icons.auto_awesome, point),
-          ],
-          if (reading.suggestion case final suggestion?) ...[
-            const SizedBox(height: 10),
-            line(Icons.arrow_forward, suggestion),
-          ],
+          ...group('What happened', Icons.history, reading.happened),
+          ...group('Why it happened', Icons.help_outline, reading.causes),
+          ...group('What may happen', Icons.trending_up, reading.outlook),
+          ...group('Best next steps', Icons.arrow_forward, reading.actions),
         ],
       ),
     );

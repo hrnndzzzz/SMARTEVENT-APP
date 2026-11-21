@@ -391,7 +391,7 @@ class _Outcome extends StatelessWidget {
       ),
       SapState.rejected => (
         'Rejected',
-        'The SDS Office rejected this proposal. It is final.',
+        '${form.rejectedBy}. It is final.',
         BrutTone.coral,
       ),
       // A draft, or one the Moderator or Dean returned: the office has not

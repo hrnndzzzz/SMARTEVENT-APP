@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker_android/image_picker_android.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
@@ -18,6 +20,7 @@ import 'screens/lock_screen.dart';
 import 'screens/home_screen.dart';
 import 'api/api_config.dart';
 import 'state/notice_shelf.dart';
+import 'state/phone_alerts.dart';
 import 'state/sfx.dart';
 import 'screens/proposal_letters_screen.dart';
 import 'screens/signatory_screen.dart';
@@ -88,7 +91,18 @@ class _SmartEventAppState extends State<SmartEventApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _appState.addListener(_syncPhoneAlerts);
     _opened();
+  }
+
+  bool? _alertsOn;
+
+  /// Phone notifications run while someone is signed in, outside the demo.
+  void _syncPhoneAlerts() {
+    final on = _appState.currentAccount != null && !_appState.isDemoMode;
+    if (on == _alertsOn) return;
+    _alertsOn = on;
+    unawaited(on ? PhoneAlerts.start() : PhoneAlerts.stop());
   }
 
   /// Every launch and every return to the front: wake the server rather
@@ -124,6 +138,7 @@ class _SmartEventAppState extends State<SmartEventApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _appState.removeListener(_syncPhoneAlerts);
     _appState.dispose();
     _reachability.dispose();
     super.dispose();

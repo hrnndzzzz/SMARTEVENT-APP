@@ -105,21 +105,41 @@ class ProposalSummary {
 
 /// The AI-written reading of a financial report — `FinancialReading`.
 /// Empty when there was nothing to read or the AI could not be reached.
+/// Looking back ([happened], [causes]) and ahead ([outlook], [actions]).
 class FinancialReading {
   final String? headline;
-  final List<String> points;
-  final String? suggestion;
+  final List<String> happened;
+  final List<String> causes;
+  final List<String> outlook;
+  final List<String> actions;
 
-  const FinancialReading({this.headline, this.points = const [], this.suggestion});
+  const FinancialReading({
+    this.headline,
+    this.happened = const [],
+    this.causes = const [],
+    this.outlook = const [],
+    this.actions = const [],
+  });
 
-  bool get isEmpty => headline == null && points.isEmpty && suggestion == null;
+  bool get isEmpty =>
+      headline == null &&
+      happened.isEmpty &&
+      causes.isEmpty &&
+      outlook.isEmpty &&
+      actions.isEmpty;
 
-  factory FinancialReading.fromJson(Map<String, dynamic> json) =>
-      FinancialReading(
-        headline: json['headline'] as String?,
-        points: [for (final p in (json['points'] as List? ?? const [])) p as String],
-        suggestion: json['suggestion'] as String?,
-      );
+  factory FinancialReading.fromJson(Map<String, dynamic> json) {
+    List<String> list(String key) => [
+      for (final p in (json[key] as List? ?? const [])) p as String,
+    ];
+    return FinancialReading(
+      headline: json['headline'] as String?,
+      happened: list('happened'),
+      causes: list('causes'),
+      outlook: list('outlook'),
+      actions: list('actions'),
+    );
+  }
 }
 
 /// An AI-suggested budget for a new event — `BudgetSuggestion`, with the
