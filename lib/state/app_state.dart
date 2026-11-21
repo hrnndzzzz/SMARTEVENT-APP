@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/brut.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+import 'screen_privacy.dart';
 import '../offline/offline_store.dart';
 import '../offline/offline_sync.dart';
 import '../api/api_config.dart';
@@ -4053,6 +4054,10 @@ class AppState extends ChangeNotifier {
   /// Signs in to the seeded data as [role]. Nothing leaves the device.
   void enterDemo({UserRole role = UserRole.treasurer}) {
     _demoMode = true;
+    // Seeded records belong to nobody, so keeping them out of a
+    // screenshot protects no one — and FLAG_SECURE blocks screen
+    // recording too, which is how the defence demo is captured.
+    ScreenPrivacy.exempt = true;
     // Belt as well as braces: the paths below fill the app without a
     // request, and the client refuses anything that asks anyway.
     _apiClient.demoMode = true;

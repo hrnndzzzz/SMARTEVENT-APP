@@ -1,3 +1,4 @@
+import '../state/screen_privacy.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -30,7 +31,9 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PrivateScreen(child: _body(context));
+
+  Widget _body(BuildContext context) {
     final app = context.watch<AppState>();
     final load = app.receiptsLoad;
 

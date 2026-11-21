@@ -1,3 +1,4 @@
+import '../state/screen_privacy.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,7 +23,9 @@ class SignatoryScreen extends StatelessWidget {
   const SignatoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PrivateScreen(child: _body(context));
+
+  Widget _body(BuildContext context) {
     final name = context.watch<AppState>().currentAccount?.name;
 
     return BrutScreen(

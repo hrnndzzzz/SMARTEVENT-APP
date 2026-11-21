@@ -1,3 +1,4 @@
+import '../state/screen_privacy.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -161,7 +162,9 @@ class _ExpenseDetailScreenState extends State<ExpenseDetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PrivateScreen(child: _body(context));
+
+  Widget _body(BuildContext context) {
     final expense = widget.expense;
     final remote = expense.remote;
     final app = context.watch<AppState>();

@@ -1,3 +1,4 @@
+import '../../state/screen_privacy.dart';
 import 'package:flutter/material.dart';
 
 import '../../api/models/sap_proposal.dart';
@@ -184,7 +185,9 @@ class _SdsSignScreenState extends State<SdsSignScreen> {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PrivateScreen(child: _body(context));
+
+  Widget _body(BuildContext context) {
     return AnimatedBuilder(
       animation: _form,
       builder: (context, _) {

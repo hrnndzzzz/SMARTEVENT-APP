@@ -1,3 +1,4 @@
+import '../state/screen_privacy.dart';
 import 'package:flutter/material.dart';
 import '../api/models/roster_import.dart';
 import '../api/api_client.dart';
@@ -51,7 +52,9 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PrivateScreen(child: _body(context));
+
+  Widget _body(BuildContext context) {
     final app = context.watch<AppState>();
     final school = app.currentRole?.canAdministerSchool ?? false;
 

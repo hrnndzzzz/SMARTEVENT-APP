@@ -1,3 +1,4 @@
+import '../state/screen_privacy.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
@@ -110,7 +111,9 @@ class _ReceiptReviewScreenState extends State<ReceiptReviewScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PrivateScreen(child: _body(context));
+
+  Widget _body(BuildContext context) {
     final role = context.watch<AppState>().currentRole;
 
     // Only an independent reviewer decides, and only while it is pending.
