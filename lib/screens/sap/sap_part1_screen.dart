@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../api/models/sap_proposal.dart';
 import '../../state/app_state.dart';
+import '../../widgets/outcome.dart';
+import '../../state/program_flow_import.dart';
 import '../../theme/peso.dart';
 import '../../state/school_calendar.dart';
 import '../../widgets/brut_date_picker.dart';
@@ -1233,6 +1236,59 @@ class _ProgramFlowEditor extends StatelessWidget {
     if (item != null) form.setProgramFlow([...form.programFlow, item]);
   }
 
+  /// Reads the programme out of a file rather than sixteen sheets.
+  ///
+  /// Appends rather than replaces: somebody who has typed half of it
+  /// and then remembers the file should not lose the half.
+  Future<void> _import(BuildContext context) async {
+    final picked = await FilePicker.pickFiles(
+      dialogTitle: 'Choose the programme',
+      type: FileType.custom,
+      allowedExtensions: const ['csv', 'txt'],
+    );
+    final file = picked.firstOrNull;
+    if (file == null || !context.mounted) return;
+
+    final bytes = await file.readAsBytes();
+    if (!context.mounted) return;
+
+    final String text;
+    try {
+      text = utf8.decode(bytes, allowMalformed: true);
+    } on FormatException {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('That file is not text.')));
+      return;
+    }
+
+    final room = ProgramFlowFile.limit - form.programFlow.length;
+    final out = ProgramFlowFile.parse(text);
+    final taken = out.rows.take(room < 0 ? 0 : room).toList();
+    if (taken.isNotEmpty) {
+      form.setProgramFlow([...form.programFlow, ...taken]);
+    }
+
+    if (!context.mounted) return;
+    await BrutSheet.show<void>(
+      context,
+      builder: (_) => OutcomeSheet(
+        kind: taken.isEmpty ? OutcomeKind.problem : OutcomeKind.done,
+        title: taken.isEmpty
+            ? 'Nothing was read from that file'
+            : '${taken.length} row${taken.length == 1 ? '' : 's'} added',
+        // Every line it could not read, named. A programme quietly two
+        // rows short is worse than one that says which two are missing.
+        body: [
+          if (taken.length < out.rows.length)
+            'The form holds ${ProgramFlowFile.limit} rows and '
+                '${out.rows.length - taken.length} did not fit.',
+          ...out.problems,
+        ].join('\n'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = form.programFlow;
@@ -1245,7 +1301,9 @@ class _ProgramFlowEditor extends StatelessWidget {
           const BrutInlineMessage(
             tone: BrutTone.neutral,
             icon: Icons.schedule,
-            text: 'No rows yet. Add the programme one slot at a time.',
+            text:
+                'No rows yet. Add the programme a slot at a time, or '
+                'bring it in from a CSV: start, end, what happens.',
           ),
         for (var i = 0; i < items.length; i++) ...[
           SapRowCard(
@@ -1259,12 +1317,29 @@ class _ProgramFlowEditor extends StatelessWidget {
         ],
         if (enabled) ...[
           const SizedBox(height: 4),
-          BrutButton(
-            label: full ? 'Sixteen rows is the limit' : 'Add a row',
-            icon: Icons.add,
-            tone: BrutTone.neutral,
-            size: BrutSize.small,
-            onPressed: full ? null : () => _add(context),
+          Row(
+            children: [
+              Expanded(
+                child: BrutButton(
+                  label: full ? 'Sixteen rows is the limit' : 'Add a row',
+                  icon: Icons.add,
+                  tone: BrutTone.neutral,
+                  size: BrutSize.small,
+                  onPressed: full ? null : () => _add(context),
+                ),
+              ),
+              if (!full) ...[
+                const SizedBox(width: 8),
+                BrutButton(
+                  label: 'From a file',
+                  icon: Icons.upload_file_outlined,
+                  tone: BrutTone.neutral,
+                  size: BrutSize.small,
+                  expand: false,
+                  onPressed: () => _import(context),
+                ),
+              ],
+            ],
           ),
         ],
       ],
