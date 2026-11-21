@@ -123,6 +123,8 @@ def save(db, event, proposal, user, action, *, notify=False, details=None, notif
             'sap_dean_approved': ('SAP proposal sent to the SDS Office', '{title} was approved and is now with the SDS Office.'),
             'sap_department_returned': ('SAP proposal returned', '{title} was returned for changes.'),
             'sap_rejected': ('SAP proposal rejected', 'The SDS Office rejected {title}.'),
+            'sap_auto_rejected': ('SAP proposal rejected automatically',
+                                  '{title} was rejected automatically: no decision was made 30 days before the activity.'),
         }.get(action, ('SAP proposal updated', '{title} has been updated.'))
         payload = {'event_id': str(event.id), 'proposal_id': str(proposal.id),
                    'revision_no': proposal.revision_no, 'state': proposal.state, 'action': action}

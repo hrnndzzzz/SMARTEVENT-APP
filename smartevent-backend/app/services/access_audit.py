@@ -5,7 +5,7 @@ from app.models import AuditLog
 
 def record_access_change(db, actor, action, target, details=None):
     db.add(AuditLog(
-        user_id=actor.id,
+        user_id=actor.id if actor else None,  # None: done by the system
         action=action,
         entity_type=target.__tablename__,
         entity_id=target.id,

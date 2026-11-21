@@ -117,9 +117,10 @@ Registration is automatically approved ONLY after roster eligibility and OTP
 verification pass. There is no separate registration-approval button to build.
 Confirmation email failure does not undo successful activation; display
 `confirmation_email_status` without falsely telling the user registration failed.
-Notifications currently cover registration confirmation; do not promise event
-approval push notifications, device push delivery, mark-all-read, or notification
-deletion without additional backend work.
+Notifications currently cover registration confirmation; the Android app also shows
+new unread ones on the phone through a background check about every 15 minutes (no
+push service). Do not promise mark-all-read or notification deletion without
+additional backend work.
 
 ## 4. Categories: full CRUD is mandatory
 
@@ -564,7 +565,8 @@ Known boundaries requiring backend discussion, NOT frontend-only workarounds:
   duplicate detection is not universal transaction deduplication.
 - Private/signed receipt and letter file access if institution policy requires it.
 - Consumable stock integration beyond the current asset-only purchase flow.
-- Push notifications for reviews/events and generalized notification actions.
+- Instant push notifications (the phone checks about every 15 minutes) and generalized
+  notification actions.
 - General list pagination/search/scope filters, reviewer display names, and
   additional export formats/entities not provided by the current API.
 

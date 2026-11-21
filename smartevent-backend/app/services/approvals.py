@@ -11,7 +11,7 @@ def record_decision(db, entity_type, entity_id, decision, reviewer, remarks):
         entity_type=entity_type,
         entity_id=entity_id,
         step_order=step_order,
-        reviewer_id=reviewer.id,
+        reviewer_id=reviewer.id if reviewer else None,  # None: decided by the system
         decision=decision,
         remarks=remarks,
         decided_at=datetime.now(timezone.utc),

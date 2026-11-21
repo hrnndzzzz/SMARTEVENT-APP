@@ -13,6 +13,7 @@ def sqlite_uuid(type_, compiler, **kwargs):
 def no_receipt_cleanup_thread(monkeypatch):
     # Tests that configure storage must not start the daily cleanup against a real database.
     monkeypatch.setattr("app.services.receipt_retention.start_receipt_cleanup", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.services.sap_deadline.start_deadline_check", lambda *args, **kwargs: None)
 
 
 @pytest.fixture(autouse=True)
