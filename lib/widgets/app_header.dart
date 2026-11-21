@@ -202,7 +202,7 @@ class _BellWithBadgeState extends State<_BellWithBadge>
     }
     if (newest.id == _announced) return;
     _announced = newest.id;
-    _say(noticeBadge(newest.kind));
+    _say(noticeBadge(newest.kind, action: newest.action));
   }
 
   /// Extends the pill, holds, and lets it shrink back.

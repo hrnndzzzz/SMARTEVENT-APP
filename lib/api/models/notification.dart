@@ -51,6 +51,17 @@ class AppNotice {
   /// since the user may be waiting for one that will never arrive.
   bool get emailFailed => emailStatus == 'failed';
 
+  /// Which workflow step raised this notice — `sap_approved`,
+  /// `sap_returned`, and so on. Empty on notices that are not a
+  /// workflow step, and on anything raised before payloads existed.
+  ///
+  /// Worth reading because [kind] is `sap_workflow` for every step of a
+  /// proposal's life: the action is the only part that says how it went.
+  String get action {
+    final found = payload['action'];
+    return found is String ? found : '';
+  }
+
   /// The event this notice is about, when it says. Null means the notice
   /// is not openable — a registration confirmation, or one raised before
   /// payloads existed — not that the event is missing.

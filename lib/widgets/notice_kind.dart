@@ -7,21 +7,25 @@
 ///
 /// ## Why this reads the kind in two halves
 ///
-/// The backend names kinds `area_outcome`: `sap_returned`,
-/// `expense_approved`. The area decides the word and the outcome
-/// decides the colour, so a kind nobody has seen before still comes
-/// out sensibly as long as it follows the pattern. A kind that follows
-/// no pattern at all falls back to "Update" in the neutral tone, which
-/// is honest rather than wrong.
+/// The backend names kinds `area_outcome`: `expense_approved`,
+/// `registration_confirmation`. The area decides the word and the
+/// outcome decides the colour, so a kind nobody has seen before still
+/// comes out sensibly as long as it follows the pattern. A kind that
+/// follows no pattern at all falls back to "Update" in the neutral
+/// tone, which is honest rather than wrong.
 ///
 /// ## What actually exists today
 ///
-/// The backend raises exactly one kind, `registration_confirmation`,
-/// from `queue_registration_confirmation`. The SAP and expense kinds
-/// below are the ones the demo seeds and the ones the model's own
-/// documentation says are coming; against the real server they will
-/// not appear until somebody raises them. The mapping is written for
-/// both so the pill does not need changing when they do.
+/// The backend raises two kinds: `registration_confirmation`, and
+/// `sap_workflow` for every step of a proposal's life. The second one
+/// is the reason [noticeBadge] takes an action as well as a kind —
+/// `sap_workflow` is the same string whether a proposal was approved
+/// or rejected, and the step itself travels in the notice's payload as
+/// `action`. The kind alone gives the word; the action gives the
+/// colour. The expense, inventory and report kinds below are the ones
+/// the demo seeds; against the real server they will not appear until
+/// somebody raises them, and the mapping is written for both so the
+/// pill does not need changing when they do.
 library;
 
 import '../theme/brut.dart';
@@ -51,6 +55,20 @@ String noticeArea(String kind) {
 /// neutral: a notice with no outcome in its name is news, not a
 /// verdict, and colouring it would be inventing one.
 BrutTone noticeOutcome(String kind) {
+  // Two of the backend's SAP actions do not end in their outcome, so
+  // the pattern below would read them backwards. A correction request
+  // is a return however the name begins, and an approval recorded with
+  // physical evidence is still an approval. Named here rather than by
+  // widening the words: a generic 'requested' is not bad news and a
+  // generic 'evidence' is not good news, and only these two names mean
+  // what they mean.
+  final named = switch (kind) {
+    'sap_signed_revision_correction_requested' => BrutTone.coral,
+    'sap_approved_with_physical_evidence' => BrutTone.mint,
+    _ => null,
+  };
+  if (named != null) return named;
+
   final parts = kind.split('_');
   if (parts.length < 2) return BrutTone.neutral;
   final outcome = parts.last;
@@ -71,6 +89,20 @@ BrutTone noticeOutcome(String kind) {
   };
 }
 
-/// Both halves together.
-NoticeBadge noticeBadge(String kind) =>
-    (label: noticeArea(kind), tone: noticeOutcome(kind));
+/// Both halves together, with [action] standing in for the colour when
+/// the kind has none of its own.
+///
+/// Every SAP notice arrives as `sap_workflow`, which says where it came
+/// from and nothing about how it went. Reading the payload's action in
+/// that case is what makes the pill say *approved* in mint rather than
+/// *approval* in grey. A kind that already carries its own outcome
+/// keeps it, so an action can never overrule one.
+NoticeBadge noticeBadge(String kind, {String action = ''}) {
+  final tone = noticeOutcome(kind);
+  return (
+    label: noticeArea(kind),
+    tone: tone == BrutTone.neutral && action.isNotEmpty
+        ? noticeOutcome(action)
+        : tone,
+  );
+}

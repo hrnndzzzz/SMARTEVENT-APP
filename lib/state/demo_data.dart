@@ -1360,7 +1360,12 @@ abstract final class DemoData {
     // True of demo-ev-1, which is sent and with the Moderator.
     AppNotice(
       id: 'demo-n-1',
-      kind: 'sap_submitted',
+      // As the server names it: every step of a proposal's life arrives
+      // as the one kind, and the step itself is in the payload. The
+      // demo matches that rather than the tidier `sap_submitted`, so
+      // the header pill and the inbox are exercised the way they will
+      // behave against the real server.
+      kind: 'sap_workflow',
       emailStatus: 'sent',
       title: 'SAP proposal submitted',
       body:
@@ -1376,7 +1381,7 @@ abstract final class DemoData {
     // in the notice.
     AppNotice(
       id: 'demo-n-2',
-      kind: 'sap_rejected',
+      kind: 'sap_workflow',
       emailStatus: 'sent',
       title: 'SAP proposal rejected',
       body: 'The SDS Office rejected Industry Immersion Talk.',
