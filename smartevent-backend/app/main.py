@@ -45,6 +45,8 @@ async def lifespan(_app):
     if settings.supabase_url and settings.supabase_service_key:
         from app.services.receipt_retention import start_receipt_cleanup
         start_receipt_cleanup(SessionLocal)
+    from app.services.sap_deadline import start_deadline_check
+    start_deadline_check(SessionLocal)
     yield
 
 

@@ -392,8 +392,9 @@ Each authenticated user has a personal inbox with:
 - Mark-as-read action.
 
 The implemented notification flow currently focuses on registration
-confirmation and email delivery/retry status. Event-review push notifications,
-device push delivery, mark-all-read and notification deletion are not currently
+confirmation and email delivery/retry status. On Android, new unread
+notifications also appear as phone notifications, checked in the background about
+every 15 minutes. Mark-all-read and notification deletion are not currently
 implemented.
 
 ## 5. Role-based test walkthrough
@@ -489,7 +490,7 @@ The following are intentionally not available in the current backend:
 - Department and organization edit/delete.
 - General user deletion; use suspension/restoration where supported.
 - Automatic consumable-stock integration.
-- Event-review device push notifications.
+- Instant push notifications; the phone checks about every 15 minutes instead.
 - Refresh-token and server-side logout workflow.
 - Standalone file-only income receipt creation without the related transaction.
 

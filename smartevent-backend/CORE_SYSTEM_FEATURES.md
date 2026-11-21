@@ -118,7 +118,8 @@ not require login. Never put JWTs in download URLs.
 
 Officers may mark their own notification read. This personal action is not an
 operational-record edit and does not relax their view-only role.
-These are persisted in-app notifications, not Firebase push notifications.
+These are persisted in-app notifications. The Android app also shows new unread ones as phone
+notifications through a background check about every 15 minutes; there is no push service.
 
 ### Events
 

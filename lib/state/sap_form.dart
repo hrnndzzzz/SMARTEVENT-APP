@@ -180,6 +180,18 @@ class SapForm extends ChangeNotifier {
   /// read it only while [wasReturned].
   SapReturnedBy? get returnedBy => _proposal?.returnedBy;
 
+  /// Rejected by the server, not a person: nobody decided it 30 days
+  /// before the activity. Only that rejection carries remarks with no
+  /// [returnedBy] — sending a proposal clears both.
+  bool get autoRejected =>
+      state == SapState.rejected && returnedBy == null && returnRemarks != null;
+
+  /// Who rejected it, to open the rejection banners with.
+  String get rejectedBy => autoRejected
+      ? 'Rejected automatically: no decision was made 30 days before the '
+            'activity'
+      : 'Rejected by the SDS Office';
+
   /// Sent back for changes, and the proposer's again.
   bool get wasReturned => state == SapState.revisionRequested;
 

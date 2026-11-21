@@ -225,10 +225,9 @@ class _SapFormScreenState extends State<SapFormScreen> {
                       icon: Icons.block,
                       text: [
                         isSds
-                            ? 'Rejected by the SDS Office. This proposal is '
-                                  'final.'
-                            : 'Rejected by the SDS Office. This proposal is '
-                                  'final; start a new one to try again.',
+                            ? '${form.rejectedBy}. This proposal is final.'
+                            : '${form.rejectedBy}. This proposal is final; '
+                                  'start a new one to try again.',
                         ...form.sdsRemarkLines(overall: true),
                       ].join('\n'),
                     ),

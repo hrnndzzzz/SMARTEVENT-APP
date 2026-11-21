@@ -1195,16 +1195,24 @@ abstract final class DemoData {
     headline:
         'Spending is within budget overall, though one event ran past its '
         'allocation and supplies take the largest share.',
-    points: [
-      'One event spent more than it budgeted; its next proposal should '
-          'carry quotations for the costliest items.',
+    happened: [
+      'One event spent more than it budgeted.',
       'Supplies account for the biggest share of spending this period.',
+    ],
+    causes: [
+      'The overrun came from supplies bought without quotations.',
       'Most income comes from registration fees, so turnout drives the '
           'balance.',
     ],
-    suggestion:
-        'Set aside a small contingency in each event budget for the next '
-        'semester.',
+    outlook: [
+      'At this pace the period ends with spending a little above income; '
+          'this is an estimate.',
+    ],
+    actions: [
+      'Carry quotations for the costliest items in the next proposal.',
+      'Set aside a small contingency in each event budget for the next '
+          'semester.',
+    ],
   );
 
   /// A fixed stand-in for the AI budget suggestion on the proposal form.

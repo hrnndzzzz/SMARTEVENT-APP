@@ -634,11 +634,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                   // Nothing is returned after a rejection, so "until it is
                   // returned" would promise what cannot happen.
                   if (_form.state == SapState.rejected)
-                    const BrutInlineMessage(
+                    BrutInlineMessage(
                       tone: BrutTone.coral,
                       icon: Icons.block,
                       text:
-                          'Rejected by the SDS Office. This proposal is final, '
+                          '${_form.rejectedBy}. This proposal is final, '
                           'so Parts 1 to 3 stay as they were sent.',
                     )
                   else

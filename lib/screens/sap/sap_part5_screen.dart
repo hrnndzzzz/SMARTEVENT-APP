@@ -236,11 +236,11 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
 
               if (!live) ...[
                 if (rejected)
-                  const BrutInlineMessage(
+                  BrutInlineMessage(
                     tone: BrutTone.coral,
                     icon: Icons.block,
                     text:
-                        'Rejected by the SDS Office. Nothing more is recorded '
+                        '${_form.rejectedBy}. Nothing more is recorded '
                         'or uploaded on this proposal.',
                   )
                 else
@@ -310,8 +310,7 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                       : BrutTone.neutral,
                   icon: Icons.upload_file,
                   text: rejected
-                      ? 'Rejected by the SDS Office, so no signed scan '
-                            'follows.'
+                      ? '${_form.rejectedBy}, so no signed scan follows.'
                       : scanStored
                       ? 'The signed scan is stored as the evidence of '
                             'approval. It cannot be replaced.'
