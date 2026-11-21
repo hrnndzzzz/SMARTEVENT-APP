@@ -10,14 +10,13 @@ import 'palette.dart';
 /// ink on a canvas, dark ink inside a yellow badge — however deeply things
 /// nest. Setting it here would freeze every caption at light-mode grey.
 ///
-/// The design calls for an extrabold geometric sans. We ship Lexend, which
-/// is the right shape, but only at 400 and 500 — so a style asking for
-/// `w800` currently renders at Medium, because Flutter falls back to the
-/// nearest weight it actually has. The weights below are therefore written
-/// as the design intends them: drop `Lexend-Bold.ttf` and
-/// `Lexend-ExtraBold.ttf` into `fonts/`, declare them in `pubspec.yaml`,
-/// and every heading in the app gets its real weight with no code change.
-/// The same goes for `IBMPlexMono-SemiBold.ttf` and `-Bold.ttf`.
+/// The design calls for an extrabold geometric sans, and Lexend now ships
+/// at 400, 500, 700 and 800, so the weights below render as written.
+///
+/// `IBMPlexMono` still ships at 400 and 500 only, so a mono style asking
+/// for `w700` — the peso figures — falls back to Medium. `pubspec.yaml`
+/// says how the Lexend weights were cut, and the same applies when
+/// `IBMPlexMono-SemiBold.ttf` and `-Bold.ttf` are to hand.
 class AppText {
   AppText._();
 
