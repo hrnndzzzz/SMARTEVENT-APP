@@ -7,6 +7,7 @@ import 'sap_attachment_rows.dart';
 import 'sap_form_screen.dart' show MissingForSubmit;
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../widgets/brut_amount_field.dart';
 import '../../theme/peso.dart';
 import 'sap_form_fields.dart';
 
@@ -723,12 +724,11 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
             style: AppText.caption.copyWith(fontSize: 11),
           ),
           const SizedBox(height: 12),
-          BrutTextField(
+          BrutAmountField(
             controller: _amount,
             label: 'Amount',
             hint: '2000.00',
             errorText: _overCap(_amount),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),

@@ -14,6 +14,7 @@ import 'package:smartevent/state/app_settings.dart';
 import 'package:smartevent/state/sap_form.dart';
 import 'package:smartevent/theme/app_theme.dart';
 import 'package:smartevent/theme/brut.dart';
+import 'package:smartevent/widgets/brut_amount_field.dart';
 
 import 'support/complete_proposal.dart';
 
@@ -104,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final amount = find.descendant(
-      of: find.widgetWithText(BrutTextField, 'AMOUNT'),
+      of: find.byType(BrutAmountField),
       matching: find.byType(TextField),
     );
     expect(tester.widget<TextField>(amount).controller!.text, '2500.00');
