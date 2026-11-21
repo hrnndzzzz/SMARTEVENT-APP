@@ -133,10 +133,13 @@ def test_asset_expense_requires_receipt_before_approval(system):
     assert expense.status == "pending"
 
 
-def test_new_inventory_has_event_link_and_opening_stock_ledger(system):
+def test_new_inventory_keeps_its_event_if_any_and_opening_stock_ledger(system):
     client, db, users, orgs, resources, login = system
     login("admin")
-    assert client.post("/inventory", json={"item_name": "Table"}).status_code == 422
+    loose = client.post("/inventory", json={"item_name": "Spare cable", "quantity": 2, "reason": "Found in storage"})
+    assert loose.status_code == 201, loose.text
+    assert loose.json()["event_id"] is None
+    assert client.get(f"/inventory/{loose.json()['id']}/transactions").json()[0]["event_id"] is None
     response = client.post("/inventory", json={"item_name": "Table", "event_id": str(resources[0]["events"].id),
         "quantity": 4, "initial_transaction_type": "donation", "reason": "Alumni donation"})
     assert response.status_code == 201, response.text
@@ -168,12 +171,25 @@ def test_returns_cannot_exceed_event_issue_quantity(system):
     assert resources[0]["inventory"].quantity == 10
 
 
-def test_movements_require_event_type_and_reason_and_stay_scoped(system):
+def test_stock_moves_outside_any_event(system):
+    client, db, users, orgs, resources, login = system
+    login("treasurer")
+    path = f"/inventory/{resources[0]['inventory'].id}/transactions"
+    assert client.post(path, json={"transaction_type": "issue", "change_qty": -3, "reason": "Lent out"}).status_code == 201
+    assert move(system, "return", 1).status_code == 409  # nothing was issued for the event
+    assert client.post(path, json={"transaction_type": "return", "change_qty": 4, "reason": "Back"}).status_code == 409
+    assert client.post(path, json={"transaction_type": "return", "change_qty": 3, "reason": "Back"}).status_code == 201
+    assert resources[0]["inventory"].quantity == 10
+    rows = {row["reason"]: row["event_id"] for row in client.get(path).json()}
+    assert rows["Lent out"] is None and rows["Back"] is None
+
+
+def test_movements_require_type_and_reason_and_stay_scoped(system):
     client, db, users, orgs, resources, login = system
     login("treasurer")
     path = f"/inventory/{resources[0]['inventory'].id}/transactions"
     base = {"event_id": str(resources[0]["events"].id), "transaction_type": "donation", "change_qty": 1, "reason": "Gift"}
-    for field in ("event_id", "transaction_type", "reason"):
+    for field in ("transaction_type", "reason"):
         assert client.post(path, json={key: value for key, value in base.items() if key != field}).status_code == 422
     assert move(system, "donation", 1, event_index=1).status_code == 403
     login("officer")  # any officer may be tasked with stock, inside their own organization
@@ -183,7 +199,7 @@ def test_movements_require_event_type_and_reason_and_stay_scoped(system):
     assert client.get("/inventory").status_code == 403
 
 
-def test_legacy_item_and_movement_repair_is_audited_without_replaying_quantity(system):
+def test_item_without_event_is_usable_and_legacy_repair_is_audited_without_replaying_quantity(system):
     client, db, users, orgs, resources, login = system
     item = resources[0]["inventory"]
     item.event_id = None
@@ -192,14 +208,19 @@ def test_legacy_item_and_movement_repair_is_audited_without_replaying_quantity(s
     db.commit()
     original_quantity = item.quantity
     login("treasurer")
-    assert move(system, "donation", 1).status_code == 409
+    assert move(system, "donation", 1).status_code == 201
+    loose = client.post(f"/inventory/{item.id}/transactions",
+                        json={"transaction_type": "donation", "change_qty": 1, "reason": "Gift"}).json()
     login("admin")
     assert len(client.get("/inventory?missing_event=true").json()) == 1
+    assert client.patch(f"/inventory/{item.id}", json={"location": "Shelf B"}).status_code == 200
     assert client.patch(f"/inventory/{item.id}", json={"event_id": str(resources[0]["events"].id)}).status_code == 200
-    path = f"/inventory/{item.id}/transactions/{history.id}/metadata"
     payload = {"event_id": str(resources[0]["events"].id), "transaction_type": "donation", "reason": "Verified historical donation"}
+    # Recorded with no event on purpose, so it is not a legacy row to relabel.
+    assert client.patch(f"/inventory/{item.id}/transactions/{loose['id']}/metadata", json=payload).status_code == 409
+    path = f"/inventory/{item.id}/transactions/{history.id}/metadata"
     assert client.patch(path, json=payload).status_code == 200
-    assert item.quantity == original_quantity and history.change_qty == 2
+    assert item.quantity == original_quantity + 2 and history.change_qty == 2
     assert client.patch(path, json=payload).status_code == 409
     assert db.query(AuditLog).filter(AuditLog.action == "inventory.legacy_movement_repaired").count() == 1
 

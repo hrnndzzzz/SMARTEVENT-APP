@@ -105,7 +105,7 @@ STROKES = [[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]]
 LATE_WRITES = [
     ('treasurer', 'patch', '', {'details': {'title': 'Changed'}}),
     ('treasurer', 'post', '/submit', {}),
-    ('treasurer', 'post', '/withdraw', {}),
+    # The proposer may still take it back to edit (/withdraw); see test_sap_withdrawal.
     ('sds_staff', 'put', '/sds-review', {'overall_remarks': 'Late'}),
     ('sds_staff', 'post', '/sds-sign', {'signature_strokes': STROKES}),
     ('sds_staff', 'put', '/sds-clearance', {'clearance': fixture_data()['clearance']}),

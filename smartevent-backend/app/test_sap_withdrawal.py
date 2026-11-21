@@ -79,23 +79,55 @@ def test_organization_colleague_submits_and_withdraws(sap_system):
     assert response.status_code == 200, response.text
 
 
-@pytest.mark.parametrize('review', ['empty_notes', 'notes', 'checkpoint', 'signature'])
-def test_any_sds_review_blocks_withdrawal(sap_system, review):
+@pytest.mark.parametrize('review', ['empty_notes', 'notes', 'checkpoint'])
+def test_sds_review_in_progress_stays_on_the_withdrawn_revision(sap_system, review):
     populate(sap_system)
-    client, _, _, _, login, base = sap_system
+    client, db, _, _, login, base = sap_system
     login('sds_staff')
     if review in {'notes', 'empty_notes'}:
         assert client.put(base + '/sds-review', json={'expected_version': version(client, base),
             'overall_remarks': 'Check the venue' if review == 'notes' else ''}).status_code == 200
-    elif review == 'checkpoint':
-        assert checkpoint(sap_system, 1).status_code == 200
     else:
-        sign_current(sap_system)
+        assert checkpoint(sap_system, 1).status_code == 200
+    before = (db.query(SAPReview).count(), db.query(SAPCheckpoint).filter(SAPCheckpoint.evidence.is_not(None)).count())
+    login('treasurer')
+    response = client.post(base + '/withdraw', json={'expected_version': version(client, base)})
+    assert response.status_code == 200, response.text
+    assert response.json()['state'] == 'draft'
+    assert (db.query(SAPReview).count(), db.query(SAPCheckpoint).filter(SAPCheckpoint.evidence.is_not(None)).count()) == before
+    resubmitted = client.post(base + '/submit', json={'expected_version': version(client, base)})
+    assert resubmitted.status_code == 200, resubmitted.text
+    assert resubmitted.json()['revision_no'] == 2 and resubmitted.json()['sds_review'] is None
+    assert client.get(base + '/workflow').json()['completed_count'] == 0
+
+
+def test_signed_proposal_cannot_be_withdrawn(sap_system):
+    populate(sap_system)
+    client, _, _, _, login, base = sap_system
+    sign_current(sap_system)
     login('treasurer')
     assert client.post(base + '/withdraw', json={'expected_version': version(client, base)}).status_code == 409
 
 
-@pytest.mark.parametrize('state', ['draft', 'revision_requested', 'sds_signed', 'approved', 'completed', 'rejected'])
+def test_rejected_proposal_reopens_for_editing_and_resubmits(sap_system):
+    populate(sap_system)
+    client, db, _, event, login, base = sap_system
+    login('sds_staff')
+    assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'}).status_code == 200
+    login('treasurer')
+    response = client.post(base + '/withdraw', json={'expected_version': version(client, base)})
+    assert response.status_code == 200, response.text
+    assert response.json()['state'] == 'draft' and event.status == 'draft'
+    edited = client.patch(base, json={'expected_version': version(client, base),
+                                      'details': {**fixture_data()['details'], 'title': 'Edited after rejection'}})
+    assert edited.status_code == 200, edited.text
+    resubmitted = client.post(base + '/submit', json={'expected_version': version(client, base)})
+    assert resubmitted.status_code == 200, resubmitted.text
+    assert resubmitted.json()['revision_no'] == 2
+    assert db.query(SAPRevision).count() == 2
+
+
+@pytest.mark.parametrize('state', ['draft', 'revision_requested', 'sds_signed', 'approved', 'completed'])
 def test_only_pending_state_can_be_withdrawn(sap_system, state):
     populate(sap_system)
     client, db, _, _, _, base = sap_system

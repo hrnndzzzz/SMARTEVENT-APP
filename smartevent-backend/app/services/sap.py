@@ -202,15 +202,12 @@ def assert_generic_workflow(db, event):
 
 
 def withdraw(db, event, proposal, user):
-    """Caller holds the event lock and has checked ownership and version."""
-    if proposal.state not in {'pending_department_review', 'pending_sap_review'}:
-        raise HTTPException(409, 'Only a proposal still waiting on review can be withdrawn')
-    with_sds = proposal.state == 'pending_sap_review'
-    rev = revision(db, proposal)
-    if (db.query(SAPReview.revision_id).filter_by(revision_id=rev.id).first()
-            or db.query(SAPCheckpoint.id).filter(
-                SAPCheckpoint.revision_id == rev.id, SAPCheckpoint.evidence.is_not(None)).first()):
-        raise HTTPException(409, 'SDS review has started; request a return for changes')
+    """Caller holds the event lock and has checked ownership and version.
+    Until the SDS Office signs, or after it rejects, the proposer may take it back to edit:
+    notes and recorded signatures stay on the submitted revision, and the resubmission is reviewed afresh."""
+    if proposal.state not in {'pending_department_review', 'pending_sap_review', 'rejected'}:
+        raise HTTPException(409, 'Only a proposal under review, or a rejected one, can be taken back')
+    with_sds = proposal.state in {'pending_sap_review', 'rejected'}
     # Keep old rows referenced by submitted snapshots. Only metadata is copied;
     # both revisions retain the same private file and original upload attribution.
     for row in db.query(SAPAttachment).filter_by(

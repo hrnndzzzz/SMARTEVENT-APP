@@ -634,7 +634,7 @@ class PurchaseCompletion(BaseModel):
 
 class InventoryCreate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    event_id: uuid.UUID
+    event_id: uuid.UUID | None = None  # stock may be kept outside any event
     initial_transaction_type: Literal["opening_balance", "acquisition", "donation"] = "opening_balance"
     reason: str = Field(default="Opening stock", min_length=1, max_length=100)
     organization_id: uuid.UUID | None = None
@@ -689,7 +689,7 @@ class InventoryTransactionCreate(BaseModel):
     transaction_type: Literal["acquisition", "donation", "purchase", "issue", "return", "disposal", "adjustment"]
 
 
-    event_id: uuid.UUID
+    event_id: uuid.UUID | None = None  # stock may move outside any event
     change_qty: int = Field(ge=-2147483647, le=2147483647)
     reason: str = Field(min_length=1, max_length=100)
 

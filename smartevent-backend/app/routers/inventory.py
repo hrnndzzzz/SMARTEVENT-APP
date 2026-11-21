@@ -62,7 +62,8 @@ def create_item(
         require_for_admin=True,
     )
     organization_id = resolve_organization_id(db, current_user, payload.organization_id, department_id)
-    _event_for_item(db, payload.event_id, current_user, organization_id, department_id, allow_officer_read=True)
+    if payload.event_id is not None:
+        _event_for_item(db, payload.event_id, current_user, organization_id, department_id, allow_officer_read=True)
     db.query(Organization).filter(Organization.id == organization_id).with_for_update().first()
     existing = db.query(Inventory).filter(
         func.lower(Inventory.item_name) == payload.item_name.lower(),
@@ -196,7 +197,7 @@ def repair_transaction_metadata(inventory_id: uuid.UUID, transaction_id: uuid.UU
         InventoryTransaction.inventory_id == inventory_id).with_for_update().first()
     if row is None:
         raise HTTPException(404, "Inventory transaction not found")
-    if row.transaction_type != "legacy" and row.event_id is not None:
+    if row.transaction_type != "legacy":
         raise HTTPException(409, "Only incomplete legacy movement metadata can be repaired")
     if row.expense_item_id is not None:
         raise HTTPException(409, "Purchase provenance cannot be changed by legacy repair")
@@ -235,8 +236,6 @@ def update_item(
         _event_for_item(db, updates["event_id"], current_user, item.organization_id, item.department_id)
         if item.event_id is not None and updates["event_id"] != item.event_id:
             raise HTTPException(409, "The initial event link is immutable; use event-linked movements for subsequent usage")
-    if item.event_id is None and "event_id" not in updates:
-        raise HTTPException(409, "Assign a legacy item's event before editing it")
 
     if "item_name" in updates and updates["item_name"] != item.item_name:
         name_taken = (
@@ -301,8 +300,6 @@ def create_transaction(
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item, allow_officer_read=True)
-    if item.event_id is None:
-        raise HTTPException(409, "Assign the legacy inventory item's intended event first")
     if item.is_draft:
         raise HTTPException(409, "An administrator must confirm this catalog draft before stock movements")
     if item.is_archived:
@@ -310,7 +307,8 @@ def create_transaction(
     if payload.transaction_type == "purchase":
         raise HTTPException(409, "Purchased stock must use POST /expenses/{expense_id}/complete-purchase")
 
-    _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id, allow_officer_read=True)
+    if payload.event_id is not None:
+        _event_for_item(db, payload.event_id, current_user, item.organization_id, item.department_id, allow_officer_read=True)
 
     new_quantity = item.quantity + payload.change_qty
     if new_quantity > 2**31 - 1:
@@ -320,7 +318,7 @@ def create_transaction(
             InventoryTransaction.inventory_id == item.id, InventoryTransaction.event_id == payload.event_id,
             InventoryTransaction.transaction_type.in_(["issue", "return"])).scalar()
         if payload.change_qty > -net_issued:
-            raise HTTPException(409, "Return quantity exceeds outstanding issues for this event")
+            raise HTTPException(409, "Return quantity exceeds what was issued under the same event, or under no event")
     if new_quantity < 0:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -342,7 +340,7 @@ def create_transaction(
     db.add(transaction)
 
     record_access_change(db, current_user, "inventory.movement_recorded", item,
-        {"event_id": str(payload.event_id), "transaction_type": payload.transaction_type, "change_qty": payload.change_qty})
+        {"event_id": payload.event_id and str(payload.event_id), "transaction_type": payload.transaction_type, "change_qty": payload.change_qty})
 
     db.commit()
     db.refresh(transaction)
