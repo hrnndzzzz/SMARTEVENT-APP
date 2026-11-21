@@ -15,6 +15,7 @@ import 'proposal_steps.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import '../../theme/palette.dart';
+import 'sap_attachment_rows.dart';
 import 'sap_form_fields.dart';
 
 /// Part 1 — Activity Details.
@@ -404,11 +405,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
         BrutInlineMessage(
           tone: BrutTone.coral,
           icon: Icons.account_balance_wallet_outlined,
-          // Not a refusal: the office decides what it will fund, and a
-          // proposal may well ask for more than is left today.
+          // Saved, not sent: the server refuses a budget over what is
+          // left, so the draft waits until the two fit.
           text:
               'That is more than the ${peso(left)} your organization has '
-              'left. It can still be sent; the office decides.',
+              'left. It can be saved, but not sent until it fits.',
         )
       else
         Text(
@@ -419,43 +420,30 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     ];
   }
 
-  /// Attaches the ROC or COC an off-campus submission cannot go without.
+  Future<void> _attachRocCoc() => _attach(
+    SapAttachmentCategory.rocCoc,
+    'Choose the signed ROC or COC',
+  );
+
+  /// Attaches a file from Part 1, making the proposal first if need be.
   ///
-  /// The file is checked for type and size before it is sent, so a wrong
-  /// one is refused here rather than after the whole transfer.
-  Future<void> _attachRocCoc() async {
-    // An attachment belongs to a proposal, and until Part 1 has been
-    // saved once there is no proposal to attach it to. Reported from a
-    // handset: choosing a file on step 2 and being told "this proposal
-    // has not been saved to the server yet" — after the file had been
-    // picked, with nothing said about what to do instead. The proposal
-    // is made here, the way leaving the form already makes it.
+  /// An attachment belongs to a proposal, and until Part 1 has been
+  /// saved once there is no proposal to attach it to. Reported from a
+  /// handset: choosing a file on step 2 and being told "this proposal
+  /// has not been saved to the server yet" — after the file had been
+  /// picked, with nothing said about what to do instead. The proposal
+  /// is made here, the way leaving the form already makes it.
+  Future<void> _attach(SapAttachmentCategory category, String title) async {
     if (widget.onCreateEvent case final create? when !_form.hasEvent) {
       _collect();
       // create() says what is missing (a title and a date) itself.
       if (!await create(context) || !mounted) return;
     }
-
-    final picked = await FilePicker.pickFiles(
-      dialogTitle: 'Choose the signed ROC or COC',
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
-    );
-    final file = picked.firstOrNull;
-    if (file == null || !mounted) return;
-
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
-
-    final problem = await _form.attachFile(
-      category: SapAttachmentCategory.rocCoc,
-      bytes: bytes,
-      filename: file.name,
-    );
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(problem ?? '${file.name} attached.')),
+    await pickAndAttach(
+      context,
+      _form,
+      category: category,
+      dialogTitle: title,
     );
   }
 
@@ -1123,7 +1111,14 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                     ),
                     const SizedBox(height: 10),
                   ],
-                  _ProgramFlowEditor(form: _form, enabled: _editable),
+                  _ProgramFlowEditor(
+                    form: _form,
+                    enabled: _editable,
+                    onAttach: () => _attach(
+                      SapAttachmentCategory.programFlow,
+                      'Choose the program flow document',
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   _FieldGroup(title: 'Safety', tone: BrutTone.coral),
@@ -1149,11 +1144,15 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                     required: true,
                     hint: '2500.00',
                     enabled: _editable,
+                    errorText: SapForm.overCap(_budget.text)
+                        ? 'At most ₱100,000.00'
+                        : null,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    // Only so the figure below it keeps up. The field
-                    // itself still folds into the model in _collect().
+                    // Only so the figures below it keep up: the limit and
+                    // what is left. The field itself still folds into the
+                    // model in _collect().
                     onChanged: (_) => setState(() {}),
                   ),
                   ..._budgetAgainstBalance(context),
@@ -1222,10 +1221,17 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
 /// The API replaces this collection wholesale, so the list is edited here
 /// and sent in full when Part 1 is saved.
 class _ProgramFlowEditor extends StatelessWidget {
-  const _ProgramFlowEditor({required this.form, required this.enabled});
+  const _ProgramFlowEditor({
+    required this.form,
+    required this.enabled,
+    required this.onAttach,
+  });
 
   final SapForm form;
   final bool enabled;
+
+  /// Attaches the programme as a document, which stands in for the rows.
+  final VoidCallback onAttach;
 
   Future<void> _add(BuildContext context) async {
     final item = await showModalBottomSheet<SapProgramFlowItem>(
@@ -1297,13 +1303,14 @@ class _ProgramFlowEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (items.isEmpty)
+        if (items.isEmpty && !form.hasProgramFlowFile)
           const BrutInlineMessage(
             tone: BrutTone.neutral,
             icon: Icons.schedule,
             text:
-                'No rows yet. Add the programme a slot at a time, or '
-                'bring it in from a CSV: start, end, what happens.',
+                'No rows yet. Add the programme a slot at a time, bring '
+                'it in from a CSV (start, end, what happens), or attach '
+                'the document it is written in.',
           ),
         for (var i = 0; i < items.length; i++) ...[
           SapRowCard(
@@ -1342,6 +1349,24 @@ class _ProgramFlowEditor extends StatelessWidget {
             ],
           ),
         ],
+        const SizedBox(height: 8),
+        // A file is enough on its own: the rows are then optional.
+        if (form.hasProgramFlowFile)
+          const BrutInlineMessage(
+            tone: BrutTone.mint,
+            icon: Icons.check_circle_outline,
+            text: 'The program flow file is attached.',
+          )
+        else if (enabled)
+          BrutButton(
+            label: 'Attach the program flow document',
+            icon: Icons.attach_file,
+            tone: BrutTone.neutral,
+            size: BrutSize.small,
+            busy: form.saving,
+            busyLabel: 'Attaching',
+            onPressed: onAttach,
+          ),
       ],
     );
   }

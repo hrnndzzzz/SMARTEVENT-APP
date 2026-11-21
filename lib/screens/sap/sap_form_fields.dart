@@ -225,6 +225,7 @@ class SapRowCard extends StatelessWidget {
     required this.subtitle,
     required this.onRemove,
     this.onTap,
+    this.onEdit,
   });
 
   final String title;
@@ -232,18 +233,33 @@ class SapRowCard extends StatelessWidget {
   final VoidCallback? onRemove;
   final VoidCallback? onTap;
 
+  /// Opens the row to change it, rather than removing and retyping it.
+  final VoidCallback? onEdit;
+
   @override
   Widget build(BuildContext context) {
     return BrutListRow(
       title: title,
       meta: subtitle,
       onTap: onTap,
-      trailing: onRemove == null
+      trailing: onRemove == null && onEdit == null
           ? null
-          : BrutIconButton(
-              icon: Icons.close,
-              label: 'Remove $title',
-              onPressed: onRemove,
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onEdit != null)
+                  BrutIconButton(
+                    icon: Icons.edit_outlined,
+                    label: 'Edit $title',
+                    onPressed: onEdit,
+                  ),
+                if (onRemove != null)
+                  BrutIconButton(
+                    icon: Icons.close,
+                    label: 'Remove $title',
+                    onPressed: onRemove,
+                  ),
+              ],
             ),
     );
   }

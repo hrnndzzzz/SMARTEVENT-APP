@@ -159,7 +159,7 @@ def update(event_id: UUID, payload: DraftWrite, db: Session = Depends(get_db), u
 def upload_attachment(event_id: UUID, expected_version: int = Form(..., ge=1), category: str = Form(...),
                       file: UploadFile = File(...), db: Session = Depends(get_db),
                       user: User = Depends(require_active_account)):
-    if category not in {'apf', 'pcf', 'appendix', 'roc_coc', 'other'}:
+    if category not in {'apf', 'pcf', 'appendix', 'roc_coc', 'program_flow', 'other'}:
         raise HTTPException(422, 'Unsupported attachment category')
     event, proposal = sap.load(db, event_id, user, proposer=True)
     sap.check_version(proposal, expected_version, editable=True)

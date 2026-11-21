@@ -2,7 +2,7 @@
 import uuid
 
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, DateTime, Time, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text,
+    JSON, Boolean, CheckConstraint, Column, Date, DateTime, Time, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, declared_attr
@@ -403,6 +403,20 @@ class InventoryTransaction(Base):
     reason = Column(String(100), nullable=True)
     performed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class DeletedEvent(Base):
+    """A deleted draft, kept whole for 30 days so it can be recovered by hand, then purged with its files."""
+    __tablename__ = "deleted_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), nullable=False)  # no FK: the event row is gone
+    organization_id = Column(UUID(as_uuid=True), nullable=True)
+    title = Column(String(200), nullable=False)
+    deleted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    snapshot = Column(JSON, nullable=False)
+    storage_refs = Column(JSON, nullable=False, default=list)
 
 
 class AuditLog(Base):

@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -51,29 +50,13 @@ class _SapFormScreenState extends State<SapFormScreen> {
 
   /// A PDF that goes with the proposal to its reviewers and the SDS
   /// Office. Only while the proposer can still edit, as the server allows.
-  Future<void> _attachSupportingPdf() async {
-    final picked = await FilePicker.pickFiles(
-      dialogTitle: 'Choose a supporting PDF',
-      type: FileType.custom,
-      allowedExtensions: const ['pdf'],
-    );
-    final file = picked.firstOrNull;
-    if (file == null || !mounted) return;
-
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
-
-    final problem = await widget.form.attachFile(
-      category: SapAttachmentCategory.other,
-      bytes: bytes,
-      filename: file.name,
-    );
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(problem ?? '${file.name} attached.')),
-    );
-  }
+  Future<void> _attachSupportingPdf() => pickAndAttach(
+    context,
+    widget.form,
+    category: SapAttachmentCategory.other,
+    dialogTitle: 'Choose a supporting PDF',
+    extensions: const ['pdf'],
+  );
 
   /// The SDS Office's remarks print as comments only if the proposer says
   /// so; with none saved there is nothing to ask. Null means cancelled.

@@ -39,6 +39,11 @@ class RemoteEvent {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Its proposal was sent for review at least once. Such a draft is kept
+  /// as the record and the server refuses to delete it. False from an
+  /// older backend that does not say.
+  final bool sentForReview;
+
   RemoteEvent({
     required this.id,
     required this.categoryId,
@@ -57,6 +62,7 @@ class RemoteEvent {
     required this.organizationId,
     required this.createdAt,
     required this.updatedAt,
+    this.sentForReview = false,
   });
 
   /// True when the row is missing any academic field, which is what the
@@ -85,6 +91,7 @@ class RemoteEvent {
       organizationId: json['organization_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      sentForReview: json['sent_for_review'] as bool? ?? false,
     );
   }
 }

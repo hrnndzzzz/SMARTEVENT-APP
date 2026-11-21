@@ -6,6 +6,9 @@ from uuid import UUID
 from copy import copy
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator, create_model
 
+# The most a proposal, or one line of it, may ask for: an extra zero typed by mistake is refused.
+MAX_PESO = Decimal('100000')
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
@@ -38,7 +41,7 @@ class Details(StrictModel):
     core_values: list[Literal['courage', 'compassion', 'community_oriented', 'humility', 'interiority', 'missionary_spirit']] = Field(min_length=1, max_length=6)
     egas: list[Literal[1, 2, 3, 4]] = Field(min_length=1, max_length=4)
     emergency_plan: str = Field(min_length=1, max_length=600)
-    total_budget: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    total_budget: Decimal = Field(ge=0, le=MAX_PESO, max_digits=12, decimal_places=2)
     funding_source: str = Field(min_length=1, max_length=150)
     additional_information: str = Field(default='', max_length=10000)
     excuse_arrangement: str = Field(default='', max_length=400)
@@ -67,8 +70,8 @@ class ProgramItem(StrictModel):
 class BudgetItem(StrictModel):
     particulars: str = Field(min_length=1, max_length=120)
     quantity: int = Field(default=1, ge=1, le=100000, strict=True)
-    unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
-    amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    unit_cost: Decimal | None = Field(default=None, ge=0, le=MAX_PESO, max_digits=12, decimal_places=2)
+    amount: Decimal = Field(ge=0, le=MAX_PESO, max_digits=12, decimal_places=2)
 
 
 class SupportRequest(StrictModel):
@@ -208,8 +211,7 @@ def validate_submission(details, collections, clearance):
         validate_clearance(clearance, collections)
     parsed = {key: [model.model_validate(row) for row in collections.get(key, [])]
               for key, model in COLLECTIONS.items()}
-    if not parsed['program-flow']:
-        raise ValueError('Program flow is required')
+    # Rows or an attached program flow file; submit checks the file, which this cannot see.
     if sum((row.amount for row in parsed['budget-items']), Decimal(0)) != d.total_budget:
         raise ValueError('Budget breakdown must exactly equal total budget')
     for row in parsed['program-flow']:

@@ -313,6 +313,13 @@ void main() {
       final mine = draft(by: proposer.currentAccount!.id);
       expect(proposer.canDeleteDraft(mine), isTrue);
       expect(proposer.canDeleteDraft(draft(by: 'someone-else')), isFalse);
+      // Sent once, then taken back or returned: the server keeps it.
+      expect(
+        proposer.canDeleteDraft(
+          draft(by: proposer.currentAccount!.id)..sentForReview = true,
+        ),
+        isFalse,
+      );
       expect(
         proposer.canDeleteDraft(
           mine..status = EventApprovalStatus.pendingAdviser,

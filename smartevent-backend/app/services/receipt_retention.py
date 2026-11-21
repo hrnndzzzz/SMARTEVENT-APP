@@ -54,6 +54,9 @@ def start_receipt_cleanup(session_factory, every: timedelta = timedelta(days=1))
                 count = purge_old_receipt_files(db)
                 if count:
                     logger.info("Removed %d receipt photos older than 30 days", count)
+                from app.services.draft_trash import purge_deleted_drafts
+                if drafts := purge_deleted_drafts(db):
+                    logger.info("Removed %d drafts deleted over 30 days ago", drafts)
             except Exception:
                 logger.exception("Receipt photo cleanup crashed")
             finally:

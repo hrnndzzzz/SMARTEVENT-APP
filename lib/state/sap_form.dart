@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../api/api_client.dart';
 import '../api/models/sap_proposal.dart';
 import '../api/sap_service.dart';
+import '../theme/peso.dart';
 
 /// Which of the six parts a screen is editing.
 enum SapPart {
@@ -532,6 +533,7 @@ class SapForm extends ChangeNotifier {
       0,
       (sum, i) => sum + centavos(i.amount),
     );
+    final over = blank(budget) ? null : overAvailable(budget!);
     return [
       if (blank(d.title)) 'Activity title',
       if (blank(d.organizationName)) 'Organization',
@@ -557,13 +559,38 @@ class SapForm extends ChangeNotifier {
       if (blank(d.objectives)) 'Objectives',
       if (d.coreValues.isEmpty) 'Augustinian core values',
       if (d.egas.isEmpty) 'Expected graduate attributes',
-      if (_programFlow.isEmpty) 'Program flow',
+      if (_programFlow.isEmpty && !hasProgramFlowFile) 'Program flow',
       if (blank(d.emergencyPlan)) 'Emergency plan',
       if (blank(budget)) 'Budget',
+      if (!blank(budget) && overCap(budget!)) budgetCapLabel,
+      if (over != null) 'Budget within the available $over',
       if (blank(d.fundingSource)) 'Source of budget',
       if (!blank(budget) && centavos(budget!) != breakdown)
         'Budget breakdown that adds up to the budget',
+      if (_budgetItems.any(
+        (i) => overCap(i.amount) || overCap(i.unitCost ?? '0'),
+      ))
+        'Budget lines of at most ₱100,000',
     ];
+  }
+
+  /// The most a proposal, or one line of it, may ask for. The server holds
+  /// the same limit: an extra zero typed by mistake is refused.
+  static const int maxPesoCentavos = 100000 * 100;
+  static const String budgetCapLabel = 'Budget of at most ₱100,000';
+  static bool overCap(String amount) => centavos(amount) > maxPesoCentavos;
+
+  /// What is left in the organization's budget, which a proposal may not
+  /// go over. Null when it is not known, and then nothing is checked
+  /// here; the server checks anyway.
+  double? availableBudget;
+
+  /// The available amount, worded, when [amount] is more than it.
+  String? overAvailable(String amount) {
+    final available = availableBudget;
+    if (available == null) return null;
+    if (centavos(amount) <= (available * 100).round()) return null;
+    return peso(available);
   }
 
   /// A peso amount as exact centavos. The server compares decimals
@@ -688,10 +715,15 @@ class SapForm extends ChangeNotifier {
     return _service.attachmentFile(_eventId!, attachmentId);
   }
 
+  bool _hasFile(SapAttachmentCategory category) =>
+      _attachments.any((a) => a.category == category);
+
   /// Whether the ROC or COC the server insists on for an off-campus
   /// submission is already attached.
-  bool get hasRocCoc =>
-      _attachments.any((a) => a.category == SapAttachmentCategory.rocCoc);
+  bool get hasRocCoc => _hasFile(SapAttachmentCategory.rocCoc);
+
+  /// A program flow file stands in for the typed rows.
+  bool get hasProgramFlowFile => _hasFile(SapAttachmentCategory.programFlow);
 
   Future<void> loadAttachments() async {
     final service = _service;

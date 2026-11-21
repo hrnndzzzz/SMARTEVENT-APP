@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../api/models/sap_proposal.dart';
 import '../../state/sap_form.dart';
 import 'proposal_steps.dart';
+import 'sap_attachment_rows.dart';
 import 'sap_form_screen.dart' show MissingForSubmit;
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
@@ -407,8 +408,10 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
                     // columns the office checks the arithmetic against.
                     subtitle: _budgetLine(_form.budgetItems[i]),
                     // The row was only ever a thing to delete. Tapping
-                    // it opens the same sheet with its values in.
+                    // it opens the same sheet with its values in, and
+                    // so does the pencil, for whoever looks for a button.
                     onTap: _editable ? () => _editBudgetLine(i) : null,
+                    onEdit: _editable ? () => _editBudgetLine(i) : null,
                     onRemove: _editable
                         ? () => _form.setBudgetItems(
                             [..._form.budgetItems]..removeAt(i),
@@ -518,7 +521,32 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
                   text:
                       'Letters are not issued automatically; this is the plan '
                       'for them.',
-                ), // Last, not first. Ten long free-text headings opened
+                ),
+                // While filling it in, not only from the finished form:
+                // the files go with the draft and the reviewers see them.
+                if (widget.step != null) ...[
+                  const SizedBox(height: 22),
+                  const BrutSectionTitle('Supporting documents'),
+                  const SizedBox(height: 8),
+                  SapAttachmentRows(form: _form),
+                  if (_editable)
+                    BrutButton(
+                      label: 'Attach a supporting document',
+                      icon: Icons.attach_file,
+                      tone: BrutTone.neutral,
+                      size: BrutSize.small,
+                      busy: _form.saving,
+                      busyLabel: 'Attaching',
+                      onPressed: () => pickAndAttach(
+                        context,
+                        _form,
+                        category: SapAttachmentCategory.other,
+                        dialogTitle: 'Choose a supporting document',
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 22),
+                // Last, not first. Ten long free-text headings opened
                 // this step and buried the breakdown it is named for, which
                 // is also the part with a total that has to agree.
                 const BrutSectionTitle('Other details'),
@@ -623,9 +651,16 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
     super.dispose();
   }
 
+  static String? _overCap(TextEditingController field) =>
+      SapForm.overCap(field.text.trim().isEmpty ? '0' : field.text)
+      ? 'At most ₱100,000.00'
+      : null;
+
   bool get _valid =>
       _particulars.text.trim().isNotEmpty &&
-      (double.tryParse(_amount.text.trim().replaceAll(',', '')) ?? -1) >= 0;
+      (double.tryParse(_amount.text.trim().replaceAll(',', '')) ?? -1) >= 0 &&
+      _overCap(_amount) == null &&
+      _overCap(_unitCost) == null;
 
   @override
   Widget build(BuildContext context) {
@@ -672,6 +707,7 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
                   controller: _unitCost,
                   label: 'Unit cost',
                   hint: '10.00',
+                  errorText: _overCap(_unitCost),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -691,6 +727,7 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
             controller: _amount,
             label: 'Amount',
             hint: '2000.00',
+            errorText: _overCap(_amount),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
           ),

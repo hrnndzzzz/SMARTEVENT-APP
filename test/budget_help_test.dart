@@ -87,9 +87,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.textContaining('That is more than the'), findsOneWidget);
-      // The office decides what it funds. A proposal may well ask for
-      // more than is left today, so this is a warning, not a block.
-      expect(find.textContaining('It can still be sent'), findsOneWidget);
+      // Saved, not sent: the server refuses a budget over what is left.
+      expect(
+        find.textContaining('not sent until it fits'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('an amount within it is left alone', (tester) async {

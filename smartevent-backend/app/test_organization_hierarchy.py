@@ -3,7 +3,7 @@
 import pytest
 from datetime import date
 
-from app.models import AuditLog, CiteMember, Department, Event, EventProposalLetter, Organization
+from app.models import AuditLog, Category, CiteMember, Department, Event, EventProposalLetter, Organization
 from app.test_access_management import system
 from app.test_file_access import signer
 
@@ -306,6 +306,8 @@ def test_lead_officers_can_prepare_and_submit_owned_sap_without_sds_powers(syste
     event = resources[0]["events"]
     event.status, event.proposed_by = "draft", users["officer"].id
     event.allocated_budget = event.remaining_budget = 2500
+    for category in db.query(Category):  # enough left in the budget for the ₱2,500 proposal
+        category.remaining_budget = 2500
     officer_position(system, position)
     monkeypatch.setattr(settings, "sap_verification_base_url", "https://example.org/sap/verify")
     monkeypatch.setattr("app.services.sap.institution_today", lambda: date(2026, 9, 27))
