@@ -25,8 +25,9 @@ class RemoteInventoryItem {
   /// confirmed — and confirming does not add stock.
   final bool isDraft;
 
-  /// The event this belongs to. Legacy rows may have none, which is what
-  /// the `missing_event` filter and the repair flow are for.
+  /// The event this belongs to, or null for stock kept outside any event.
+  /// The `missing_event` filter finds those; an administrator may link one
+  /// once.
   final String? eventId;
 
   final String? departmentId;
@@ -56,12 +57,8 @@ class RemoteInventoryItem {
   /// it has any transaction or purchase provenance.
   bool get isEmpty => quantity == 0;
 
-  /// A legacy row with no event, which keeps it out of event-filtered
-  /// reporting until an administrator repairs it.
-  bool get needsEventLink => eventId == null;
-
-  /// Usable for ordinary movements: confirmed, and linked to an event.
-  bool get isUsable => !isDraft && eventId != null;
+  /// Usable for ordinary movements: confirmed. An event is optional.
+  bool get isUsable => !isDraft;
 
   factory RemoteInventoryItem.fromJson(Map<String, dynamic> json) {
     return RemoteInventoryItem(

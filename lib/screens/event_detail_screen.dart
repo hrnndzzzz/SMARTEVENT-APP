@@ -398,10 +398,10 @@ class EventDetailScreen extends StatelessWidget {
                 ),
               ],
 
-              // Taking your own proposal back, while it is still anyone's
-              // to decide on. Once it has been approved or returned the
-              // decision is the record, and withdrawing it would erase
-              // someone else's.
+              // Taking your own proposal back to edit: one sent by mistake,
+              // until the SDS Office signs it, or one it rejected. What the
+              // reviewers wrote stays on the submitted copy. A returned one
+              // is already a draft, and an approved one is the record.
               //
               // Your own: this asked only whether the account may propose
               // at all, so a reviewer opening someone else's submission
@@ -412,10 +412,13 @@ class EventDetailScreen extends StatelessWidget {
               // proposal it is.
               if ((isOwnProposal || event.proposedBy == null) &&
                   app.mayProposeEvents &&
-                  event.status.isPending) ...[
+                  (event.status.isPending ||
+                      event.status == EventApprovalStatus.rejected)) ...[
                 const SizedBox(height: 14),
                 BrutButton(
-                  label: 'Cancel this proposal',
+                  label: event.status == EventApprovalStatus.rejected
+                      ? 'Reopen for editing'
+                      : 'Cancel this proposal',
                   icon: Icons.undo,
                   tone: BrutTone.coral,
                   onPressed: app.isOfflineViewing

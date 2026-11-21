@@ -9,7 +9,7 @@ backend version against Supabase.
 
 | Adviser recommendation | Implementation |
 | --- | --- |
-| Link all inventory records to their events | New catalog items require an initial/intended event. Every new stock movement also requires the actual usage/receipt event. Links must belong to the same organization and department as the item. Legacy missing links are explicitly discoverable and repairable. |
+| Link all inventory records to their events | A catalog item and each stock movement name their event when there is one. Stock kept or moved outside any event (a loan, breakage in storage) is recorded with no event. Links must belong to the same organization and department as the item. Items with no event are discoverable with `missing_event=true` and can be linked once. |
 | Classify every inventory transaction | Typed opening balances, acquisition, donation, purchase, issue, return, disposal, and adjustment. Each movement has a nonblank reason, event, actor, quantity, and timestamp. |
 | Add purchased items only after completed purchase and complete details | Approval no longer adds stock. A separate completion action requires an approved expense, linked receipt, full payment details, delivery confirmation, vendor, and explicit asset quantities/units. It records stock and ledger entries atomically and prevents duplicate receipt of the same purchase. |
 
@@ -66,7 +66,7 @@ operational inventory access.
 
 Department Admins inherit their department and default organization, and may
 select another organization in that department. Super Admin supplies both IDs.
-`event_id` is required, even for a zero-stock catalog item.
+`event_id` is optional: leave it out for stock that belongs to no event.
 Positive starting stock produces a corresponding opening movement in the same
 commit. Valid initial types are `opening_balance`, `acquisition`, or `donation`;
 `purchase` cannot be used to bypass the completed-purchase workflow.
@@ -101,8 +101,9 @@ entries are not received stock and do not increase any stock balance.
 | `legacy` | Historical only | Existing rows awaiting verified classification |
 
 Zero quantity and wrong direction return 422. Insufficient stock, excessive
-returns, unconfirmed drafts, or missing legacy event links return 409. A return
-cannot exceed that item's outstanding issues for the same event. Stock updates
+returns, or unconfirmed drafts return 409. `event_id` is optional. A return
+cannot exceed that item's outstanding issues for the same event, or, with no
+event, its outstanding issues made with no event. Stock updates
 and movement entries occur in one transaction, with row locking to serialize
 competing stock changes in PostgreSQL.
 
@@ -214,11 +215,11 @@ are audited within their transaction.
 
 1. Run `.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider app`.
 2. As Admin, create inventory with event and positive opening quantity. Confirm one
-   opening ledger entry, its type/event, and unchanged starting balance. Omit an
-   event or try an initial `purchase` type: 422.
+   opening ledger entry, its type/event, and unchanged starting balance. An item
+   with no event is accepted; an initial `purchase` type is 422.
 3. As Treasurer/Adviser, issue stock for an authorized event, then return part/all.
    Verify quantities and history. Over-return, zero movement, wrong signs,
-   over-withdrawal, blank reason, and missing type/event must be blocked.
+   over-withdrawal, blank reason, and missing type must be blocked.
 4. Try a foreign organization's event/item, Officer write, and SDS read: 403.
 5. Create an asset expense, with receipt, line amount, quantity, and unit. Approve
    independently. Stock must not change and no catalog row should be created yet.

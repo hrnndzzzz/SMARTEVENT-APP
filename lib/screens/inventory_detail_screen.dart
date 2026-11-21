@@ -187,11 +187,9 @@ class _InventoryDetailScreenState extends State<InventoryDetailScreen> {
             BrutInlineMessage(
               tone: BrutTone.sun,
               icon: Icons.lock_outline,
-              text: item.isDraft
-                  ? 'Movements are unavailable until this draft is '
-                        'confirmed by an administrator.'
-                  : 'Movements need an event link. An administrator can '
-                        'repair this record.',
+              text:
+                'Movements are unavailable until this draft is '
+                'confirmed by an administrator.',
             ),
           ],
 
@@ -419,8 +417,8 @@ class _MovementSheetState extends State<_MovementSheet> {
   @override
   void initState() {
     super.initState();
-    // Default to the item's own event; a movement still needs one chosen.
-    _eventId = widget.item.eventId;
+    // Default to the item's own event, or to No event when it has none.
+    _eventId = widget.item.eventId ?? noEventChoice;
   }
 
   @override
@@ -452,7 +450,7 @@ class _MovementSheetState extends State<_MovementSheet> {
 
   Future<void> _submit() async {
     if (_eventId == null) {
-      setState(() => _error = 'Choose the event this movement is for.');
+      setState(() => _error = 'Choose an event, or No event.');
       return;
     }
 
@@ -464,7 +462,7 @@ class _MovementSheetState extends State<_MovementSheet> {
     final error = await context.read<AppState>().recordInventoryMovement(
       widget.item,
       type: _type,
-      eventId: _eventId!,
+      eventId: _eventId == noEventChoice ? null : _eventId,
       count: _count,
       reason: _reasonController.text,
     );
@@ -480,7 +478,7 @@ class _MovementSheetState extends State<_MovementSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events = eventPickerItems(
+    final events = inventoryEventChoices(
       context.watch<AppState>().events,
       keep: _eventId,
     );
@@ -542,7 +540,7 @@ class _MovementSheetState extends State<_MovementSheet> {
           BrutDropdown<String>(
             label: 'Event',
             value: _eventId,
-            hint: 'Select an event',
+            hint: 'Select an event, or No event',
             items: events,
             onChanged: (v) => setState(() => _eventId = v),
           ),
