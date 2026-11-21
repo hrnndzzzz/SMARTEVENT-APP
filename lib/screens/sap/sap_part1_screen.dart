@@ -376,6 +376,18 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
   /// The file is checked for type and size before it is sent, so a wrong
   /// one is refused here rather than after the whole transfer.
   Future<void> _attachRocCoc() async {
+    // An attachment belongs to a proposal, and until Part 1 has been
+    // saved once there is no proposal to attach it to. Reported from a
+    // handset: choosing a file on step 2 and being told "this proposal
+    // has not been saved to the server yet" — after the file had been
+    // picked, with nothing said about what to do instead. The proposal
+    // is made here, the way leaving the form already makes it.
+    if (widget.onCreateEvent case final create? when !_form.hasEvent) {
+      _collect();
+      // create() says what is missing (a title and a date) itself.
+      if (!await create(context) || !mounted) return;
+    }
+
     final picked = await FilePicker.pickFiles(
       dialogTitle: 'Choose the signed ROC or COC',
       type: FileType.custom,

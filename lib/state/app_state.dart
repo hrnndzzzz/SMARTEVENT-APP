@@ -3504,6 +3504,14 @@ class AppState extends ChangeNotifier {
     if (!_demoMode) {
       try {
         await _eventService.delete(eventId);
+      } on ApiException catch (error) {
+        // A 404 means the row is already gone — deleted elsewhere, or
+        // never written in the first place. Reported as a failure it
+        // left the draft in the list with no way to clear it: every
+        // attempt asked the server to delete something that was not
+        // there, and every attempt was refused. Gone is what the
+        // person asked for, so take it.
+        if (error.statusCode != 404) return _messageForFailure(error);
       } catch (error) {
         return _messageForFailure(error);
       }
