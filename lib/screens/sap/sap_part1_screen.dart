@@ -371,6 +371,51 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
     ).difference(DateTime(from.year, from.month, from.day)).inDays;
   }
 
+  /// What the organization has left, under the amount being typed.
+  ///
+  /// Asked for from a handset: "wala kayo functions na habang nagtype
+  /// ng budget makita ko na yung available budget ng org? para sa
+  /// system palng alam ko na exceed na yung amount". The figures were
+  /// already loaded for the dashboard; nothing here asks the server
+  /// for anything.
+  ///
+  /// Silent when the categories have not been loaded, because an empty
+  /// list and a genuinely empty budget look identical from here and
+  /// printing a confident zero would be worse than saying nothing.
+  List<Widget> _budgetAgainstBalance(BuildContext context) {
+    AppState? app;
+    try {
+      app = context.watch<AppState>();
+    } on ProviderNotFoundException {
+      return const [];
+    }
+    if (app.categories.isEmpty) return const [];
+
+    final left = app.remainingBalance;
+    final asked = double.tryParse(_budget.text.trim().replaceAll(',', ''));
+    final over = asked != null && asked > left;
+
+    return [
+      const SizedBox(height: 8),
+      if (over)
+        BrutInlineMessage(
+          tone: BrutTone.coral,
+          icon: Icons.account_balance_wallet_outlined,
+          // Not a refusal: the office decides what it will fund, and a
+          // proposal may well ask for more than is left today.
+          text:
+              'That is more than the ${peso(left)} your organization has '
+              'left. It can still be sent; the office decides.',
+        )
+      else
+        Text(
+          '${peso(left)} left of ${peso(app.totalAllocated)} allocated '
+          'to your organization.',
+          style: AppText.caption,
+        ),
+    ];
+  }
+
   /// Attaches the ROC or COC an off-campus submission cannot go without.
   ///
   /// The file is checked for type and size before it is sent, so a wrong
@@ -1104,7 +1149,11 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    // Only so the figure below it keeps up. The field
+                    // itself still folds into the model in _collect().
+                    onChanged: (_) => setState(() {}),
                   ),
+                  ..._budgetAgainstBalance(context),
                   if (_editable) ...[
                     const SizedBox(height: 8),
                     if (_suggestion case final s?) ...[

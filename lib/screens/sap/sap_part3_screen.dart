@@ -196,7 +196,9 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
   Future<void> _showMissing() async {
     final byStep = <int, List<String>>{};
     for (final item in _form.missingForSubmit) {
-      byStep.putIfAbsent(ProposalSteps.stepForMissing(item), () => []).add(item);
+      byStep
+          .putIfAbsent(ProposalSteps.stepForMissing(item), () => [])
+          .add(item);
     }
     final steps = byStep.keys.toList()..sort();
 
@@ -271,6 +273,19 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
       _form.setBudgetItems([..._form.budgetItems, line]);
       if (!another) return;
     }
+  }
+
+  /// Changes a line in place, rather than deleting it and typing all
+  /// four fields again.
+  Future<void> _editBudgetLine(int index) async {
+    final result = await showModalBottomSheet<_BudgetLineResult>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _BudgetLineSheet(initial: _form.budgetItems[index]),
+    );
+    if (result == null || !mounted) return;
+    final (line, _) = result;
+    _form.setBudgetItems([..._form.budgetItems]..[index] = line);
   }
 
   Future<void> _addClass() async {
@@ -391,6 +406,9 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
                     // coming to what. Showing only the total hid the two
                     // columns the office checks the arithmetic against.
                     subtitle: _budgetLine(_form.budgetItems[i]),
+                    // The row was only ever a thing to delete. Tapping
+                    // it opens the same sheet with its values in.
+                    onTap: _editable ? () => _editBudgetLine(i) : null,
                     onRemove: _editable
                         ? () => _form.setBudgetItems(
                             [..._form.budgetItems]..removeAt(i),
@@ -545,7 +563,13 @@ class _SapPart3ScreenState extends State<SapPart3Screen> {
 }
 
 class _BudgetLineSheet extends StatefulWidget {
-  const _BudgetLineSheet();
+  const _BudgetLineSheet({this.initial});
+
+  /// The line being changed, or null when a new one is being added.
+  /// Reported from a handset: "di pala sya pwede edit lang? ang option
+  /// lang ay iclose yung X at gumawa ulit bago" — a typo in an amount
+  /// meant deleting the row and typing all four fields again.
+  final SapBudgetItem? initial;
 
   @override
   State<_BudgetLineSheet> createState() => _BudgetLineSheetState();
@@ -571,10 +595,24 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
     another,
   ));
 
-  final _particulars = TextEditingController();
-  final _quantity = TextEditingController();
-  final _unitCost = TextEditingController();
-  final _amount = TextEditingController();
+  late final _particulars = TextEditingController(
+    text: widget.initial?.particulars ?? '',
+  );
+  late final _quantity = TextEditingController(
+    // One is the default, and printing "1" into an empty row would
+    // make every line look as though somebody typed it.
+    text: (widget.initial?.quantity ?? 1) == 1
+        ? ''
+        : '${widget.initial!.quantity}',
+  );
+  late final _unitCost = TextEditingController(
+    text: widget.initial?.unitCost ?? '',
+  );
+  late final _amount = TextEditingController(
+    text: widget.initial?.amount ?? '',
+  );
+
+  bool get _editing => widget.initial != null;
 
   @override
   void dispose() {
@@ -602,7 +640,7 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const BrutSectionTitle('Budget line'),
+          BrutSectionTitle(_editing ? 'Edit this line' : 'Budget line'),
           const SizedBox(height: 12),
           BrutTextField(
             controller: _particulars,
@@ -664,17 +702,21 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: BrutButton(
-                    label: 'Add another',
-                    tone: BrutTone.neutral,
-                    onPressed: _valid ? () => _done(another: true) : null,
+                // Only when adding. "Add another" after changing a line
+                // would be two different actions behind one word.
+                if (!_editing) ...[
+                  Expanded(
+                    child: BrutButton(
+                      label: 'Add another',
+                      tone: BrutTone.neutral,
+                      onPressed: _valid ? () => _done(another: true) : null,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                   child: BrutButton(
-                    label: 'Add',
+                    label: _editing ? 'Save' : 'Add',
                     onPressed: _valid ? () => _done(another: false) : null,
                   ),
                 ),
