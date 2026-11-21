@@ -64,7 +64,7 @@ abstract final class NotificationMenu {
 
 /// How a notice looks, by what produced it.
 ///
-/// The backend names two kinds today. Anything it adds later gets the
+/// The backend names three kinds today. Anything it adds later gets the
 /// neutral treatment rather than no treatment, so a new kind appears as
 /// a plain notice instead of disappearing.
 ({IconData icon, BrutTone tone, String tag}) _styleOf(AppNotice notice) {
@@ -73,6 +73,11 @@ abstract final class NotificationMenu {
       icon: Icons.description_outlined,
       tone: BrutTone.brand,
       tag: 'Form',
+    ),
+    'download_request' => (
+      icon: Icons.download_outlined,
+      tone: BrutTone.sun,
+      tag: 'Request',
     ),
     'registration_confirmation' => (
       icon: Icons.person_add_alt,

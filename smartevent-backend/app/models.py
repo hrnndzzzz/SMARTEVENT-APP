@@ -485,3 +485,59 @@ class EventProposalLetter(Base):
     document_url = Column(Text, nullable=False)
     submitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class DownloadRequest(Base):
+    """Somebody asking the department for the app, from the public website.
+
+    Not a user and not an account: whoever fills in the form has no
+    sign-in and may never get one. The row exists so a request cannot be
+    lost in a mailbox, so the same address cannot queue twice, and so
+    the department can see who asked and why before handing out a build.
+
+    One pending request per address, enforced in the database by a
+    partial unique index rather than a read-then-write: two submissions
+    arriving together would both pass the read. That index is what the
+    website's 409 is made of.
+    """
+
+    __tablename__ = "download_requests"
+    __table_args__ = (
+        Index('uq_download_request_pending', text('lower(email)'), unique=True,
+              postgresql_where=text("status = 'pending'"),
+              sqlite_where=text("status = 'pending'")),
+        CheckConstraint("status IN ('pending','approved','rejected')", name='download_request_status_valid'),
+        CheckConstraint("email_status IN ('not_sent','sent','failed')", name='download_request_email_status_valid'),
+        # Mirrors the migration, so the tests enforce what the database
+        # will: a row of whitespace is not a request.
+        CheckConstraint(
+            "length(trim(name)) > 1 AND length(trim(email)) > 2 AND length(trim(organization)) > 1"
+            " AND length(trim(role)) > 1 AND length(trim(reason)) > 9",
+            name='download_request_text_present'),
+        # Decided means decided by somebody, at a time, and only then.
+        CheckConstraint(
+            "(status = 'pending' AND decided_by IS NULL AND decided_at IS NULL)"
+            " OR (status <> 'pending' AND decided_by IS NOT NULL AND decided_at IS NOT NULL)",
+            name='download_request_decision_complete'),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(150), nullable=False)
+    email = Column(String(255), nullable=False, index=True)
+    organization = Column(String(150), nullable=False)
+    # Free text, not the User role enum: it is what the visitor says they
+    # are, which nobody has checked. The website offers a list; a request
+    # naming something else is still a request worth reading.
+    role = Column(String(50), nullable=False)
+    reason = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, default='pending')
+    # Who decided, and when. Null while it waits.
+    decided_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    # The decider's words, shown to nobody but the department.
+    note = Column(Text, nullable=True)
+    # Whether the approval email reached them. A failure here does not
+    # undo the approval: the link can be sent by hand, and the row says
+    # it has to be.
+    email_status = Column(String(20), nullable=False, default='not_sent')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
