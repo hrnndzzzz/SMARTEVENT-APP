@@ -109,11 +109,11 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
 (set up once from `render.yaml`: Render Dashboard → New → Blueprint).
 
 - **It sleeps after 15 minutes idle.** The first request after that takes about a
-  minute; open `https://<service>.onrender.com/health` before a demo to wake it.
+  minute; open `https://api.smartevent.date/health` before a demo to wake it.
 - **SAP PDFs are printed with LibreOffice there**, not Word, so check a printout
   after each change to the SAP form.
 - **The app points at it** when built with
-  `flutter build apk --release --target-platform android-arm64 --dart-define=SMARTEVENT_API_BASE_URL=https://<service>.onrender.com --dart-define=SMARTEVENT_RELEASE_TAG=<tag>`,
+  `flutter build apk --release --target-platform android-arm64 --dart-define=SMARTEVENT_API_BASE_URL=https://api.smartevent.date --dart-define=SMARTEVENT_RELEASE_TAG=<tag>`,
   or by typing the address in the app's Settings → Backend. `<tag>` is the GitHub
   release the APK goes out as (such as `v1.0.4`). The app compares it with the latest
   release to offer updates, so it must match; a build without it never checks.

@@ -221,6 +221,26 @@ class EventItem {
     return parts.isEmpty ? 'No school year set' : parts.join(' · ');
   }
 
+  /// The same thing in a width a badge can hold.
+  ///
+  /// Reported from a handset: the events list was showing "Pending
+  /// Adviser…", "Rejected by the …" and "With the signat…". A status
+  /// chip clipped mid-word is worse than a short one — it is the only
+  /// thing on the row saying where the activity has got to, and the
+  /// clipped versions of two different statuses can read the same.
+  ///
+  /// Who rejected it is dropped rather than cut: the detail screen
+  /// names them, and "Rejected by the …" named nobody.
+  String get statusShort => switch (status) {
+    EventApprovalStatus.draft => 'Draft',
+    EventApprovalStatus.pendingAdviser => 'With adviser',
+    EventApprovalStatus.pendingAdmin => 'With admin',
+    EventApprovalStatus.pendingInstitutional => 'With signatories',
+    EventApprovalStatus.approved => 'Approved',
+    EventApprovalStatus.rejected => 'Rejected',
+    EventApprovalStatus.completed => 'Completed',
+  };
+
   String get statusLabel => switch (status) {
     EventApprovalStatus.draft => 'Draft',
     EventApprovalStatus.pendingAdviser => 'Pending Adviser Review',

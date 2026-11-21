@@ -386,7 +386,9 @@ class _EventCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: BrutBadge(
-                            label: event.statusLabel,
+                            // The row is narrow and the full label
+                            // was being clipped mid-word.
+                            label: event.statusShort,
                             tone: tone,
                           ),
                         ),
