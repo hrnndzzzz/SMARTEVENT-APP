@@ -40,7 +40,6 @@ void main() {
 
     for (final status in [
       EventApprovalStatus.approved,
-      EventApprovalStatus.rejected,
       EventApprovalStatus.completed,
       EventApprovalStatus.draft,
     ]) {
@@ -52,14 +51,15 @@ void main() {
     }
   });
 
-  test('the decision that was made is not erased by it', () async {
+  test('a rejected proposal reopens as a draft', () async {
     final app = AppState()..enterDemo(role: UserRole.treasurer);
     final event = pendingEvent(app)
       ..status = EventApprovalStatus.rejected
       ..rejectedBy = 'The SDS Office';
+    final title = event.title;
 
-    await app.cancelProposal(event);
-
-    expect(event.rejectedBy, 'The SDS Office');
+    expect(await app.cancelProposal(event), isNull);
+    expect(event.status, EventApprovalStatus.draft);
+    expect(event.title, title);
   });
 }

@@ -57,7 +57,10 @@ void main() {
       tester,
     ) async {
       await open(tester, UserRole.officer);
-      await tester.tap(moveButtons().first);
+      // An item with stock: Deduct must still leave a count to project.
+      await tester.tap(
+        find.bySemanticsLabel('Record a movement for Folding tables'),
+      );
       await settle(tester);
 
       expect(find.text('Add stock'), findsOneWidget);

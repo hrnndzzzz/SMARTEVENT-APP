@@ -210,12 +210,11 @@ class SapService {
     });
   }
 
-  /// `POST /withdraw` — the proposer takes an unreviewed proposal back
-  /// to draft so they can change or drop it.
+  /// `POST /withdraw` — the proposer takes a submitted or rejected
+  /// proposal back to draft so they can change or drop it.
   ///
-  /// The server refuses with 409 once the SDS Office has started: a
-  /// review row or any recorded checkpoint closes the door, and the way
-  /// back is then a return for changes, not a withdrawal. It keeps the
+  /// The server refuses with 409 once the SDS Office has signed. Notes and
+  /// recorded checkpoints stay on the submitted revision. It keeps the
   /// revision number and re-stages the attachments for the next submit,
   /// so nothing already submitted is erased.
   Future<SapProposal> withdraw(String eventId, {required int expectedVersion}) {

@@ -407,7 +407,7 @@ class _FilterBar extends StatelessWidget {
           ),
         if (isAdmin)
           BrutChip(
-            label: 'Needs event link',
+            label: 'No event',
             selected: missing,
             onTap: () => app.applyCatalogFilter(missingEventOnly: true),
           ),
@@ -487,8 +487,6 @@ class _ItemCard extends StatelessWidget {
                   // not.
                   tone: BrutTone.sun,
                 ),
-              if (item.needsEventLink)
-                const BrutBadge(label: 'No event link', tone: BrutTone.coral),
               if (item.location?.isNotEmpty == true)
                 BrutBadge(label: item.location!, mono: true),
             ],
@@ -542,6 +540,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
   final _locationController = TextEditingController();
   final _reasonController = TextEditingController(text: 'Opening stock');
 
+  /// The chosen event, or [noEventChoice] for stock that belongs to none.
   String? _eventId;
   InitialStockType _initialType = InitialStockType.openingBalance;
   bool _submitting = false;
@@ -560,7 +559,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
   }
 
   String? _validate() {
-    if (_eventId == null) return 'Choose the event this belongs to.';
+    if (_eventId == null) return 'Choose an event, or No event.';
     if (_nameController.text.trim().isEmpty) return 'Give the item a name.';
 
     final quantity = int.tryParse(_quantityController.text.trim());
@@ -592,7 +591,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
 
     final app = context.read<AppState>();
     final error = await app.createInventoryItem(
-      eventId: _eventId!,
+      eventId: _eventId == noEventChoice ? null : _eventId,
       itemName: _nameController.text.trim(),
       description: _descriptionController.text.trim().isEmpty
           ? null
@@ -623,7 +622,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final events = eventPickerItems(
+    final events = inventoryEventChoices(
       context.watch<AppState>().events,
       keep: _eventId,
     );
@@ -644,7 +643,7 @@ class _NewItemSheetState extends State<_NewItemSheet> {
           BrutDropdown<String>(
             label: 'Event',
             value: _eventId,
-            hint: events.isEmpty ? 'No events available' : 'Select an event',
+            hint: 'Select an event, or No event',
             items: events,
             onChanged: (v) => setState(() => _eventId = v),
           ),

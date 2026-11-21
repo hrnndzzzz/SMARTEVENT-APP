@@ -58,7 +58,7 @@ class InventoryService {
   /// as opening stock: that would bypass payment completion and lose the
   /// link to the expense that paid for them.
   Future<RemoteInventoryItem> create({
-    required String eventId,
+    String? eventId,
     required String itemName,
     String? description,
     int quantity = 0,
@@ -73,7 +73,7 @@ class InventoryService {
     final response = await _client.post(
       '/inventory',
       body: {
-        'event_id': eventId,
+        if (eventId != null) 'event_id': eventId,
         'item_name': itemName,
         if (description != null) 'description': description,
         'quantity': quantity,
@@ -155,11 +155,12 @@ class InventoryService {
   /// [changeQty] is signed and must not be zero; use `signedChangeFor` to
   /// derive it from a positive count. A `purchase` type is refused with a
   /// 409 — that comes from completing an expense. Stock may never go
-  /// negative, and a return may not exceed what is still out for that event.
+  /// negative, and a return may not exceed what is still out for that event
+  /// (or, with no [eventId], what went out under no event).
   Future<InventoryMovement> recordMovement(
     String inventoryId, {
     required InventoryMovementType type,
-    required String eventId,
+    String? eventId,
     required int changeQty,
     required String reason,
   }) async {
@@ -167,7 +168,7 @@ class InventoryService {
       '/inventory/$inventoryId/transactions',
       body: {
         'transaction_type': type.wireName,
-        'event_id': eventId,
+        if (eventId != null) 'event_id': eventId,
         'change_qty': changeQty,
         'reason': reason,
       },

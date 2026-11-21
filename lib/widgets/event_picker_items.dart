@@ -70,6 +70,19 @@ List<DropdownMenuItem<String>> eventPickerItems(
   return [for (final group in groups.values) ...group, ...kept];
 }
 
+/// The picker value for stock kept or moved outside any event; it is sent
+/// as no event at all.
+const noEventChoice = '';
+
+/// [eventPickerItems] for stock, led by a "No event" choice.
+List<DropdownMenuItem<String>> inventoryEventChoices(
+  List<EventItem> events, {
+  String? keep,
+}) => [
+  const DropdownMenuItem(value: noEventChoice, child: Text('No event')),
+  ...eventPickerItems(events, keep: keep),
+];
+
 class _EventRow extends StatelessWidget {
   const _EventRow({required this.title, required this.dot});
 

@@ -68,6 +68,18 @@ void main() {
     expect(find.text('Cancel this proposal'), findsOneWidget);
   });
 
+  testWidgets('and can reopen it after a rejection', (tester) async {
+    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final event = app.events.firstWhere(
+      (e) => e.status == EventApprovalStatus.pendingAdviser,
+    )..status = EventApprovalStatus.rejected;
+
+    await open(tester, app, event);
+
+    expect(find.text('Reopen for editing'), findsOneWidget);
+    expect(find.text('Cancel this proposal'), findsNothing);
+  });
+
   testWidgets('and still does not decide on it', (tester) async {
     // The guard that matters: nobody reviews their own proposal, which
     // the API enforces anyway.

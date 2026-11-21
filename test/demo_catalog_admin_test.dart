@@ -50,7 +50,6 @@ void main() {
       final before = app.catalog.length;
 
       final error = await app.createInventoryItem(
-        eventId: '',
         itemName: 'Folding chair',
         description: 'Stackable, grey',
         quantity: 24,
@@ -68,7 +67,6 @@ void main() {
     test('its opening stock is on the ledger, not conjured onto the row', () async {
       final app = admin();
       await app.createInventoryItem(
-        eventId: '',
         itemName: 'Folding chair',
         quantity: 24,
         unit: 'pcs',
@@ -91,7 +89,6 @@ void main() {
     test('an item created with no stock gets no phantom movement', () async {
       final app = admin();
       await app.createInventoryItem(
-        eventId: '',
         itemName: 'Spare projector lamp',
         quantity: 0,
         unit: 'pcs',
@@ -109,7 +106,6 @@ void main() {
     test('a created item survives a filter', () async {
       final app = admin();
       await app.createInventoryItem(
-        eventId: '',
         itemName: 'Folding chair',
         quantity: 24,
         unit: 'pcs',

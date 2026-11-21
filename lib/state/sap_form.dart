@@ -567,11 +567,10 @@ class SapForm extends ChangeNotifier {
     return whole * 100 + frac;
   }
 
-  /// Takes an unreviewed proposal back to draft.
+  /// Takes a submitted or rejected proposal back to draft.
   ///
-  /// Refused with a 409 once the SDS Office has started on it, which
-  /// `_write` surfaces as the error text the server sent — the way back
-  /// is a return for changes at that point, not a withdrawal.
+  /// Refused with a 409 once the SDS Office has signed it, which `_write`
+  /// surfaces as the error text the server sent.
   Future<bool> withdraw() => _write(
     (s, v) => s.withdraw(_eventId!, expectedVersion: v),
     requireServer: true,

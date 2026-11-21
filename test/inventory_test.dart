@@ -151,10 +151,8 @@ void main() {
       expect(_item(isDraft: false).isUsable, isTrue);
     });
 
-    test('an item with no event link is not usable either', () {
-      final orphan = _item(eventId: null);
-      expect(orphan.needsEventLink, isTrue);
-      expect(orphan.isUsable, isFalse);
+    test('an item kept outside any event is usable', () {
+      expect(_item(eventId: null).isUsable, isTrue);
     });
 
     test('empty stock is a precondition for deletion, not a guarantee', () {

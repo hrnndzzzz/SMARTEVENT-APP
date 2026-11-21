@@ -1665,8 +1665,9 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// A null [eventId] is stock that belongs to no event.
   Future<String?> createInventoryItem({
-    required String eventId,
+    String? eventId,
     required String itemName,
     String? description,
     int quantity = 0,
@@ -1689,7 +1690,7 @@ class AppState extends ChangeNotifier {
         lowStockThreshold: lowStockThreshold,
         location: location,
         isDraft: false,
-        eventId: eventId.isEmpty ? null : eventId,
+        eventId: eventId,
         departmentId: departmentId ?? 'demo-dept-1',
         organizationId: organizationId ?? 'demo-org-1',
         createdAt: now,
@@ -1705,7 +1706,7 @@ class AppState extends ChangeNotifier {
           InventoryMovement(
             id: 'demo-mv-${item.id}-0',
             inventoryId: item.id,
-            eventId: null,
+            eventId: eventId,
             changeQty: quantity,
             type: initialTransactionType == InitialStockType.openingBalance
                 ? InventoryMovementType.openingBalance
@@ -1851,11 +1852,12 @@ class AppState extends ChangeNotifier {
   /// Records a stock movement.
   ///
   /// [count] is the positive number the user typed; the sign is applied
-  /// from the movement type so nobody has to reason about negatives.
+  /// from the movement type so nobody has to reason about negatives. A null
+  /// [eventId] is a movement outside any event.
   Future<String?> recordInventoryMovement(
     RemoteInventoryItem item, {
     required InventoryMovementType type,
-    required String eventId,
+    String? eventId,
     required String count,
     required String reason,
   }) async {
@@ -1884,7 +1886,7 @@ class AppState extends ChangeNotifier {
         InventoryMovement(
           id: 'demo-mv-${item.id}-${DateTime.now().microsecondsSinceEpoch}',
           inventoryId: item.id,
-          eventId: eventId.isEmpty ? null : eventId,
+          eventId: eventId,
           changeQty: change,
           type: type,
           reason: reason.trim(),
@@ -3514,23 +3516,25 @@ class AppState extends ChangeNotifier {
   /// Returns null on success, or an error message. Matches the
   /// backend's real Edit Proposal flow: PATCH the edited fields, then
   /// submit() to actually transition the status server-side.
-  /// Takes a submitted proposal back, so it can be changed or dropped.
+  /// Takes a submitted proposal back, so it can be changed or dropped: one
+  /// sent by mistake, or one the SDS Office rejected.
   ///
-  /// Only the proposer, and only while nobody has decided on it: once it
-  /// is approved or returned, the decision is the record and withdrawing
-  /// it would erase someone else's.
+  /// Only the proposer, and only until the SDS Office signs it. Notes and
+  /// signatures already made stay on the submitted copy as its record; the
+  /// edited one is reviewed again.
   ///
-  /// Backed by `POST .../sap-proposal/withdraw`, which the backend added
-  /// on 24 Oct. It keeps the submitted revision and re-stages the
-  /// attachments, so withdrawing loses nothing; the server is the one
-  /// that decides whether the SDS Office has started, and its refusal is
-  /// shown as it wrote it.
+  /// Backed by `POST .../sap-proposal/withdraw`. It keeps the submitted
+  /// revision and re-stages the attachments, so withdrawing loses nothing;
+  /// the server is the one that decides whether the SDS Office has signed,
+  /// and its refusal is shown as it wrote it.
   ///
   /// Only SAP events have this route. An event on the plain workflow has
   /// no withdrawal, and gets told that rather than a 404.
   Future<String?> cancelProposal(EventItem event) async {
-    if (!event.status.isPending) {
-      return 'Only a proposal still waiting on a decision can be taken back.';
+    if (!event.status.isPending &&
+        event.status != EventApprovalStatus.rejected) {
+      return 'Only a proposal still under review, or a rejected one, can be '
+          'taken back.';
     }
 
     if (_demoMode) {
