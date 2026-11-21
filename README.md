@@ -117,6 +117,42 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
   or by typing the address in the app's Settings → Backend. `<tag>` is the GitHub
   release the APK goes out as (such as `v1.0.4`). The app compares it with the latest
   release to offer updates, so it must match; a build without it never checks.
+- **Signing: an APK anybody else installs needs the shared release key.** Android
+  refuses an update signed by a different key than the installed copy, and each
+  machine generates its own debug keystore — so two of us building "release" APKs
+  produced builds that would not install over each other
+  (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`), only a reinstall that wipes the data.
+
+  One key, held by both of us, fixes it for good. Make it once:
+
+  ```
+  keytool -genkeypair -v -keystore ~/smartevent-release.jks -storetype PKCS12 \
+    -keyalg RSA -keysize 2048 -validity 10000 -alias smartevent
+  ```
+
+  Then write `android/key.properties`, which is gitignored and must never be
+  committed:
+
+  ```
+  storeFile=/Users/you/smartevent-release.jks
+  storePassword=...
+  keyAlias=smartevent
+  keyPassword=...
+  ```
+
+  Send the `.jks` and the two passwords to each other privately — not through the
+  repository, an issue, or a pull request. Keep a copy somewhere you will not lose
+  it: lose the key and no future build can ever update an installed app.
+
+  Without `key.properties` the build still works and falls back to this machine's
+  debug key, which is fine for `flutter run` and for your own handset. It is not
+  fine for the APK on the website. Check which key an APK carries with
+  `apksigner verify --print-certs <apk>` — `CN=Android Debug` means it was the
+  fallback.
+
+  Everyone holding the current debug-signed build has to uninstall once when the
+  first properly signed APK goes out, so do that changeover before handing the
+  link around rather than after.
 - `DATABASE_URL` must be Supabase's **Session pooler** address (Render has no
   IPv6) ending in `?sslmode=verify-full&sslrootcert=/srv/certs/supabase-ca.crt`.
   The certificate comes from Supabase → Project Settings → Database → SSL.

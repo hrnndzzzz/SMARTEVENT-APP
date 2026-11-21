@@ -44,6 +44,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 .env
 # Backups too: a timestamped copy is still the whole file.
@@ -70,3 +71,11 @@ node_modules/
 
 # Renders from test/render_screens.dart — a look at a screen, not a fixture.
 test/goldens/
+
+# The release signing key, wherever in the tree it lands. Shared
+# privately, never committed: anyone holding it can publish an update
+# that phones accept as ours. android/.gitignore covers the same inside
+# android/, along with the key.properties that points at it; these catch
+# a copy left anywhere else.
+*.jks
+*.keystore
