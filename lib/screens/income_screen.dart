@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/palette.dart';
 import '../theme/brut.dart';
+import '../widgets/brut_amount_field.dart';
 import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import '../widgets/event_picker_items.dart';
@@ -461,13 +462,7 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
             textCapitalization: TextCapitalization.sentences,
           ),
           const SizedBox(height: 14),
-          BrutTextField(
-            label: 'Amount',
-            controller: _amountController,
-            prefixIcon: Icons.payments_outlined,
-            hint: '0.00',
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
+          BrutAmountField(label: 'Amount', controller: _amountController),
           const SizedBox(height: 14),
           BrutDateField(
             label: 'Received on',
