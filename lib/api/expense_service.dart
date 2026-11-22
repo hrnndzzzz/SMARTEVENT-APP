@@ -147,9 +147,13 @@ class ExpenseService {
   /// reading and must be reviewed before being submitted through [create].
   ///
   /// Accepts JPEG/JPG, PNG, WebP and HEIC up to 10 MB.
+  ///
+  /// [organizationId] is for a Super Admin, who has no organization of its
+  /// own; everyone else's receipt is filed under theirs.
   Future<ScannedReceipt> scanReceipt({
     required List<int> bytes,
     required String filename,
+    String? organizationId,
   }) async {
     final response = await _client.upload(
       '/expenses/scan-receipt',
@@ -157,6 +161,7 @@ class ExpenseService {
       bytes: bytes,
       filename: filename,
       contentType: _receiptType(filename),
+      fields: {'organization_id': ?organizationId},
     );
     return ScannedReceipt.fromJson((response as Map).cast<String, dynamic>());
   }

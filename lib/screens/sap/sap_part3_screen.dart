@@ -652,16 +652,9 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
     super.dispose();
   }
 
-  static String? _overCap(TextEditingController field) =>
-      SapForm.overCap(field.text.trim().isEmpty ? '0' : field.text)
-      ? 'At most ₱100,000.00'
-      : null;
-
   bool get _valid =>
       _particulars.text.trim().isNotEmpty &&
-      (double.tryParse(_amount.text.trim().replaceAll(',', '')) ?? -1) >= 0 &&
-      _overCap(_amount) == null &&
-      _overCap(_unitCost) == null;
+      (double.tryParse(_amount.text.trim().replaceAll(',', '')) ?? -1) >= 0;
 
   @override
   Widget build(BuildContext context) {
@@ -708,7 +701,6 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
                   controller: _unitCost,
                   label: 'Unit cost',
                   hint: '10.00',
-                  errorText: _overCap(_unitCost),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -728,7 +720,6 @@ class _BudgetLineSheetState extends State<_BudgetLineSheet> {
             controller: _amount,
             label: 'Amount',
             hint: '2000.00',
-            errorText: _overCap(_amount),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 16),

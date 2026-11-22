@@ -198,7 +198,8 @@ class _LetterCard extends StatelessWidget {
               }
             },
           ),
-          if (context.watch<AppState>().currentRole == UserRole.sdsStaff)
+          if (context.watch<AppState>().currentRole
+              case UserRole.sdsStaff || UserRole.superAdmin)
             TextButton.icon(
               icon: const Icon(Icons.picture_as_pdf),
               label: const Text('Open final signed scan'),

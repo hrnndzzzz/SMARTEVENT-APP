@@ -154,10 +154,12 @@ extension UserRoleCapabilities on UserRole {
       managesOrganization || this == UserRole.officer;
 
   /// Record income and expenses. Officers and the Treasurer record; the
-  /// Adviser and administrators review, and whoever records the money is
-  /// never the one who reviews it. Mirrors `FINANCIAL_ROLES` in the backend.
+  /// Adviser and the Dean review. The Super Admin, the system
+  /// administrator, may do both. Mirrors `can_record_finance` in the backend.
   bool get canRecordFinance =>
-      this == UserRole.officer || this == UserRole.treasurer;
+      this == UserRole.officer ||
+      this == UserRole.treasurer ||
+      this == UserRole.superAdmin;
 
   /// Approve or reject others' submissions. Never your own — that is a
   /// separate per-record check the API enforces.

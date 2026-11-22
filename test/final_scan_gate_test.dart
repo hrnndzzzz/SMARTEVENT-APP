@@ -140,10 +140,10 @@ void main() {
       );
 
   /// Every account that is not the SDS Office, and none at all: nobody is
-  /// taken for the office on a hunch.
+  /// taken for the office on a hunch. The Super Admin may act for it.
   final everyoneElse = <UserRole?>[
     for (final role in UserRole.values)
-      if (role != UserRole.sdsStaff) role,
+      if (role != UserRole.sdsStaff && role != UserRole.superAdmin) role,
     null,
   ];
 
@@ -161,6 +161,15 @@ void main() {
           reason: state.wireName,
         );
       }
+    });
+
+    testWidgets('opens to the Super Admin acting for the office', (
+      tester,
+    ) async {
+      final form = await loaded('sds_signed');
+      await open(tester, SapPart5Screen(form: form), role: UserRole.superAdmin);
+
+      expect(pressable(tester, 'Upload the signed scan'), isTrue);
     });
 
     testWidgets('waits for the ninth checkpoint', (tester) async {
@@ -280,7 +289,11 @@ void main() {
     });
 
     testWidgets('leave the printout open to everyone', (tester) async {
-      for (final role in [...everyoneElse, UserRole.sdsStaff]) {
+      for (final role in [
+        ...everyoneElse,
+        UserRole.sdsStaff,
+        UserRole.superAdmin,
+      ]) {
         final form = await loaded('sds_signed', recorded: 4);
         await open(tester, SapPart5Screen(form: form), role: role);
 

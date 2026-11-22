@@ -272,4 +272,42 @@ void main() {
       expect(find.byIcon(Icons.check_circle), findsNWidgets(2));
     });
   });
+
+  // Until the SDS Office has it, the proposer may still change it: Edit
+  // takes it back from the Moderator or Dean first.
+  testWidgets('a proposal with the department can be edited, not past it', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 1400);
+    addTearDown(tester.view.reset);
+
+    EventItem pending(EventApprovalStatus status) => EventItem(
+      remoteId: 'event-1',
+      title: 'Alumni Homecoming Night',
+      org: 'ICpEP.SE',
+      date: '11/21/2026',
+      budget: '₱5,000.00',
+      status: status,
+    );
+    final app = AppState()..enterDemo(role: UserRole.treasurer);
+
+    await tester.pumpWidget(
+      host(pending(EventApprovalStatus.pendingInstitutional), signedInAs: app),
+    );
+    await tester.pump();
+    expect(find.text('Edit proposal'), findsNothing);
+
+    await tester.pumpWidget(
+      host(pending(EventApprovalStatus.pendingAdviser), signedInAs: app),
+    );
+    await tester.pump();
+    await tester.ensureVisible(find.text('Edit proposal'));
+    await tester.tap(find.text('Edit proposal'));
+    await tester.pump();
+    expect(find.text('Edit this proposal?'), findsOneWidget);
+    await tester.tap(find.text('Leave it'));
+    await tester.pump();
+    expect(find.text('Edit this proposal?'), findsNothing);
+  });
 }

@@ -286,7 +286,7 @@ class OfflineSync extends ChangeNotifier {
     if (role.canAccessProposalLetters) {
       collection('/proposal-letters', (row) {
         read('/proposal-letters/${row['id']}');
-        if (role == UserRole.sdsStaff) {
+        if (role == UserRole.sdsStaff || role == UserRole.superAdmin) {
           final path =
               '/events/${row['event_id']}/sap-proposal/final-signed-copy';
           add(() => file('', '/proposal-letters/${row['id']}', linkPath: path));

@@ -205,7 +205,8 @@ void main() {
       tester,
     ) async {
       for (final role in UserRole.values) {
-        if (role == UserRole.sdsStaff) continue;
+        // The Super Admin may act for the office.
+        if (role == UserRole.sdsStaff || role == UserRole.superAdmin) continue;
         final form = await loaded('pending_sap_review', confirmed: true);
         await open(tester, SapPart4Screen(form: form), role: role);
         expectRead(tester, reason: role.name);
@@ -414,7 +415,8 @@ void main() {
 
     testWidgets('offers nobody else either', (tester) async {
       for (final role in UserRole.values) {
-        if (role == UserRole.sdsStaff) continue;
+        // The Super Admin may act for the office.
+        if (role == UserRole.sdsStaff || role == UserRole.superAdmin) continue;
         await open(tester, SapFormScreen(form: waiting()), role: role);
 
         expect(find.text('SDS Office'), findsNothing, reason: role.name);

@@ -289,8 +289,13 @@ abstract final class SapProposalFlow {
   /// review actions those are. False with no [AppState] to ask: nobody is
   /// taken for the office on a hunch, and the server refuses anyone else
   /// whatever the screen offers.
+  ///
+  /// The Super Admin may act for the office, so it counts too.
   static bool isSdsStaff(BuildContext context) =>
-      _appOf(context)?.currentRole == UserRole.sdsStaff;
+      switch (_appOf(context)?.currentRole) {
+        UserRole.sdsStaff || UserRole.superAdmin => true,
+        _ => false,
+      };
 
   /// Puts the account's own organization and department on the form.
   ///
@@ -362,6 +367,59 @@ class SapProposalStatus extends StatelessWidget {
     return who == null ? said : 'Returned by ${who.label}: $said';
   }
 
+  /// The proposer's side, as on the event page: the server decides the rest.
+  bool _mayTakeBack(BuildContext context) {
+    final app = SapProposalFlow._appOf(context);
+    if (app == null || app.isOfflineViewing || !app.mayProposeEvents) {
+      return false;
+    }
+    if (app.currentRole == UserRole.superAdmin) return true;
+    final me = app.currentAccount?.id;
+    final event = app.events
+        .where((e) => e.remoteId != null && e.remoteId == form.eventId)
+        .firstOrNull;
+    return event?.proposedBy == null || event?.proposedBy == me;
+  }
+
+  /// Takes it back from the Moderator or Dean, then opens it to edit.
+  Future<void> _edit(BuildContext context) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit this proposal?'),
+        content: const Text(
+          'Editing takes it back from the Moderator and Dean. Send it again '
+          'when you are done; their review starts over.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Leave it'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Edit'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !context.mounted) return;
+    if (!await form.withdraw()) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(form.error ?? 'It could not be taken back.')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    await SapProposalFlow._appOf(context)?.loadEvents();
+    if (!context.mounted) return;
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    if (navigator.mounted) await SapProposalFlow.start(navigator.context, form);
+  }
+
   @override
   Widget build(BuildContext context) {
     final (line, detail, tone) = switch (form.state) {
@@ -430,9 +488,9 @@ class SapProposalStatus extends StatelessWidget {
     final lock = switch (form.state) {
       null || SapState.revisionRequested || SapState.rejected => null,
       SapState.pendingDepartmentReview =>
-        'Parts 1 to 3 are read-only while it is under review. If '
-            'something has to change, the Moderator or Dean returns it and '
-            'they open again.',
+        'Parts 1 to 3 are read-only while it is under review. To change '
+            'something, edit it: that takes it back from the department, '
+            'and you send it again.',
       // Signed, the revision stays as it is; "under review" and a return
       // are no longer what happens to it.
       SapState.sdsSigned || SapState.approved || SapState.completed =>
@@ -473,6 +531,16 @@ class SapProposalStatus extends StatelessWidget {
               icon: Icons.lock_outline,
               text: lock,
             ),
+          if (form.state == SapState.pendingDepartmentReview &&
+              _mayTakeBack(context)) ...[
+            const SizedBox(height: AppLayout.section),
+            BrutButton(
+              label: 'Edit proposal',
+              icon: Icons.edit_outlined,
+              tone: BrutTone.neutral,
+              onPressed: () => _edit(context),
+            ),
+          ],
         ],
       ),
     );
