@@ -76,8 +76,7 @@ abstract final class ProposalSteps {
     'Off-campus agreement' ||
     'ROC / COC attachment' ||
     'Venue' => schedule,
-    'Budget breakdown that adds up to the budget' ||
-    'Budget lines of at most ₱100,000' => breakdown,
+    'Budget breakdown that adds up to the budget' => breakdown,
     // Blocks sending, not the step: the draft can still be saved and
     // the budget changed later, as the available balance moves.
     final over when over.startsWith('Budget within the available') =>

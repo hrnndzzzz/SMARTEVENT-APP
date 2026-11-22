@@ -86,7 +86,8 @@ def review_institutional_step(db, event, user, decision, remarks):
     assert_not_self_review(event.proposed_by, user)
     steps = routing_steps(db, event)
     current = next((step for step in steps if step.status != "approved"), None)
-    if current is None or current.status != "pending" or current.signatory_id != user.id:
+    # The Super Admin may decide the current step for its assigned signatory; the record says so.
+    if current is None or current.status != "pending" or (current.signatory_id != user.id and user.role != "super_admin"):
         raise HTTPException(409, "Only the next assigned signatory can review this event")
     if decision == "approved" and all(step is current or step.status == "approved" for step in steps):
         require_pre_activity_clearance(db, event)
@@ -97,6 +98,7 @@ def review_institutional_step(db, event, user, decision, remarks):
     record_access_change(db, user, "event.institutional_reviewed", event, {
         "routing_id": str(current.id), "review_round": event.review_round,
         "step_order": current.step_order, "decision": decision,
+        **({"on_behalf_of": str(current.signatory_id)} if current.signatory_id != user.id else {}),
     })
     if decision == "rejected":
         event.status = "rejected"

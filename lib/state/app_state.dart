@@ -207,9 +207,13 @@ class EventItem {
   /// matches the signed-in user. The API enforces it too.
   String? proposedBy;
 
-  /// Its proposal was sent for review at least once, so as a draft again
-  /// it is kept as the record: the server will not delete it.
+  /// Its proposal was sent for review at least once. Deleting it as a
+  /// draft again removes those submitted copies too.
   bool sentForReview;
+
+  /// The organization it belongs to, so a Super Admin recording money for
+  /// one organization is offered only that organization's events.
+  String? organizationId;
 
   /// True when any academic field is missing.
   bool get hasIncompleteAcademicMetadata =>
@@ -272,6 +276,7 @@ class EventItem {
     this.eventScope,
     this.proposedBy,
     this.sentForReview = false,
+    this.organizationId,
   });
 }
 
@@ -2064,6 +2069,7 @@ class AppState extends ChangeNotifier {
     ReceiptDetailsInput? receipt,
     String? schoolYear,
     Semester? semester,
+    String? organizationId,
   }) async {
     if (_demoMode) {
       final now = DateTime.now();
@@ -2102,6 +2108,7 @@ class AppState extends ChangeNotifier {
         receipt: receipt,
         schoolYear: schoolYear,
         semester: semester?.wireName,
+        organizationId: organizationId,
       );
       incomes = [created, ...incomes];
       notifyListeners();
@@ -2597,6 +2604,7 @@ class AppState extends ChangeNotifier {
       eventScope: remote.eventScope,
       proposedBy: remote.proposedBy,
       sentForReview: remote.sentForReview,
+      organizationId: remote.organizationId,
     );
   }
 
@@ -2972,6 +2980,7 @@ class AppState extends ChangeNotifier {
   Future<({ScannedReceipt? scan, String? error})> scanReceipt({
     required List<int> bytes,
     required String filename,
+    String? organizationId,
   }) async {
     if (_demoMode) {
       // The real call is a round trip to Gemini, so the demo waits too:
@@ -2983,6 +2992,7 @@ class AppState extends ChangeNotifier {
       final scan = await _expenseService.scanReceipt(
         bytes: bytes,
         filename: filename,
+        organizationId: organizationId,
       );
       return (scan: scan, error: null);
     } catch (error) {
@@ -3514,14 +3524,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// A draft nobody has been sent is its proposer's to delete, or an
-  /// administrator's. The server holds the same rule, and keeps a draft
-  /// that was ever sent for review.
+  /// A draft is its proposer's to delete, or an administrator's, even one
+  /// sent for review before and taken back or returned. The server holds
+  /// the same rule.
   bool canDeleteDraft(EventItem event) =>
       !isOfflineViewing &&
       event.remoteId != null &&
       event.status == EventApprovalStatus.draft &&
-      !event.sentForReview &&
       ((currentRole?.isAdministrator ?? false) ||
           (currentAccount?.id != null &&
               event.proposedBy == currentAccount!.id));

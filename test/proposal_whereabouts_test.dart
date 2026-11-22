@@ -619,9 +619,31 @@ void main() {
       // Who may send it back is the department here, not the SDS Office.
       expect(find.textContaining('the SDS Office returns it'), findsNothing);
       expect(
-        find.textContaining('Moderator or Dean returns it'),
+        find.textContaining('takes it back from the department'),
         findsOneWidget,
       );
+      // No account to ask, so no edit is offered.
+      expect(find.text('Edit proposal'), findsNothing);
+    });
+
+    testWidgets('offers its proposer an edit until it reaches the SDS Office', (
+      tester,
+    ) async {
+      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      Widget hosted(SapForm form) => ChangeNotifierProvider<AppState>.value(
+        value: app,
+        child: host(SapProposalStatus(form: form)),
+      );
+
+      await tester.pumpWidget(
+        hosted(seeded(SapState.pendingDepartmentReview)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Edit proposal'), findsOneWidget);
+
+      await tester.pumpWidget(hosted(seeded(SapState.pendingReview)));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit proposal'), findsNothing);
     });
 
     testWidgets('says who returned it and what they said', (tester) async {

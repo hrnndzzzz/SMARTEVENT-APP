@@ -55,6 +55,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   String? _eventId;
   DateTime? _expenseDate;
 
+  /// Whose receipt this is, for a Super Admin: it has no organization of
+  /// its own, and the photo is filed under the one it is read for.
+  String? _organizationId;
+
   final _merchantController = TextEditingController();
   final _vendorController = TextEditingController();
   final _totalController = TextEditingController();
@@ -183,6 +187,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Future<void> _runScan() async {
     if (_capturedBytes == null) return;
+    if (context.read<AppState>().choosesEventScope && _organizationId == null) {
+      setState(
+        () => _error =
+            'Choose the organization this receipt is for. It is read as '
+            'soon as you do.',
+      );
+      return;
+    }
 
     setState(() {
       _scanning = true;
@@ -192,6 +204,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final outcome = await context.read<AppState>().scanReceipt(
       bytes: _capturedBytes!,
       filename: _capturedFilename ?? 'receipt.jpg',
+      organizationId: _organizationId,
     );
 
     if (!mounted) return;
@@ -398,6 +411,25 @@ class _ScannerScreenState extends State<ScannerScreen> {
         'Saving it flags it for review.';
   }
 
+  /// A Super Admin's choice of organization. A scan already read for
+  /// another one is read again, since the photo is filed under it.
+  void _chooseOrganization(String? id) {
+    if (id == null || id == _organizationId) return;
+    setState(() {
+      _organizationId = id;
+      // Another organization's category or event cannot go with this one.
+      _categoryId = _aiCategoryId = null;
+      _eventId = null;
+      _error = null;
+      if (!_manualEntry) _scan = null;
+    });
+    if (_hasImage && !_manualEntry) _runScan();
+  }
+
+  /// Within the chosen organization, when a Super Admin has chosen one.
+  bool _inOrganization(String? id) =>
+      _organizationId == null || id == null || id == _organizationId;
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -447,6 +479,20 @@ class _ScannerScreenState extends State<ScannerScreen> {
             style: AppText.caption,
           ),
           const SizedBox(height: 14),
+
+          if (app.choosesEventScope) ...[
+            BrutDropdown<String>(
+              label: 'Organization',
+              value: _organizationId,
+              hint: 'Select the organization',
+              items: [
+                for (final o in app.organizations)
+                  DropdownMenuItem(value: o.id, child: Text(o.label)),
+              ],
+              onChanged: _chooseOrganization,
+            ),
+            const SizedBox(height: 14),
+          ],
 
           _CapturePreview(
             bytes: _capturedBytes,
@@ -526,12 +572,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
             const SizedBox(height: 14),
             _ReviewCard(
               scan: _scan,
-              categories: app.categories,
+              categories: [
+                for (final c in app.categories)
+                  if (_inOrganization(c.organizationId)) c,
+              ],
               categoryId: _categoryId,
               aiSuggestedCategory:
                   _aiCategoryId != null && _categoryId == _aiCategoryId,
               onCategoryChanged: (id) => setState(() => _categoryId = id),
-              events: app.events,
+              events: [
+                for (final e in app.events)
+                  if (_inOrganization(e.organizationId)) e,
+              ],
               eventId: _eventId,
               onEventChanged: (id) => setState(() => _eventId = id),
               merchantController: _merchantController,

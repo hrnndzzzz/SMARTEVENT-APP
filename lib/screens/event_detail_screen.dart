@@ -161,8 +161,11 @@ class EventDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'The draft and everything written in its proposal are '
-              'deleted for good. Type its title to confirm:',
+              event.sentForReview
+                  ? 'The draft, its proposal and the copies sent for review '
+                        'before are deleted for good. Type its title to confirm:'
+                  : 'The draft and everything written in its proposal are '
+                        'deleted for good. Type its title to confirm:',
               style: AppText.body,
             ),
             const SizedBox(height: 8),
@@ -223,11 +226,12 @@ class EventDetailScreen extends StatelessWidget {
 
         // Two-stage review: the Adviser resolves the adviser stage, an
         // Admin or Super Admin the admin stage. An Admin must not see
-        // Approve while the event is still waiting on the adviser.
+        // Approve while the event is still waiting on the adviser; the
+        // Super Admin may stand in for the Adviser.
         final canAdviserDecide =
             !app.isOfflineViewing &&
             !isOwnProposal &&
-            role == UserRole.adviser &&
+            (role == UserRole.adviser || role == UserRole.superAdmin) &&
             event.status == EventApprovalStatus.pendingAdviser;
         final canAdminDecide =
             !app.isOfflineViewing &&
@@ -327,47 +331,7 @@ class EventDetailScreen extends StatelessWidget {
                   label: 'Proposal form',
                   icon: Icons.description_outlined,
                   tone: BrutTone.neutral,
-                  onPressed: () {
-                    // Made here, once. A route's builder runs again on
-                    // every app rebuild, and a form made there was
-                    // swapped for one that never loaded.
-                    final app = context.read<AppState>();
-                    final form = SapForm(
-                      eventId: eventId,
-                      service: app.isDemoMode ? null : app.sapService,
-                    );
-                    // The demo has no server, so the form would hold
-                    // no proposal and sit at a null state — which
-                    // locks Parts 5 and 6 and hides review and
-                    // signing. Seed it from where the event itself
-                    // has got to, so the SDS role can see the six
-                    // parts it is offered.
-                    //
-                    // The contents too, and from the same place the
-                    // SDS Office reads: seeding only the state left
-                    // the proposer's own form empty while the office
-                    // was looking at a full proposal for the very
-                    // same event. An event the demo does not seed
-                    // still opens blank, which is right.
-                    if (app.isDemoMode) {
-                      form.seedLocally(
-                        state: _demoSapState(event.status),
-                        details: DemoProposals.detailsFor(event),
-                        sdsRemarks: DemoProposals.sdsRemarksFor(event),
-                        clearance: DemoProposals.clearanceFor(event),
-                      );
-                      form.setBudgetItems(DemoProposals.budgetFor(event));
-                      form.setSupportRequests(DemoProposals.supportFor(event));
-                    }
-                    // The SDS Office works all six parts. Everyone else
-                    // only ever fills the first three, and a six-part
-                    // list hands them three they cannot touch.
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => SapFormScreen(form: form),
-                      ),
-                    );
-                  },
+                  onPressed: () => _openProposalForm(context, event, eventId),
                 ),
               ],
               if (app.canDeleteDraft(event)) ...[
@@ -410,10 +374,28 @@ class EventDetailScreen extends StatelessWidget {
               // not known at all the capability is still the best guess,
               // rather than hiding the action from the person whose
               // proposal it is.
-              if ((isOwnProposal || event.proposedBy == null) &&
+              // The Super Admin may take anyone's back, as the server allows.
+              if ((isOwnProposal ||
+                      event.proposedBy == null ||
+                      role == UserRole.superAdmin) &&
                   app.mayProposeEvents &&
                   (event.status.isPending ||
                       event.status == EventApprovalStatus.rejected)) ...[
+                // Still with the Moderator or Dean: editing takes it back
+                // first, since the SDS Office has not seen it yet.
+                if (event.remoteId case final eventId?
+                    when event.status == EventApprovalStatus.pendingAdviser ||
+                        event.status == EventApprovalStatus.pendingAdmin) ...[
+                  const SizedBox(height: 14),
+                  BrutButton(
+                    label: 'Edit proposal',
+                    icon: Icons.edit_outlined,
+                    tone: BrutTone.neutral,
+                    onPressed: app.isOfflineViewing
+                        ? null
+                        : () => _editProposal(context, event, eventId),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 BrutButton(
                   label: event.status == EventApprovalStatus.rejected
@@ -1109,6 +1091,48 @@ class _ReadinessNoticeState extends State<_ReadinessNotice> {
 }
 
 /// Confirms, then takes the proposal back to draft.
+/// Opens the proposal form for [event]: the SDS Office sees all six parts,
+/// everyone else the three that are theirs.
+void _openProposalForm(BuildContext context, EventItem event, String eventId) {
+  // Made here, once. A route's builder runs again on
+  // every app rebuild, and a form made there was
+  // swapped for one that never loaded.
+  final app = context.read<AppState>();
+  final form = SapForm(
+    eventId: eventId,
+    service: app.isDemoMode ? null : app.sapService,
+  );
+  // The demo has no server, so the form would hold
+  // no proposal and sit at a null state — which
+  // locks Parts 5 and 6 and hides review and
+  // signing. Seed it from where the event itself
+  // has got to, so the SDS role can see the six
+  // parts it is offered.
+  //
+  // The contents too, and from the same place the
+  // SDS Office reads: seeding only the state left
+  // the proposer's own form empty while the office
+  // was looking at a full proposal for the very
+  // same event. An event the demo does not seed
+  // still opens blank, which is right.
+  if (app.isDemoMode) {
+    form.seedLocally(
+      state: _demoSapState(event.status),
+      details: DemoProposals.detailsFor(event),
+      sdsRemarks: DemoProposals.sdsRemarksFor(event),
+      clearance: DemoProposals.clearanceFor(event),
+    );
+    form.setBudgetItems(DemoProposals.budgetFor(event));
+    form.setSupportRequests(DemoProposals.supportFor(event));
+  }
+  // The SDS Office works all six parts. Everyone else
+  // only ever fills the first three, and a six-part
+  // list hands them three they cannot touch.
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => SapFormScreen(form: form)));
+}
+
 Future<void> _cancelProposal(BuildContext context, EventItem event) async {
   final yes = await showDialog<bool>(
     context: context,
@@ -1139,6 +1163,45 @@ Future<void> _cancelProposal(BuildContext context, EventItem event) async {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(problem ?? 'Back with you as a draft.')),
   );
+}
+
+/// Takes a proposal back from the Moderator or Dean and opens it to edit.
+Future<void> _editProposal(
+  BuildContext context,
+  EventItem event,
+  String eventId,
+) async {
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Edit this proposal?'),
+      content: Text(
+        'Editing takes "${event.title}" back from the Moderator and Dean. '
+        'Send it again when you are done; their review starts over.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Leave it'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Edit'),
+        ),
+      ],
+    ),
+  );
+  if (yes != true || !context.mounted) return;
+
+  final problem = await context.read<AppState>().cancelProposal(event);
+  if (!context.mounted) return;
+  if (problem != null) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(problem)));
+    return;
+  }
+  _openProposalForm(context, event, eventId);
 }
 
 /// Where the proposal form sits, for an event in the offline demo.

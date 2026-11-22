@@ -29,7 +29,8 @@ def load(db, event_id, user, *, write=False, sds=False, proposer=False, owner=Fa
     event = (query.with_for_update() if write else query).first()
     if event is None:
         raise HTTPException(404, 'Event not found')
-    if sds and user.role != 'sds_staff':
+    # The Super Admin may act for the SDS Office.
+    if sds and user.role not in {'sds_staff', 'super_admin'}:
         raise HTTPException(403, 'Only SDS staff can record paper evidence or edit Parts 4 and 6')
     if user.role != 'sds_staff':
         assert_record_scope(user, event, allow_officer_read=not write or (proposer and can_propose_events(user)))
@@ -37,7 +38,7 @@ def load(db, event_id, user, *, write=False, sds=False, proposer=False, owner=Fa
         raise HTTPException(403, 'Only an authorized event proposer may edit Parts 1–3')
     # Any proposer in scope may write a draft. Members are held to their own organization
     # above, so they may also send or withdraw a colleague's; an admin sends only their own.
-    if owner and user.id != event.proposed_by and user.role not in {'adviser', 'treasurer', 'officer'}:
+    if owner and user.id != event.proposed_by and user.role not in {'adviser', 'treasurer', 'officer', 'super_admin'}:
         raise HTTPException(403, "Only the proposer or a member of the event's organization may send or withdraw it")
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if required and proposal is None:
@@ -243,11 +244,13 @@ def department_review(db, event, proposal, user, decision, remarks, expected_ver
         check_version(proposal, expected_version)
     if proposal.state != 'pending_department_review':
         raise HTTPException(409, 'This proposal is not waiting on department review')
+    # The Moderator's turn: theirs, or the Super Admin's in their place.
+    moderator = user.role == 'adviser' or (user.role == 'super_admin' and event.status == 'pending_adviser')
     if user.role == 'adviser':
         if event.status != 'pending_adviser':
             raise HTTPException(409, 'This proposal is with the Dean')
     elif user.role in {'admin', 'super_admin'}:
-        if decision == 'approved' and event.status != 'pending_admin':
+        if decision == 'approved' and event.status != 'pending_admin' and not moderator:
             raise HTTPException(409, 'The Moderator approves a proposal before the Dean')
     else:
         raise HTTPException(403, 'Only the Moderator or the Dean can review a proposal here')
@@ -255,12 +258,12 @@ def department_review(db, event, proposal, user, decision, remarks, expected_ver
         if not (remarks or '').strip():
             raise HTTPException(422, 'Say what needs to change')
         proposal.state, proposal.return_remarks, proposal.clearance = 'revision_requested', remarks, None
-        proposal.returned_by = 'moderator' if user.role == 'adviser' else 'dean'
+        proposal.returned_by = 'moderator' if moderator else 'dean'
         event.status = 'draft'
         record_decision(db, 'event', event.id, 'returned', user, remarks)
         return save(db, event, proposal, user, 'sap_department_returned', notify=True, notify_sds=False,
                     details={'revision': proposal.revision_no, 'remarks': remarks, 'returned_by': proposal.returned_by})
-    if user.role == 'adviser' and event.department_id is not None:
+    if moderator and event.department_id is not None:
         record_decision(db, 'event', event.id, 'approved', user, remarks)
         event.status = 'pending_admin'
         return save(db, event, proposal, user, 'sap_moderator_approved')

@@ -10,7 +10,8 @@ from pypdf import PdfReader
 from fastapi import HTTPException
 from app.test_access_management import system
 from app.config import settings
-from app.models import Category, DeletedEvent, DocumentRouting, Notification, Organization
+from app.models import (Approval, Category, DeletedEvent, DocumentRouting, Expense, IncomeRecord, Inventory,
+                        InventoryTransaction, Notification, Organization, Receipt)
 from app.services.draft_trash import purge_deleted_drafts
 from app.models_sap import SAPAttachment, SAPItem, SAPProposal, SAPRevision, SAPFinalCopy, SAPReview
 from app.schemas_sap import validate_submission
@@ -302,13 +303,29 @@ def test_creator_or_admin_deletes_a_never_sent_draft_with_its_proposal(sap_syste
     assert removed == [['private/test-budget.pdf']] and db.query(DeletedEvent).count() == 0
 
 
-def test_a_draft_once_sent_for_review_keeps_its_record(sap_system):
+@pytest.mark.parametrize('how', ['withdrawn', 'returned'])
+def test_a_draft_once_sent_for_review_can_still_be_deleted(sap_system, how):
     client, db, users, event, login, base = sap_system
-    db.query(SAPProposal).one().revision_no = 1  # sent once, then withdrawn or returned
+    send(sap_system)
+    if how == 'withdrawn':
+        assert client.post(base + '/withdraw', json={'expected_version': version(client, base)}).status_code == 200
+    else:
+        login('adviser')
+        assert client.post(f'/events/{event.id}/reject', json={'remarks': 'Move it'}).status_code == 200
+        login('treasurer')
+    assert client.get(f'/events/{event.id}').json()['status'] == 'draft'
+    # The fixture event also carries the organization's money records; a real draft has none.
+    for model in (Expense, IncomeRecord, Receipt, Inventory, InventoryTransaction):
+        db.query(model).filter_by(event_id=event.id).update({'event_id': None})
     db.commit()
-    assert client.get(f'/events/{event.id}').json()['sent_for_review'] is True  # so the app offers no delete
-    response = client.delete(f'/events/{event.id}')
-    assert response.status_code == 409 and 'sent for review before' in response.json()['detail']
+    proposal_id = db.query(SAPProposal).one().id
+    deleted = client.delete(f'/events/{event.id}')
+    assert deleted.status_code == 204, deleted.text
+    assert db.query(SAPProposal).count() == 0 and db.query(SAPRevision).filter_by(proposal_id=proposal_id).count() == 0
+    assert db.query(Approval).filter_by(entity_id=event.id).count() == 0
+    kept = db.query(DeletedEvent).one()  # kept 30 days, submitted copy and its PDF included
+    assert kept.snapshot['revisions'][0]['revision_no'] == 1 and kept.snapshot['revisions'][0]['printable_pdf']
+    assert bool(kept.snapshot.get('approvals')) == (how == 'returned')
 
 
 def test_program_flow_file_stands_in_for_the_rows(sap_system):
@@ -333,16 +350,45 @@ def test_budget_over_what_is_left_is_not_sent(sap_system):
         send(sap_system)
 
 
-def test_budget_is_capped_at_one_hundred_thousand():
-    from pydantic import ValidationError
+def test_the_budget_has_no_fixed_cap():
     from app.schemas_sap import BudgetItem, Details
-    assert BudgetItem.model_validate({'particulars': 'Venue', 'amount': '100000.00'}).amount == 100000
-    for row in ({'particulars': 'Venue', 'amount': '100000.01'},
-                {'particulars': 'Venue', 'amount': '1.00', 'unit_cost': '1000000.00'}):
-        with pytest.raises(ValidationError):
-            BudgetItem.model_validate(row)
-    with pytest.raises(ValidationError):
-        Details.model_validate(fixture_data()['details'] | {'total_budget': '1000000.00'})
+    row = {'particulars': 'Venue', 'unit_cost': '1000000.00', 'amount': '1000000.00'}
+    assert BudgetItem.model_validate(row).amount == 1000000
+    assert Details.model_validate(fixture_data()['details'] | {'total_budget': '1000000.00'}).total_budget == 1000000
+
+
+def test_a_budget_over_what_is_left_saves_and_loads_but_is_not_sent(sap_system):
+    client, db, users, event, login, base = sap_system
+    data = fixture_data()
+    data['details']['total_budget'] = '2000000.00'
+    data['collections']['budget-items'] = [{'particulars': 'Venue', 'amount': '2000000.00'}]
+    # send() asserts every save succeeds; only the submit is refused.
+    with pytest.raises(AssertionError, match='more than the ₱2,500.00 available'):
+        send(sap_system, data)
+    loaded = client.get(base)
+    assert loaded.status_code == 200, loaded.text
+    assert loaded.json()['details']['total_budget'] == '2000000.00'
+    assert loaded.json()['collections']['budget-items'][0]['amount'] == '2000000.00'
+
+
+@pytest.mark.parametrize('setting, most', [('on_campus', 10000), ('off_campus', 500), ('online', 5000)])
+def test_students_are_held_to_what_the_setting_allows(setting, most):
+    from pydantic import ValidationError
+    from app.schemas_sap import Details
+    details = fixture_data()['details'] | {
+        'setting': setting, 'off_campus_agreement': setting == 'off_campus',
+        'modality': 'online' if setting == 'online' else 'face_to_face'}
+    assert Details.model_validate(details | {'expected_students': most}).expected_students == most
+    with pytest.raises(ValidationError, match=f'at most {most:,}'):
+        Details.model_validate(details | {'expected_students': most + 1})
+
+
+def test_too_many_students_saves_but_is_not_sent(sap_system):
+    client, db, users, event, login, base = sap_system
+    data = fixture_data()
+    data['details']['expected_students'] = 5001  # the fixture is online
+    with pytest.raises(AssertionError, match='Number of students: at most 5,000 for an online activity'):
+        send(sap_system, data)
 
 
 def test_final_scan_requires_all_slots_and_valid_pdf(sap_system):
@@ -625,7 +671,7 @@ def test_pre_activity_readiness_blocks_submission(sap_system, monkeypatch):
     assert db.query(SAPRevision).count() == 0 and event.status == 'draft'
 
 
-@pytest.mark.parametrize('role', ['treasurer', 'adviser', 'admin', 'super_admin', 'officer', 'signatory'])
+@pytest.mark.parametrize('role', ['treasurer', 'adviser', 'admin', 'officer', 'signatory'])
 def test_only_sds_may_record_or_evaluate(sap_system, role):
     client, db, users, event, login, base = sap_system
     populate(sap_system)

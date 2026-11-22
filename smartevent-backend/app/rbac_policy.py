@@ -5,6 +5,7 @@ SCHOOL_REVIEWER_ROLES = {"sds_staff", "signatory"}
 # Super Admin is deliberately absent: no roster row or upload can create one.
 ROSTER_ROLES = MEMBER_ROLES | {"admin"} | SCHOOL_REVIEWER_ROLES
 # Who records money. Advisers and admins review it, so they never record it.
+# The Super Admin, the system administrator, may do everything, this included.
 FINANCIAL_ROLES = {"treasurer", "officer"}
 
 
@@ -22,17 +23,18 @@ def can_propose_events(user) -> bool:
 
 
 def can_record_finance(user) -> bool:
-    return user.role in FINANCIAL_ROLES
+    return user.role in FINANCIAL_ROLES | {"super_admin"}
 
 ROLE_POLICY = {
     "super_admin": {
         "scope": "school",
         "responsibility": "Designated school IT administrator, appointed by the institution.",
         "permissions": [
+            "Full system access: every action any other role has",
             "Create departments and organizations", "Create organization admins, SDS staff, and signatories",
             "Manage user access and organization assignments", "View all administrative audit history",
-            "Manage operational records except financial recording", "Review events and expenses submitted by others",
-            "Configure institutional routing without bypassing assigned signatories",
+            "Manage all operational and financial records", "Review events and expenses submitted by others",
+            "Act for the SDS Office, the Moderator, and institutional signatories when needed",
         ],
     },
     "admin": {

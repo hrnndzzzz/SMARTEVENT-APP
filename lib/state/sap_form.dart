@@ -555,6 +555,8 @@ class SapForm extends ChangeNotifier {
       if (blank(d.scope)) 'Scope',
       if (d.programTypes.isEmpty) 'Program',
       if ((d.expectedStudents ?? 0) < 1) 'Number of students',
+      if (studentsOver(d.setting, d.expectedStudents) case final most?)
+        'Number of students: at most $most ${d.setting!.label.toLowerCase()}',
       if (blank(d.rationale)) 'Rationale',
       if (blank(d.objectives)) 'Objectives',
       if (d.coreValues.isEmpty) 'Augustinian core values',
@@ -562,23 +564,30 @@ class SapForm extends ChangeNotifier {
       if (_programFlow.isEmpty && !hasProgramFlowFile) 'Program flow',
       if (blank(d.emergencyPlan)) 'Emergency plan',
       if (blank(budget)) 'Budget',
-      if (!blank(budget) && overCap(budget!)) budgetCapLabel,
       if (over != null) 'Budget within the available $over',
       if (blank(d.fundingSource)) 'Source of budget',
       if (!blank(budget) && centavos(budget!) != breakdown)
         'Budget breakdown that adds up to the budget',
-      if (_budgetItems.any(
-        (i) => overCap(i.amount) || overCap(i.unitCost ?? '0'),
-      ))
-        'Budget lines of at most ₱100,000',
     ];
   }
 
-  /// The most a proposal, or one line of it, may ask for. The server holds
-  /// the same limit: an extra zero typed by mistake is refused.
-  static const int maxPesoCentavos = 100000 * 100;
-  static const String budgetCapLabel = 'Budget of at most ₱100,000';
-  static bool overCap(String amount) => centavos(amount) > maxPesoCentavos;
+  /// The most students an activity may list in [setting]. The server holds
+  /// the same limits on submit.
+  static int maxStudents(SapSetting setting) => switch (setting) {
+    SapSetting.onCampus => 10000,
+    SapSetting.offCampus => 500,
+    SapSetting.online => 5000,
+  };
+
+  /// [maxStudents], worded: "10,000".
+  static String studentLimit(SapSetting setting) =>
+      grouped(maxStudents(setting), decimals: 0);
+
+  /// The limit, worded, when [students] is more than [setting] allows.
+  static String? studentsOver(SapSetting? setting, int? students) {
+    if (setting == null || students == null) return null;
+    return students > maxStudents(setting) ? studentLimit(setting) : null;
+  }
 
   /// What is left in the organization's budget, which a proposal may not
   /// go over. Null when it is not known, and then nothing is checked

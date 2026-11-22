@@ -35,7 +35,8 @@ class IncomeService {
   /// work around that would corrupt the audit trail.
   ///
   /// With no [eventId] it is general-fund income, which needs [schoolYear]
-  /// and [semester] (wire values) and cannot carry a receipt.
+  /// and [semester] (wire values) and cannot carry a receipt. A Super Admin,
+  /// who has no organization of its own, also names one with [organizationId].
   Future<Income> record({
     required String? eventId,
     required String source,
@@ -46,6 +47,7 @@ class IncomeService {
     ReceiptDetailsInput? receipt,
     String? schoolYear,
     String? semester,
+    String? organizationId,
   }) async {
     final response = await _client.post(
       '/incomes',
@@ -53,6 +55,7 @@ class IncomeService {
         'event_id': ?eventId,
         'school_year': ?schoolYear,
         'semester': ?semester,
+        'organization_id': ?organizationId,
         'source': source,
         'source_type': sourceType.wireName,
         'purpose': purpose,

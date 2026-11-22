@@ -10,6 +10,10 @@ class Category {
   final double remainingBudget;
   final double? lowBalanceThreshold;
   final String? createdBy;
+
+  /// Which organization owns it. A Super Admin, who has none of its own,
+  /// is offered only the chosen organization's categories.
+  final String? organizationId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -20,6 +24,7 @@ class Category {
     required this.remainingBudget,
     required this.lowBalanceThreshold,
     required this.createdBy,
+    this.organizationId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -32,6 +37,7 @@ class Category {
       remainingBudget: (json['remaining_budget'] as num).toDouble(),
       lowBalanceThreshold: (json['low_balance_threshold'] as num?)?.toDouble(),
       createdBy: json['created_by'] as String?,
+      organizationId: json['organization_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

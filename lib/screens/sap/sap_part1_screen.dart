@@ -1038,7 +1038,24 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                     hint: '145',
                     enabled: _editable,
                     keyboardType: TextInputType.number,
+                    errorText: switch (SapForm.studentsOver(
+                      d.setting,
+                      int.tryParse(_students.text.trim()),
+                    )) {
+                      final most? => 'At most $most for this setting',
+                      null => null,
+                    },
+                    // Only so the limit below keeps up with the count.
+                    onChanged: (_) => setState(() {}),
                   ),
+                  if (d.setting case final setting?) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '${setting.label}: up to '
+                      '${SapForm.studentLimit(setting)} students.',
+                      style: AppText.caption,
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   _FieldGroup(
                     title: 'Why it is being held',
@@ -1144,9 +1161,6 @@ class _SapPart1ScreenState extends State<SapPart1Screen> {
                     required: true,
                     hint: '2500.00',
                     enabled: _editable,
-                    errorText: SapForm.overCap(_budget.text)
-                        ? 'At most ₱100,000.00'
-                        : null,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),

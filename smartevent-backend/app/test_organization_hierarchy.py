@@ -128,7 +128,7 @@ def test_officer_letters_are_limited_to_owned_editable_proposals(system, monkeyp
     assert client.get(f"/proposal-letters/{letter_id}").status_code == 200
 
 
-@pytest.mark.parametrize("role", ["admin", "super_admin", "adviser", "sds_staff"])
+@pytest.mark.parametrize("role", ["admin", "adviser", "sds_staff"])
 def test_non_recorders_cannot_execute_any_financial_write(system, role):
     client, db, users, orgs, resources, login = system
     users[role].position = "Treasurer"
@@ -145,6 +145,20 @@ def test_non_recorders_cannot_execute_any_financial_write(system, role):
     for method, path in requests:
         result = client.request(method, path, json={})
         assert result.status_code == 403, (method, path, result.text)
+
+
+def test_super_admin_records_money_for_any_organization(system):
+    client, db, users, orgs, resources, login = system
+    login("super_admin")
+    payload = {"source": "Membership dues", "purpose": "General fund", "amount": "150.00",
+               "school_year": "2026-2027", "semester": "1st"}
+    # It has no organization of its own, so a general-fund income names one.
+    assert client.post("/incomes", json=payload).status_code == 400
+    recorded = client.post("/incomes", json=payload | {"organization_id": str(orgs[0].id)})
+    assert recorded.status_code == 201, recorded.text
+    event_income = client.post("/incomes", json={"event_id": str(resources[0]["events"].id), "source": "Sponsor",
+                                                 "purpose": "Event fund", "amount": "50.00"})
+    assert event_income.status_code == 201, event_income.text
 
 
 @pytest.mark.parametrize("role", ["admin", "super_admin", "adviser"])
@@ -280,7 +294,7 @@ def test_owned_draft_with_letter_returns_conflict_and_preserves_records(system):
 @pytest.mark.parametrize("role,position,propose,finance", [
     ("adviser", "Moderator", True, False), ("adviser", "Adviser", True, False),
     ("treasurer", "Treasurer", True, True), ("admin", "Dean", True, False),
-    ("super_admin", None, True, False), ("sds_staff", "President", False, False),
+    ("super_admin", None, True, True), ("sds_staff", "President", False, False),
     ("officer", "Auditor", True, True),
 ])
 def test_permissions_describe_effective_capabilities(system, role, position, propose, finance):

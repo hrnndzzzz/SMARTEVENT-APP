@@ -287,6 +287,10 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
   String _schoolYear = SchoolYear.current(DateTime.now());
   Semester? _semester;
 
+  /// Whose general fund, for a Super Admin: it has no organization of its
+  /// own, and the server refuses general-fund income without one.
+  String? _organizationId;
+
   bool _submitting = false;
   String? _error;
 
@@ -304,6 +308,11 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
     }
     if (_isGeneral && _semester == null) {
       return 'Choose the semester this general-fund income belongs to.';
+    }
+    if (_isGeneral &&
+        _organizationId == null &&
+        context.read<AppState>().choosesEventScope) {
+      return 'Choose the organization this money belongs to.';
     }
     if (_sourceController.text.trim().isEmpty) {
       return 'Enter who or what the money came from.';
@@ -335,6 +344,7 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
       receivedOn: _receivedOn,
       schoolYear: _isGeneral ? _schoolYear : null,
       semester: _isGeneral ? _semester : null,
+      organizationId: _isGeneral ? _organizationId : null,
     );
 
     if (!mounted) return;
@@ -408,6 +418,19 @@ class _RecordIncomeSheetState extends State<_RecordIncomeSheet> {
               'semester instead, and cannot carry a receipt here.',
               style: AppText.caption,
             ),
+            if (app.choosesEventScope) ...[
+              const SizedBox(height: 14),
+              BrutDropdown<String>(
+                label: 'Organization',
+                value: _organizationId,
+                hint: 'Select the organization',
+                items: [
+                  for (final o in app.organizations)
+                    DropdownMenuItem(value: o.id, child: Text(o.label)),
+                ],
+                onChanged: (v) => setState(() => _organizationId = v),
+              ),
+            ],
             const SizedBox(height: 14),
             BrutDropdown<String>(
               label: 'School year',

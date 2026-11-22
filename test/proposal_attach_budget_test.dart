@@ -19,7 +19,7 @@ import 'package:smartevent/widgets/brut_amount_field.dart';
 import 'support/complete_proposal.dart';
 
 /// A program flow document stands in for the rows, the budget has a
-/// ceiling and a balance to fit, and a budget line has a button to edit it.
+/// balance to fit, and a budget line has a button to edit it.
 void main() {
   /// A draft whose files, once one is sent, are a program flow document.
   SapService server() => SapService(
@@ -69,10 +69,17 @@ void main() {
     expect(form.missingForSubmit, isEmpty);
   });
 
-  test('the budget has a ceiling and must fit what is left', () {
-    final form = filledIn(SapForm());
-    form.updateDetails((d) => d.copyWith(totalBudget: '1000000.00'));
-    expect(form.missingForSubmit, contains(SapForm.budgetCapLabel));
+  test('the budget has no fixed ceiling, only what is left', () {
+    // Large, but covered: nothing refuses it for its size alone.
+    final large = filledIn(SapForm())..availableBudget = 2000000;
+    large.updateDetails((d) => d.copyWith(totalBudget: '1500000.00'));
+    large.setBudgetItems([
+      SapBudgetItem.fromJson(const {
+        'particulars': 'Venue',
+        'amount': '1500000.00',
+      }),
+    ]);
+    expect(large.missingForSubmit, isEmpty);
 
     final fits = filledIn(SapForm())..availableBudget = 2500;
     expect(fits.missingForSubmit, isEmpty);
@@ -84,6 +91,21 @@ void main() {
       ProposalSteps.breakdown,
       reason: 'it blocks sending, not saving the step',
     );
+  });
+
+  test('the number of students is held to what the setting allows', () {
+    expect(SapForm.studentsOver(SapSetting.onCampus, 10000), isNull);
+    expect(SapForm.studentsOver(SapSetting.onCampus, 10001), '10,000');
+    expect(SapForm.studentsOver(SapSetting.offCampus, 500), isNull);
+    expect(SapForm.studentsOver(SapSetting.offCampus, 501), '500');
+    expect(SapForm.studentsOver(SapSetting.online, 5001), '5,000');
+    expect(SapForm.studentsOver(null, 100000), isNull);
+
+    final form = filledIn(SapForm()); // online
+    form.updateDetails((d) => d.copyWith(expectedStudents: 5001));
+    final label = form.missingForSubmit.single;
+    expect(label, 'Number of students: at most 5,000 online');
+    expect(ProposalSteps.stepForMissing(label), ProposalSteps.details);
   });
 
   testWidgets('a budget line has a button that edits it in place', (

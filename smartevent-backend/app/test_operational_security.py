@@ -87,11 +87,11 @@ def test_scan_receipt_uses_authorized_organization_storage_path(system, monkeypa
     assert client.post("/expenses/scan-receipt", files=file,
         data={"organization_id": str(orgs[1].id)}).status_code == 403
     assert len(uploaded) == 1
-    login("super_admin")
-    assert client.post("/expenses/scan-receipt", files=file).status_code == 403
+    login("super_admin")  # records money too, for the organization it names
+    assert client.post("/expenses/scan-receipt", files=file).status_code == 400
     assert client.post("/expenses/scan-receipt", files=file,
-        data={"organization_id": str(orgs[1].id)}).status_code == 403
-    assert uploaded == [(users["treasurer"].id, orgs[0].id)]
+        data={"organization_id": str(orgs[1].id)}).status_code == 200
+    assert uploaded == [(users["treasurer"].id, orgs[0].id), (users["super_admin"].id, orgs[1].id)]
 
 
 @pytest.mark.parametrize("route,error,status", [
