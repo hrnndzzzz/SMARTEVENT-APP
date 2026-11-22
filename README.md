@@ -130,8 +130,12 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
     -keyalg RSA -keysize 2048 -validity 10000 -alias smartevent
   ```
 
-  Then write `android/key.properties`, which is gitignored and must never be
-  committed:
+  Then write `key.properties`, which is gitignored and must never be committed.
+  Put it at `~/.smartevent/key.properties` rather than in `android/`: worktrees
+  and second clones each have their own `android/`, and an untracked file is in
+  none of them, so a release built in one would quietly fall back to the debug
+  key. The home copy serves every checkout on the machine; a copy in `android/`
+  still wins if one project needs a different key.
 
   ```
   storeFile=/Users/you/smartevent-release.jks
@@ -144,10 +148,16 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
   repository, an issue, or a pull request. Keep a copy somewhere you will not lose
   it: lose the key and no future build can ever update an installed app.
 
+  `storeFile` should be an absolute path. A relative one is read against the
+  `android/` directory of whichever checkout is building, which is only right
+  when the key.properties sits beside it.
+
   Without `key.properties` the build still works and falls back to this machine's
   debug key, which is fine for `flutter run` and for your own handset. It is not
-  fine for the APK on the website. Check which key an APK carries with
-  `apksigner verify --print-certs <apk>` — `CN=Android Debug` means it was the
+  fine for the APK on the website. The build prints which key it used, but only
+  when Gradle configures from cold — a cached configuration prints nothing — so
+  the answer that is always true is to read the APK:
+  `apksigner verify --print-certs <apk>`. `CN=Android Debug` means it was the
   fallback.
 
   Everyone holding the current debug-signed build has to uninstall once when the

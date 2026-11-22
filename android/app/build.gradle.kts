@@ -23,17 +23,32 @@ plugins {
 //
 // Absent the file, this falls back to the debug key exactly as before,
 // so a fresh clone still builds and `flutter run --release` still works.
+// Two places, because this checkout is not the only one. Worktrees get
+// their own android/ and key.properties is untracked, so a release built
+// inside one would quietly fall back to the debug key and nobody would
+// know until a phone refused the update. A copy in the home directory
+// serves every checkout on the machine at once; the one beside the
+// build still wins, so a single project can override it.
+val keyPropertiesFile = listOf(
+    rootProject.file("key.properties"),
+    File(System.getProperty("user.home"), ".smartevent/key.properties"),
+).firstOrNull { it.exists() }
+
 val keyProperties = Properties().apply {
-    val file = rootProject.file("key.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
+    keyPropertiesFile?.inputStream()?.use { load(it) }
 }
 val hasReleaseKey = keyProperties.getProperty("storeFile") != null
 
-if (!hasReleaseKey) {
+if (hasReleaseKey) {
+    logger.lifecycle("SmartEvent: signing releases with the key named in $keyPropertiesFile")
+} else {
     logger.lifecycle(
-        "SmartEvent: no android/key.properties, so a release build is signed " +
-        "with this machine's debug key. It will not install over a build made " +
-        "anywhere else. See README before handing the APK to anybody."
+        "SmartEvent: no key.properties in android/ or ~/.smartevent/, so a " +
+        "release build is signed with this machine's debug key. It will not " +
+        "install over a build made anywhere else. See README before handing " +
+        "the APK to anybody. This line only prints when Gradle configures " +
+        "from cold, so to be certain, read the APK: " +
+        "apksigner verify --print-certs <apk>"
     )
 }
 
@@ -63,6 +78,9 @@ android {
     signingConfigs {
         if (hasReleaseKey) {
             create("release") {
+                // Absolute paths come back unchanged; a relative one is read
+                // against this checkout's android/, which is only right when
+                // key.properties sits beside it. The README asks for absolute.
                 storeFile = rootProject.file(keyProperties.getProperty("storeFile"))
                 storePassword = keyProperties.getProperty("storePassword")
                 keyAlias = keyProperties.getProperty("keyAlias")
