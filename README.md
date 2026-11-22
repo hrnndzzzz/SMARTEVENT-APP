@@ -117,6 +117,10 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
   or by typing the address in the app's Settings → Backend. `<tag>` is the GitHub
   release the APK goes out as (such as `v1.0.4`). The app compares it with the latest
   release to offer updates, so it must match; a build without it never checks.
+- **A testing build that installs beside the real app:** add
+  `--android-project-arg=smarteventDev=true` and leave the release tag off. It
+  shows on the phone as SMARTEVENT-DEV (`com.lcup.smartevent.smartevent.dev`),
+  with its own sign-in and data, and never asks to update.
 - **Signing: an APK anybody else installs needs the shared release key.** Android
   refuses an update signed by a different key than the installed copy, and each
   machine generates its own debug keystore — so two of us building "release" APKs

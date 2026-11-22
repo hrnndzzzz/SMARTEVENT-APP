@@ -80,9 +80,13 @@ class MainActivity : FlutterFragmentActivity() {
     // building these as field initializers evaluates them too early.
     private val iconNames = listOf("navy", "light")
 
+    // The aliases are named after the code's package, not packageName:
+    // a dev build's app id carries a suffix they do not (build.gradle.kts).
+    private val aliasPackage = MainActivity::class.java.name.substringBeforeLast('.')
+
     private fun componentFor(name: String) = when (name) {
-        "navy" -> ComponentName(this, "$packageName.IconNavy")
-        "light" -> ComponentName(this, "$packageName.IconLight")
+        "navy" -> ComponentName(this, "$aliasPackage.IconNavy")
+        "light" -> ComponentName(this, "$aliasPackage.IconLight")
         else -> null
     }
 

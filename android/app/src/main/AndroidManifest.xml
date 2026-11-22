@@ -11,7 +11,7 @@
     <!-- New notices shown as phone notifications (asked for on Android 13+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:label="smartevent"
+        android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config">
@@ -50,7 +50,7 @@
             android:exported="true"
             android:enabled="true"
             android:icon="@mipmap/ic_launcher"
-            android:label="smartevent">
+            android:label="${appLabel}">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -63,7 +63,7 @@
             android:exported="true"
             android:enabled="false"
             android:icon="@mipmap/ic_launcher_light"
-            android:label="smartevent">
+            android:label="${appLabel}">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
