@@ -10,7 +10,10 @@ void main() {
   testWidgets(
     'signing out closes routes holding the previous account records',
     (tester) async {
-      SharedPreferences.setMockInitialValues({});
+      // The demo has had its tour, so it does not cover the screens here.
+      SharedPreferences.setMockInitialValues({
+        'tour.seenBy': <String>['demo'],
+      });
       FlutterSecureStorage.setMockInitialValues({});
       await tester.binding.setSurfaceSize(const Size(420, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));

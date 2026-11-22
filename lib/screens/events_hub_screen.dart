@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../widgets/spotlight_tour.dart';
 import '../theme/palette.dart';
 import 'events_screen.dart';
 
@@ -60,23 +61,34 @@ class EventsHubScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    child: _CreateBand(canPropose: canPropose, latest: latest),
+                    child: TourSpot(
+                      'hub.create',
+                      child: _CreateBand(
+                        canPropose: canPropose,
+                        latest: latest,
+                      ),
+                    ),
                   ),
                   Expanded(
-                    child: _Band(
-                      index: 2,
-                      title: 'All events',
-                      blurb: pending > 0
-                          ? '$pending waiting · list or month'
-                          : 'Every proposal, as a list or a month',
-                      icon: Icons.list_alt_outlined,
-                      // Orange rather than blue: band one is blue before
-                      // anything is proposed, and two blue bands touching
-                      // read as one band.
-                      tone: BrutTone.orange,
-                      count: app.events.length,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const EventsScreen()),
+                    child: TourSpot(
+                      'hub.all',
+                      child: _Band(
+                        index: 2,
+                        title: 'All events',
+                        blurb: pending > 0
+                            ? '$pending waiting · list or month'
+                            : 'Every proposal, as a list or a month',
+                        icon: Icons.list_alt_outlined,
+                        // Orange rather than blue: band one is blue before
+                        // anything is proposed, and two blue bands touching
+                        // read as one band.
+                        tone: BrutTone.orange,
+                        count: app.events.length,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const EventsScreen(),
+                          ),
+                        ),
                       ),
                     ),
                   ),

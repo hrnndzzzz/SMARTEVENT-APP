@@ -26,9 +26,11 @@ import 'screens/proposal_letters_screen.dart';
 import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
+import 'screens/app_tour.dart';
 import 'theme/app_layout.dart';
 import 'widgets/page_indicator.dart';
 import 'widgets/record_button.dart';
+import 'widgets/spotlight_tour.dart';
 
 void main() async {
   // Portrait only. Every screen is laid out as one column at phone
@@ -259,10 +261,14 @@ class _RootShellState extends State<RootShell> {
   static const _dashboardPage = 1;
   final _pages = PageController(initialPage: _dashboardPage);
   int _page = _dashboardPage;
+  late final AppSettings _settings;
+  bool _tourPending = false;
 
   @override
   void initState() {
     super.initState();
+    _settings = context.read<AppSettings>()
+      ..tourRequests.addListener(_replayTour);
     // Every panel shows a count, so the counts have to arrive before the
     // panels do. Each of these fails independently and says so on its
     // own screen.
@@ -273,13 +279,60 @@ class _RootShellState extends State<RootShell> {
       app.loadExpenses();
       app.loadCatalog();
       app.loadFlaggedExpenses();
+      _checkTour();
     });
   }
 
   @override
   void dispose() {
+    _settings.tourRequests.removeListener(_replayTour);
     _pages.dispose();
     super.dispose();
+  }
+
+  /// Who the tour is remembered against: the account, or the demo as one.
+  String? get _tourWho {
+    final app = context.read<AppState>();
+    return app.isDemoMode ? 'demo' : app.currentAccount?.id;
+  }
+
+  Future<void> _checkTour() async {
+    final who = _tourWho;
+    if (who == null || !widget.role.hasOperationalAccess) return;
+    if (await _settings.tourSeen(who) || !mounted) return;
+    setState(() => _tourPending = true);
+  }
+
+  void _replayTour() {
+    if (!mounted || !widget.role.hasOperationalAccess) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    setState(() => _tourPending = true);
+  }
+
+  void _startTour() {
+    _tourPending = false;
+    final who = _tourWho;
+    // Marked as it starts rather than as it ends, so a tour cut short by
+    // closing the app is not forced on someone again; Settings replays it.
+    if (who != null) unawaited(_settings.markTourSeen(who));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(runAppTour(context, showPage: _showPage));
+    });
+  }
+
+  /// Moves between the three pages for the tour, which walks all of them.
+  Future<void> _showPage(int page) async {
+    if (!mounted || _page == page) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pages.jumpToPage(page);
+      await WidgetsBinding.instance.endOfFrame;
+      return;
+    }
+    await _pages.animateToPage(
+      page,
+      duration: AppMotion.sheet,
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _toDashboard() => _pages.animateToPage(
@@ -296,6 +349,11 @@ class _RootShellState extends State<RootShell> {
     // Signatories are kept out of operational data by the backend, so
     // the three-page shell would be three empty screens.
     if (widget.role.isInstitutionalReviewer) return const SignatoryScreen();
+
+    // Held until nothing is on top of the dashboard — the sign-in screen,
+    // the biometric offer, an update prompt — so the tour never lights up
+    // a control behind a dialog. isCurrentOf rebuilds this when they close.
+    if (_tourPending && ModalRoute.isCurrentOf(context) == true) _startTour();
 
     return PopScope(
       // Back returns to the dashboard before it leaves the app, the same
@@ -330,24 +388,27 @@ class _RootShellState extends State<RootShell> {
             // bar's own edge. The band costs the dashboard about eighty
             // pixels and collides with nothing.
             if (_page == 1 && context.watch<AppState>().mayRecordFinance)
-              const Padding(
+              Padding(
                 // The same gutter every card above it uses, so it sits
                 // on the grid rather than running edge to edge.
-                padding: EdgeInsets.fromLTRB(
+                padding: const EdgeInsets.fromLTRB(
                   AppLayout.gutter,
                   8,
                   AppLayout.gutter,
                   0,
                 ),
-                child: RecordButton(),
+                child: const TourSpot('shell.record', child: RecordButton()),
               ),
-            PageIndicator(
-              current: _page,
-              labels: const ['Menu', 'Dashboard', 'Events'],
-              onGo: (i) => _pages.animateToPage(
-                i,
-                duration: AppMotion.sheet,
-                curve: Curves.easeOutCubic,
+            TourSpot(
+              'shell.pages',
+              child: PageIndicator(
+                current: _page,
+                labels: const ['Menu', 'Dashboard', 'Events'],
+                onGo: (i) => _pages.animateToPage(
+                  i,
+                  duration: AppMotion.sheet,
+                  curve: Curves.easeOutCubic,
+                ),
               ),
             ),
           ],

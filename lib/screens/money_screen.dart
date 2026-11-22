@@ -8,6 +8,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../widgets/last_change_note.dart';
 import '../widgets/module_band.dart';
+import '../widgets/spotlight_tour.dart';
 import '../widgets/stat_grid.dart';
 import 'categories_screen.dart';
 import 'expenses_screen.dart';
@@ -67,9 +68,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
           const SizedBox(height: AppLayout.tight),
           const LastChangeNote(area: 'finance'),
           const SizedBox(height: AppLayout.section),
-          MoneyFigures(
-            app: app,
-            onPending: () => _go(context, const ExpensesScreen()),
+          TourSpot(
+            'money.figures',
+            child: MoneyFigures(
+              app: app,
+              onPending: () => _go(context, const ExpensesScreen()),
+            ),
           ),
           const SizedBox(height: AppLayout.tight),
           _UsedBar(app: app),
@@ -80,12 +84,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
           // which made the one thing people open Money to *do* look
           // like another thing to go and read.
           if (canRecord) ...[
-            BrutButton(
-              label: 'Record an expense',
-              icon: Icons.document_scanner_outlined,
-              tone: BrutTone.orange,
-              expand: true,
-              onPressed: () => _go(context, const ScannerScreen()),
+            TourSpot(
+              'money.record',
+              child: BrutButton(
+                label: 'Record an expense',
+                icon: Icons.document_scanner_outlined,
+                tone: BrutTone.orange,
+                expand: true,
+                onPressed: () => _go(context, const ScannerScreen()),
+              ),
             ),
             const SizedBox(height: AppLayout.section),
           ],
@@ -100,40 +107,43 @@ class _MoneyScreenState extends State<MoneyScreen> {
           // put two of them below the fold. Four squares fit on the
           // screen at once, and the count is the part anyone was
           // reading — so the count is what each square shows.
-          _DestinationGrid(
-            destinations: [
-              _Destination(
-                icon: Icons.fact_check_outlined,
-                title: 'Expenses',
-                count: app.expenses.length,
-                // The badge is the pending count, not the total: an
-                // expense that has been decided is not asking for
-                // anything, and a square that is only ever a running
-                // total is a square nobody looks at twice.
-                badge: app.pendingExpenses.isEmpty
-                    ? null
-                    : '${app.pendingExpenses.length} waiting',
-                onTap: () => _go(context, const ExpensesScreen()),
-              ),
-              _Destination(
-                icon: Icons.receipt_long_outlined,
-                title: 'Receipts',
-                count: app.receipts.length,
-                onTap: () => _go(context, const ReceiptsScreen()),
-              ),
-              _Destination(
-                icon: Icons.savings_outlined,
-                title: 'Income',
-                count: app.incomes.length,
-                onTap: () => _go(context, const IncomeScreen()),
-              ),
-              _Destination(
-                icon: Icons.folder_outlined,
-                title: 'Categories',
-                count: app.categories.length,
-                onTap: () => _go(context, const CategoriesScreen()),
-              ),
-            ],
+          TourSpot(
+            'money.places',
+            child: _DestinationGrid(
+              destinations: [
+                _Destination(
+                  icon: Icons.fact_check_outlined,
+                  title: 'Expenses',
+                  count: app.expenses.length,
+                  // The badge is the pending count, not the total: an
+                  // expense that has been decided is not asking for
+                  // anything, and a square that is only ever a running
+                  // total is a square nobody looks at twice.
+                  badge: app.pendingExpenses.isEmpty
+                      ? null
+                      : '${app.pendingExpenses.length} waiting',
+                  onTap: () => _go(context, const ExpensesScreen()),
+                ),
+                _Destination(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Receipts',
+                  count: app.receipts.length,
+                  onTap: () => _go(context, const ReceiptsScreen()),
+                ),
+                _Destination(
+                  icon: Icons.savings_outlined,
+                  title: 'Income',
+                  count: app.incomes.length,
+                  onTap: () => _go(context, const IncomeScreen()),
+                ),
+                _Destination(
+                  icon: Icons.folder_outlined,
+                  title: 'Categories',
+                  count: app.categories.length,
+                  onTap: () => _go(context, const CategoriesScreen()),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -289,10 +299,7 @@ class _Destination extends StatelessWidget {
               // A zero would mean "nothing yet", which is worth saying
               // here — unlike in a badge, the figure is the point of
               // the square.
-              Text(
-                '$count',
-                style: AppText.moneyLarge.copyWith(fontSize: 22),
-              ),
+              Text('$count', style: AppText.moneyLarge.copyWith(fontSize: 22)),
             ],
           ),
           const SizedBox(height: 10),

@@ -52,6 +52,11 @@ if (hasReleaseKey) {
     )
 }
 
+// `flutter build apk --android-project-arg=smarteventDev=true` makes
+// SMARTEVENT-DEV: its own app id, so a testing build installs beside the
+// real app instead of over it, with its own sign-in and data.
+val devBuild = findProperty("smarteventDev") == "true"
+
 android {
     namespace = "com.lcup.smartevent.smartevent"
     compileSdk = flutter.compileSdkVersion
@@ -66,7 +71,8 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.lcup.smartevent.smartevent"
+        applicationId = "com.lcup.smartevent.smartevent" + if (devBuild) ".dev" else ""
+        manifestPlaceholders["appLabel"] = if (devBuild) "SMARTEVENT-DEV" else "smartevent"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

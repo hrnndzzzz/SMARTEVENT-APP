@@ -5,6 +5,7 @@ import '../../api/models/scope.dart';
 import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
+import '../../widgets/spotlight_tour.dart';
 import '../../theme/palette.dart';
 import '../../widgets/scope_picker.dart';
 import 'sap_form_fields.dart';
@@ -71,10 +72,13 @@ class SapCoverScreen extends StatelessWidget {
             onBack: () => Navigator.of(context).maybePop(),
           ),
           footer: BrutFooter(
-            child: BrutButton(
-              label: 'Start the form',
-              trailingIcon: Icons.arrow_forward,
-              onPressed: editable && ready ? () => onBegin(context) : null,
+            child: TourSpot(
+              'cover.start',
+              child: BrutButton(
+                label: 'Start the form',
+                trailingIcon: Icons.arrow_forward,
+                onPressed: editable && ready ? () => onBegin(context) : null,
+              ),
             ),
           ),
           child: Column(
@@ -115,43 +119,59 @@ class SapCoverScreen extends StatelessWidget {
                 const SizedBox(height: 20),
               ],
 
-              const MonoLabel('School year'),
-              const SizedBox(height: 6),
-              Text(
-                d.schoolYear ?? schoolYearFor(DateTime.now()),
-                style: AppText.cardTitle,
-              ),
-              const SizedBox(height: 14),
-              const MonoLabel('Date of proposal'),
-              const SizedBox(height: 6),
-              Text(
-                _readable(d.proposalDate ?? DateTime.now()),
-                style: AppText.cardTitle,
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Both are filled in for you, and both can be changed on '
-                'the first step.',
-                style: AppText.caption,
+              TourSpot(
+                'cover.dates',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const MonoLabel('School year'),
+                    const SizedBox(height: 6),
+                    Text(
+                      d.schoolYear ?? schoolYearFor(DateTime.now()),
+                      style: AppText.cardTitle,
+                    ),
+                    const SizedBox(height: 14),
+                    const MonoLabel('Date of proposal'),
+                    const SizedBox(height: 6),
+                    Text(
+                      _readable(d.proposalDate ?? DateTime.now()),
+                      style: AppText.cardTitle,
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Both are filled in for you, and both can be changed on '
+                      'the first step.',
+                      style: AppText.caption,
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 24),
-              const BrutSectionTitle('Where is it being held?'),
-              const SizedBox(height: 4),
-              const Text(
-                'This decides what else the form will ask for, so it is '
-                'asked first.',
-                style: AppText.caption,
-              ),
-              const SizedBox(height: 12),
-              SapSingleChoice<SapSetting>(
-                label: 'Setting',
-                options: SapSetting.values,
-                labelOf: (s) => s.label,
-                value: d.setting,
-                enabled: editable,
-                onChanged: (s) =>
-                    form.updateDetails((x) => x.copyWith(setting: s)),
+              TourSpot(
+                'cover.setting',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const BrutSectionTitle('Where is it being held?'),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'This decides what else the form will ask for, so it is '
+                      'asked first.',
+                      style: AppText.caption,
+                    ),
+                    const SizedBox(height: 12),
+                    SapSingleChoice<SapSetting>(
+                      label: 'Setting',
+                      options: SapSetting.values,
+                      labelOf: (s) => s.label,
+                      value: d.setting,
+                      enabled: editable,
+                      onChanged: (s) =>
+                          form.updateDetails((x) => x.copyWith(setting: s)),
+                    ),
+                  ],
+                ),
               ),
 
               if (offCampus) ...[
