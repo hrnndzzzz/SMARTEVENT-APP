@@ -38,7 +38,7 @@ def _has_reference(query, column, reference, bucket, filename):
 def _authorize_receipt(db, user, reference, path):
     require_operational_read(user)
     parts = path.split("/")
-    if (user.role in FINANCIAL_ROLES and len(parts) == 3 and parts[1] == str(user.id)
+    if (user.role in FINANCIAL_ROLES | {"super_admin"} and len(parts) == 3 and parts[1] == str(user.id)
             and (user.role == "super_admin" or parts[0] == str(user.organization_id))):
         return
     for model in (Receipt, Expense):

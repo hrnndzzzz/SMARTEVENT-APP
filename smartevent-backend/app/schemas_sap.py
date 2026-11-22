@@ -6,8 +6,9 @@ from uuid import UUID
 from copy import copy
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator, create_model
 
-# The most a proposal, or one line of it, may ask for: an extra zero typed by mistake is refused.
-MAX_PESO = Decimal('100000')
+# The most students an activity may list, by setting; the budget is held to what is available on submit.
+MAX_STUDENTS = {'on_campus': 10000, 'off_campus': 500, 'online': 5000}
+SETTING_NAMES = {'on_campus': 'an in-campus', 'off_campus': 'an off-campus', 'online': 'an online'}
 
 
 class StrictModel(BaseModel):
@@ -41,7 +42,7 @@ class Details(StrictModel):
     core_values: list[Literal['courage', 'compassion', 'community_oriented', 'humility', 'interiority', 'missionary_spirit']] = Field(min_length=1, max_length=6)
     egas: list[Literal[1, 2, 3, 4]] = Field(min_length=1, max_length=4)
     emergency_plan: str = Field(min_length=1, max_length=600)
-    total_budget: Decimal = Field(ge=0, le=MAX_PESO, max_digits=12, decimal_places=2)
+    total_budget: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     funding_source: str = Field(min_length=1, max_length=150)
     additional_information: str = Field(default='', max_length=10000)
     excuse_arrangement: str = Field(default='', max_length=400)
@@ -58,6 +59,9 @@ class Details(StrictModel):
             raise ValueError('Off-campus activities require agreement acknowledgment')
         if any(not x or len(x) > 80 for x in self.activity_types + self.program_types):
             raise ValueError('Checkbox labels must contain 1–80 characters')
+        if self.expected_students > MAX_STUDENTS[self.setting]:
+            raise ValueError(f'Number of students: at most {MAX_STUDENTS[self.setting]:,} '
+                             f'for {SETTING_NAMES[self.setting]} activity')
         return self
 
 
@@ -70,8 +74,8 @@ class ProgramItem(StrictModel):
 class BudgetItem(StrictModel):
     particulars: str = Field(min_length=1, max_length=120)
     quantity: int = Field(default=1, ge=1, le=100000, strict=True)
-    unit_cost: Decimal | None = Field(default=None, ge=0, le=MAX_PESO, max_digits=12, decimal_places=2)
-    amount: Decimal = Field(ge=0, le=MAX_PESO, max_digits=12, decimal_places=2)
+    unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
 
 
 class SupportRequest(StrictModel):

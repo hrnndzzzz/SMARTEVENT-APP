@@ -14,7 +14,7 @@ from app.dependencies import (
     resolve_organization_id,
     scope_query_by_department,
 )
-from app.models import Event, IncomeRecord, User
+from app.models import Event, IncomeRecord, Organization, User
 from app.schemas import IncomeCreate, IncomeOut
 from app.services.academic_year import validate_school_year
 from app.services.receipt_validation import save_receipt
@@ -38,7 +38,10 @@ def record_income(
         except ValueError as exc:
             raise HTTPException(422, str(exc))
         department_id = resolve_department_id(current_user, None)
-        organization_id = resolve_organization_id(db, current_user, None, department_id)
+        if current_user.role == "super_admin" and payload.organization_id is not None:
+            chosen = db.get(Organization, payload.organization_id)
+            department_id = chosen.department_id if chosen else None
+        organization_id = resolve_organization_id(db, current_user, payload.organization_id, department_id)
         income = IncomeRecord(event_id=None, organization_id=organization_id, department_id=department_id,
                               school_year=payload.school_year, semester=payload.semester, **fields)
         audited = income

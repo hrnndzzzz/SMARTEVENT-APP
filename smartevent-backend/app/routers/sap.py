@@ -445,7 +445,7 @@ def pdf(event_id: UUID, revision_no: int | None = Query(None, ge=1), draft: bool
 
 @router.post('/final-signed-copy', status_code=201, response_model=SAPProposalOut, response_model_exclude_unset=True)
 def final_copy(event_id: UUID, expected_version: int = Form(..., ge=1), file: UploadFile = File(...), db: Session = Depends(get_db), user: User = Depends(require_active_account)):
-    if user.role != 'sds_staff':
+    if user.role not in {'sds_staff', 'super_admin'}:
         raise HTTPException(403, 'Only SDS staff may upload physical signature evidence')
     # Read bounded bytes before holding the event row lock during validation/upload.
     data = file.file.read(storage.MAX_UPLOAD_BYTES + 1)

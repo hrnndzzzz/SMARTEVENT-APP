@@ -96,7 +96,7 @@ def test_rejection_resubmission_preserves_old_decisions(system):
     assert db.query(Approval).filter(Approval.decision == "resubmitted").count() == 1
 
 
-@pytest.mark.parametrize("role", ["admin", "super_admin", "adviser"])
+@pytest.mark.parametrize("role", ["admin", "adviser"])
 def test_operational_reviewers_cannot_bypass_institutional_stage(system, role):
     path, _ = send_to_institution(system)
     client, db, users, orgs, resources, login = system
@@ -104,6 +104,17 @@ def test_operational_reviewers_cannot_bypass_institutional_stage(system, role):
     for action in ("approve", "reject"):
         assert client.post(path + "/" + action, json={}).status_code == 409
     assert resources[0]["events"].status == INSTITUTIONAL_REVIEW
+
+
+def test_super_admin_decides_the_current_step_for_its_signatory(system):
+    path, _ = send_to_institution(system, two=True)
+    client, db, users, orgs, resources, login = system
+    login("super_admin")
+    first = client.post(path + "/approve", json={})
+    assert first.status_code == 200, first.text
+    assert first.json()["status"] == INSTITUTIONAL_REVIEW  # the second signatory is next
+    second = client.post(path + "/approve", json={})
+    assert second.status_code == 200 and second.json()["status"] == "approved"
 
 
 def test_missing_route_blocks_admin_review_without_recording_a_decision(system):

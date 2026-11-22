@@ -235,3 +235,13 @@ def test_a_proposal_past_department_review_is_refused_there(sap_system):
     refused = decide(sap_system, 'adviser', 'approve')
     assert refused.status_code == 409
     assert refused.json()['detail'] == 'This proposal is not waiting on department review'
+
+
+def test_super_admin_may_stand_in_for_the_moderator(sap_system):
+    send(sap_system)
+    client, db, users, event, login, base = sap_system
+    assert event.status == 'pending_adviser'
+    response = decide(sap_system, 'super_admin', 'approve')
+    assert response.status_code == 200, response.text
+    assert response.json()['status'] == 'pending_admin'  # the Dean is next
+    assert db.query(SAPProposal).one().state == 'pending_department_review'

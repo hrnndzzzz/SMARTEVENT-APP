@@ -1,3 +1,4 @@
+import base64
 import uuid
 from decimal import Decimal
 
@@ -20,7 +21,8 @@ from app.dependencies import (
 )
 from app.models import Approval, Category, DeletedEvent, DocumentRouting, Event, EventParticipant, EventRequirement, RequirementPreset, User
 from app.models_compliance import EventLogistics, EventPersonnel, EventVehicle, EventComplianceDocument
-from app.models_sap import SAPAttachment, SAPItem, SAPProposal, SAPRevision
+from app.models_sap import (SAPAttachment, SAPCheckpoint, SAPEvaluation, SAPFinalCopy, SAPItem, SAPProposal,
+                            SAPReview, SAPRevision)
 from app.services.compliance import invalidate_clearance
 from app.schemas import (
     ApprovalDecision,
@@ -71,6 +73,11 @@ def _get_event_or_404(db: Session, event_id: uuid.UUID, *, lock: bool = False, a
 def _assert_event_owner_scope(event: Event, current_user: User, action: str) -> None:
     assert_owner_or_admin(event.proposed_by, current_user, action, owner_roles={"adviser", "treasurer", "officer"})
     assert_record_scope(current_user, event, allow_officer_read=True)
+
+
+def _acts_as_signatory(user: User, event: Event) -> bool:
+    """A signatory, or the Super Admin deciding the current routing step in its place."""
+    return user.role == "signatory" or (user.role == "super_admin" and event.status == "pending_institutional_review")
 
 
 def _initial_pending_status(proposer_role: str) -> str:
@@ -392,9 +399,9 @@ def approve_event(
         return event
     _require_academic_metadata(event)
 
-    if current_user.role == "signatory":
+    if _acts_as_signatory(current_user, event):
         review_institutional_step(db, event, current_user, "approved", payload.remarks)
-    elif current_user.role == "adviser":
+    elif current_user.role == "adviser" or (current_user.role == "super_admin" and event.status in ADVISER_PENDING_STATUSES):
         if event.status not in ADVISER_PENDING_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -444,13 +451,14 @@ def reject_event(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Event is '{event.status}' — advisers can only act while it's pending adviser review",
         )
-    if current_user.role in {"admin", "super_admin"} and event.status not in ADVISER_PENDING_STATUSES | {"pending_admin"}:
+    if (current_user.role in {"admin", "super_admin"} and not _acts_as_signatory(current_user, event)
+            and event.status not in ADVISER_PENDING_STATUSES | {"pending_admin"}):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Event is '{event.status}' — nothing pending to reject",
         )
 
-    if current_user.role == "signatory":
+    if _acts_as_signatory(current_user, event):
         review_institutional_step(db, event, current_user, "rejected", payload.remarks)
     else:
         record_decision(db, "event", event.id, "rejected", current_user, payload.remarks)
@@ -484,22 +492,38 @@ def delete_event(
     if any(db.query(model).filter_by(event_id=event.id).first() for model in
            (EventParticipant, EventRequirement, EventPersonnel, EventVehicle, EventComplianceDocument)):
         raise HTTPException(409, "This draft has compliance records; retain it to preserve the paper trail")
-    # Every draft made in the app carries a proposal. One that was never sent goes with it;
-    # one sent for review even once is part of the paper trail and stays.
+    # Every draft made in the app carries a proposal, and it goes with the draft: one sent
+    # before (taken back or returned) takes its submitted copies and their reviews too.
     files = []
     kept = {"event": _row(event)}
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if proposal:
-        if proposal.revision_no or db.query(SAPRevision.id).filter_by(proposal_id=proposal.id).first():
-            raise HTTPException(409, "This proposal has been sent for review before, so its record is kept")
+        revisions = db.query(SAPRevision).filter_by(proposal_id=proposal.id).all()
+        ids = [row.id for row in revisions]
+        by_revision = [db.query(model).filter(model.revision_id.in_(ids)).all() if ids else []
+                       for model in (SAPReview, SAPCheckpoint, SAPFinalCopy)]
+        reviews, checkpoints, final_copies = by_revision
+        evaluations = db.query(SAPEvaluation).filter_by(proposal_id=proposal.id).all()
         attachments = db.query(SAPAttachment).filter_by(proposal_id=proposal.id).all()
         items = db.query(SAPItem).filter_by(proposal_id=proposal.id).all()
-        files = [row.storage_ref for row in attachments]
+        # Revisions share one file per attachment, so each is listed once for the purge.
+        files = list(dict.fromkeys([row.storage_ref for row in attachments + final_copies]))
         kept.update(proposal=_row(proposal), items=[_row(r) for r in items], attachments=[_row(r) for r in attachments])
-        for row in attachments + items:
-            db.delete(row)
-        db.flush()  # the rows before the proposal they point at
+        if revisions:
+            kept.update(revisions=[_row(r) for r in revisions], reviews=[_row(r) for r in reviews],
+                        checkpoints=[_row(r) for r in checkpoints], final_copies=[_row(r) for r in final_copies],
+                        evaluations=[_row(r) for r in evaluations])
+        # Children first, so no row is left pointing at one already gone.
+        for group in (reviews + checkpoints + final_copies, revisions, evaluations + attachments + items):
+            for row in group:
+                db.delete(row)
+            db.flush()
         db.delete(proposal)
+    approvals = db.query(Approval).filter_by(entity_type="event", entity_id=event.id).all()
+    if approvals:
+        kept["approvals"] = [_row(row) for row in approvals]
+        for row in approvals:
+            db.delete(row)
     logistics = db.get(EventLogistics, event.id)
     if logistics:
         kept["logistics"] = _row(logistics)
@@ -526,4 +550,4 @@ def delete_event(
 def _row(obj) -> dict:
     """A row as plain JSON, money as exact strings."""
     return jsonable_encoder({a.key: getattr(obj, a.key) for a in obj.__mapper__.column_attrs},
-                            custom_encoder={Decimal: str})
+                            custom_encoder={Decimal: str, bytes: lambda b: base64.b64encode(b).decode()})

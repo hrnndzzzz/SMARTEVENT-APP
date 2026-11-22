@@ -52,12 +52,19 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
 
 
 # Officers may propose, so like any organization member they may withdraw a colleague's.
-@pytest.mark.parametrize('role', ['admin', 'super_admin', 'signatory', 'sds_staff'])
+@pytest.mark.parametrize('role', ['admin', 'signatory', 'sds_staff'])
 def test_nonproposer_cannot_withdraw(sap_system, role):
     submitted = populate(sap_system)
     client, _, _, _, login, base = sap_system
     login(role)
     assert client.post(base + '/withdraw', json={'expected_version': submitted['version']}).status_code == 403
+
+
+def test_super_admin_may_withdraw_anyones(sap_system):
+    submitted = populate(sap_system)
+    client, _, _, _, login, base = sap_system
+    login('super_admin')
+    assert client.post(base + '/withdraw', json={'expected_version': submitted['version']}).status_code == 200
 
 
 def test_officer_proposer_can_withdraw_own_proposal(sap_system):

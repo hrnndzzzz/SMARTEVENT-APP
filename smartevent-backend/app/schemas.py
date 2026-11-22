@@ -551,6 +551,8 @@ class IncomeCreate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     # None records general-fund income, such as membership dues.
     event_id: uuid.UUID | None = None
+    # General fund only: the organization it belongs to, for a Super Admin, who has none.
+    organization_id: uuid.UUID | None = None
     school_year: str | None = Field(default=None, pattern=r"^\d{4}-\d{4}$")
     semester: Semester | None = None
     source: str = Field(min_length=1, max_length=100)
