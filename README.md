@@ -123,12 +123,27 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
   produced builds that would not install over each other
   (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`), only a reinstall that wipes the data.
 
-  One key, held by both of us, fixes it for good. Make it once:
+  One key, held by both of us, fixes it for good. **Do not generate a fresh one.**
+  Every release on the download link since v1.0.14 — v1.0.14, v1.0.15, v1.0.16 and
+  v1.0.17 — is signed by the same certificate, `083d0485…cb909756`, which is
+  Jasper's `.android/debug.keystore` (alias `androiddebugkey`, valid to 2056). A
+  new key would mean every one of those phones uninstalling once; adopting that
+  keystore as the shared release key means the next update simply installs.
+
+  So the shared key is a copy of that file, taken out of `.android` where a tool
+  cleanup could wipe it, and given a real password. Changing a keystore's password
+  leaves the key itself untouched, so updates still install:
 
   ```
-  keytool -genkeypair -v -keystore ~/smartevent-release.jks -storetype PKCS12 \
-    -keyalg RSA -keysize 2048 -validity 10000 -alias smartevent
+  keytool -storepasswd -keystore <copy>
+  keytool -keypasswd -alias androiddebugkey -keystore <copy>
   ```
+
+  Two things follow from using a debug certificate. Google Play refuses one named
+  `CN=Android Debug`, so publishing there later means a new key and one uninstall
+  at that point — not before. And Sean's Mac has a different debug key
+  (`2025da6a…987c010c`, which signed v1.0.12), so a handset carrying a Mac-built
+  APK needs one uninstall at the changeover. That is one phone, not the cohort.
 
   Then write `key.properties`, which is gitignored and must never be committed.
   Put it at `~/.smartevent/key.properties` rather than in `android/`: worktrees
