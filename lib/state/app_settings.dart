@@ -93,6 +93,36 @@ class AppSettings extends ChangeNotifier {
     await _write((prefs) => prefs.setString(_dashboardChartKey, title));
   }
 
+  static const _tourKey = 'tour.seenBy';
+
+  /// Bumped by Settings to ask the dashboard for its tour again.
+  final tourRequests = ValueNotifier<int>(0);
+
+  /// Whether this phone has shown [who] the first-sign-in tour. True when
+  /// storage fails, so a phone that cannot remember is not walked through
+  /// it on every launch.
+  Future<bool> tourSeen(String who) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getStringList(_tourKey)?.contains(who) ?? false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> markTourSeen(String who) => _write((prefs) async {
+    final seen = prefs.getStringList(_tourKey) ?? const <String>[];
+    if (!seen.contains(who)) {
+      await prefs.setStringList(_tourKey, [...seen, who]);
+    }
+  });
+
+  @override
+  void dispose() {
+    tourRequests.dispose();
+    super.dispose();
+  }
+
   /// The choice is applied immediately and persisted afterwards, so a
   /// storage failure costs the memory of it, never the setting itself.
   Future<void> _write(Future<void> Function(SharedPreferences) body) async {

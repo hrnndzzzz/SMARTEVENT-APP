@@ -24,6 +24,7 @@ import 'events_screen.dart';
 import 'expenses_screen.dart';
 import '../theme/peso.dart';
 import '../theme/module_identity.dart';
+import '../widgets/spotlight_tour.dart';
 
 /// The dashboard: where you stand, what needs you, and the one thing you
 /// are most likely to have opened the app to do.
@@ -103,7 +104,7 @@ class HomeScreen extends StatelessWidget {
 
     return BrutScreen(
       onRefresh: app.refreshAll,
-      topBar: AppHeader(),
+      topBar: KeyedSubtree(key: TourTargets.header, child: AppHeader()),
       // Scrolls as one page, like every module screen does since the
       // letterbox was taken out of them. It was the last fixed page
       // with a flexible child, and that child was the chart: a
@@ -144,6 +145,7 @@ class HomeScreen extends StatelessWidget {
             spacing: AppLayout.between,
             children: [
               _HeaderLine(
+                key: TourTargets.date,
                 label:
                     '${_days[now.weekday - 1]} / ${_months[now.month - 1]} '
                     '${now.day}',
@@ -276,6 +278,7 @@ class HomeScreen extends StatelessWidget {
                         const SizedBox(width: AppLayout.between),
                         Expanded(
                           child: _StatTile(
+                            key: TourTargets.budget,
                             icon: Module.money.icon,
                             accent: Module.money.colorIn(context),
                             value: budgetFigure,
@@ -471,6 +474,7 @@ enum _Trend { up, down, flat }
 /// for a dashboard.
 class _StatTile extends StatelessWidget {
   const _StatTile({
+    super.key,
     required this.icon,
     required this.value,
     required this.label,
@@ -1095,6 +1099,7 @@ class AlertWidget extends StatelessWidget {
 /// target tall enough for a thumb.
 class _HeaderLine extends StatelessWidget {
   const _HeaderLine({
+    super.key,
     required this.label,
     required this.icon,
     required this.onTap,

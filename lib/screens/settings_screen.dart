@@ -243,6 +243,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context,
             ).push(MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
           ),
+          // Only where there is a dashboard for it to walk through.
+          if (context.watch<AppState>().currentRole?.hasOperationalAccess ??
+              false) ...[
+            const SizedBox(height: 8),
+            BrutListRow(
+              title: 'Replay the tour',
+              meta: 'The walk-through from your first sign-in',
+              marker: const BrutIconTile(size: 32, icon: Icons.tour_outlined),
+              onTap: () => settings.tourRequests.value++,
+            ),
+          ],
           const SizedBox(height: 8),
           BrutListRow(
             title: 'About SmartEvent',
