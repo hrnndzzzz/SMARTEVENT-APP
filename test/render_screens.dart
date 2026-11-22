@@ -67,6 +67,7 @@ Future<void> icons() async {
 void main() {
   testWidgets('money', (tester) async {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf',
+      'fonts/Lexend-SemiBold.ttf',
       'fonts/Lexend-Bold.ttf', 'fonts/Lexend-ExtraBold.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
@@ -94,6 +95,7 @@ void main() {
 
   testWidgets('inventory', (tester) async {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf',
+      'fonts/Lexend-SemiBold.ttf',
       'fonts/Lexend-Bold.ttf', 'fonts/Lexend-ExtraBold.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
@@ -121,6 +123,7 @@ void main() {
 
   testWidgets('events', (tester) async {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf',
+      'fonts/Lexend-SemiBold.ttf',
       'fonts/Lexend-Bold.ttf', 'fonts/Lexend-ExtraBold.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
@@ -148,6 +151,7 @@ void main() {
 
   testWidgets('money dark', (tester) async {
     await font('Lexend', ['fonts/Lexend-Regular.ttf', 'fonts/Lexend-Medium.ttf',
+      'fonts/Lexend-SemiBold.ttf',
       'fonts/Lexend-Bold.ttf', 'fonts/Lexend-ExtraBold.ttf']);
     await font('IBMPlexMono',
         ['fonts/IBMPlexMono-Regular.ttf', 'fonts/IBMPlexMono-Medium.ttf']);
