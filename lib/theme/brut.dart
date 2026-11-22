@@ -2146,7 +2146,13 @@ class BrutChip extends StatelessWidget {
       side: locked && selected ? context.emphaticSide : null,
       shadow: selected ? AppShadows.sm : AppShadows.none,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      alignment: Alignment.center,
+      // No alignment, deliberately. A Container given one grows to fill
+      // whatever width it is offered, and a chip is only ever as wide as
+      // its word. In the horizontal row of filters the constraints are
+      // unbounded so it shrank anyway and the bug stayed hidden; dropped
+      // into a Wrap — the +₱500 steps under an amount — each chip took a
+      // line to itself. Nothing is lost by leaving it out: with no height
+      // set, the box is already exactly its label plus the padding.
       child: Text(
         label,
         style: AppText.buttonLabel.copyWith(

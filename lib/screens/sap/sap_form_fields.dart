@@ -48,18 +48,21 @@ class SapSingleChoice<T> extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
+            // No IntrinsicWidth any more. These chips were each wrapped
+            // in one because a chip handed a Wrap's loose constraints
+            // stretched to the full line; that was BrutChip asking its
+            // Container to align, and it is fixed at the source now. An
+            // intrinsic pass per chip is not free on a form this long.
             for (final option in options)
-              IntrinsicWidth(
-                child: BrutChip(
-                  label: labelOf(option),
-                  selected: option == value,
-                  // Tapping the chosen one again clears it, because the
-                  // paper lets you leave a row blank and the form should
-                  // not trap someone into an answer they cannot undo.
-                  onTap: !enabled
-                      ? null
-                      : () => onChanged(option == value ? null : option),
-                ),
+              BrutChip(
+                label: labelOf(option),
+                selected: option == value,
+                // Tapping the chosen one again clears it, because the
+                // paper lets you leave a row blank and the form should
+                // not trap someone into an answer they cannot undo.
+                onTap: !enabled
+                    ? null
+                    : () => onChanged(option == value ? null : option),
               ),
           ],
         ),
@@ -103,20 +106,18 @@ class SapMultiChoice<T> extends StatelessWidget {
           runSpacing: 8,
           children: [
             for (final option in options)
-              IntrinsicWidth(
-                child: BrutChip(
-                  label: labelOf(option),
-                  selected: selected.contains(option),
-                  onTap: !enabled
-                      ? null
-                      : () {
-                          final next = [...selected];
-                          selected.contains(option)
-                              ? next.remove(option)
-                              : next.add(option);
-                          onChanged(next);
-                        },
-                ),
+              BrutChip(
+                label: labelOf(option),
+                selected: selected.contains(option),
+                onTap: !enabled
+                    ? null
+                    : () {
+                        final next = [...selected];
+                        selected.contains(option)
+                            ? next.remove(option)
+                            : next.add(option);
+                        onChanged(next);
+                      },
               ),
           ],
         ),
