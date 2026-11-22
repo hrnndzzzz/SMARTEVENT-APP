@@ -7,26 +7,32 @@ import 'package:smartevent/widgets/spotlight_tour.dart';
 /// The first-sign-in tour: one lit control at a time, Next and Skip, and
 /// remembered per account so it shows once.
 void main() {
-  final first = GlobalKey();
-  final second = GlobalKey();
-  final absent = GlobalKey();
+  bool? result;
 
   Future<void> open(WidgetTester tester) async {
+    result = null;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: Builder(
             builder: (context) => Column(
               children: [
-                SizedBox(key: first, height: 60, width: 200),
-                SizedBox(key: second, height: 60, width: 200),
+                const TourSpot(
+                  'first',
+                  child: SizedBox(height: 60, width: 200),
+                ),
+                const TourSpot(
+                  'second',
+                  child: SizedBox(height: 60, width: 200),
+                ),
                 TextButton(
-                  onPressed: () => showSpotlightTour(context, [
-                    TourStep(first, 'First', 'The first one.'),
-                    // Never built, like the Record button for an Officer.
-                    TourStep(absent, 'Absent', 'Not on screen.'),
-                    TourStep(second, 'Second', 'The second one.'),
-                  ]),
+                  onPressed: () async =>
+                      result = await showSpotlightTour(context, const [
+                        TourStep('first', 'First', 'The first one.'),
+                        // Never built, like the Record button for an Adviser.
+                        TourStep('absent', 'Absent', 'Not on screen.'),
+                        TourStep('second', 'Second', 'The second one.'),
+                      ]),
                   child: const Text('Start'),
                 ),
               ],
@@ -55,6 +61,7 @@ void main() {
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(find.text('Second'), findsNothing);
+    expect(result, isTrue);
   });
 
   testWidgets('Skip closes it from the first step', (tester) async {
@@ -62,6 +69,7 @@ void main() {
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
     expect(find.text('1 OF 2'), findsNothing);
+    expect(result, isFalse);
   });
 
   test('is remembered per account on this phone', () async {

@@ -9,6 +9,7 @@ import '../widgets/event_picker_items.dart';
 import '../widgets/floating_peek.dart';
 import '../widgets/last_change_note.dart';
 import '../widgets/module_band.dart';
+import '../widgets/spotlight_tour.dart';
 import '../widgets/stat_grid.dart';
 import 'inventory_detail_screen.dart';
 import '../theme/module_identity.dart';
@@ -159,13 +160,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return BrutScreen(
       floatingActionButton: canManage
-          ? FloatingActionButton.extended(
-              onPressed: () => BrutSheet.show<void>(
-                context,
-                builder: (_) => const _NewItemSheet(),
+          ? TourSpot(
+              'inventory.new',
+              child: FloatingActionButton.extended(
+                onPressed: () => BrutSheet.show<void>(
+                  context,
+                  builder: (_) => const _NewItemSheet(),
+                ),
+                icon: const Icon(Icons.add),
+                label: Text('New item', style: AppText.buttonLabel),
               ),
-              icon: const Icon(Icons.add),
-              label: Text('New item', style: AppText.buttonLabel),
             )
           : null,
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
@@ -200,7 +204,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           // top third of the screen was prose and the first thing you
           // could actually use was below it. The same four figures are
           // in the list — but only if you read every row and count.
-          _Figures(items: app.catalog),
+          TourSpot('inventory.figures', child: _Figures(items: app.catalog)),
           const SizedBox(height: AppLayout.between),
 
           // Where items come from was explained only on the empty
@@ -226,13 +230,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
           // Find a thing by name before narrowing by anything else.
           // A catalogue you can only browse is a catalogue you have to
           // already know your way around.
-          BrutTextField(
-            controller: _search,
-            label: 'Search',
-            hint: 'Name, description or where it is kept',
-            prefixIcon: Icons.search,
-            onChanged: (value) =>
-                setState(() => _query = value.trim().toLowerCase()),
+          TourSpot(
+            'inventory.find',
+            child: BrutTextField(
+              controller: _search,
+              label: 'Search',
+              hint: 'Name, description or where it is kept',
+              prefixIcon: Icons.search,
+              onChanged: (value) =>
+                  setState(() => _query = value.trim().toLowerCase()),
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -448,11 +455,14 @@ class _ItemCard extends StatelessWidget {
               // tap nobody standing at a cupboard wants to spend.
               if (onMove != null) ...[
                 const SizedBox(width: 6),
-                BrutIconButton(
-                  icon: Icons.swap_vert,
-                  label: 'Record a movement for ${item.itemName}',
-                  onPressed: onMove,
-                  size: 34,
+                TourSpot(
+                  'inventory.move',
+                  child: BrutIconButton(
+                    icon: Icons.swap_vert,
+                    label: 'Record a movement for ${item.itemName}',
+                    onPressed: onMove,
+                    size: 34,
+                  ),
                 ),
               ],
             ],

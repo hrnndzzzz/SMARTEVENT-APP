@@ -249,7 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             BrutListRow(
               title: 'Replay the tour',
-              meta: 'The walk-through from your first sign-in',
+              meta: 'The walk-through of the dashboard and every module',
               marker: const BrutIconTile(size: 32, icon: Icons.tour_outlined),
               onTap: () => settings.tourRequests.value++,
             ),

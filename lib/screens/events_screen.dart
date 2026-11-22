@@ -15,6 +15,7 @@ import '../widgets/event_status.dart';
 import '../widgets/last_change_note.dart';
 import 'event_detail_screen.dart';
 import '../widgets/module_band.dart';
+import '../widgets/spotlight_tour.dart';
 import '../theme/module_identity.dart';
 
 /// Every proposal, as a list or as a month.
@@ -68,62 +69,70 @@ class _EventsScreenState extends State<EventsScreen> {
           // The three controls keep their own row under the band. In
           // the band's trailing slot they had to share it with the
           // title, and at 360dp that left the New button a stub.
-          Row(
-            children: [
-              // The order the list is in, named rather than hidden
-              // behind an icon. This row used to open with a Spacer, so
-              // the left two thirds of it were empty and the three
-              // controls were crushed into the right edge; the sort now
-              // uses that space to say something.
-              // No Spacer. A Spacer is an Expanded with flex 1, so it
-              // and a Flexible sort button split the free space evenly
-              // and the button was handed 27px for 48px of icons —
-              // which is what the 360dp overflow actually was. With
-              // the fixed-width controls laid out first, the sort gets
-              // whatever is left and shrinks only on a narrow phone.
-              Flexible(
-                child: _SortButton(
-                  sort: _sort,
-                  onChanged: (v) => setState(() => _sort = v),
+          TourSpot(
+            'events.tools',
+            child: Row(
+              children: [
+                // The order the list is in, named rather than hidden
+                // behind an icon. This row used to open with a Spacer, so
+                // the left two thirds of it were empty and the three
+                // controls were crushed into the right edge; the sort now
+                // uses that space to say something.
+                // No Spacer. A Spacer is an Expanded with flex 1, so it
+                // and a Flexible sort button split the free space evenly
+                // and the button was handed 27px for 48px of icons —
+                // which is what the 360dp overflow actually was. With
+                // the fixed-width controls laid out first, the sort gets
+                // whatever is left and shrinks only on a narrow phone.
+                Flexible(
+                  child: _SortButton(
+                    sort: _sort,
+                    onChanged: (v) => setState(() => _sort = v),
+                  ),
                 ),
-              ),
-              const SizedBox(width: AppLayout.tight),
-              _ViewToggle(
-                calendar: _calendar,
-                onChanged: (v) => setState(() => _calendar = v),
-              ),
-              const SizedBox(width: AppLayout.tight),
-              // SDS has no event access; the server decides who may
-              // propose.
-              if (context.watch<AppState>().mayProposeEvents)
-                BrutButton(
-                  // The reason anyone opens this screen with something
-                  // in mind, so it is the one filled button in the row
-                  // and it says what it makes.
-                  label: 'New event',
-                  icon: Icons.add,
-                  // The emphasis is the fill and the full label, not
-                  // the height: a 44pt button here costs the sort
-                  // control the room it needs at 360dp.
-                  tone: BrutTone.brand,
-                  size: BrutSize.small,
-                  expand: false,
-                  onPressed: () {
-                    final app = context.read<AppState>();
-                    SapProposalFlow.start(
-                      context,
-                      SapForm(service: app.isDemoMode ? null : app.sapService),
-                    );
-                  },
+                const SizedBox(width: AppLayout.tight),
+                _ViewToggle(
+                  calendar: _calendar,
+                  onChanged: (v) => setState(() => _calendar = v),
                 ),
-            ],
+                const SizedBox(width: AppLayout.tight),
+                // SDS has no event access; the server decides who may
+                // propose.
+                if (context.watch<AppState>().mayProposeEvents)
+                  BrutButton(
+                    // The reason anyone opens this screen with something
+                    // in mind, so it is the one filled button in the row
+                    // and it says what it makes.
+                    label: 'New event',
+                    icon: Icons.add,
+                    // The emphasis is the fill and the full label, not
+                    // the height: a 44pt button here costs the sort
+                    // control the room it needs at 360dp.
+                    tone: BrutTone.brand,
+                    size: BrutSize.small,
+                    expand: false,
+                    onPressed: () {
+                      final app = context.read<AppState>();
+                      SapProposalFlow.start(
+                        context,
+                        SapForm(
+                          service: app.isDemoMode ? null : app.sapService,
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
           const LastChangeNote(area: 'proposals'),
           const SizedBox(height: 12),
-          _EventFilterBar(
-            status: _status,
-            onStatus: (value) => setState(() => _status = value),
+          TourSpot(
+            'events.filters',
+            child: _EventFilterBar(
+              status: _status,
+              onStatus: (value) => setState(() => _status = value),
+            ),
           ),
           const SizedBox(height: 12),
           Consumer<AppState>(
@@ -203,7 +212,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final event in events) ...[
-                    _EventCard(event: event),
+                    TourSpot('events.first', child: _EventCard(event: event)),
                     const SizedBox(height: 10),
                   ],
                 ],

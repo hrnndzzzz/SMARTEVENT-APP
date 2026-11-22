@@ -26,6 +26,7 @@ import 'screens/proposal_letters_screen.dart';
 import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
+import 'screens/app_tour.dart';
 import 'theme/app_layout.dart';
 import 'widgets/page_indicator.dart';
 import 'widgets/record_button.dart';
@@ -263,38 +264,6 @@ class _RootShellState extends State<RootShell> {
   late final AppSettings _settings;
   bool _tourPending = false;
 
-  static final _tourSteps = [
-    TourStep(
-      TourTargets.header,
-      'Notices and your account',
-      'The bell collects what is waiting on you. Tap your picture for '
-          'your account and Settings.',
-    ),
-    TourStep(
-      TourTargets.date,
-      'The Planner',
-      'Tap the date for every event with a date on it.',
-    ),
-    TourStep(
-      TourTargets.budget,
-      'What is left to spend',
-      'The eye covers the figure from whoever is beside you. Tap any '
-          'tile to open it, or hold it to peek without leaving.',
-    ),
-    TourStep(
-      TourTargets.record,
-      'Record an expense',
-      'Scan a receipt and check what was read. Nothing is saved until '
-          'you press Save.',
-    ),
-    TourStep(
-      TourTargets.pages,
-      'Three screens',
-      'The Menu is to the left and Events to the right. Swipe, or tap one '
-          'here. Settings can replay this tour.',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -346,14 +315,24 @@ class _RootShellState extends State<RootShell> {
     // Marked as it starts rather than as it ends, so a tour cut short by
     // closing the app is not forced on someone again; Settings replays it.
     if (who != null) unawaited(_settings.markTourSeen(who));
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      if (_page != _dashboardPage) {
-        _pages.jumpToPage(_dashboardPage);
-        await WidgetsBinding.instance.endOfFrame;
-      }
-      if (mounted) unawaited(showSpotlightTour(context, _tourSteps));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(runAppTour(context, showPage: _showPage));
     });
+  }
+
+  /// Moves between the three pages for the tour, which walks all of them.
+  Future<void> _showPage(int page) async {
+    if (!mounted || _page == page) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pages.jumpToPage(page);
+      await WidgetsBinding.instance.endOfFrame;
+      return;
+    }
+    await _pages.animateToPage(
+      page,
+      duration: AppMotion.sheet,
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _toDashboard() => _pages.animateToPage(
@@ -418,19 +397,18 @@ class _RootShellState extends State<RootShell> {
                   AppLayout.gutter,
                   0,
                 ),
-                child: KeyedSubtree(
-                  key: TourTargets.record,
-                  child: const RecordButton(),
-                ),
+                child: const TourSpot('shell.record', child: RecordButton()),
               ),
-            PageIndicator(
-              key: TourTargets.pages,
-              current: _page,
-              labels: const ['Menu', 'Dashboard', 'Events'],
-              onGo: (i) => _pages.animateToPage(
-                i,
-                duration: AppMotion.sheet,
-                curve: Curves.easeOutCubic,
+            TourSpot(
+              'shell.pages',
+              child: PageIndicator(
+                current: _page,
+                labels: const ['Menu', 'Dashboard', 'Events'],
+                onGo: (i) => _pages.animateToPage(
+                  i,
+                  duration: AppMotion.sheet,
+                  curve: Curves.easeOutCubic,
+                ),
               ),
             ),
           ],

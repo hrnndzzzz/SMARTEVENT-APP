@@ -9,6 +9,7 @@ import '../state/app_state.dart';
 import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../widgets/spotlight_tour.dart';
 import '../theme/palette.dart';
 import 'search_screen.dart';
 import '../theme/module_identity.dart';
@@ -138,7 +139,10 @@ class MenuPanel extends StatelessWidget {
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.viewPaddingOf(context).bottom,
                 ),
-                child: _Grid(areas: areas, app: app),
+                child: TourSpot(
+                  'menu.grid',
+                  child: _Grid(areas: areas, app: app),
+                ),
               ),
             ),
           ],

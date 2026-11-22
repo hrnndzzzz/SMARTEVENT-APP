@@ -12,6 +12,7 @@ import '../widgets/app_header.dart';
 import '../widgets/brut_date_picker.dart';
 import '../widgets/module_band.dart';
 import '../widgets/segmented_switch.dart';
+import '../widgets/spotlight_tour.dart';
 import '../theme/module_identity.dart';
 import '../widgets/report_charts.dart';
 import '../widgets/report_status.dart';
@@ -259,10 +260,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
       topBar: AppHeader(onBack: () => Navigator.of(context).maybePop()),
       // Downloading is one deliberate act, so it is one button in the
       // corner rather than a fold at the bottom of a long list.
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openDownloads(context, report),
-        tooltip: 'Download',
-        child: const Icon(Icons.download),
+      floatingActionButton: TourSpot(
+        'reports.download',
+        child: FloatingActionButton(
+          onPressed: () => _openDownloads(context, report),
+          tooltip: 'Download',
+          child: const Icon(Icons.download),
+        ),
       ),
       bottomPadding: 96,
       child: Column(
@@ -276,31 +280,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 : windowLabel(report),
           ),
           const SizedBox(height: AppLayout.section),
-          BrutChipBar(
-            children: [
-              for (final period in const [
-                ReportPeriod.schoolYear,
-                ReportPeriod.semester,
-                ReportPeriod.monthly,
-                ReportPeriod.weekly,
-              ])
+          TourSpot(
+            'reports.period',
+            child: BrutChipBar(
+              children: [
+                for (final period in const [
+                  ReportPeriod.schoolYear,
+                  ReportPeriod.semester,
+                  ReportPeriod.monthly,
+                  ReportPeriod.weekly,
+                ])
+                  BrutChip(
+                    label: period.label,
+                    // The app's own selected colour, not orange. Orange
+                    // is Money's, and a selected chip here sat under a
+                    // gold Analytics band reading as a stray piece of
+                    // the money area. Every other chip bar in the app —
+                    // Inventory's, the ledger's below — marks the chosen
+                    // one this way.
+                    selected: app.reportPeriod == period,
+                    onTap: () => _pickPeriod(period),
+                  ),
                 BrutChip(
-                  label: period.label,
-                  // The app's own selected colour, not orange. Orange
-                  // is Money's, and a selected chip here sat under a
-                  // gold Analytics band reading as a stray piece of
-                  // the money area. Every other chip bar in the app —
-                  // Inventory's, the ledger's below — marks the chosen
-                  // one this way.
-                  selected: app.reportPeriod == period,
-                  onTap: () => _pickPeriod(period),
+                  label: 'More filters',
+                  selected: false,
+                  onTap: _openFilters,
                 ),
-              BrutChip(
-                label: 'More filters',
-                selected: false,
-                onTap: _openFilters,
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: AppLayout.section),
           // Not chips.
@@ -314,14 +321,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
           // A segmented bar instead: one block, divided, with the
           // chosen part filled. It reads as "where am I" rather than
           // as another thing to switch on and off.
-          SegmentedSwitch<_Tab>(
-            value: _tab,
-            onChanged: (tab) => setState(() => _tab = tab),
-            segments: const [
-              (_Tab.overview, 'Overview'),
-              (_Tab.events, 'Events'),
-              (_Tab.ledger, 'Ledger'),
-            ],
+          TourSpot(
+            'reports.tabs',
+            child: SegmentedSwitch<_Tab>(
+              value: _tab,
+              onChanged: (tab) => setState(() => _tab = tab),
+              segments: const [
+                (_Tab.overview, 'Overview'),
+                (_Tab.events, 'Events'),
+                (_Tab.ledger, 'Ledger'),
+              ],
+            ),
           ),
           const SizedBox(height: AppLayout.section),
           if (load.isLoading)

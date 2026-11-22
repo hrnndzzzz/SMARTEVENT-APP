@@ -8,18 +8,38 @@ first open, like the one GCash shows.
 
 ## What
 A spotlight tour after the first sign-in. The screen dims, one real control
-is lit at a time, and a card shows "n of N", a title, a line, Skip and
-Next (Done on the last step).
+is lit at a time, and a card shows the screen and "n of N", a title, a line,
+Skip and Next (Done on the very last step).
+
+It is **one chained walk-through** (chosen over a separate tip on each
+screen's first visit): the dashboard, the Menu, then Money, Inventory,
+Analytics and Flagged opened in turn, then the Events page, All events and
+the cover of a new proposal, ending back on the dashboard. Skip or Back
+anywhere ends the whole tour. It is about 28 stops for a Treasurer.
 
 - **Who sees it:** real accounts and the demo. It shows once per account
   on each phone (`tour.seenBy` in shared preferences, `demo` for the
-  demo). Settings → More → Replay the tour shows it again.
+  demo). Settings → More → Replay the tour runs the whole chain again.
 - **Roles:** only the three-screen shell (Officer, Treasurer, Adviser,
   Admin, Super Admin). SDS staff and signatories land on one-job screens
   and get no tour.
-- **Steps:** top bar, date, budget tile, Record button, page bar. A step
-  whose control is not on screen is left out, so the Adviser, who reviews
-  money rather than recording it, gets four.
+- **Stops by role:** a stop whose control is not on screen is left out,
+  so the Adviser, who reviews money rather than recording it, gets no
+  Record stops. Create event is shown only to whoever may propose.
+
+## How it is put together
+- Controls are marked with `TourSpot('money.figures', child: …)`, a name
+  rather than a GlobalKey, so a screen opened twice cannot crash on a
+  duplicate key; the first spot of a name answers (the top card of a
+  list).
+- `showSpotlightTour` lights one screen's steps. It waits until a spot has
+  mounted and the screen has finished opening, and returns false only
+  when the person chose to stop.
+- `lib/screens/app_tour.dart` holds the legs: which page to swipe to or
+  which screen to open, and the steps for it. Create event opens a new
+  form's cover, which saves nothing until Part 1 is finished.
+- A spot that leaves no room above or below it (the Menu's grid) gets
+  the card over its lower edge.
 
 ## Approaches
 - **Hand-built spotlight (chosen).** About 150 lines in

@@ -104,7 +104,7 @@ class HomeScreen extends StatelessWidget {
 
     return BrutScreen(
       onRefresh: app.refreshAll,
-      topBar: KeyedSubtree(key: TourTargets.header, child: AppHeader()),
+      topBar: TourSpot('dashboard.header', child: AppHeader()),
       // Scrolls as one page, like every module screen does since the
       // letterbox was taken out of them. It was the last fixed page
       // with a flexible child, and that child was the chart: a
@@ -144,34 +144,36 @@ class HomeScreen extends StatelessWidget {
           Wrap(
             spacing: AppLayout.between,
             children: [
-              _HeaderLine(
-                key: TourTargets.date,
-                label:
-                    '${_days[now.weekday - 1]} / ${_months[now.month - 1]} '
-                    '${now.day}',
-                icon: Icons.calendar_month_outlined,
-                onTap: () => BrutSheet.show<void>(
-                  context,
-                  builder: (sheetContext) => BrutSheet(
-                    title: 'Planner',
-                    subtitle: 'Everything with a date on it.',
-                    // The calendar is a ListView, which wants all the
-                    // height there is; the sheet sizes itself to its
-                    // content, which offers none. Unbounded inside a
-                    // sheet means nothing renders at all, so it is
-                    // given most of the screen and scrolls inside that.
-                    child: SizedBox(
-                      height: MediaQuery.sizeOf(sheetContext).height * 0.62,
-                      child: EventCalendar(
-                        events: app.events,
-                        onOpen: (event) {
-                          Navigator.of(sheetContext).pop();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => EventDetailScreen(event: event),
-                            ),
-                          );
-                        },
+              TourSpot(
+                'dashboard.date',
+                child: _HeaderLine(
+                  label:
+                      '${_days[now.weekday - 1]} / ${_months[now.month - 1]} '
+                      '${now.day}',
+                  icon: Icons.calendar_month_outlined,
+                  onTap: () => BrutSheet.show<void>(
+                    context,
+                    builder: (sheetContext) => BrutSheet(
+                      title: 'Planner',
+                      subtitle: 'Everything with a date on it.',
+                      // The calendar is a ListView, which wants all the
+                      // height there is; the sheet sizes itself to its
+                      // content, which offers none. Unbounded inside a
+                      // sheet means nothing renders at all, so it is
+                      // given most of the screen and scrolls inside that.
+                      child: SizedBox(
+                        height: MediaQuery.sizeOf(sheetContext).height * 0.62,
+                        child: EventCalendar(
+                          events: app.events,
+                          onOpen: (event) {
+                            Navigator.of(sheetContext).pop();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => EventDetailScreen(event: event),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -277,36 +279,40 @@ class HomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: AppLayout.between),
                         Expanded(
-                          child: _StatTile(
-                            key: TourTargets.budget,
-                            icon: Module.money.icon,
-                            accent: Module.money.colorIn(context),
-                            value: budgetFigure,
-                            figureSize: figure,
-                            label: 'of ${peso(allocated, decimals: 0)} left',
-                            // The one figure on this screen that is
-                            // nobody else's business.
-                            hidden: context.watch<AppSettings>().balanceHidden,
-                            onToggleHidden: () => context
-                                .read<AppSettings>()
-                                .toggleBalanceHidden(),
-                            peekTitle: 'Budget',
-                            opens: 'money',
-                            // The same thing the figure above it names, so the
-                            // two cannot be read against each other. How far
-                            // into the budget you are is still said exactly,
-                            // in the peek, where there is room for a sentence.
-                            fill: left,
-                            // Held, it breaks into categories — the same shape
-                            // the events peek takes, so a hold reads the same
-                            // way wherever it is done.
-                            peekChild: BudgetPeek(categories: app.categories),
-                            trend: used >= 0.9 ? _Trend.down : _Trend.up,
-                            onTap: () => _open(context, 'money'),
-                            peek:
-                                '${peso(allocated, decimals: 0)} allocated, '
-                                '${peso(spent, decimals: 0)} approved.\n'
-                                '${(used * 100).round()}% of the budget is used.',
+                          child: TourSpot(
+                            'dashboard.budget',
+                            child: _StatTile(
+                              icon: Module.money.icon,
+                              accent: Module.money.colorIn(context),
+                              value: budgetFigure,
+                              figureSize: figure,
+                              label: 'of ${peso(allocated, decimals: 0)} left',
+                              // The one figure on this screen that is
+                              // nobody else's business.
+                              hidden: context
+                                  .watch<AppSettings>()
+                                  .balanceHidden,
+                              onToggleHidden: () => context
+                                  .read<AppSettings>()
+                                  .toggleBalanceHidden(),
+                              peekTitle: 'Budget',
+                              opens: 'money',
+                              // The same thing the figure above it names, so the
+                              // two cannot be read against each other. How far
+                              // into the budget you are is still said exactly,
+                              // in the peek, where there is room for a sentence.
+                              fill: left,
+                              // Held, it breaks into categories — the same shape
+                              // the events peek takes, so a hold reads the same
+                              // way wherever it is done.
+                              peekChild: BudgetPeek(categories: app.categories),
+                              trend: used >= 0.9 ? _Trend.down : _Trend.up,
+                              onTap: () => _open(context, 'money'),
+                              peek:
+                                  '${peso(allocated, decimals: 0)} allocated, '
+                                  '${peso(spent, decimals: 0)} approved.\n'
+                                  '${(used * 100).round()}% of the budget is used.',
+                            ),
                           ),
                         ),
                       ],
@@ -474,7 +480,6 @@ enum _Trend { up, down, flat }
 /// for a dashboard.
 class _StatTile extends StatelessWidget {
   const _StatTile({
-    super.key,
     required this.icon,
     required this.value,
     required this.label,
@@ -1099,7 +1104,6 @@ class AlertWidget extends StatelessWidget {
 /// target tall enough for a thumb.
 class _HeaderLine extends StatelessWidget {
   const _HeaderLine({
-    super.key,
     required this.label,
     required this.icon,
     required this.onTap,

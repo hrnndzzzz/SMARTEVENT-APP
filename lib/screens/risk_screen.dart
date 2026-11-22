@@ -8,6 +8,7 @@ import '../theme/brut.dart';
 import '../widgets/app_header.dart';
 import '../theme/peso.dart';
 import '../widgets/module_band.dart';
+import '../widgets/spotlight_tour.dart';
 import '../widgets/stat_grid.dart';
 import '../theme/module_identity.dart';
 
@@ -106,7 +107,7 @@ class _RiskScreenState extends State<RiskScreen> {
           // floating in the middle of the page. These four are true at
           // zero as well as at ten, so the screen says something either
           // way.
-          _Figures(flagged: flagged),
+          TourSpot('risk.figures', child: _Figures(flagged: flagged)),
           const SizedBox(height: AppLayout.between),
 
           if (flagged.length > 1) ...[
@@ -145,7 +146,7 @@ class _RiskScreenState extends State<RiskScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final expense in flagged) ...[
-                  _FlaggedCard(expense: expense),
+                  TourSpot('risk.first', child: _FlaggedCard(expense: expense)),
                   const SizedBox(height: 10),
                 ],
                 const _CriteriaCard(),
@@ -314,36 +315,39 @@ class _CriteriaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: BrutCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const BrutSectionTitle('What causes a flag'),
-            const SizedBox(height: 12),
-            _line(
-              context,
-              'A receipt resembles another one — same merchant and '
-              'amount, a nearby date.',
-            ),
-            _line(
-              context,
-              'The amount read from a receipt differs from the amount '
-              'recorded against it.',
-            ),
-            _line(
-              context,
-              'An exact duplicate receipt is refused outright and never '
-              'reaches this list.',
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'A flag is not an accusation. Resolving one is a reviewer '
-              'decision, recorded with a reason.',
-              style: AppText.caption,
-            ),
-          ],
+    return TourSpot(
+      'risk.criteria',
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: BrutCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const BrutSectionTitle('What causes a flag'),
+              const SizedBox(height: 12),
+              _line(
+                context,
+                'A receipt resembles another one — same merchant and '
+                'amount, a nearby date.',
+              ),
+              _line(
+                context,
+                'The amount read from a receipt differs from the amount '
+                'recorded against it.',
+              ),
+              _line(
+                context,
+                'An exact duplicate receipt is refused outright and never '
+                'reaches this list.',
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'A flag is not an accusation. Resolving one is a reviewer '
+                'decision, recorded with a reason.',
+                style: AppText.caption,
+              ),
+            ],
+          ),
         ),
       ),
     );

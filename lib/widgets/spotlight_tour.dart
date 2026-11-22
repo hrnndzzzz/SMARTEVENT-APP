@@ -6,73 +6,112 @@ import '../theme/app_layout.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
 
-/// One stop on the tour: what to light up, and what to say about it.
+/// One stop on the tour: which [TourSpot] to light up, and what to say.
 class TourStep {
-  const TourStep(this.target, this.title, this.body);
+  const TourStep(this.spot, this.title, this.body);
 
-  final GlobalKey target;
+  final String spot;
   final String title;
   final String body;
 }
 
-/// What the first-sign-in tour points at.
+/// Marks [child] as something the tour can point at, by name.
 ///
-/// Static, because the shell builds exactly one dashboard. A second copy
-/// of any of these in the tree at once would be a duplicate key.
-class TourTargets {
-  TourTargets._();
+/// A name rather than a GlobalKey: a module screen can be opened from the
+/// Menu, a dashboard tile or Search, and two copies holding one static
+/// key would be a duplicate-key crash. Several spots may share a name —
+/// every card in a list does — and the first one mounted answers.
+class TourSpot extends StatefulWidget {
+  const TourSpot(this.id, {super.key, required this.child});
 
-  static final header = GlobalKey(debugLabel: 'tour.header');
-  static final date = GlobalKey(debugLabel: 'tour.date');
-  static final budget = GlobalKey(debugLabel: 'tour.budget');
-  static final record = GlobalKey(debugLabel: 'tour.record');
-  static final pages = GlobalKey(debugLabel: 'tour.pages');
+  final String id;
+  final Widget child;
+
+  static final _live = <String, List<BuildContext>>{};
+
+  /// The first mounted spot called [id], or null.
+  static BuildContext? find(String id) => _live[id]?.firstOrNull;
+
+  @override
+  State<TourSpot> createState() => _TourSpotState();
 }
 
-/// Dims the screen and lights up each step's target in turn, with a card
-/// saying what it is. A step whose target is not on screen is left out,
+class _TourSpotState extends State<TourSpot> {
+  @override
+  void initState() {
+    super.initState();
+    (TourSpot._live[widget.id] ??= []).add(context);
+  }
+
+  @override
+  void didUpdateWidget(TourSpot old) {
+    super.didUpdateWidget(old);
+    if (old.id == widget.id) return;
+    TourSpot._live[old.id]?.remove(context);
+    (TourSpot._live[widget.id] ??= []).add(context);
+  }
+
+  @override
+  void dispose() {
+    TourSpot._live[widget.id]?.remove(context);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// Dims the screen and lights up each step's spot in turn, with a card
+/// saying what it is. A step whose spot is not on screen is left out,
 /// which is how a role without a control skips the stop about it.
-Future<void> showSpotlightTour(
+///
+/// [section] names the screen on the card ("Money · 2 of 3"). [more]
+/// says another screen follows, so the last button reads Next and Skip
+/// stays offered. False only when the person chose to stop, with Skip or
+/// Back; a screen with nothing to show counts as carrying on.
+Future<bool> showSpotlightTour(
   BuildContext context,
-  List<TourStep> steps,
-) async {
-  // Whatever is closing above the caller — the sign-in screen, Settings
-  // on a replay — still moves what is underneath while it goes, and a
-  // hole measured mid-transition would sit beside its target.
-  await _settled(ModalRoute.of(context)?.secondaryAnimation);
-  if (!context.mounted) return;
-  final shown = steps.where((s) => s.target.currentContext != null).toList();
-  if (shown.isEmpty) return;
+  List<TourStep> steps, {
+  String? section,
+  bool more = false,
+}) async {
+  // Ready means a spot has mounted — a screen that opens after a load
+  // has not got one yet — and the route above the caller has stopped
+  // moving: a hole measured mid-transition sits beside its target.
+  // Timers rather than frames, so a screen that never shows up costs
+  // three seconds and not a hang.
+  final above = ModalRoute.of(context)?.secondaryAnimation;
+  for (var i = 0; i < 60; i++) {
+    final ready =
+        steps.any((s) => TourSpot.find(s.spot) != null) &&
+        !(above?.isAnimating ?? false);
+    if (ready || !context.mounted) break;
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  if (!context.mounted) return false;
+  final shown = steps.where((s) => TourSpot.find(s.spot) != null).toList();
+  if (shown.isEmpty) return true;
   final still = MediaQuery.disableAnimationsOf(context);
-  await Navigator.of(context).push(
-    PageRouteBuilder<void>(
+  final finished = await Navigator.of(context).push<bool>(
+    PageRouteBuilder<bool>(
       opaque: false,
       transitionDuration: still ? Duration.zero : AppMotion.sheet,
       reverseTransitionDuration: still ? Duration.zero : AppMotion.sheet,
-      pageBuilder: (_, _, _) => _Tour(steps: shown),
+      pageBuilder: (_, _, _) =>
+          _Tour(steps: shown, section: section, more: more),
       transitionsBuilder: (_, animation, _, child) =>
           FadeTransition(opacity: animation, child: child),
     ),
   );
-}
-
-Future<void> _settled(Animation<double>? animation) {
-  if (animation == null || animation.isDismissed) return Future.value();
-  final done = Completer<void>();
-  void check(AnimationStatus status) {
-    if (status != AnimationStatus.dismissed) return;
-    animation.removeStatusListener(check);
-    done.complete();
-  }
-
-  animation.addStatusListener(check);
-  return done.future;
+  return finished ?? false;
 }
 
 class _Tour extends StatefulWidget {
-  const _Tour({required this.steps});
+  const _Tour({required this.steps, this.section, this.more = false});
 
   final List<TourStep> steps;
+  final String? section;
+  final bool more;
 
   @override
   State<_Tour> createState() => _TourState();
@@ -89,20 +128,27 @@ class _TourState extends State<_Tour> {
   }
 
   Future<void> _focus() async {
-    final target = widget.steps[_index].target.currentContext;
-    if (target != null && target.mounted) {
-      // Only when it is not already in view, so the dashboard does not
-      // jump about between stops that are all on screen.
+    final spot = widget.steps[_index].spot;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : AppMotion.sheet;
+    // Only when it is not already in view, so a screen does not jump
+    // about between stops that are all on it. Start, then end: one
+    // brings back a spot scrolled off the top, the other one below.
+    for (final policy in const [
+      ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+    ]) {
+      final target = TourSpot.find(spot);
+      if (target == null || !target.mounted) break;
       await Scrollable.ensureVisible(
         target,
-        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : AppMotion.sheet,
+        alignmentPolicy: policy,
+        duration: duration,
       );
     }
     if (!mounted) return;
-    final box = widget.steps[_index].target.currentContext?.findRenderObject();
+    final box = TourSpot.find(spot)?.findRenderObject();
     final self = context.findRenderObject();
     if (box is! RenderBox || !box.attached || self is! RenderBox) {
       // The control went away while the tour was up. Move on.
@@ -111,12 +157,14 @@ class _TourState extends State<_Tour> {
     // Global on both sides: the banners and the phone-width column sit
     // around the navigator, so the tour's origin is not the screen's.
     final origin = self.localToGlobal(Offset.zero);
-    setState(() => _hole = (box.localToGlobal(Offset.zero) - origin) & box.size);
+    setState(
+      () => _hole = (box.localToGlobal(Offset.zero) - origin) & box.size,
+    );
   }
 
   void _next() {
     if (_index == widget.steps.length - 1) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       return;
     }
     setState(() => _index++);
@@ -137,7 +185,12 @@ class _TourState extends State<_Tour> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MonoLabel('${_index + 1} of ${widget.steps.length}'),
+            MonoLabel(
+              [
+                ?widget.section,
+                '${_index + 1} of ${widget.steps.length}',
+              ].join(' · '),
+            ),
             const SizedBox(height: 6),
             Text(step.title, style: AppText.cardTitle),
             const SizedBox(height: 4),
@@ -145,18 +198,20 @@ class _TourState extends State<_Tour> {
             const SizedBox(height: 12),
             Row(
               children: [
-                if (!last)
+                if (!last || widget.more)
                   BrutButton(
                     label: 'Skip',
                     tone: BrutTone.neutral,
                     size: BrutSize.small,
                     expand: false,
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).pop(false),
                   ),
                 const Spacer(),
                 BrutButton(
-                  label: last ? 'Done' : 'Next',
-                  trailingIcon: last ? null : Icons.arrow_forward,
+                  label: last && !widget.more ? 'Done' : 'Next',
+                  trailingIcon: last && !widget.more
+                      ? null
+                      : Icons.arrow_forward,
                   size: BrutSize.small,
                   expand: false,
                   onPressed: _next,
@@ -176,6 +231,17 @@ class _TourState extends State<_Tour> {
           // and is held inside it, so a tall card on a short phone never
           // covers the thing it is talking about.
           final below = hole == null || box.maxHeight - hole.bottom >= hole.top;
+          // A spot that leaves no room either side — the Menu's grid is
+          // most of the screen — gets the card over its lower edge
+          // instead, since squeezed into the gap it overflows.
+          // shortcut: 220 is a guessed card height, measure it if very
+          // large text ever needs more.
+          final room = hole == null
+              ? 0.0
+              : below
+              ? box.maxHeight - hole.bottom - inset.bottom
+              : hole.top - inset.top;
+          final cramped = room < 220;
           return Stack(
             children: [
               // Swallows every tap, so nothing under the dark is pressed
@@ -187,7 +253,14 @@ class _TourState extends State<_Tour> {
                   child: CustomPaint(painter: _Scrim(hole)),
                 ),
               ),
-              if (hole != null)
+              if (hole != null && cramped)
+                Positioned(
+                  left: AppLayout.gutter,
+                  right: AppLayout.gutter,
+                  bottom: inset.bottom + 12,
+                  child: card,
+                )
+              else if (hole != null)
                 Positioned(
                   left: AppLayout.gutter,
                   right: AppLayout.gutter,
@@ -227,7 +300,10 @@ class _Scrim extends CustomPainter {
         ? null
         : RRect.fromRectAndRadius(h.inflate(6), const Radius.circular(14));
     if (cut != null) dark.addRRect(cut);
-    canvas.drawPath(dark, Paint()..color = Colors.black.withValues(alpha: 0.72));
+    canvas.drawPath(
+      dark,
+      Paint()..color = Colors.black.withValues(alpha: 0.72),
+    );
     if (cut != null) {
       canvas.drawRRect(
         cut,
