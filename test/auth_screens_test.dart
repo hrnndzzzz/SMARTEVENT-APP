@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
+import 'package:smartevent/api/api_client.dart';
 import 'package:smartevent/screens/change_password_screen.dart';
 import 'package:smartevent/screens/forgot_password_screen.dart';
 import 'package:smartevent/screens/proposal_letters_screen.dart';
@@ -8,6 +11,7 @@ import 'package:smartevent/screens/register_screen.dart';
 import 'package:smartevent/screens/verify_otp_screen.dart';
 import 'package:smartevent/state/app_state.dart';
 import 'package:smartevent/theme/app_theme.dart';
+import 'package:smartevent/theme/brut.dart';
 
 /// Smoke tests for the screens added with the six-role rework.
 ///
@@ -113,6 +117,59 @@ void main() {
     // The code and new-password fields only appear after a code is asked
     // for, so the first step stays a single clear action.
     expect(find.text('Reset code'), findsNothing);
+  });
+
+  testWidgets('each new-password field reveals on its own', (tester) async {
+    // The reset step only appears once a code has been asked for, so the
+    // request has to succeed; nothing else here touches the network.
+    final app = AppState(
+      apiClient: ApiClient(
+        httpClient: MockClient(
+          (_) async => http.Response('{"detail":"ok"}', 200),
+        ),
+      ),
+    );
+    addTearDown(app.dispose);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: app,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const ForgotPasswordScreen(initialEmail: 'someone@lcup.edu.ph'),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Send reset code'));
+    await tester.pumpAndSettle();
+    // BrutTextField renders its label in caps.
+    expect(find.text('NEW PASSWORD'), findsOneWidget);
+
+    bool hidden(String label) => tester
+        .widget<TextField>(
+          find.descendant(
+            of: find.ancestor(
+              of: find.text(label),
+              matching: find.byType(BrutTextField),
+            ),
+            matching: find.byType(TextField),
+          ),
+        )
+        .obscureText;
+
+    expect(hidden('NEW PASSWORD'), isTrue);
+    expect(hidden('CONFIRM NEW PASSWORD'), isTrue);
+
+    // Revealing one must not reveal the other: the confirm field exists to
+    // catch a typo in the first, which a shared toggle would hide again.
+    await tester.tap(find.byTooltip('Show password').first);
+    await tester.pump();
+    expect(hidden('NEW PASSWORD'), isFalse);
+    expect(hidden('CONFIRM NEW PASSWORD'), isTrue);
+
+    await tester.tap(find.byTooltip('Hide password'));
+    await tester.pump();
+    expect(hidden('NEW PASSWORD'), isTrue);
   });
 
   testWidgets('proposal letters screen describes SDS scope as school-wide', (

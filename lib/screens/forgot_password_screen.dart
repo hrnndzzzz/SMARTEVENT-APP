@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../theme/brut.dart';
+import '../theme/palette.dart';
 
 /// Forgot password: request a code, then reset with it.
 ///
@@ -31,6 +32,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   _Step _step = _Step.request;
   bool _submitting = false;
+
+  /// Each field reveals on its own: the point of the confirm field is to
+  /// catch a typo in the first, which one shared toggle would hide again.
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
   String? _error;
   String? _notice;
 
@@ -121,6 +127,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
+  /// The eye on a password field. Its tooltip is also what a screen
+  /// reader announces, so the button is not just an unnamed icon.
+  Widget _revealButton({
+    required bool obscured,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(
+        obscured ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        size: 18,
+        color: context.palette.subtle,
+      ),
+      tooltip: obscured ? 'Show password' : 'Hide password',
+      onPressed: onPressed,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isRequest = _step == _Step.request;
@@ -183,7 +206,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             BrutTextField(
               label: 'New password',
               controller: _passwordController,
-              obscureText: true,
+              obscureText: _obscurePassword,
+              suffix: _revealButton(
+                obscured: _obscurePassword,
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -194,7 +222,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             BrutTextField(
               label: 'Confirm new password',
               controller: _confirmController,
-              obscureText: true,
+              obscureText: _obscureConfirm,
+              suffix: _revealButton(
+                obscured: _obscureConfirm,
+                onPressed: () =>
+                    setState(() => _obscureConfirm = !_obscureConfirm),
+              ),
             ),
           ],
           if (_notice != null) ...[
