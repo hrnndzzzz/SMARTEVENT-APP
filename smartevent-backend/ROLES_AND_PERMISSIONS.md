@@ -109,28 +109,6 @@ transfer historical events, expenses, categories, or inventory.
    Super Admin must specify both. Users register with their roster email and
    password; the role and organization come from the roster.
 5. Change unclaimed roster roles/positions with PATCH /cite-members/{id}.
-
-## A demo on the real server
-
-The app's built-in demo mode (hold the sign-in heading) fills the screens
-from seeded data on the phone and never opens a socket. To show that the
-backend is real, use accounts instead:
-
-    python -m scripts.seed_demo_org           # create or top up
-    python -m scripts.seed_demo_org --show    # re-issue the passwords
-    python -m scripts.seed_demo_org --remove  # take it all back out
-
-It makes a DEMO-ORG organization in CITE with an officer, an adviser and an
-admin, three budget categories (one deliberately under its low-balance
-line) and four past events with recorded spending. The past events matter:
-the AI budget suggestion returns nothing at all below two approved or
-completed events, so a fresh organization makes that feature look broken.
-
-Passwords are generated and printed once; they are not in the repository
-and not in the app. Addresses use a non-routable domain on purpose, so
-notification email for these accounts cannot reach a real inbox.
-
-Everything it creates is prefixed DEMO and --remove deletes exactly that.
    Claimed roster entries are managed through their registered user account.
 6. List members with GET /users. Super Admin can filter by department or
    organization; Admin sees only the member accounts it can manage.
