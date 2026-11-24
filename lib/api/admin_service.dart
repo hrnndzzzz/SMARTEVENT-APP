@@ -151,8 +151,8 @@ class AdminService {
 
   /// `PATCH /users/{id}/access` — role, position, suspension, and transfer.
   ///
-  /// An Admin changes only member roles and an Adviser only Officers and
-  /// Treasurers. Neither can transfer scope,
+  /// An Admin changes only member roles and an Adviser only Officers.
+  /// Neither can transfer scope,
   /// cannot change its own access and cannot touch a Super Admin. Those are
   /// enforced server-side; the UI hides what it can and handles the 403 for
   /// the rest.
@@ -236,7 +236,7 @@ class AdminService {
     return UserProfile.fromJson(response as Map<String, dynamic>);
   }
 
-  /// SDS Staff or a Signatory: school accounts with no organization.
+  /// SDS Staff: a school account with no organization.
   Future<UserProfile> createSchoolReviewer({
     required UserRole role,
     required String fullName,
@@ -244,9 +244,7 @@ class AdminService {
     String? position,
   }) async {
     final response = await _client.post(
-      role == UserRole.signatory
-          ? '/auth/register/signatory'
-          : '/auth/register/sds',
+      '/auth/register/sds',
       body: {
         'full_name': fullName,
         'email': email,

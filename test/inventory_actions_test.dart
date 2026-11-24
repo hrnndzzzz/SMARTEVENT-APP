@@ -85,7 +85,7 @@ void main() {
     testWidgets('a treasurer can move stock from the list itself', (
       tester,
     ) async {
-      await open(tester, UserRole.treasurer);
+      await open(tester, UserRole.officer);
 
       expect(
         moveButtons(),
@@ -100,8 +100,8 @@ void main() {
       expect(moveButtons(), findsWidgets);
     });
 
-    testWidgets('a signatory cannot', (tester) async {
-      await open(tester, UserRole.signatory);
+    testWidgets('SDS Staff cannot', (tester) async {
+      await open(tester, UserRole.sdsStaff);
 
       expect(moveButtons(), findsNothing);
     });
@@ -113,7 +113,7 @@ void main() {
       tester.view.physicalSize = const Size(411, 1600);
       addTearDown(tester.view.reset);
 
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       await app.applyCatalogFilter(isDraft: true);
       await tester.pumpWidget(host(app));
       await tester.pump(const Duration(milliseconds: 300));
@@ -135,18 +135,16 @@ void main() {
       expect(find.text('New item'), findsOneWidget);
     });
 
-    testWidgets('a treasurer is not, and is told whose job it is', (
+    testWidgets('so is an officer, now that it is the recording role', (
       tester,
     ) async {
-      await open(tester, UserRole.treasurer);
+      // Until the treasurer role was removed this was the one operational
+      // account that could move stock but not add an item. Every role that
+      // reaches the screen may now add one, so the explanatory line below
+      // the list is left for the offline case, where nobody can.
+      await open(tester, UserRole.officer);
 
-      expect(find.text('New item'), findsNothing);
-      expect(
-        find.textContaining('adviser or administrator'),
-        findsOneWidget,
-        reason: 'an absent button reads as a broken screen unless it is '
-            'explained',
-      );
+      expect(find.text('New item'), findsOneWidget);
     });
   });
 }

@@ -18,15 +18,15 @@ budgets kept in personal spreadsheets, receipts stuffed in envelopes, and approv
 buried in group chats. Forms get lost, nobody knows who is holding a proposal, and at
 the end of the term it is hard to show where the money went.
 
-SMARTEVENT puts all of that into one shared record on the phone. Officers propose,
-advisers and deans review, treasurers record the money, and the SDS Office clears and
-signs the official proposal form. Each person sees the same event from their own side,
+SMARTEVENT puts all of that into one shared record on the phone. Officers propose and
+record the money, advisers and deans review, and the SDS Office clears and signs the
+official proposal form. Each person sees the same event from their own side,
 every decision is kept, and the paperwork prints itself when it is needed.
 
 ## Features at a glance
 
 - **Event proposals and approvals:** submit an event and follow it step by step,
-  from the Adviser to the Dean to any other signatories. Returned proposals come back
+  from the Adviser to the Dean to the SDS Office. Returned proposals come back
   with remarks so you can fix them and resubmit.
 - **Official SDS proposal form:** fill in the Student Activity Proposal (SAS-SDS-FO-020)
   on your phone. The SDS Office comments on it, clears it and signs it on screen, and
@@ -51,10 +51,8 @@ every decision is kept, and the paperwork prints itself when it is needed.
 | **Super Admin** | Sets up departments, organizations and staff accounts; sees everything. |
 | **Admin (Dean)** | Runs the organizations in their department and gives final approval. |
 | **Adviser / Moderator** | Reviews proposals and expenses and manages their own organization's roster, budgets and items. |
-| **Treasurer** | Records income and expenses and scans receipts. |
-| **Officer** | Reads the organization's records. The President, Vice President and Secretary can also propose events. |
+| **Officer** | Proposes events, records income and expenses, scans receipts and moves stock. The treasurer of an organization is an officer whose position says so. |
 | **SDS Staff** | Reviews, clears and signs Student Activity Proposals. |
-| **Signatory** | Approves events they are assigned to, such as a director or the University President. |
 
 Everyone only sees their own organization's records, and no one can approve something
 they submitted themselves.
@@ -86,9 +84,9 @@ one part at a time and attaches its supporting files. SDS Staff leave a remark o
 budget part and return it. Once it is fixed, SDS clears it and signs it on screen, and
 the organization prints the signed PDF to submit.
 
-**Buying supplies.** The Treasurer photographs a receipt for ₱1,250 of tarpaulin and
-markers. The app fills in the store, date and items, and the Treasurer checks them and
-saves the expense under the event's budget. The Adviser approves it, the remaining
+**Buying supplies.** The officer keeping the money photographs a receipt for ₱1,250 of
+tarpaulin and markers. The app fills in the store, date and items, and the officer
+checks them and saves the expense under the event's budget. The Adviser approves it, the remaining
 budget drops by ₱1,250, and the markers are added to inventory once delivery is recorded.
 
 ## How it is built

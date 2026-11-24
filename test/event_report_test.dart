@@ -33,7 +33,7 @@ void main() {
   }
 
   testWidgets('a finished event offers its report', (tester) async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere((e) => e.status.isResolved);
 
     await open(tester, EventDetailScreen(event: event), app);
@@ -44,7 +44,7 @@ void main() {
   testWidgets('a draft does not — there is nothing to liquidate', (
     tester,
   ) async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere((e) => e.status.isDraft);
 
     await open(tester, EventDetailScreen(event: event), app);
@@ -55,7 +55,7 @@ void main() {
   testWidgets('the report shows the figures and offers the file', (
     tester,
   ) async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere((e) => e.remoteId == 'demo-ev-2');
 
     await open(tester, EventReportScreen(event: event), app);
@@ -74,7 +74,7 @@ void main() {
   ) async {
     // Withheld income is not income until someone decides, so a report
     // that silently added it in would overstate what the event took.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere((e) => e.remoteId == 'demo-ev-5');
 
     await open(tester, EventReportScreen(event: event), app);

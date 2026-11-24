@@ -14,7 +14,7 @@ import 'package:smartevent/state/app_state.dart';
 /// Every test asserts the demo *answers* rather than refuses, because a
 /// branch that never runs analyzes perfectly well and fails only here.
 void main() {
-  AppState treasurer() => AppState()..enterDemo(role: UserRole.treasurer);
+  AppState treasurer() => AppState()..enterDemo(role: UserRole.officer);
 
   ExpenseEntry pendingExpense(AppState app) =>
       app.expenses.firstWhere((e) => e.status == ExpenseStatus.pending);

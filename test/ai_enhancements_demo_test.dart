@@ -5,7 +5,7 @@ import 'package:smartevent/state/app_state.dart';
 /// them: the budget suggestion, the receipt's category, and the reading
 /// of the financial report.
 void main() {
-  AppState treasurer() => AppState()..enterDemo(role: UserRole.treasurer);
+  AppState treasurer() => AppState()..enterDemo(role: UserRole.officer);
 
   test('the proposal form gets a budget suggestion with what it compared', () async {
     final suggestion = await treasurer().suggestBudget(title: 'Science Fair');

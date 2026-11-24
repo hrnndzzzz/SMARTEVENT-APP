@@ -29,7 +29,7 @@ void main() {
   Future<AppState> open(
     WidgetTester tester,
     Widget screen, {
-    UserRole role = UserRole.treasurer,
+    UserRole role = UserRole.officer,
     Size size = const Size(420, 1400),
   }) async {
     await tester.binding.setSurfaceSize(size);
@@ -271,7 +271,7 @@ void main() {
       // of header meant the thing the app is about started a fifth of
       // the way down the screen.
       final date = tester.getRect(find.textContaining(RegExp(r'^\w{3} / ')));
-      final scope = tester.getRect(find.textContaining('TREASURER'));
+      final scope = tester.getRect(find.textContaining('OFFICER'));
       expect(date.top, closeTo(scope.top, 1));
       expect(scope.left, greaterThan(date.right));
     });

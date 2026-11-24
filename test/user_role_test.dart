@@ -26,7 +26,7 @@ void main() {
     test('wire names are the snake_case the API actually sends', () {
       expect(UserRole.superAdmin.wireName, 'super_admin');
       expect(UserRole.sdsStaff.wireName, 'sds_staff');
-      expect(UserRole.treasurer.wireName, 'treasurer');
+      expect(UserRole.officer.wireName, 'officer');
     });
 
     test('an unrecognized role is rejected, not guessed', () {
@@ -60,23 +60,27 @@ void main() {
     });
   });
 
-  group('treasurer records money but never reviews it', () {
-    const treasurer = UserRole.treasurer;
-
-    test('records finance and inventory movements', () {
-      expect(treasurer.canRecordFinance, isTrue);
-      expect(treasurer.canRecordInventoryMovements, isTrue);
-      expect(treasurer.canProposeEvents, isTrue);
+  group('the treasurer is an officer, not a role of its own', () {
+    test('no role spells itself treasurer or signatory', () {
+      // Both were removed before the November defence. A treasurer is an
+      // officer whose `position` says Treasurer, and the institutional
+      // signatories sign the printed form instead of reviewing in-app.
+      expect(userRoleFromWire('treasurer'), isNull);
+      expect(userRoleFromWire('signatory'), isNull);
+      expect(UserRole.values.map((r) => r.wireName), [
+        'officer',
+        'adviser',
+        'sds_staff',
+        'admin',
+        'super_admin',
+      ]);
     });
 
-    test('cannot review submissions', () {
-      // The separation of duties the whole role split exists for.
-      expect(treasurer.canReview, isFalse);
-    });
-
-    test('cannot manage the catalog or members', () {
-      expect(treasurer.canManageCatalog, isFalse);
-      expect(treasurer.canManageMembers, isFalse);
+    test('recording money is the officer, and only the officer', () {
+      expect(
+        UserRole.values.where((r) => r.canRecordFinance),
+        [UserRole.officer, UserRole.superAdmin],
+      );
     });
   });
 
@@ -99,11 +103,8 @@ void main() {
       expect(adviser.canAdministerSchool, isFalse);
     });
 
-    test('manages officers and treasurers, not fellow advisers', () {
-      expect(manageableRolesFor(adviser), [
-        UserRole.officer,
-        UserRole.treasurer,
-      ]);
+    test('manages officers, not fellow advisers', () {
+      expect(manageableRolesFor(adviser), [UserRole.officer]);
     });
   });
 
@@ -111,30 +112,20 @@ void main() {
     test('a Super Admin may put every role but Super Admin on the roster', () {
       expect(manageableRolesFor(UserRole.superAdmin), rosterRoles);
       expect(rosterRoles, isNot(contains(UserRole.superAdmin)));
-      expect(
-        rosterRoles,
-        containsAll([UserRole.admin, UserRole.sdsStaff, UserRole.signatory]),
-      );
+      expect(rosterRoles, containsAll([UserRole.admin, UserRole.sdsStaff]));
     });
 
     test('a Dean keeps member roles; others manage nobody', () {
       expect(manageableRolesFor(UserRole.admin), memberRoles);
-      for (final role in [
-        UserRole.officer,
-        UserRole.treasurer,
-        UserRole.sdsStaff,
-        UserRole.signatory,
-        null,
-      ]) {
+      for (final role in [UserRole.officer, UserRole.sdsStaff, null]) {
         expect(manageableRolesFor(role), isEmpty, reason: '$role');
       }
     });
 
-    test('only SDS Staff and Signatory are school-wide', () {
-      expect(
-        UserRole.values.where((r) => r.isSchoolWide),
-        [UserRole.sdsStaff, UserRole.signatory],
-      );
+    test('only SDS Staff is school-wide', () {
+      expect(UserRole.values.where((r) => r.isSchoolWide), [
+        UserRole.sdsStaff,
+      ]);
     });
   });
 
@@ -144,7 +135,6 @@ void main() {
       expect(UserRole.superAdmin.isAdministrator, isTrue);
       for (final role in [
         UserRole.officer,
-        UserRole.treasurer,
         UserRole.adviser,
         UserRole.sdsStaff,
       ]) {
@@ -191,10 +181,7 @@ void main() {
 
   group('assignable member roles', () {
     test('covers exactly the roles a roster entry can hold', () {
-      expect(
-        memberRoles,
-        containsAll([UserRole.officer, UserRole.treasurer, UserRole.adviser]),
-      );
+      expect(memberRoles, containsAll([UserRole.officer, UserRole.adviser]));
     });
 
     test('excludes admin and sds, which have their own endpoints', () {
@@ -231,10 +218,9 @@ void main() {
     });
 
     test('roles without operational access are offered no areas', () {
-      // The backend refuses both of these operational data outright, so
-      // a menu entry could only ever open on a 403.
+      // The backend refuses SDS Staff operational data outright, so a
+      // menu entry could only ever open on a 403.
       expect(areasFor(UserRole.sdsStaff), isEmpty);
-      expect(areasFor(UserRole.signatory), isEmpty);
       expect(areasFor(UserRole.officer), isNotEmpty);
     });
 
@@ -254,14 +240,14 @@ void main() {
 
   group('the scope line', () {
     test('omits a department this client cannot resolve', () {
-      // A treasurer's account has a department, but GET /departments is
+      // An officer's account has a department, but GET /departments is
       // admin-only, so the list is empty and the id resolves to nothing.
       // "All Departments" would state the opposite of the truth.
-      final app = AppState()..devQuickLogin(UserRole.treasurer);
+      final app = AppState()..devQuickLogin(UserRole.officer);
       app.currentAccount = Account(
         name: 'Demo Treasurer',
         email: 'demo.treasurer@lcup.edu.ph',
-        role: UserRole.treasurer,
+        role: UserRole.officer,
         departmentId: 'a-real-uuid-the-client-cannot-resolve',
       );
       expect(app.departments, isEmpty);

@@ -37,7 +37,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(411, 2600);
     addTearDown(tester.view.reset);
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     addTearDown(app.dispose);
     await tester.pumpWidget(host(app));
     await tester.pump(const Duration(milliseconds: 400));

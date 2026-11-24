@@ -56,7 +56,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 1600);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final target = app.events.firstWhere((e) => e.remoteId != null);
     app.notices = [workflowNotice(eventId: target.remoteId)];
 
@@ -86,7 +86,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 1600);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     app.notices = [workflowNotice()];
 
     await tester.pumpWidget(host(app));

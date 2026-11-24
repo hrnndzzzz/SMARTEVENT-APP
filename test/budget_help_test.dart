@@ -42,7 +42,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final app = AppState();
-    if (withMoney) app.enterDemo(role: UserRole.treasurer);
+    if (withMoney) app.enterDemo(role: UserRole.officer);
     addTearDown(app.dispose);
 
     await tester.pumpWidget(

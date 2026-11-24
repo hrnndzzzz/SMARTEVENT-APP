@@ -39,7 +39,7 @@ void main() {
     'id': 'a',
     'full_name': 'Alice',
     'email': 'alice@example.test',
-    'role': 'treasurer',
+    'role': 'officer',
     'is_active': true,
     'created_at': '2026-01-01T00:00:00Z',
   };

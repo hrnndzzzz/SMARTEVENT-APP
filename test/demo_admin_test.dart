@@ -87,13 +87,13 @@ void main() {
 
       final error = await app.updateRosterEntry(
         entry,
-        role: UserRole.treasurer,
+        role: UserRole.officer,
         position: 'Acting Treasurer',
       );
 
       expect(error, isNull);
       final after = app.roster.firstWhere((r) => r.id == entry.id);
-      expect(after.role, UserRole.treasurer);
+      expect(after.role, UserRole.officer);
       expect(after.position, 'Acting Treasurer');
       expect(after.email, entry.email, reason: 'nothing else should move');
     });

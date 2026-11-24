@@ -108,7 +108,6 @@ void main() {
     for (final role in [
       UserRole.admin,
       UserRole.adviser,
-      UserRole.treasurer,
       UserRole.officer,
     ]) {
       test('${role.name} with an assignment proposes for its own', () {
@@ -152,11 +151,11 @@ void main() {
 
     test('its member is not told they are unassigned', () {
       final app = AppState()
-        ..currentRole = UserRole.treasurer
+        ..currentRole = UserRole.officer
         ..currentAccount = Account(
           name: 'T',
           email: 't@example.test',
-          role: UserRole.treasurer,
+          role: UserRole.officer,
           organizationId: 'o2',
         );
       expect(app.isDepartmentless, isTrue);

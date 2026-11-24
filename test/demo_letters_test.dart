@@ -14,7 +14,7 @@ void main() {
   test('every letter belongs to an event the demo has', () {
     // A letter pointing at an event that is not there is worse than no
     // letter: the list reads fine and the link goes nowhere.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final ids = {for (final e in app.events) e.remoteId};
 
     for (final letter in app.letters) {
@@ -29,7 +29,7 @@ void main() {
   test('both document kinds are represented', () {
     // The card picks its icon from the extension, so a list of nothing
     // but PDFs never shows the other branch.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     expect(app.letters.where((l) => l.looksLikePdf), isNotEmpty);
     expect(app.letters.where((l) => !l.looksLikePdf), isNotEmpty);
@@ -38,7 +38,7 @@ void main() {
   test('no letter claims a link that would not open', () {
     // The screen shows this as text to copy and never fetches it. An
     // https URL to a host that does not exist reads as a working link.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     for (final letter in app.letters) {
       expect(letter.documentUrl, isNot(startsWith('http')));

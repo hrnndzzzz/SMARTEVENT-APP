@@ -25,21 +25,22 @@ abstract final class DemoData {
   /// the same thing.
   static final DateTime _seedDate = DateTime(2026, 9, 1);
 
-  /// Who you are while exploring. Treasurer by default: it is the role
+  /// Who you are while exploring. Officer by default: it is the role
   /// that can see the most without being an administrator, so the fewest
-  /// screens are empty.
+  /// screens are empty. The seeded officer holds the Treasurer position,
+  /// which is a title on the account rather than a role of its own.
   static Account account(UserRole role) => Account(
     // One id per role, not one for the demo.
     //
     // Every role shared 'demo-account' and every seeded event is
-    // proposed by the treasurer, so the self-review guard — nobody
+    // proposed by the officer, so the self-review guard — nobody
     // decides on their own proposal — fired for the adviser too. No
     // role could review anything, which is the whole two-stage flow.
     id: 'demo-account-${role.name}',
     name: switch (role) {
       UserRole.sdsStaff => 'Demo SDS Staff',
       UserRole.adviser => 'Demo Adviser',
-      UserRole.treasurer => 'Demo Treasurer',
+      UserRole.officer => 'Demo Treasurer',
       _ => 'Demo Account',
     },
     email: 'demo@lcup.edu.ph',
@@ -47,7 +48,7 @@ abstract final class DemoData {
     departmentId: 'demo-cite',
     organizationId: 'demo-acpes',
     position: switch (role) {
-      UserRole.treasurer => 'ACPES Treasurer',
+      UserRole.officer => 'ACPES Treasurer',
       UserRole.adviser => 'ACPES Moderator',
       UserRole.sdsStaff => 'SDS Office',
       _ => null,
@@ -116,7 +117,7 @@ abstract final class DemoData {
       id: 'demo-roster-2',
       fullName: 'Benedict Oliveros',
       email: 'benedict.oliveros@lcup.edu.ph',
-      role: UserRole.treasurer,
+      role: UserRole.officer,
       position: 'JPSSITE Treasurer',
       departmentId: 'demo-cite',
       organizationId: 'demo-jpssite',
@@ -127,7 +128,7 @@ abstract final class DemoData {
       id: 'demo-roster-3',
       fullName: 'Demo Treasurer',
       email: 'demo@lcup.edu.ph',
-      role: UserRole.treasurer,
+      role: UserRole.officer,
       position: 'ACPES Treasurer',
       departmentId: 'demo-cite',
       organizationId: 'demo-acpes',
@@ -155,7 +156,7 @@ abstract final class DemoData {
       id: 'demo-user-1',
       fullName: 'Demo Treasurer',
       email: 'demo@lcup.edu.ph',
-      role: UserRole.treasurer,
+      role: UserRole.officer,
       position: 'ACPES Treasurer',
       departmentId: 'demo-cite',
       organizationId: 'demo-acpes',
@@ -313,7 +314,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.organizational,
-      proposedBy: 'demo-account-treasurer',
+      proposedBy: 'demo-account-officer',
     ),
     EventItem(
       remoteId: 'demo-ev-2',
@@ -326,7 +327,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.departmental,
-      proposedBy: 'demo-account-treasurer',
+      proposedBy: 'demo-account-officer',
     ),
     EventItem(
       remoteId: 'demo-ev-3',
@@ -342,7 +343,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.organizational,
-      proposedBy: 'demo-account-treasurer',
+      proposedBy: 'demo-account-officer',
     ),
     EventItem(
       remoteId: 'demo-ev-4',
@@ -355,7 +356,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.departmental,
-      proposedBy: 'demo-account-treasurer',
+      proposedBy: 'demo-account-officer',
     ),
     EventItem(
       remoteId: 'demo-ev-5',
@@ -368,7 +369,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.departmental,
-      proposedBy: 'demo-account-treasurer',
+      proposedBy: 'demo-account-officer',
     ),
     // Last, so the numbering above holds. Past the Moderator and the Dean
     // and with the SDS Office: the one the demo's SDS role has to review
@@ -384,7 +385,7 @@ abstract final class DemoData {
       schoolYear: '2026-2027',
       semester: Semester.first,
       eventScope: EventScope.organizational,
-      proposedBy: 'demo-account-treasurer',
+      proposedBy: 'demo-account-officer',
     ),
     // Last again. With the Dean, and proposed by the officer: the demo's
     // admin is not its proposer, or nobody-decides-their-own would hide the
@@ -764,7 +765,7 @@ abstract final class DemoData {
         eventId: 'demo-ev-1',
         title: 'Request for approval — HACK THE FUTURE',
         documentUrl: 'proposal-letters/demo-ev-1/request-for-approval.pdf',
-        submittedBy: 'demo-user-treasurer',
+        submittedBy: 'demo-user-officer',
         createdAt: now.subtract(const Duration(days: 6)),
       ),
       ProposalLetter(

@@ -30,7 +30,7 @@ void main() {
     tester.view.physicalSize = const Size(1080, 2400);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.light(), home: host(app)),
@@ -65,7 +65,7 @@ void main() {
     tester.view.physicalSize = const Size(1080, 2400);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.light(), home: host(app)),
     );
@@ -97,7 +97,7 @@ void main() {
     tester.view.physicalSize = const Size(1080, 2400);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.light(), home: host(app)),

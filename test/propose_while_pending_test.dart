@@ -26,7 +26,7 @@ void main() {
     tester.view.devicePixelRatio = 2.75;
     tester.view.physicalSize = const Size(1080, 2400);
     addTearDown(tester.view.reset);
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     expect(app.events.any((e) => e.status.isPending), isTrue);
 
     await tester.pumpWidget(host(app, const EventsHubScreen()));

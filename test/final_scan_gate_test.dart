@@ -310,7 +310,7 @@ void main() {
   // describe: a rejection is final and no scan follows it, and an approval is
   // the scan itself. Part 5 went on telling everyone how to get to one.
   group('Part 5 after the SDS Office has decided', () {
-    final readers = [UserRole.sdsStaff, UserRole.treasurer];
+    final readers = [UserRole.sdsStaff, UserRole.officer];
 
     testWidgets('says no signed scan follows a rejection', (tester) async {
       for (final role in readers) {

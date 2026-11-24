@@ -36,7 +36,7 @@ void main() {
     final app = AppState()..enterDemo();
 
     expect(app.isDemoMode, isTrue);
-    expect(app.currentRole, UserRole.treasurer);
+    expect(app.currentRole, UserRole.officer);
     expect(app.events, isNotEmpty);
     expect(app.expenses, isNotEmpty);
     expect(app.categories, isNotEmpty);

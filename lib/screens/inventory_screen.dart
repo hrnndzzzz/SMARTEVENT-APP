@@ -152,9 +152,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final offline = context.watch<AppState>().isOfflineViewing;
     final canManage =
         !offline && (app.currentRole?.canAddRemoveInventoryItems ?? false);
-    // Adding an item and moving stock are different permissions: a
-    // treasurer moves stock but does not shape the catalogue. The screen
-    // offered neither, so a treasurer saw a list and no way to act on it.
+    // Adding an item and moving stock are different permissions: an
+    // officer moves stock but does not shape the catalogue. The screen
+    // offered neither, so an officer saw a list and no way to act on it.
     final canMove =
         !offline && (app.currentRole?.canRecordInventoryMovements ?? false);
 
@@ -215,7 +215,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           //
           // Which of those two is available depends on the role, and an
           // absent button looks the same as a missing feature. Saying
-          // whose job it is beats leaving a treasurer wondering whether
+          // whose job it is beats leaving an officer wondering whether
           // the screen is broken.
           Text(
             canManage

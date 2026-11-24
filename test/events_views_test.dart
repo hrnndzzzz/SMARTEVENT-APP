@@ -13,7 +13,7 @@ import 'package:smartevent/theme/app_theme.dart';
 /// appeared once it had rows in it, so both views are rendered here with
 /// real events rather than against an empty state.
 AppState _seeded() {
-  final app = AppState()..devQuickLogin(UserRole.treasurer);
+  final app = AppState()..devQuickLogin(UserRole.officer);
   final now = DateTime.now();
   DateTime day(int d) => DateTime(now.year, now.month, d);
   app.events.addAll([

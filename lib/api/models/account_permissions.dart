@@ -3,7 +3,7 @@
 ///
 /// The app used to decide this entirely from [role], which is a copy of
 /// the backend's policy kept in two places — and the copies drifted. The
-/// backend's hierarchy work makes financial recording Treasurer-only and
+/// backend's hierarchy work makes financial recording officer-only and
 /// lets an Officer who is President, Vice President or Secretary propose
 /// events, neither of which a role name can express.
 ///

@@ -11,7 +11,7 @@ void main() {
       app.events.firstWhere((e) => e.status.isPending);
 
   test('a pending proposal goes back to a draft', () async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = pendingEvent(app);
 
     expect(await app.cancelProposal(event), isNull);
@@ -19,7 +19,7 @@ void main() {
   });
 
   test('and nothing written on it is lost', () async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = pendingEvent(app);
     final title = event.title;
     final budget = event.budget;
@@ -31,7 +31,7 @@ void main() {
   });
 
   test('a decided proposal cannot be taken back', () async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     // One event, set to each decided state in turn: looking it up again
     // each time would fail, because the first pass stops it being
@@ -52,7 +52,7 @@ void main() {
   });
 
   test('a rejected proposal reopens as a draft', () async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = pendingEvent(app)
       ..status = EventApprovalStatus.rejected
       ..rejectedBy = 'The SDS Office';

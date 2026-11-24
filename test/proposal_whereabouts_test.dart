@@ -629,7 +629,7 @@ void main() {
     testWidgets('offers its proposer an edit until it reaches the SDS Office', (
       tester,
     ) async {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       Widget hosted(SapForm form) => ChangeNotifierProvider<AppState>.value(
         value: app,
         child: host(SapProposalStatus(form: form)),

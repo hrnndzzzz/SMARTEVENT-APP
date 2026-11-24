@@ -16,7 +16,7 @@ import 'package:smartevent/theme/brut.dart';
 /// "Rejected by null." on the card a reviewer reads first.
 void main() {
   Widget host(EventItem event, {AppState? signedInAs}) {
-    final app = signedInAs ?? (AppState()..devQuickLogin(UserRole.treasurer));
+    final app = signedInAs ?? (AppState()..devQuickLogin(UserRole.officer));
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: app),
@@ -126,7 +126,7 @@ void main() {
       status: EventApprovalStatus.rejected,
     );
     await tester.pumpWidget(
-      host(event, signedInAs: AppState()..enterDemo(role: UserRole.treasurer)),
+      host(event, signedInAs: AppState()..enterDemo(role: UserRole.officer)),
     );
     await tester.pumpAndSettle();
 
@@ -180,7 +180,7 @@ void main() {
       await tester.pumpWidget(
         host(
           event,
-          signedInAs: AppState()..enterDemo(role: UserRole.treasurer),
+          signedInAs: AppState()..enterDemo(role: UserRole.officer),
         ),
       );
       await tester.pumpAndSettle();
@@ -290,7 +290,7 @@ void main() {
       budget: '₱5,000.00',
       status: status,
     );
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     await tester.pumpWidget(
       host(pending(EventApprovalStatus.pendingInstitutional), signedInAs: app),

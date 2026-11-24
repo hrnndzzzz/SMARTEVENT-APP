@@ -81,65 +81,6 @@ class EventLogistics {
   };
 }
 
-/// Someone who may be asked to sign for an event.
-class Signatory {
-  const Signatory({
-    required this.id,
-    required this.fullName,
-    required this.position,
-  });
-
-  final String id;
-  final String fullName;
-  final String? position;
-
-  factory Signatory.fromJson(Map<String, dynamic> json) => Signatory(
-    id: json['id'] as String,
-    fullName: json['full_name'] as String,
-    position: json['position'] as String?,
-  );
-}
-
-/// One step of the institutional route, in the order it is signed.
-class RoutingStep {
-  const RoutingStep({
-    required this.id,
-    required this.reviewRound,
-    required this.stepOrder,
-    required this.signatoryId,
-    required this.status,
-    required this.remarks,
-    required this.decidedAt,
-  });
-
-  final String id;
-  final int reviewRound;
-  final int stepOrder;
-  final String signatoryId;
-
-  /// `pending`, `approved` or `rejected`.
-  final String status;
-
-  final String? remarks;
-  final DateTime? decidedAt;
-
-  bool get isPending => status == 'pending';
-  bool get isApproved => status == 'approved';
-  bool get isRejected => status == 'rejected';
-
-  factory RoutingStep.fromJson(Map<String, dynamic> json) => RoutingStep(
-    id: json['id'] as String,
-    reviewRound: (json['review_round'] as num).toInt(),
-    stepOrder: (json['step_order'] as num).toInt(),
-    signatoryId: json['signatory_id'] as String,
-    status: json['status'] as String,
-    remarks: json['remarks'] as String?,
-    decidedAt: json['decided_at'] == null
-        ? null
-        : DateTime.parse(json['decided_at'] as String),
-  );
-}
-
 /// What is still in the way of approval.
 ///
 /// The blockers are the backend's own sentences. They are shown as

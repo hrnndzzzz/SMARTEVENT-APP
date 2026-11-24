@@ -21,7 +21,7 @@ void main() {
       );
       await store.activate('http://127.0.0.1:8000', {
         'id': 'a',
-        'role': 'treasurer',
+        'role': 'adviser',
       });
       addTearDown(() async {
         await store.close();
@@ -140,7 +140,7 @@ void main() {
     );
     await store.activate('http://127.0.0.1:8000', {
       'id': 'a',
-      'role': 'treasurer',
+      'role': 'adviser',
     });
     addTearDown(() async {
       await store.close();

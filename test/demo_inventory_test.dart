@@ -12,13 +12,13 @@ import 'package:smartevent/state/app_state.dart';
 /// ever saw — on the module the moderator asked about by name.
 void main() {
   test('the demo holds equipment', () {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     expect(app.catalog, isNotEmpty);
   });
 
   test('every stock filter has something to find', () {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     expect(
       app.catalog.where((i) => i.quantity == 0),
@@ -40,7 +40,7 @@ void main() {
   test('some equipment is linked to an event and some is not', () {
     // The link is what the moderator asked about, so the demo has to
     // show both sides of it.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final ids = {for (final e in app.events) e.remoteId};
 
     final linked = app.catalog.where((i) => i.eventId != null);
@@ -63,7 +63,7 @@ void main() {
       tester.view.physicalSize = const Size(400, 2600);
       addTearDown(tester.view.reset);
 
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       final empty = app.catalog.firstWhere((i) => i.quantity == 0);
 
       await tester.pumpWidget(

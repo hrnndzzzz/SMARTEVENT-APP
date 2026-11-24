@@ -606,7 +606,7 @@ void main() {
       expect(posted('approve'), hasLength(1));
       expect(event.status, EventApprovalStatus.pendingInstitutional);
       expect(
-        find.widgetWithText(BrutBadge, 'With the signatories'),
+        find.widgetWithText(BrutBadge, 'With the SDS Office'),
         findsOneWidget,
       );
     });
@@ -658,7 +658,7 @@ void main() {
       tester,
     ) async {
       // In the demo every event is a proposal, and the treasurer wrote them.
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       await open(
         tester,
         app,
@@ -717,7 +717,7 @@ void main() {
     ];
     await open(
       tester,
-      liveAs(UserRole.treasurer),
+      liveAs(UserRole.officer),
       eventAt(EventApprovalStatus.draft),
     );
 

@@ -383,11 +383,9 @@ class _DemoRolePicker extends StatelessWidget {
   const _DemoRolePicker();
 
   /// Every role the app models, in the order the paperwork moves through
-  /// them. Signatory is left out: it reviews in a configured order and
-  /// has nothing seeded to review.
+  /// them.
   static const List<UserRole> _roles = [
     UserRole.officer,
-    UserRole.treasurer,
     UserRole.adviser,
     UserRole.sdsStaff,
     UserRole.admin,

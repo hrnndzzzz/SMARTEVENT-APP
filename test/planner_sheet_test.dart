@@ -18,7 +18,7 @@ void main() {
 
   testWidgets('a calendar in a sheet draws something', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 900));
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
@@ -64,7 +64,7 @@ void main() {
 
   testWidgets('and lays out without throwing', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 900));
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     await tester.pumpWidget(
       ChangeNotifierProvider.value(

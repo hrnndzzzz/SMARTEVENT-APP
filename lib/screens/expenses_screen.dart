@@ -91,8 +91,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 icon: Icons.receipt_long_outlined,
                 title: 'Nothing recorded yet',
                 hint:
-                    'Expenses appear here as soon as an officer or the '
-                    'treasurer records one.',
+                    'Expenses appear here as soon as an officer records '
+                    'one.',
               ),
             )
           else ...[

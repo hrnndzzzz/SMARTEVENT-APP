@@ -14,7 +14,7 @@ void main() {
   test('the newly created event is the one handed to the form', () {
     // addEvent inserts at the front, which is what the create screen
     // reads to know which event it just made.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final firstBefore = app.events.first.remoteId;
 
     app.events.insert(

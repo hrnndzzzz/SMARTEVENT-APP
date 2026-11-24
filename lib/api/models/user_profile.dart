@@ -12,12 +12,13 @@ class UserProfile {
   final String fullName;
   final String email;
 
-  /// Raw wire value — 'officer' | 'treasurer' | 'adviser' | 'sds_staff' |
+  /// Raw wire value — 'officer' | 'adviser' | 'sds_staff' |
   /// 'admin' | 'super_admin'. Parse it with `userRoleFromWire`.
   final String role;
 
   /// Job title such as President or Secretary. Purely descriptive: it never
-  /// overrides [role], so a Treasurer must actually have role=treasurer.
+  /// overrides [role]: the treasurer of an organization is an officer
+  /// account whose position says Treasurer.
   final String? position;
 
   /// Scope the account is confined to. Organizations that share a

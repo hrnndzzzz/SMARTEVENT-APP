@@ -12,7 +12,7 @@ Future<AppState> pumpHub(
   WidgetTester tester,
   EventApprovalStatus status,
 ) async {
-  final app = AppState()..enterDemo(role: UserRole.treasurer);
+  final app = AppState()..enterDemo(role: UserRole.officer);
   // Begun by someone else in the organization: the president starts a
   // draft and asks the vice-president to finish it.
   app.events.first

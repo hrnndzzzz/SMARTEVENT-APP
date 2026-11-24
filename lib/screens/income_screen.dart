@@ -252,8 +252,7 @@ class _Empty extends StatelessWidget {
         hint: canRecord
             ? 'Record money as it comes in — fees, sponsorships and '
                   'donations each count separately in reports.'
-            : 'Income appears here once an officer or the Treasurer '
-                  'records it.',
+            : 'Income appears here once an officer records it.',
       ),
     );
   }
