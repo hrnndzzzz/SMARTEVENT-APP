@@ -34,7 +34,7 @@ void main() {
   });
 
   testWidgets('treasurers get no create control', (tester) async {
-    final state = AppState()..devQuickLogin(UserRole.treasurer);
+    final state = AppState()..devQuickLogin(UserRole.officer);
     await tester.pumpWidget(_host(state));
     await tester.pump();
 

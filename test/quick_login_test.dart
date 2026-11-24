@@ -220,7 +220,7 @@ void main() {
 
     test('nor the demo, which holds no session', () async {
       final app = await signedIn();
-      app.enterDemo(role: UserRole.treasurer);
+      app.enterDemo(role: UserRole.officer);
 
       expect(await app.lockNow(), isFalse);
     });
@@ -356,7 +356,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       // A demo holds no session, so the row would be a dead control —
       // which is the fault this whole batch of work started with.
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       addTearDown(app.dispose);
       app.biometricLock = BiometricLock(auth: _FakeAuth());
       await app.biometricLock.setEnabled(true);

@@ -10,7 +10,7 @@ import 'package:smartevent/state/app_state.dart';
 /// job rather than anything broken.
 void main() {
   AppState admin() => AppState()..enterDemo(role: UserRole.admin);
-  AppState treasurer() => AppState()..enterDemo(role: UserRole.treasurer);
+  AppState treasurer() => AppState()..enterDemo(role: UserRole.officer);
 
   group('who may manage the catalog', () {
     test('a treasurer may not, so no Add button is offered', () {

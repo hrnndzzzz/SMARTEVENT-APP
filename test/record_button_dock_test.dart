@@ -44,7 +44,7 @@ void main() {
     // against each label measured clipping rather than covering. If the
     // button is outside the scrollable, nothing in it can be covered at
     // any scroll position.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     await openDashboard(tester, app);
 
     final viewport = tester.getRect(find.byType(Scrollable).first);
@@ -57,7 +57,7 @@ void main() {
   });
 
   testWidgets('and it leaves the navigation bar whole', (tester) async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     await openDashboard(tester, app);
 
     final button = buttonOn(tester);
@@ -86,7 +86,7 @@ void main() {
   testWidgets('it fills the band it is given', (tester) async {
     // As a circle it left most of a full-width strip empty, which reads
     // as a gap in the layout rather than a deliberate space.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     await openDashboard(tester, app);
 
     final button = buttonOn(tester);

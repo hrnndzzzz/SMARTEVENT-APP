@@ -53,7 +53,7 @@ void main() {
 
     testWidgets('all four figures are on the screen', (tester) async {
       await tester.binding.setSurfaceSize(const Size(420, 1200));
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
 
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
@@ -77,7 +77,7 @@ void main() {
 
     testWidgets('and nothing overflows laying them out', (tester) async {
       await tester.binding.setSurfaceSize(const Size(420, 1200));
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
 
       await tester.pumpWidget(
         ChangeNotifierProvider.value(

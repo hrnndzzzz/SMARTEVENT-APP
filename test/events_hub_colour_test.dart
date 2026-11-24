@@ -10,7 +10,7 @@ import 'package:smartevent/theme/app_theme.dart';
 /// The create band is a button. Its colour must not depend on what
 /// happened to the last event, or it changes under people.
 Future<Color> bandColour(WidgetTester tester, EventApprovalStatus status) async {
-  final app = AppState()..enterDemo(role: UserRole.treasurer);
+  final app = AppState()..enterDemo(role: UserRole.officer);
   for (final event in app.events) {
     event.status = status;
   }

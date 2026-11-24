@@ -158,7 +158,7 @@ void main() {
       tester.view.physicalSize = const Size(411, 2600);
       addTearDown(tester.view.reset);
 
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       addTearDown(app.dispose);
       await tester.pumpWidget(host(app));
       await tester.pump(const Duration(milliseconds: 400));
@@ -190,7 +190,7 @@ void main() {
       tester.view.physicalSize = const Size(411, 2600);
       addTearDown(tester.view.reset);
 
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       addTearDown(app.dispose);
 
       final newest = app.notices.where((n) => n.isUnread).first;
@@ -239,7 +239,7 @@ void main() {
       tester.view.physicalSize = const Size(411, 2600);
       addTearDown(tester.view.reset);
 
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       addTearDown(app.dispose);
       await tester.pumpWidget(
         MediaQuery(
@@ -258,7 +258,7 @@ void main() {
       tester.view.physicalSize = const Size(411, 2600);
       addTearDown(tester.view.reset);
 
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       addTearDown(app.dispose);
       await tester.pumpWidget(host(app));
       await tester.pump(const Duration(milliseconds: 400));

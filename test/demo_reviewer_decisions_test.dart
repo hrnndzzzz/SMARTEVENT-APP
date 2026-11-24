@@ -172,7 +172,7 @@ void main() {
     // to remove, in the one case most likely to be on screen.
     test('a rejection by the SDS Office stops at the stage after the admin',
         () async {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       final event = app.events.firstWhere(
         (e) => e.status == EventApprovalStatus.rejected,
       );
@@ -257,7 +257,7 @@ void main() {
         app.catalog.firstWhere((i) => i.id == 'demo-inv-1');
 
     test('the stock moves and the ledger says why', () async {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       final before = tables(app).quantity;
 
       final error = await app.recordInventoryMovement(
@@ -278,7 +278,7 @@ void main() {
 
     test('and the ledger still accounts for the stock afterwards',
         () async {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       await app.recordInventoryMovement(
         tables(app),
         type: InventoryMovementType.acquisition,
@@ -297,7 +297,7 @@ void main() {
     // Filtering rebuilt the catalog from the seed, which put the stock
     // back to what it was the moment a chip was tapped.
     test('a filter does not undo it', () async {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       await app.recordInventoryMovement(
         tables(app),
         type: InventoryMovementType.issue,
@@ -314,7 +314,7 @@ void main() {
     });
 
     test('it still refuses to take stock below zero', () async {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
 
       final error = await app.recordInventoryMovement(
         tables(app),

@@ -46,7 +46,7 @@ void main() {
       ..currentAccount = Account(
         name: 'Demo Treasurer',
         email: 't@example.com',
-        role: UserRole.treasurer,
+        role: UserRole.officer,
         departmentId: 'd1',
         organizationId: 'o1',
         organizationName: 'ACPES',

@@ -37,7 +37,7 @@ void main() {
     );
     expect(
       withStatus(EventApprovalStatus.pendingInstitutional).statusShort,
-      'With signatories',
+      'With SDS',
     );
   });
 

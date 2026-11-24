@@ -4,8 +4,8 @@ import 'models/proposal_letter.dart';
 /// Event proposal letters.
 ///
 /// Read access reaches further than write: SDS Staff and Super Admin see
-/// every letter in the school, while Treasurer, Adviser and Admin see their
-/// own department's. Officers have no access at all.
+/// every letter in the school, while Adviser and Admin see their own
+/// department's. Officers have no access at all.
 ///
 /// There is no edit, delete or review endpoint — only list, read and
 /// upload.
@@ -25,7 +25,7 @@ class ProposalLetterService {
     return ProposalLetter.fromJson(response as Map<String, dynamic>);
   }
 
-  /// `POST /proposal-letters` — Treasurer, Adviser, Admin or Super Admin.
+  /// `POST /proposal-letters` — Adviser, Admin or Super Admin.
   ///
   /// Multipart, with `event_id` and `title` as form fields alongside the
   /// file. PDF, JPEG or PNG, up to 10 MB.

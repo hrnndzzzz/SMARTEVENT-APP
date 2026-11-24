@@ -23,7 +23,6 @@ import 'state/notice_shelf.dart';
 import 'state/phone_alerts.dart';
 import 'state/sfx.dart';
 import 'screens/proposal_letters_screen.dart';
-import 'screens/signatory_screen.dart';
 import 'screens/events_hub_screen.dart';
 import 'screens/menu_panel.dart';
 import 'screens/app_tour.dart';
@@ -346,9 +345,6 @@ class _RootShellState extends State<RootShell> {
     // SDS staff have exactly one thing to do, so they get it directly
     // rather than three screens, two of which would be empty.
     if (widget.role.isLetterOnly) return const ProposalLettersScreen();
-    // Signatories are kept out of operational data by the backend, so
-    // the three-page shell would be three empty screens.
-    if (widget.role.isInstitutionalReviewer) return const SignatoryScreen();
 
     // Held until nothing is on top of the dashboard — the sign-in screen,
     // the biometric offer, an update prompt — so the tour never lights up

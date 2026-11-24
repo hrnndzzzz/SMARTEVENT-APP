@@ -73,7 +73,7 @@ void main() {
     expect(app.isDemoMode, isTrue);
     // Not the officer: officers are view-only, so starting there opens
     // the demo unable to create anything.
-    expect(app.currentRole, UserRole.treasurer);
+    expect(app.currentRole, UserRole.officer);
     expect(app.currentRole!.canProposeEvents, isTrue);
   });
 
@@ -123,7 +123,6 @@ void main() {
 
       for (final role in [
         UserRole.officer,
-        UserRole.treasurer,
         UserRole.adviser,
         UserRole.sdsStaff,
         UserRole.admin,

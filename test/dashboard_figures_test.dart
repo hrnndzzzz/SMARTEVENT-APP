@@ -47,7 +47,7 @@ void main() {
     ) async {
       await tester.binding.setSurfaceSize(const Size(411, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       addTearDown(app.dispose);
 
       await tester.pumpWidget(host(app));

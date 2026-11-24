@@ -36,7 +36,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 2400);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere((e) => e.remoteId == 'demo-ev-1');
 
     await tester.pumpWidget(host(app, event));
@@ -66,7 +66,7 @@ void main() {
     tester.view.physicalSize = const Size(700, 2400);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere((e) => e.remoteId == 'demo-ev-3');
 
     await tester.pumpWidget(host(app, event));
@@ -104,7 +104,7 @@ void main() {
       ('demo-ev-5', true),
       ('demo-ev-6', true),
     ]) {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       final event = app.events.firstWhere((e) => e.remoteId == id);
 
       await tester.pumpWidget(host(app, event));

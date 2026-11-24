@@ -12,7 +12,7 @@ class FeatureUnavailable implements Exception {
   const FeatureUnavailable();
 }
 
-/// The pre-activity gates: logistics, institutional routing, readiness.
+/// The pre-activity gates: logistics and readiness.
 class ComplianceService {
   ComplianceService(this._client);
 
@@ -57,50 +57,6 @@ class ComplianceService {
       return row == null
           ? null
           : EventLogistics.fromJson(Map<String, dynamic>.from(row as Map));
-    });
-  }
-
-  /// `GET /users/signatories` — active, unsuspended, past first sign-in.
-  Future<List<Signatory>> signatories() {
-    return _guard(() async {
-      final response = await _client.get('/users/signatories');
-      return [
-        for (final row in response as List)
-          Signatory.fromJson(Map<String, dynamic>.from(row as Map)),
-      ];
-    });
-  }
-
-  /// `GET /events/{id}/routing`, in signing order.
-  Future<List<RoutingStep>> routing(String eventId) {
-    return _guard(() async {
-      final response = await _client.get('/events/$eventId/routing');
-      final steps = [
-        for (final row in response as List)
-          RoutingStep.fromJson(Map<String, dynamic>.from(row as Map)),
-      ];
-      steps.sort((a, b) => a.stepOrder.compareTo(b.stepOrder));
-      return steps;
-    });
-  }
-
-  /// `PUT /events/{id}/routing` — one to twenty, each at most once, in
-  /// the order they will sign.
-  Future<List<RoutingStep>> setRouting(
-    String eventId,
-    List<String> signatoryIds,
-  ) {
-    return _guard(() async {
-      final response = await _client.put(
-        '/events/$eventId/routing',
-        body: {'signatory_ids': signatoryIds},
-      );
-      final steps = [
-        for (final row in response as List)
-          RoutingStep.fromJson(Map<String, dynamic>.from(row as Map)),
-      ];
-      steps.sort((a, b) => a.stepOrder.compareTo(b.stepOrder));
-      return steps;
     });
   }
 

@@ -68,7 +68,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    await signIn(tester, UserRole.treasurer);
+    await signIn(tester, UserRole.officer);
     expect(eyebrow(), 'DASHBOARD · 1 OF 5');
 
     expect(await walk(tester), [
@@ -90,7 +90,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    await signIn(tester, UserRole.treasurer);
+    await signIn(tester, UserRole.officer);
     await walk(tester, stopAt: 'MONEY');
     expect(eyebrow(), startsWith('MONEY · 1 OF'));
 
@@ -104,14 +104,14 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    final app = await signIn(tester, UserRole.treasurer);
+    final app = await signIn(tester, UserRole.officer);
     expect(eyebrow(), isNotNull);
     await tester.tap(find.text('Skip'));
     await frames(tester);
 
     await app.signOut();
     await frames(tester);
-    await signIn(tester, UserRole.treasurer);
+    await signIn(tester, UserRole.officer);
     expect(eyebrow(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

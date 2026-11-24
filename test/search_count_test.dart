@@ -48,7 +48,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 2400);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     // Not pumpAndSettle: the header's wordmark pulses on a repeating
     // animation, so the tree never reaches a settled frame.
     await tester.pumpWidget(host(app));
@@ -71,7 +71,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 2400);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     await tester.pumpWidget(host(app));
     await tester.pump(const Duration(milliseconds: 300));
 

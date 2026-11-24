@@ -133,7 +133,7 @@ void _moneyFormat() {
 void _demoRows() {
   group('the seeded breakdowns', () {
     test('show the paper\'s columns somewhere', () {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       final rows = [
         for (final event in app.events) ...DemoProposals.budgetFor(event),
       ];
@@ -152,7 +152,7 @@ void _demoRows() {
     });
 
     test('multiply out, where they state all three', () {
-      final app = AppState()..enterDemo(role: UserRole.treasurer);
+      final app = AppState()..enterDemo(role: UserRole.officer);
       final rows = [
         for (final event in app.events) ...DemoProposals.budgetFor(event),
       ].where((r) => r.unitCost != null);

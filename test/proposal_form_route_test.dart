@@ -19,7 +19,7 @@ void main() {
     tester.view.physicalSize = const Size(400, 1600);
     addTearDown(tester.view.reset);
 
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     addTearDown(app.dispose);
     await tester.pumpWidget(
       MultiProvider(

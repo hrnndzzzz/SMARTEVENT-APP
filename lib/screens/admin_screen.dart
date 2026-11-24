@@ -98,8 +98,7 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
           ],
         ),
-        // Admin, SDS and Signatory accounts never come from the roster.
-        // Without a signatory, no Admin can approve a plain event.
+        // Admin and SDS accounts never come from the roster.
         1 when school => FloatingActionButton.extended(
           heroTag: 'school-account-add',
           onPressed: () => BrutSheet.show<void>(
@@ -446,7 +445,7 @@ class _AccountsTab extends StatelessWidget {
   }
 }
 
-/// Creates an Admin, SDS Staff or Signatory account. The server emails a
+/// Creates an Admin or SDS Staff account. The server emails a
 /// temporary password, so nothing here asks for one.
 class _AddSchoolAccountSheet extends StatefulWidget {
   const _AddSchoolAccountSheet();
@@ -460,7 +459,7 @@ class _AddSchoolAccountSheetState extends State<_AddSchoolAccountSheet> {
   final _emailController = TextEditingController();
   final _positionController = TextEditingController();
 
-  UserRole _role = UserRole.signatory;
+  UserRole _role = UserRole.sdsStaff;
   String? _departmentId;
   String? _organizationId;
 
@@ -544,11 +543,7 @@ class _AddSchoolAccountSheetState extends State<_AddSchoolAccountSheet> {
             value: _role,
             hint: 'Select a role',
             items: [
-              for (final role in const [
-                UserRole.signatory,
-                UserRole.sdsStaff,
-                UserRole.admin,
-              ])
+              for (final role in const [UserRole.sdsStaff, UserRole.admin])
                 DropdownMenuItem(value: role, child: Text(role.label)),
             ],
             onChanged: (v) => setState(() => _role = v ?? _role),

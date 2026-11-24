@@ -41,7 +41,7 @@ void main() {
 
   testWidgets('and nobody else sees it there', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1200));
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
 
     await tester.pumpWidget(host(app, const ProposalLettersScreen()));
     // A spinner runs while the (empty) letter list loads, and a

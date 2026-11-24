@@ -1,24 +1,13 @@
-/// The six roles the backend enforces, mirroring `Role` in
+/// The five roles the backend enforces, mirroring `Role` in
 /// `smartevent-backend/app/schemas.py` and the policy in
 /// `app/rbac_policy.py`.
 ///
-/// Listed from least to most authority. The app previously knew only
-/// officer/adviser/admin and mapped `super_admin` onto admin, which meant
-/// Treasurer and SDS Staff accounts had nowhere to land at all.
-enum UserRole {
-  officer,
-  treasurer,
-  adviser,
-  sdsStaff,
-
-  /// Institutional signatory. Added by the October backend: an unscoped
-  /// school account that reviews assigned proposals in its configured
-  /// order, and may read nothing else operational.
-  signatory,
-
-  admin,
-  superAdmin,
-}
+/// Listed from least to most authority. Treasurer and Signatory were
+/// removed before the November defence: a treasurer is an officer who
+/// happens to hold that position, which lives in `position` rather than
+/// here, and institutional signatories sign the printed form instead of
+/// reviewing in the app.
+enum UserRole { officer, adviser, sdsStaff, admin, superAdmin }
 
 /// Wire format and display text.
 ///
@@ -28,20 +17,16 @@ extension UserRoleNaming on UserRole {
   /// The exact string the API sends and expects.
   String get wireName => switch (this) {
     UserRole.officer => 'officer',
-    UserRole.treasurer => 'treasurer',
     UserRole.adviser => 'adviser',
     UserRole.sdsStaff => 'sds_staff',
-    UserRole.signatory => 'signatory',
     UserRole.admin => 'admin',
     UserRole.superAdmin => 'super_admin',
   };
 
   String get label => switch (this) {
     UserRole.officer => 'Officer',
-    UserRole.treasurer => 'Treasurer',
     UserRole.adviser => 'Adviser',
     UserRole.sdsStaff => 'SDS Staff',
-    UserRole.signatory => 'Signatory',
     UserRole.admin => 'Admin',
     UserRole.superAdmin => 'Super Admin',
   };
@@ -51,12 +36,9 @@ extension UserRoleNaming on UserRole {
   String get responsibility => switch (this) {
     UserRole.officer =>
       'Propose events, record financial activity and inventory movements.',
-    UserRole.treasurer => 'Record financial activity and inventory movements.',
     UserRole.adviser => 'Review event proposals and expense submissions.',
     UserRole.sdsStaff =>
       'View submitted proposal letters for school oversight.',
-    UserRole.signatory =>
-      'Review assigned institutional proposals in their configured order.',
     UserRole.admin =>
       'Organization administrator appointed by the Super Admin.',
     UserRole.superAdmin =>
@@ -65,11 +47,7 @@ extension UserRoleNaming on UserRole {
 }
 
 /// Roles an ordinary member account of an organization can hold.
-const List<UserRole> memberRoles = [
-  UserRole.officer,
-  UserRole.treasurer,
-  UserRole.adviser,
-];
+const List<UserRole> memberRoles = [UserRole.officer, UserRole.adviser];
 
 /// Every role the roster and `PATCH /users/{id}/access` accept. Super
 /// Admin is absent on purpose: no roster row or upload can create one.
@@ -77,7 +55,6 @@ const List<UserRole> rosterRoles = [
   ...memberRoles,
   UserRole.admin,
   UserRole.sdsStaff,
-  UserRole.signatory,
 ];
 
 /// Roles [role] may put on the roster or assign to an account, mirroring
@@ -86,7 +63,7 @@ const List<UserRole> rosterRoles = [
 List<UserRole> manageableRolesFor(UserRole? role) => switch (role) {
   UserRole.superAdmin => rosterRoles,
   UserRole.admin => memberRoles,
-  UserRole.adviser => const [UserRole.officer, UserRole.treasurer],
+  UserRole.adviser => const [UserRole.officer],
   _ => const [],
 };
 
@@ -98,10 +75,8 @@ List<UserRole> manageableRolesFor(UserRole? role) => switch (role) {
 /// understand — better to refuse the sign-in and say so.
 UserRole? userRoleFromWire(String value) => switch (value) {
   'officer' => UserRole.officer,
-  'treasurer' => UserRole.treasurer,
   'adviser' => UserRole.adviser,
   'sds_staff' => UserRole.sdsStaff,
-  'signatory' => UserRole.signatory,
   'admin' => UserRole.admin,
   'super_admin' => UserRole.superAdmin,
   _ => null,
@@ -123,17 +98,12 @@ extension UserRoleCapabilities on UserRole {
   /// finance, inventory, reports or administrative screens.
   bool get isLetterOnly => this == UserRole.sdsStaff;
 
-  /// Institutional signatories read only the proposals routed to them.
-  /// The backend keeps them out of operational data exactly as it does
-  /// SDS Staff, so the app must not offer it either.
-  bool get isInstitutionalReviewer => this == UserRole.signatory;
-
   /// Reaches the operational app at all.
-  bool get hasOperationalAccess => !isLetterOnly && !isInstitutionalReviewer;
+  bool get hasOperationalAccess => !isLetterOnly;
 
-  /// SDS Staff and Signatory accounts belong to the school, not to any
-  /// department or organization.
-  bool get isSchoolWide => isLetterOnly || isInstitutionalReviewer;
+  /// An SDS Staff account belongs to the school, not to any department or
+  /// organization.
+  bool get isSchoolWide => isLetterOnly;
 
   /// Admin, Super Admin, or an Adviser within their own organization.
   bool get managesOrganization => isAdministrator || this == UserRole.adviser;
@@ -143,23 +113,18 @@ extension UserRoleCapabilities on UserRole {
 
   /// Propose events. SDS has no event access.
   bool get canProposeEvents =>
-      this == UserRole.officer ||
-      this == UserRole.treasurer ||
-      this == UserRole.adviser ||
-      isAdministrator;
+      this == UserRole.officer || this == UserRole.adviser || isAdministrator;
 
   /// Add and remove inventory items. Editing an item stays with
   /// [canManageCatalog].
   bool get canAddRemoveInventoryItems =>
       managesOrganization || this == UserRole.officer;
 
-  /// Record income and expenses. Officers and the Treasurer record; the
-  /// Adviser and the Dean review. The Super Admin, the system
-  /// administrator, may do both. Mirrors `can_record_finance` in the backend.
+  /// Record income and expenses. Officers record; the Adviser and the Dean
+  /// review. The Super Admin, the system administrator, may do both.
+  /// Mirrors `can_record_finance` in the backend.
   bool get canRecordFinance =>
-      this == UserRole.officer ||
-      this == UserRole.treasurer ||
-      this == UserRole.superAdmin;
+      this == UserRole.officer || this == UserRole.superAdmin;
 
   /// Approve or reject others' submissions. Never your own — that is a
   /// separate per-record check the API enforces.
@@ -167,14 +132,10 @@ extension UserRoleCapabilities on UserRole {
 
   /// Record inventory stock movements (issue, return, disposal, …).
   bool get canRecordInventoryMovements =>
-      this == UserRole.officer ||
-      this == UserRole.treasurer ||
-      this == UserRole.adviser ||
-      isAdministrator;
+      this == UserRole.officer || this == UserRole.adviser || isAdministrator;
 
   /// Read and upload proposal letters. Officers have no access at all.
-  bool get canAccessProposalLetters =>
-      this != UserRole.officer && !isInstitutionalReviewer;
+  bool get canAccessProposalLetters => this != UserRole.officer;
 
   /// Manage the approved roster and member account access, within scope.
   bool get canManageMembers => managesOrganization;

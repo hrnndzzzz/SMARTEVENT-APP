@@ -58,7 +58,7 @@ void main() {
   });
 
   testWidgets('the proposer keeps their own withdrawal', (tester) async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere(
       (e) => e.status == EventApprovalStatus.pendingAdviser,
     );
@@ -69,7 +69,7 @@ void main() {
   });
 
   testWidgets('and can reopen it after a rejection', (tester) async {
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere(
       (e) => e.status == EventApprovalStatus.pendingAdviser,
     )..status = EventApprovalStatus.rejected;
@@ -83,7 +83,7 @@ void main() {
   testWidgets('and still does not decide on it', (tester) async {
     // The guard that matters: nobody reviews their own proposal, which
     // the API enforces anyway.
-    final app = AppState()..enterDemo(role: UserRole.treasurer);
+    final app = AppState()..enterDemo(role: UserRole.officer);
     final event = app.events.firstWhere(
       (e) => e.status == EventApprovalStatus.pendingAdviser,
     );

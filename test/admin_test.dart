@@ -53,7 +53,7 @@ void main() {
     });
 
     test('parses the member role it grants', () {
-      expect(_entry(role: 'treasurer').role, UserRole.treasurer);
+      expect(_entry(role: 'treasurer').role, UserRole.officer);
       expect(_entry(role: 'adviser').role, UserRole.adviser);
     });
 

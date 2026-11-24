@@ -28,7 +28,7 @@ void main() {
 
   Future<AppState> open(
     WidgetTester tester, {
-    UserRole role = UserRole.treasurer,
+    UserRole role = UserRole.officer,
     required bool Function(EventItem) pick,
   }) async {
     tester.view.devicePixelRatio = 1;

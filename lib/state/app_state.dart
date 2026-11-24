@@ -128,8 +128,8 @@ enum EventApprovalStatus {
   pendingAdviser,
   pendingAdmin,
 
-  /// With the institutional signatories, who approve in sequence after
-  /// the admin. Added by the October backend; a build that did not know
+  /// With the SDS Office, which reviews the proposal after the Dean has
+  /// approved it. Added by the October backend; a build that did not know
   /// it showed such an event as a draft.
   pendingInstitutional,
 
@@ -244,7 +244,7 @@ class EventItem {
     EventApprovalStatus.draft => 'Draft',
     EventApprovalStatus.pendingAdviser => 'With adviser',
     EventApprovalStatus.pendingAdmin => 'With admin',
-    EventApprovalStatus.pendingInstitutional => 'With signatories',
+    EventApprovalStatus.pendingInstitutional => 'With SDS',
     EventApprovalStatus.approved => 'Approved',
     EventApprovalStatus.rejected => 'Rejected',
     EventApprovalStatus.completed => 'Completed',
@@ -254,7 +254,7 @@ class EventItem {
     EventApprovalStatus.draft => 'Draft',
     EventApprovalStatus.pendingAdviser => 'Pending Adviser Review',
     EventApprovalStatus.pendingAdmin => 'Pending Admin Approval',
-    EventApprovalStatus.pendingInstitutional => 'With the signatories',
+    EventApprovalStatus.pendingInstitutional => 'With the SDS Office',
     EventApprovalStatus.approved => 'Approved',
     EventApprovalStatus.rejected => 'Rejected by ${rejectedBy ?? 'Reviewer'}',
     EventApprovalStatus.completed => 'Completed',
@@ -1182,7 +1182,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Creates an Admin, SDS Staff or Signatory account. Each emails a
+  /// Creates an Admin or SDS Staff account. Each emails a
   /// temporary password, so each fails when email is not configured — the
   /// error says so.
   Future<String?> createPrivilegedAccount({
@@ -1353,7 +1353,7 @@ class AppState extends ChangeNotifier {
   ConsolidatedFinancialReport? financialReport;
   final LoadState financialReportLoad = LoadState();
 
-  // Analytics opens on the current school year, the period a treasurer is
+  // Analytics opens on the current school year, the period an officer is
   // accountable for, so it has figures without choosing anything first.
   ReportPeriod reportPeriod = ReportPeriod.schoolYear;
   DateTime? reportReferenceDate;
@@ -2083,7 +2083,7 @@ class AppState extends ChangeNotifier {
         purpose: purpose,
         amount: double.tryParse(amount) ?? 0,
         receivedOn: receivedOn ?? now,
-        // A receipt the treasurer has just attached has not been reviewed
+        // A receipt the officer has just attached has not been reviewed
         // by anyone yet, so it is withheld from totals exactly as a real
         // one would be. Without a receipt there is nothing to review.
         receiptReviewStatus: receipt == null
@@ -2141,17 +2141,6 @@ class AppState extends ChangeNotifier {
     String eventId,
     EventLogistics logistics,
   ) => _complianceService.saveLogistics(eventId, logistics);
-
-  Future<List<Signatory>> availableSignatories() =>
-      _complianceService.signatories();
-
-  Future<List<RoutingStep>> eventRouting(String eventId) =>
-      _complianceService.routing(eventId);
-
-  Future<List<RoutingStep>> setEventRouting(
-    String eventId,
-    List<String> signatoryIds,
-  ) => _complianceService.setRouting(eventId, signatoryIds);
 
   /// Readiness, or nothing to say while exploring. The notice that
   /// shows this is already silent when the route is missing, so a demo
@@ -2304,11 +2293,7 @@ class AppState extends ChangeNotifier {
     return account != null &&
         account.departmentId == null &&
         account.organizationId != null &&
-        const {
-          UserRole.adviser,
-          UserRole.treasurer,
-          UserRole.officer,
-        }.contains(currentRole);
+        const {UserRole.adviser, UserRole.officer}.contains(currentRole);
   }
 
   /// Whether proposing an event means choosing which organization it is for.
@@ -2331,7 +2316,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// Loads the lookups, but only for roles allowed to read them — calling
-  /// them as a Treasurer or Officer would just collect a 403.
+  /// them as an Officer would just collect a 403.
   Future<void> loadScopeOptions() async {
     if (!(currentRole?.isAdministrator ?? false)) return;
 
@@ -2699,8 +2684,8 @@ class AppState extends ChangeNotifier {
 
     if (status == EventApprovalStatus.rejected) {
       // Which desk turned it down, and so how far it had got. The adviser
-      // and the admin name themselves; the SDS Office and the signatories
-      // both sit after the admin, so they stop it at the last stage. A
+      // and the admin name themselves; the SDS Office sits after the
+      // admin, so it stops a proposal at the last stage. A
       // rejection that names nobody says only that it was rejected —
       // ticking the earlier desks off on a guess would be worse.
       final stoppedAt = switch (event.rejectedBy) {
@@ -2767,8 +2752,8 @@ class AppState extends ChangeNotifier {
         past: pastAdmin,
         awaiting: status == EventApprovalStatus.pendingAdmin,
       ),
-      // The signatories sign in sequence after the admin; the demo knows
-      // only whether that stage is open or done.
+      // The SDS Office reviews after the admin; the demo knows only
+      // whether that stage is open or done.
       if (status == EventApprovalStatus.pendingInstitutional)
         record(3, 'pending', null)
       else if (status == EventApprovalStatus.approved ||
@@ -4068,7 +4053,7 @@ class AppState extends ChangeNotifier {
   bool get isDemoMode => _demoMode;
 
   /// Signs in to the seeded data as [role]. Nothing leaves the device.
-  void enterDemo({UserRole role = UserRole.treasurer}) {
+  void enterDemo({UserRole role = UserRole.officer}) {
     _demoMode = true;
     // Seeded records belong to nobody, so keeping them out of a
     // screenshot protects no one — and FLAG_SECURE blocks screen
@@ -4215,7 +4200,7 @@ class AppState extends ChangeNotifier {
 
   /// Whether to offer recording money.
   ///
-  /// The backend's hierarchy work makes this Treasurer-only, where the
+  /// The backend's hierarchy work makes this officer-only, where the
   /// app's own rule also allowed administrators. Following the server
   /// means an admin stops being shown a button that answers 403.
   bool get mayRecordFinance =>
@@ -4543,8 +4528,8 @@ class AppState extends ChangeNotifier {
   /// The account's department as a name, or null when this client cannot
   /// know it.
   ///
-  /// `GET /departments` is admin-only, so for a treasurer, adviser or
-  /// officer the list is empty and the id cannot be resolved to a code.
+  /// `GET /departments` is admin-only, so for an adviser or an officer
+  /// the list is empty and the id cannot be resolved to a code.
   /// Printing "All Departments" there states the opposite of the truth —
   /// the account does have one, this build just cannot read it — so the
   /// line simply omits it.

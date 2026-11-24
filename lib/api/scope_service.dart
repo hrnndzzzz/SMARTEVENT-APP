@@ -4,7 +4,7 @@ import 'models/scope.dart';
 /// Department and organization lookups.
 ///
 /// Both endpoints require Admin or above, and a non-Super-Admin sees only
-/// its own. Ordinary operational forms must never call these — a Treasurer
+/// its own. Ordinary operational forms must never call these — an Officer
 /// or Officer would just collect a 403. They exist for the one case where
 /// scope genuinely has to be chosen: a Super Admin, who belongs to none.
 class ScopeService {

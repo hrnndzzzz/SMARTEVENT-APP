@@ -118,7 +118,7 @@ void main() {
   });
 
   testWidgets('a Treasurer is not asked, it has its own', (tester) async {
-    await openIncomeForm(tester, UserRole.treasurer);
+    await openIncomeForm(tester, UserRole.officer);
     expect(find.text('ORGANIZATION'), findsNothing);
     expect(tester.takeException(), isNull);
   });

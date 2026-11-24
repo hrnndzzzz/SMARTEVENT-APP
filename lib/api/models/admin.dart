@@ -14,7 +14,7 @@ class RosterEntry {
   final String fullName;
   final String email;
 
-  /// Any of [rosterRoles]. SDS Staff and Signatory entries have no
+  /// Any of [rosterRoles]. SDS Staff entries have no
   /// department or organization.
   final UserRole role;
 

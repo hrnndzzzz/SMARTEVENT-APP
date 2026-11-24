@@ -25,7 +25,7 @@ class IncomeService {
         .toList();
   }
 
-  /// `POST /incomes` — Treasurer, Admin or Super Admin. There is no
+  /// `POST /incomes` — Officer or Super Admin. There is no
   /// approval step for income; it counts once recorded, unless its receipt
   /// is held for review.
   ///

@@ -136,7 +136,7 @@ void main() {
       tester,
     ) async {
       final form = await loaded('pending_sap_review', confirmed: true);
-      await open(tester, SapPart4Screen(form: form), role: UserRole.treasurer);
+      await open(tester, SapPart4Screen(form: form), role: UserRole.officer);
 
       expectRead(tester);
       expect(card(tester, 'With the SDS Office').tone, BrutTone.sun);
@@ -146,7 +146,7 @@ void main() {
       tester,
     ) async {
       final form = await loaded('pending_sap_review', confirmed: true);
-      await open(tester, SapPart4Screen(form: form), role: UserRole.treasurer);
+      await open(tester, SapPart4Screen(form: form), role: UserRole.officer);
 
       expect(
         tester
@@ -178,7 +178,7 @@ void main() {
       // The screen seeds "Not applicable" with no reason, which the server
       // would refuse and which reads as the office's own answer once the card
       // says it has acted. Nobody who cannot fill it in is shown that.
-      for (final role in [UserRole.treasurer, UserRole.sdsStaff]) {
+      for (final role in [UserRole.officer, UserRole.sdsStaff]) {
         for (final state in SapState.values) {
           // Theirs to fill in, and the seeds are where they start.
           if (role == UserRole.sdsStaff && state == SapState.pendingReview) {
@@ -245,7 +245,7 @@ void main() {
         await open(
           tester,
           SapPart4Screen(form: form),
-          role: UserRole.treasurer,
+          role: UserRole.officer,
         );
         expect(card(tester, line).tone, tone, reason: '$wire returned by $by');
       }
@@ -269,7 +269,7 @@ void main() {
         await open(
           tester,
           SapPart4Screen(form: form),
-          role: UserRole.treasurer,
+          role: UserRole.officer,
         );
 
         final reason = '$wire $extra';
@@ -306,7 +306,7 @@ void main() {
           },
         },
       );
-      await open(tester, SapPart4Screen(form: form), role: UserRole.treasurer);
+      await open(tester, SapPart4Screen(form: form), role: UserRole.officer);
 
       final said = tester.widget<BrutInlineMessage>(
         find.byWidgetPredicate(
@@ -327,7 +327,7 @@ void main() {
       tester,
     ) async {
       final form = await loaded('pending_sap_review');
-      await open(tester, SapPart4Screen(form: form), role: UserRole.treasurer);
+      await open(tester, SapPart4Screen(form: form), role: UserRole.officer);
 
       expect(find.text('No remarks from the SDS Office yet.'), findsOneWidget);
     });
@@ -342,7 +342,7 @@ void main() {
         await open(
           tester,
           SapPart4Screen(form: form),
-          role: UserRole.treasurer,
+          role: UserRole.officer,
         );
 
         expect(

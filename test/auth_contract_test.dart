@@ -16,7 +16,7 @@ void main() {
     'id': 'u1',
     'full_name': 'Ana Reyes',
     'email': 'ana@example.com',
-    'role': 'treasurer',
+    'role': 'officer',
     'position': null,
     'department_id': 'd1',
     'organization_id': 'o1',
@@ -51,29 +51,29 @@ void main() {
     );
   });
 
-  test('a Super Admin can create a signatory account', () async {
+  test('a Super Admin can create an SDS Staff account', () async {
     final sent = <http.Request>[];
     final admin = AdminService(
       ApiClient(
         httpClient: MockClient((request) async {
           sent.add(request);
-          return json({...profile, 'role': 'signatory'}, 201);
+          return json({...profile, 'role': 'sds_staff'}, 201);
         }),
       ),
     );
 
     final created = await admin.createSchoolReviewer(
-      role: UserRole.signatory,
+      role: UserRole.sdsStaff,
       fullName: 'Dr. Cruz',
       email: 'cruz@example.com',
     );
 
-    expect(sent.single.url.path, '/auth/register/signatory');
+    expect(sent.single.url.path, '/auth/register/sds');
     expect(jsonDecode(sent.single.body), {
       'full_name': 'Dr. Cruz',
       'email': 'cruz@example.com',
     });
-    expect(created.role, 'signatory');
+    expect(created.role, 'sds_staff');
   });
 
   test('a password change signs in again with the new password', () async {

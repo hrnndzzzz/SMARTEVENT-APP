@@ -41,7 +41,7 @@ class AppHeader extends StatelessWidget {
 
   const AppHeader({super.key, this.subtitle, this.onAvatarTap, this.onBack});
 
-  /// `CITE · TREASURER`. Falls back to whichever half is known rather than
+  /// `CITE · OFFICER`. Falls back to whichever half is known rather than
   /// printing a placeholder for the other.
   static String? scopeLineFor(AppState app) {
     final role = app.currentRole?.label;

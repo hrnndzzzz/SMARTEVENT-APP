@@ -103,8 +103,8 @@ class EventsHubScreen extends StatelessWidget {
 }
 
 /// Band one. It is the create button for whoever may propose, and the
-/// state of the newest proposal for anyone who may not propose (SDS
-/// and signatories) — a create button would only collect a 403. While
+/// state of the newest proposal for anyone who may not propose (the SDS
+/// Office) — a create button would only collect a 403. While
 /// the newest proposal is a draft, it is the way back into it. A
 /// proposal waiting on a decision does not block a new one.
 class _CreateBand extends StatelessWidget {

@@ -11,7 +11,7 @@ void main() {
 
   group('with no answer from the server', () {
     test('the role still decides, exactly as it did before', () {
-      final treasurer = signedInAs(UserRole.treasurer);
+      final treasurer = signedInAs(UserRole.officer);
       expect(treasurer.permissions, isNull);
       expect(treasurer.mayProposeEvents, isTrue);
       expect(treasurer.mayRecordFinance, isTrue);
@@ -65,7 +65,7 @@ void main() {
     });
 
     test('a reply carrying neither flag changes nothing', () {
-      final app = signedInAs(UserRole.treasurer);
+      final app = signedInAs(UserRole.officer);
 
       app.permissionsForTest = const AccountPermissions(role: 'treasurer');
 
