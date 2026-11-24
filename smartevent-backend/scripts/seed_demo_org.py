@@ -66,17 +66,32 @@ CATEGORIES = [
     ("DEMO Venue and Logistics", "18000.00", "1800.00", "4000.00"),
 ]
 
-# title, description, budget, actual spend, days ago, status
+# title, description, budget, actual spend, days ago, status, semester
+#
+# Every event also carries school year, semester and scope: the database
+# requires all three (`events_academic_metadata_required`), and a row
+# without them is rejected outright.
 PAST_EVENTS = [
     ("DEMO Programming Bootcamp", "Two-day introduction to Python for first years.",
-     "12000.00", "11250.00", 210, "completed"),
+     "12000.00", "11250.00", 210, "completed", "2nd"),
     ("DEMO IT Week General Assembly", "Opening assembly with guest speakers.",
-     "8000.00", "7400.00", 150, "completed"),
+     "8000.00", "7400.00", 150, "completed", "2nd"),
     ("DEMO Capstone Showcase", "Exhibition of fourth-year capstone projects.",
-     "15000.00", "15600.00", 90, "completed"),
+     "15000.00", "15600.00", 90, "completed", "1st"),
     ("DEMO Leadership Seminar", "Officer training for the incoming term.",
-     "6000.00", "4900.00", 45, "approved"),
+     "6000.00", "4900.00", 45, "approved", "1st"),
 ]
+
+
+def _school_year(day: date) -> str:
+    """The academic year a date falls in, as `YYYY-YYYY`.
+
+    The database checks the shape and that the second year is the first
+    plus one. June starts a new year here, which is close enough for
+    seeded history and keeps every row inside one academic year.
+    """
+    start = day.year if day.month >= 6 else day.year - 1
+    return f"{start}-{start + 1}"
 
 
 def _password() -> str:
@@ -209,7 +224,7 @@ def seed(db) -> None:
         categories[name] = category
 
     supplies = categories["DEMO Supplies"]
-    for title, description, budget, spend, days_ago, status in PAST_EVENTS:
+    for title, description, budget, spend, days_ago, status, semester in PAST_EVENTS:
         event = (db.query(Event)
                  .filter(Event.organization_id == organization.id, Event.title == title)
                  .first())
@@ -219,6 +234,8 @@ def seed(db) -> None:
         when = date.today() - timedelta(days=days_ago)
         event = Event(
             title=title, description=description, status=status,
+            school_year=_school_year(when), semester=semester,
+            event_scope="organizational",
             organization_id=organization.id, department_id=department.id,
             proposed_by=officer.id, event_date=when,
             allocated_budget=Decimal(budget),
