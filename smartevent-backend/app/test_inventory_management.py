@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 def create_asset_expense(system, name="Chair", unit="pcs", receipt=True):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     payload = {"event_id": str(resources[0]["events"].id), "category_id": str(resources[0]["categories"].id),
                "description": "Purchase of equipment", "amount": 60,
                "items": [{"name": name, "amount": 60, "category": "asset", "quantity": 3, "unit": unit}]}
@@ -61,7 +61,7 @@ def test_approval_does_not_add_stock_and_complete_purchase_does_once(system):
     approve(system, expense)
     assert resources[0]["inventory"].quantity == 10
     assert line.converted_inventory_id is None
-    login("treasurer")
+    login("officer")
     response = client.post(f"/expenses/{expense.id}/complete-purchase", json=completion_payload(line))
     assert response.status_code == 200, response.text
     assert response.json()["purchase_completed_at"] is not None
@@ -81,7 +81,7 @@ def test_new_purchased_item_is_received_as_catalog_draft_with_event_and_history(
     expense, line = create_asset_expense(system, name="Projector")
     approve(system, expense)
     assert db.query(Inventory).filter(Inventory.item_name == "Projector").first() is None
-    login("treasurer")
+    login("officer")
     assert client.post(f"/expenses/{expense.id}/complete-purchase", json=completion_payload(line)).status_code == 200
     item = db.query(Inventory).filter(Inventory.item_name == "Projector").one()
     assert item.quantity == 3 and item.is_draft and item.event_id == expense.event_id
@@ -117,7 +117,7 @@ def test_incomplete_purchase_never_adds_stock(system, problem, expected):
     elif problem == "legacy_converted":
         line.converted_inventory_id = resources[0]["inventory"].id
     db.commit()
-    login("treasurer")
+    login("officer")
     response = client.post(f"/expenses/{expense.id}/complete-purchase", json=payload)
     assert response.status_code == expected, response.text
     assert resources[0]["inventory"].quantity == 10
@@ -155,7 +155,7 @@ def test_new_inventory_keeps_its_event_if_any_and_opening_stock_ledger(system):
     ("issue", 2, 422), ("donation", -1, 422), ("disposal", -11, 409), ("adjustment", 0, 422)])
 def test_transaction_type_signs_and_stock_guards(system, kind, qty, expected):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     response = move(system, kind, qty)
     assert response.status_code == expected, response.text
     assert resources[0]["inventory"].quantity == (10 + qty if expected == 201 else 10)
@@ -173,7 +173,7 @@ def test_returns_cannot_exceed_event_issue_quantity(system):
 
 def test_stock_moves_outside_any_event(system):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     path = f"/inventory/{resources[0]['inventory'].id}/transactions"
     assert client.post(path, json={"transaction_type": "issue", "change_qty": -3, "reason": "Lent out"}).status_code == 201
     assert move(system, "return", 1).status_code == 409  # nothing was issued for the event
@@ -186,7 +186,7 @@ def test_stock_moves_outside_any_event(system):
 
 def test_movements_require_type_and_reason_and_stay_scoped(system):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     path = f"/inventory/{resources[0]['inventory'].id}/transactions"
     base = {"event_id": str(resources[0]["events"].id), "transaction_type": "donation", "change_qty": 1, "reason": "Gift"}
     for field in ("transaction_type", "reason"):
@@ -203,11 +203,11 @@ def test_item_without_event_is_usable_and_legacy_repair_is_audited_without_repla
     client, db, users, orgs, resources, login = system
     item = resources[0]["inventory"]
     item.event_id = None
-    history = InventoryTransaction(inventory_id=item.id, change_qty=2, performed_by=users["treasurer"].id)
+    history = InventoryTransaction(inventory_id=item.id, change_qty=2, performed_by=users["officer"].id)
     db.add(history)
     db.commit()
     original_quantity = item.quantity
-    login("treasurer")
+    login("officer")
     assert move(system, "donation", 1).status_code == 201
     loose = client.post(f"/inventory/{item.id}/transactions",
                         json={"transaction_type": "donation", "change_qty": 1, "reason": "Gift"}).json()
@@ -240,7 +240,9 @@ def test_inventory_filters_and_metadata_cannot_bypass_stock_ledger(system):
     assert item.is_archived and item.quantity > 0
 
 
-@pytest.mark.parametrize("role", ["officer", "adviser", "sds_staff"])
+# "officer_b" is the organization's other officer: completing a purchase
+# belongs to whoever recorded the expense, not to any officer.
+@pytest.mark.parametrize("role", ["officer_b", "adviser", "sds_staff"])
 def test_purchase_completion_requires_financial_execution_role(system, role):
     client, db, users, orgs, resources, login = system
     expense, line = create_asset_expense(system)

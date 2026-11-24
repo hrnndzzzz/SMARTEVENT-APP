@@ -16,18 +16,14 @@ from app.security import decode_access_token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-VALID_ROLES = {
-    "super_admin",
-    "admin",
-    "adviser",
-    "treasurer",
-    "officer",
-    "sds_staff",
-    "signatory",
-}
+VALID_ROLES = {"super_admin", "admin", "adviser", "officer", "sds_staff"}
 ADMIN_ROLES = {"admin", "super_admin"}
-SCOPED_OPERATIONAL_ROLES = {"adviser", "treasurer"}
-SCOPED_READ_ROLES = SCOPED_OPERATIONAL_ROLES | {"officer"}
+# Accounts whose writes are scoped to their own organization. The officer
+# joined this set when the treasurer left it: it is now the account that
+# records money, and a scoped write has to be allowed for the role that
+# makes it.
+SCOPED_OPERATIONAL_ROLES = {"adviser", "officer"}
+SCOPED_READ_ROLES = SCOPED_OPERATIONAL_ROLES
 
 # Match registered route templates so future endpoints never inherit an exception.
 OFFICER_PROPOSAL_WRITES = {
@@ -42,12 +38,16 @@ OFFICER_PROPOSAL_WRITES = {
     ("POST", "/events/{event_id}/sap-proposal/attachments"),
     ("POST", "/events/{event_id}/sap-proposal/submit"),
     ("POST", "/events/{event_id}/sap-proposal/withdraw"),
+    # A suggestion, not a record: it reads past events and answers with a
+    # number the proposer may ignore. A POST only because the event title
+    # and description go in the body.
+    ("POST", "/recommendations/event-budget/ai"),
 }
 # Any officer may be tasked with handing out or returning stock.
 OFFICER_INVENTORY_WRITES = {
     ("POST", "/inventory/{inventory_id}/transactions"), ("POST", "/inventory"), ("DELETE", "/inventory/{inventory_id}"),
 }
-# Officers record money like the Treasurer; reviewing it stays with advisers and admins.
+# Officers record money; reviewing it stays with advisers and admins.
 OFFICER_FINANCE_WRITES = {
     ("POST", "/incomes"),
     ("POST", "/expenses"),
@@ -169,13 +169,13 @@ def require_event_proposer(user: User = Depends(require_active_account)) -> User
 def require_financial_access(
     user: User = Depends(require_active_account),
 ) -> User:
-    """Financial recording belongs to officers and the Treasurer, never their reviewers."""
+    """Financial recording belongs to officers, never to their reviewers."""
     user = ensure_account_ready_for_app(user)
     ensure_operational_assignment(user)
     if not can_record_finance(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Financial recording is restricted to officers and the treasurer",
+            detail="Financial recording is restricted to officers",
         )
     return user
 
@@ -183,7 +183,7 @@ def require_financial_access(
 def require_proposal_letter_reader(user: User = Depends(require_active_account)) -> User:
     user = ensure_account_ready_for_app(user)
     ensure_operational_assignment(user)
-    if user.role in {"sds_staff", "signatory"}:
+    if user.role == "sds_staff":
         return user
     return require_event_proposer(user)
 
@@ -353,7 +353,7 @@ def assert_record_scope(user: User, record, *, allow_officer_read: bool = False)
 
 
 def ensure_operational_assignment(user: User) -> None:
-    if user.role not in {"admin", "adviser", "treasurer", "officer"}:
+    if user.role not in {"admin", "adviser", "officer"}:
         return
     if getattr(user, "organization_id", None) is None or (
         getattr(user, "department_id", None) is None and not is_departmentless(user)

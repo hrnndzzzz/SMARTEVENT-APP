@@ -35,7 +35,7 @@ def test_scoped_reader_can_access_record_in_own_department():
 
 def test_scoped_writer_department_is_derived_from_account():
     department_id = uuid4()
-    user = make_user("treasurer", department_id)
+    user = make_user("officer", department_id)
 
     assert resolve_department_id(user, None) == department_id
 

@@ -75,7 +75,7 @@ def test_review_and_withdrawal_serialize_on_parent_event(pg_sandbox, first):
         db.add(org)
         db.flush()
         owner = User(full_name='Proposer', email='proposer@example.invalid', password_hash='unused',
-                     role='treasurer', department_id=dept.id, organization_id=org.id)
+                     role='officer', department_id=dept.id, organization_id=org.id)
         sds = User(full_name='SDS', email='sds@example.invalid', password_hash='unused', role='sds_staff')
         db.add_all([owner, sds])
         db.flush()

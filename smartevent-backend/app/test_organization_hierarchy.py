@@ -17,10 +17,15 @@ def proposal(org, **changes):
 
 
 def officer_position(system, position):
+    """Signs in as the organization's *other* officer, holding [position].
+
+    The seeded records belong to "officer", so an officer who is not their
+    owner is what these tests need. That used to be the treasurer.
+    """
     client, db, users, orgs, resources, login = system
-    users["officer"].position = position
+    users["officer_b"].position = position
     db.commit()
-    login("officer")
+    login("officer_b")
 
 
 @pytest.mark.parametrize("position", ["President", "Vice President", "Secretary", "  pReSiDeNt  ", " vice   PRESIDENT ", "\tSECRETARY\n"])
@@ -30,11 +35,10 @@ def test_lead_officers_can_manage_own_proposal_and_complete_review(system, posit
     created = client.post("/events", json=proposal(orgs[0], category_id=str(resources[0]["categories"].id)))
     assert created.status_code == 201, created.text
     path = "/events/" + created.json()["id"]
-    assert created.json()["proposed_by"] == str(users["officer"].id)
+    assert created.json()["proposed_by"] == str(users["officer_b"].id)
     login("admin")
-    assert client.put(path + "/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
     assert client.put(path + "/logistics", json={"activity_location": "on_campus", "destination": "Campus", "transport_mode": "none"}).status_code == 200
-    login("officer")
+    login("officer_b")
     assert client.patch(path, json={"title": "Revised proposal"}).status_code == 200
     assert client.post(path + "/submit").json()["status"] == "pending_adviser"
     assert client.patch(path, json={"title": "Too late"}).status_code == 409
@@ -42,18 +46,17 @@ def test_lead_officers_can_manage_own_proposal_and_complete_review(system, posit
     assert client.post(path + "/approve", json={}).status_code == 403
     login("adviser")
     assert client.post(path + "/reject", json={"remarks": "Revise"}).status_code == 200
-    login("officer")
+    login("officer_b")
     assert client.patch(path, json={"title": "Corrected proposal"}).status_code == 200
     assert client.post(path + "/submit").json()["status"] == "pending_adviser"
     login("adviser")
     assert client.post(path + "/approve", json={}).json()["status"] == "pending_admin"
     login("admin")
-    assert client.post(path + "/approve", json={}).json()["status"] == "pending_institutional_review"
-    login("signatory")
+    # The Dean is the last desk since the signatories left: they sign the
+    # printed form instead of a routing step.
     assert client.post(path + "/approve", json={}).json()["status"] == "approved"
-    login("admin")
     assert [row["decision"] for row in client.get(path + "/approvals").json()] == [
-        "rejected", "resubmitted", "approved", "approved", "approved",
+        "rejected", "resubmitted", "approved", "approved",
     ]
 
 
@@ -91,7 +94,7 @@ def test_lead_officers_still_cannot_write_other_modules(system, position):
     officer_position(system, position)
     requests = [
         ("POST", "/categories"), ("PATCH", f"/inventory/{resources[0]['inventory'].id}"),
-        ("POST", "/cite-members"), ("PATCH", f"/users/{users['treasurer'].id}/access"),
+        ("POST", "/cite-members"), ("PATCH", f"/users/{users['officer'].id}/access"),
         ("POST", f"/events/{resources[0]['events'].id}/approve"),
         ("PATCH", f"/events/{resources[0]['events'].id}/academic-metadata"),
     ]
@@ -118,7 +121,7 @@ def test_officer_letters_are_limited_to_owned_editable_proposals(system, monkeyp
     for record in (resources[0]["events"], resources[1]["events"]):
         assert upload(record.id).status_code == 403
         foreign_letter = EventProposalLetter(event_id=record.id, title="Other owner's letter",
-                                             document_url="https://example.com/other.pdf", submitted_by=users["treasurer"].id)
+                                             document_url="https://example.com/other.pdf", submitted_by=users["officer"].id)
         db.add(foreign_letter)
         db.commit()
         assert client.get(f"/proposal-letters/{foreign_letter.id}").status_code == 403
@@ -188,7 +191,6 @@ def test_dean_reads_all_department_organizations_and_creates_in_selected_organiz
     event = resources[1]["events"]
     event.status = "pending_admin"
     db.commit()
-    assert client.put(f"/events/{event.id}/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
     assert client.post(f"/events/{event.id}/approve", json={}).status_code == 200
     assert client.get(f"/reports/event/{event.id}").status_code == 200
 
@@ -219,7 +221,7 @@ def test_dean_cannot_cross_department_or_select_foreign_organization(system):
     db.add(organization)
     db.flush()
     event = Event(title="Foreign event", department_id=department.id, organization_id=organization.id,
-                  proposed_by=users["treasurer"].id, school_year="2026-2027", semester="1st", event_scope="organizational")
+                  proposed_by=users["officer"].id, school_year="2026-2027", semester="1st", event_scope="organizational")
     db.add(event)
     db.commit()
     login("admin")
@@ -279,9 +281,9 @@ def test_owned_draft_with_letter_returns_conflict_and_preserves_records(system):
     officer_position(system, "President")
     event = resources[0]["events"]
     event.status = "draft"
-    event.proposed_by = users["officer"].id
+    event.proposed_by = users["officer_b"].id
     letter = EventProposalLetter(event_id=event.id, title="Existing proposal letter",
-                                 document_url="https://example.com/letter.pdf", submitted_by=users["officer"].id)
+                                 document_url="https://example.com/letter.pdf", submitted_by=users["officer_b"].id)
     db.add(letter)
     db.commit()
     path = f"/events/{event.id}"
@@ -293,7 +295,7 @@ def test_owned_draft_with_letter_returns_conflict_and_preserves_records(system):
 
 @pytest.mark.parametrize("role,position,propose,finance", [
     ("adviser", "Moderator", True, False), ("adviser", "Adviser", True, False),
-    ("treasurer", "Treasurer", True, True), ("admin", "Dean", True, False),
+    ("officer", "Treasurer", True, True), ("admin", "Dean", True, False),
     ("super_admin", None, True, True), ("sds_staff", "President", False, False),
     ("officer", "Auditor", True, True),
 ])
@@ -318,7 +320,7 @@ def test_lead_officers_can_prepare_and_submit_owned_sap_without_sds_powers(syste
 
     client, db, users, orgs, resources, login = system
     event = resources[0]["events"]
-    event.status, event.proposed_by = "draft", users["officer"].id
+    event.status, event.proposed_by = "draft", users["officer_b"].id
     event.allocated_budget = event.remaining_budget = 2500
     for category in db.query(Category):  # enough left in the budget for the ₱2,500 proposal
         category.remaining_budget = 2500
@@ -358,15 +360,15 @@ def test_lead_officer_prepares_colleagues_sap_only_in_own_organization(system):
 def test_lead_officer_private_letter_access_is_owner_only(system, signer):
     from app.config import settings
     client, db, users, orgs, resources, login = system
-    resources[0]["events"].proposed_by = users["officer"].id
+    resources[0]["events"].proposed_by = users["officer_b"].id
     references = []
     for index in (0, 1):
         if index == 1:
             resources[index]["events"].organization_id = orgs[0].id
-        url = f"{settings.supabase_url}/storage/v1/object/proposal-letters/{orgs[0].id}/{users['officer'].id}/{index}.pdf"
+        url = f"{settings.supabase_url}/storage/v1/object/proposal-letters/{orgs[0].id}/{users['officer_b'].id}/{index}.pdf"
         references.append(url)
         db.add(EventProposalLetter(event_id=resources[index]["events"].id, title="Private letter",
-                                   document_url=url, submitted_by=users["officer"].id))
+                                   document_url=url, submitted_by=users["officer_b"].id))
     officer_position(system, "President")
     own = client.get("/files", params={"reference": references[0]})
     assert own.status_code == 200, own.text

@@ -10,7 +10,7 @@ from pypdf import PdfReader
 from fastapi import HTTPException
 from app.test_access_management import system
 from app.config import settings
-from app.models import (Approval, Category, DeletedEvent, DocumentRouting, Expense, IncomeRecord, Inventory,
+from app.models import (Approval, Category, DeletedEvent, Expense, IncomeRecord, Inventory,
                         InventoryTransaction, Notification, Organization, Receipt)
 from app.services.draft_trash import purge_deleted_drafts
 from app.models_sap import SAPAttachment, SAPItem, SAPProposal, SAPRevision, SAPFinalCopy, SAPReview
@@ -48,7 +48,7 @@ def sap_system(system, monkeypatch):
     db.commit()
     monkeypatch.setattr('app.services.sap.institution_today', lambda: date(2026, 9, 27))
     monkeypatch.setattr(settings, 'sap_verification_base_url', 'https://example.org/sap/verify')
-    login('treasurer')
+    login('officer')
     base = f'/events/{event.id}/sap-proposal'
     assert client.post(base).status_code == 201
     return client, db, users, event, login, base
@@ -60,7 +60,7 @@ def version(client, base):
     return response.json()['version']
 
 
-def send(ctx, data=None, proposer='treasurer'):
+def send(ctx, data=None, proposer='officer'):
     """Parts 1-3 filled and sent, which leaves the proposal with the Moderator and the Dean."""
     client, db, users, event, login, base = ctx
     data = data or fixture_data()
@@ -85,7 +85,7 @@ def department_approves(ctx):
         assert result.status_code == 200, result.text
 
 
-def populate(ctx, data=None, proposer='treasurer'):
+def populate(ctx, data=None, proposer='officer'):
     client, db, users, event, login, base = ctx
     data = data or fixture_data()
     send(ctx, data, proposer)
@@ -103,8 +103,8 @@ def checkpoint(ctx, slot):
     workflow = client.get(base + '/workflow').json()
     row = workflow['steps'][slot - 1]
     return client.post(base + f"/workflow/{row['id']}/record", json={
-        'expected_version': workflow['version'], 'signer_name': users['treasurer'].full_name if slot == 1 else f'Physical signer {slot}',
-        'signer_reference': f'institution-person-{slot}', 'assigned_user_id': str(users['treasurer'].id) if slot == 1 else None,
+        'expected_version': workflow['version'], 'signer_name': users['officer'].full_name if slot == 1 else f'Physical signer {slot}',
+        'signer_reference': f'institution-person-{slot}', 'assigned_user_id': str(users['officer'].id) if slot == 1 else None,
         'physical_signature_date': date.today().isoformat(), 'remarks': 'SDS checked the paper', 'recorded_on_behalf': True})
 
 
@@ -153,7 +153,7 @@ def test_permission_and_stale_version(sap_system):
     assert client.put(base + '/sds-clearance', json={'expected_version': current, 'clearance': fixture_data()['clearance']}).status_code == 403
     login('sds_staff')
     assert client.patch(base, json={'expected_version': current, 'details': fixture_data()['details']}).status_code == 403
-    login('treasurer')
+    login('officer')
     assert client.patch(base, json={'expected_version': current + 1, 'details': fixture_data()['details']}).status_code == 409
 
 
@@ -197,8 +197,8 @@ def test_proposer_cannot_review(sap_system):
     client, db, users, event, login, base = sap_system
     workflow = client.get(base + '/workflow').json()
     response = client.post(base + f"/workflow/{workflow['steps'][1]['id']}/record", json={
-        'expected_version': workflow['version'], 'signer_name': users['treasurer'].full_name,
-        'signer_reference': 'different', 'assigned_user_id': str(users['treasurer'].id), 'physical_signature_date': date.today().isoformat()})
+        'expected_version': workflow['version'], 'signer_name': users['officer'].full_name,
+        'signer_reference': 'different', 'assigned_user_id': str(users['officer'].id), 'physical_signature_date': date.today().isoformat()})
     assert response.status_code == 403
 
 
@@ -229,7 +229,6 @@ def test_hack_future_return_sign_scan_evaluate(sap_system, monkeypatch, outcome)
     for slot in [5, 6, 7, 8, 9]:
         result = checkpoint(sap_system, slot)
         assert result.status_code == 200, result.text
-    assert db.query(DocumentRouting).filter_by(event_id=event.id).count() == 0
     rev = db.query(SAPRevision).filter_by(revision_no=2).one()
     assert client.get('/sap/verify/' + rev.verification_token).json()['approved'] is False
     uploads = []
@@ -252,7 +251,7 @@ def test_hack_future_return_sign_scan_evaluate(sap_system, monkeypatch, outcome)
     assert response.json()['evaluation']['outcome'] == outcome and event.status == 'completed'
     assert bool(initialized) == (outcome == 'conducted')
     assert db.query(Notification).filter_by(kind='sap_workflow').count() > 0
-    login('treasurer')
+    login('officer')
     assert client.get(base + '/final-signed-copy').status_code == 403
 
 
@@ -264,7 +263,7 @@ def test_generic_routes_cannot_bypass_sap(sap_system):
     assert client.delete(f'/events/{event.id}').status_code == 409  # sent, so no longer a draft
 
 
-@pytest.mark.parametrize('deleter', ['treasurer', 'admin'])
+@pytest.mark.parametrize('deleter', ['officer', 'admin'])
 def test_creator_or_admin_deletes_a_never_sent_draft_with_its_proposal(sap_system, monkeypatch, deleter):
     client, db, users, event, login, base = sap_system
     removed = []
@@ -279,13 +278,13 @@ def test_creator_or_admin_deletes_a_never_sent_draft_with_its_proposal(sap_syste
     proposal = db.query(SAPProposal).filter_by(event_id=uuid.UUID(made.json()['id'])).one()
     db.add(SAPAttachment(proposal_id=proposal.id, revision_no=1, category='appendix',
         display_name='Budget.pdf', file_name='Budget.pdf', content_type='application/pdf',
-        storage_ref='private/test-budget.pdf', sha256='a' * 64, uploaded_by=users['treasurer'].id))
+        storage_ref='private/test-budget.pdf', sha256='a' * 64, uploaded_by=users['officer'].id))
     db.commit()
     flow = fixture_data()['collections']['program-flow']
     saved = client.put(draft + '/sap-proposal/program-flow', json={'expected_version': proposal.version, 'items': flow})
     assert saved.status_code == 200, saved.text
     assert client.get(draft).json()['sent_for_review'] is False
-    login('officer')  # not the one who made it
+    login('officer_b')  # the organization's other officer, not the one who made it
     assert client.delete(draft).status_code == 403
     login(deleter)
     deleted = client.delete(draft)
@@ -312,7 +311,7 @@ def test_a_draft_once_sent_for_review_can_still_be_deleted(sap_system, how):
     else:
         login('adviser')
         assert client.post(f'/events/{event.id}/reject', json={'remarks': 'Move it'}).status_code == 200
-        login('treasurer')
+        login('officer')
     assert client.get(f'/events/{event.id}').json()['status'] == 'draft'
     # The fixture event also carries the organization's money records; a real draft has none.
     for model in (Expense, IncomeRecord, Receipt, Inventory, InventoryTransaction):
@@ -336,7 +335,7 @@ def test_program_flow_file_stands_in_for_the_rows(sap_system):
         send(sap_system, deepcopy(data))
     db.add(SAPAttachment(proposal_id=db.query(SAPProposal).one().id, revision_no=1, category='program_flow',
         display_name='Flow.pdf', file_name='Flow.pdf', content_type='application/pdf',
-        storage_ref='private/flow.pdf', sha256='b' * 64, uploaded_by=users['treasurer'].id))
+        storage_ref='private/flow.pdf', sha256='b' * 64, uploaded_by=users['officer'].id))
     db.commit()
     assert send(sap_system, data)['revision_no'] == 1
 
@@ -418,7 +417,7 @@ def test_signed_revision_correction_preserves_pdf(sap_system):
     sign_current(sap_system)
     review = db.query(SAPReview).one()
     original_pdf, original_hash = review.signed_pdf, review.signed_pdf_sha256
-    login('treasurer')
+    login('officer')
     assert client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'}).status_code == 403
     login('sds_staff')
     response = client.post(base + '/revise', json={'expected_version': version(client, base), 'remarks': 'Correct the venue'})
@@ -671,7 +670,7 @@ def test_pre_activity_readiness_blocks_submission(sap_system, monkeypatch):
     assert db.query(SAPRevision).count() == 0 and event.status == 'draft'
 
 
-@pytest.mark.parametrize('role', ['treasurer', 'adviser', 'admin', 'officer', 'signatory'])
+@pytest.mark.parametrize('role', ['officer', 'adviser', 'admin'])
 def test_only_sds_may_record_or_evaluate(sap_system, role):
     client, db, users, event, login, base = sap_system
     populate(sap_system)
@@ -718,7 +717,7 @@ def test_sds_sees_an_event_once_its_proposal_is_sent(sap_system):
     assert client.get(f'/events/{event.id}/approvals').status_code == 200
 
     # Taken back, it is the proposer's draft again and leaves the queue.
-    login('treasurer')
+    login('officer')
     assert client.post(base + '/withdraw', json={'expected_version': submitted['version']}).status_code == 200
     login('sds_staff')
     assert client.get('/events').json() == []
@@ -729,7 +728,7 @@ def test_proposer_sends_alone_and_sds_fills_part_4_before_signing(sap_system):
     # only SDS could write it, so nothing could be sent from the app at all.
     client, db, users, event, login, base = sap_system
     data = fixture_data()
-    login('treasurer')
+    login('officer')
     assert client.patch(base, json={'expected_version': version(client, base), 'details': data['details']}).status_code == 200
     for key, items in data['collections'].items():
         assert client.put(base + '/' + key, json={'expected_version': version(client, base), 'items': items}).status_code == 200

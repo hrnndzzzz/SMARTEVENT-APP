@@ -229,7 +229,7 @@ def test_adviser_can_reach_event_review_boundary(client, user):
     assert response.status_code == 404
 
 
-@pytest.mark.parametrize("role", ["treasurer", "officer"])
+@pytest.mark.parametrize("role", ["officer"])
 def test_recorders_can_reach_financial_creation_boundary(client, user, role):
     authenticate_as(user(role))
     use_empty_database()

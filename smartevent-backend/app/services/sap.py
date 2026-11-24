@@ -38,7 +38,7 @@ def load(db, event_id, user, *, write=False, sds=False, proposer=False, owner=Fa
         raise HTTPException(403, 'Only an authorized event proposer may edit Parts 1–3')
     # Any proposer in scope may write a draft. Members are held to their own organization
     # above, so they may also send or withdraw a colleague's; an admin sends only their own.
-    if owner and user.id != event.proposed_by and user.role not in {'adviser', 'treasurer', 'officer', 'super_admin'}:
+    if owner and user.id != event.proposed_by and user.role not in {'adviser', 'officer', 'super_admin'}:
         raise HTTPException(403, "Only the proposer or a member of the event's organization may send or withdraw it")
     proposal = db.query(SAPProposal).filter_by(event_id=event.id).first()
     if required and proposal is None:

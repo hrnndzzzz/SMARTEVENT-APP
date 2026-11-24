@@ -47,7 +47,7 @@ def add_cite_member(
     assert_can_manage_role(current_user, payload.role)
     if payload.role in SCHOOL_REVIEWER_ROLES:
         if payload.department_id is not None or payload.organization_id is not None:
-            raise HTTPException(status_code=422, detail="SDS Staff and Signatory entries have no department or organization")
+            raise HTTPException(status_code=422, detail="SDS Staff entries have no department or organization")
         department_id = organization_id = None
     else:
         department_id = resolve_department_id(
@@ -141,7 +141,7 @@ def update_cite_member(
     assert_can_manage_role(current_user, new_role)
     if new_role in SCHOOL_REVIEWER_ROLES:
         if "organization_id" in updates:
-            raise HTTPException(status_code=422, detail="SDS Staff and Signatory entries have no organization")
+            raise HTTPException(status_code=422, detail="SDS Staff entries have no organization")
         updates["department_id"] = updates["organization_id"] = None
     elif "organization_id" in updates:
         if current_user.role != "super_admin":

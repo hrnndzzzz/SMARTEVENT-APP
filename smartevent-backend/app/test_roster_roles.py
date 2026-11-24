@@ -13,21 +13,29 @@ def school_row(email, role):
     return member(email, **{"Role": role, "Department": None, "Organization Full Name": None})
 
 
-def test_super_admin_imports_admin_sds_and_signatory(system):
+def test_super_admin_imports_admin_and_sds(system):
     client, db, users, orgs, _, login = system
     login("super_admin")
     response = upload(client, [member("dean2@example.com", Role="Admin"),
-                               school_row("sds2@example.com", "SDS Staff"),
-                               school_row("sign2@example.com", "signatory")])
+                               school_row("sds2@example.com", "SDS Staff")])
     assert response.status_code == 201, response.text
     stored = {m.email: m for m in db.query(CiteMember).filter(CiteMember.claimed_by_user_id.is_(None))}
     assert (stored["dean2@example.com"].role, stored["dean2@example.com"].organization_id) == ("admin", orgs[0].id)
-    for email, role in (("sds2@example.com", "sds_staff"), ("sign2@example.com", "signatory")):
-        assert (stored[email].role, stored[email].department_id, stored[email].organization_id) == (role, None, None)
+    assert (stored["sds2@example.com"].role, stored["sds2@example.com"].department_id,
+            stored["sds2@example.com"].organization_id) == ("sds_staff", None, None)
 
 
-@pytest.mark.parametrize("row", [member("dean2@example.com", Role="Admin"), school_row("sds2@example.com", "SDS Staff"),
-                                 school_row("sign2@example.com", "Signatory")], ids=["admin", "sds", "signatory"])
+def test_a_signatory_row_is_no_longer_a_role(system):
+    """The role is gone, so the roster must refuse it rather than quietly import it."""
+    client, db, _, _, _, login = system
+    login("super_admin")
+    response = upload(client, [school_row("sign2@example.com", "Signatory")])
+    assert response.status_code == 422, response.text
+    assert any(e["column"] == "Role" for e in response.json()["detail"]["errors"])
+
+
+@pytest.mark.parametrize("row", [member("dean2@example.com", Role="Admin"), school_row("sds2@example.com", "SDS Staff")],
+                         ids=["admin", "sds"])
 def test_dean_cannot_import_school_roles(system, row):
     client, db, _, _, _, login = system
     login("admin")
@@ -45,10 +53,10 @@ def test_school_reviewer_row_must_leave_scope_blank(system):
     assert {e["column"] for e in response.json()["detail"]["errors"]} == {"Department", "Organization Full Name"}
 
 
-def test_adviser_imports_only_officers_and_treasurers_in_own_organization(system):
+def test_adviser_imports_only_officers_in_own_organization(system):
     client, db, _, _, _, login = system
     login("adviser")
-    assert upload(client, [member(), member("t@example.com", Role="Treasurer")]).status_code == 201
+    assert upload(client, [member(), member("t@example.com", Role="Officer")]).status_code == 201
     for row, column in ((member("b@example.com", **{"Organization Full Name": "Organization B"}), "Organization Full Name"),
                         (member("a@example.com", Role="Adviser"), "Role")):
         response = upload(client, [row])
@@ -79,7 +87,7 @@ def test_super_admin_adds_sds_roster_entry_without_scope(system):
                                               "organization_id": str(orgs[0].id)}).status_code == 422
 
 
-@pytest.mark.parametrize("role", ["admin", "sds_staff", "signatory"])
+@pytest.mark.parametrize("role", ["admin", "sds_staff"])
 def test_super_admin_promotes_roster_account(system, role):
     client, db, users, orgs, _, login = system
     adviser = users["adviser"]
@@ -104,7 +112,7 @@ def test_adviser_manages_officer_and_treasurer_accounts_only(system):
     db.commit()
     login("adviser")
     officer = users["officer"]
-    assert client.patch(f"/users/{officer.id}/access", json={"role": "treasurer"}).status_code == 200
+    assert client.patch(f"/users/{officer.id}/access", json={"role": "officer"}).status_code == 200
     assert client.patch(f"/users/{officer.id}/access", json={"role": "adviser"}).status_code == 403
     assert client.patch(f"/users/{peer.id}/access", json={"is_suspended": True}).status_code == 403
     assert client.patch(f"/users/{officer.id}/access", json={"organization_id": str(orgs[1].id)}).status_code == 403

@@ -19,11 +19,11 @@ from app.dependencies import (
     resolve_organization_id,
     scope_query_by_department,
 )
-from app.models import Approval, Category, DeletedEvent, DocumentRouting, Event, EventParticipant, EventRequirement, RequirementPreset, User
+from app.models import Approval, Category, DeletedEvent, Event, EventParticipant, EventRequirement, RequirementPreset, User
 from app.models_compliance import EventLogistics, EventPersonnel, EventVehicle, EventComplianceDocument
 from app.models_sap import (SAPAttachment, SAPCheckpoint, SAPEvaluation, SAPFinalCopy, SAPItem, SAPProposal,
                             SAPReview, SAPRevision)
-from app.services.compliance import invalidate_clearance
+from app.services.compliance import invalidate_clearance, require_pre_activity_clearance
 from app.schemas import (
     ApprovalDecision,
     ApprovalOut,
@@ -31,18 +31,12 @@ from app.schemas import (
     EventOut,
     EventUpdate,
     EventAcademicMetadata,
-    DocumentRoutingOut,
-    DocumentRoutingUpdate,
     RequirementPresetOut,
 )
 from app.services.academic_year import validate_school_year
 from app.services.access_audit import record_access_change
 from app.services.approvals import record_decision
-from app.services.event_routing import (
-    assert_event_read, begin_institutional_review, require_event_reader,
-    restart_routing, review_institutional_step, routing_steps,
-    scope_event_query, validate_signatories,
-)
+from app.services.event_routing import assert_event_read, require_event_reader, scope_event_query
 
 router = APIRouter(prefix="/events", tags=["events"])
 ADVISER_PENDING_STATUSES = {"pending", "pending_adviser"}
@@ -71,13 +65,8 @@ def _get_event_or_404(db: Session, event_id: uuid.UUID, *, lock: bool = False, a
 
 
 def _assert_event_owner_scope(event: Event, current_user: User, action: str) -> None:
-    assert_owner_or_admin(event.proposed_by, current_user, action, owner_roles={"adviser", "treasurer", "officer"})
+    assert_owner_or_admin(event.proposed_by, current_user, action, owner_roles={"adviser", "officer"})
     assert_record_scope(current_user, event, allow_officer_read=True)
-
-
-def _acts_as_signatory(user: User, event: Event) -> bool:
-    """A signatory, or the Super Admin deciding the current routing step in its place."""
-    return user.role == "signatory" or (user.role == "super_admin" and event.status == "pending_institutional_review")
 
 
 def _initial_pending_status(proposer_role: str) -> str:
@@ -103,7 +92,7 @@ def create_event(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category_id does not match any existing category")
         assert_record_scope(current_user, category, allow_officer_read=True)
 
-    if current_user.role in {"adviser", "treasurer", "admin", "officer"}:
+    if current_user.role in {"adviser", "admin", "officer"}:
         department_id = current_user.department_id
         if payload.department_id is not None and payload.department_id != department_id:
             raise HTTPException(
@@ -241,43 +230,6 @@ def list_event_approvals(
     )
 
 
-@router.get("/{event_id}/routing", response_model=list[DocumentRoutingOut])
-def list_document_routing(event_id: uuid.UUID, db: Session = Depends(get_db),
-                          current_user: User = Depends(require_event_reader)):
-    event = _get_event_or_404(db, event_id)
-    assert_event_read(db, event, current_user)
-    return db.query(DocumentRouting).filter(DocumentRouting.event_id == event.id).order_by(
-        DocumentRouting.review_round, DocumentRouting.step_order).all()
-
-
-@router.put("/{event_id}/routing", response_model=list[DocumentRoutingOut])
-def configure_document_routing(event_id: uuid.UUID, payload: DocumentRoutingUpdate,
-                                db: Session = Depends(get_db),
-                                current_user: User = Depends(require_role("admin"))):
-    event = _get_event_or_404(db, event_id, lock=True)
-    assert_record_scope(current_user, event)
-    if event.status not in {"draft", "pending", "pending_adviser", "pending_admin"}:
-        raise HTTPException(409, "Configure routing before institutional review; resubmit rejected events first")
-    previous = routing_steps(db, event)
-    if any(step.status != "pending" for step in previous):
-        raise HTTPException(409, "Routing decisions cannot be overwritten")
-    validate_signatories(db, event, payload.signatory_ids)
-    before = [str(step.signatory_id) for step in previous]
-    for step in previous:
-        db.delete(step)
-    db.flush()
-    steps = [DocumentRouting(event_id=event.id, review_round=event.review_round,
-        step_order=index, signatory_id=signatory_id)
-        for index, signatory_id in enumerate(payload.signatory_ids, 1)]
-    db.add_all(steps)
-    record_access_change(db, current_user, "event.routing_configured", event, {
-        "review_round": event.review_round, "before": before,
-        "after": [str(value) for value in payload.signatory_ids],
-    })
-    db.commit()
-    return routing_steps(db, event)
-
-
 @router.patch("/{event_id}", response_model=EventOut)
 def update_event(
     event_id: uuid.UUID,
@@ -363,16 +315,13 @@ def submit_event(
     was_resubmission = event.status == "rejected"
     _require_academic_metadata(event)
     proposer = db.get(User, event.proposed_by)
-    event.status = _initial_pending_status(proposer.role if proposer else "treasurer")
+    event.status = _initial_pending_status(proposer.role if proposer else "officer")
 
     if was_resubmission:
-        restart_routing(db, event)
         record_decision(
             db, "event", event.id, "resubmitted", current_user,
             "Event revised and resubmitted for review.",
         )
-    if event.status == "pending_admin" and event.department_id is None:
-        begin_institutional_review(db, event)  # no Dean for an organization in no department
     record_access_change(db, current_user, "event.submitted", event)
 
     db.commit()
@@ -385,7 +334,7 @@ def approve_event(
     event_id: uuid.UUID,
     payload: ApprovalDecision = ApprovalDecision(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("adviser", "admin", "signatory")),
+    current_user: User = Depends(require_role("adviser", "admin")),
 ):
     event = _get_event_or_404(db, event_id, lock=True, allow_sap=True)
 
@@ -399,19 +348,16 @@ def approve_event(
         return event
     _require_academic_metadata(event)
 
-    if _acts_as_signatory(current_user, event):
-        review_institutional_step(db, event, current_user, "approved", payload.remarks)
-    elif current_user.role == "adviser" or (current_user.role == "super_admin" and event.status in ADVISER_PENDING_STATUSES):
+    if current_user.role == "adviser" or (current_user.role == "super_admin" and event.status in ADVISER_PENDING_STATUSES):
         if event.status not in ADVISER_PENDING_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Event is '{event.status}' — advisers can only act while it's pending adviser review",
             )
         record_decision(db, "event", event.id, "approved", current_user, payload.remarks)
-        if event.department_id is None:
-            begin_institutional_review(db, event)  # no Dean for an organization in no department
-        else:
-            event.status = "pending_admin"
+        # An organization in no department has no Dean, so the Moderator's
+        # approval is the last one: the event is approved outright.
+        event.status = "approved" if event.department_id is None else "pending_admin"
 
     else:
         if event.status != "pending_admin":
@@ -419,7 +365,11 @@ def approve_event(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Event is '{event.status}' — admins can only review while it is pending admin approval",
             )
-        begin_institutional_review(db, event)
+        # The Dean is the last desk. Until the November defence an event
+        # waited here for the institutional signatories to sign in turn;
+        # they sign the printed form instead, so this approval is final.
+        require_pre_activity_clearance(db, event)
+        event.status = "approved"
         record_decision(db, "event", event.id, "approved", current_user, payload.remarks)
     record_access_change(db, current_user, "event.approved", event)
 
@@ -433,7 +383,7 @@ def reject_event(
     event_id: uuid.UUID,
     payload: ApprovalDecision = ApprovalDecision(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("adviser", "admin", "signatory")),
+    current_user: User = Depends(require_role("adviser", "admin")),
 ):
     event = _get_event_or_404(db, event_id, lock=True, allow_sap=True)
 
@@ -451,18 +401,15 @@ def reject_event(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Event is '{event.status}' — advisers can only act while it's pending adviser review",
         )
-    if (current_user.role in {"admin", "super_admin"} and not _acts_as_signatory(current_user, event)
+    if (current_user.role in {"admin", "super_admin"}
             and event.status not in ADVISER_PENDING_STATUSES | {"pending_admin"}):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Event is '{event.status}' — nothing pending to reject",
         )
 
-    if _acts_as_signatory(current_user, event):
-        review_institutional_step(db, event, current_user, "rejected", payload.remarks)
-    else:
-        record_decision(db, "event", event.id, "rejected", current_user, payload.remarks)
-        event.status = "rejected"
+    record_decision(db, "event", event.id, "rejected", current_user, payload.remarks)
+    event.status = "rejected"
     record_access_change(db, current_user, "event.rejected", event)
 
     db.commit()
@@ -528,10 +475,6 @@ def delete_event(
     if logistics:
         kept["logistics"] = _row(logistics)
         db.delete(logistics)
-    steps = routing_steps(db, event)
-    kept["routing"] = [_row(step) for step in steps]
-    for step in steps:
-        db.delete(step)
     try:
         db.flush()
         # The name goes with the entry: the row it points at is about to go.

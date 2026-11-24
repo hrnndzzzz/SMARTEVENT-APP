@@ -42,12 +42,12 @@ def test_import_normalizes_and_audits_without_creating_accounts(system):
     client, db, users, orgs, _, login = system
     login("admin")
     before = db.query(User).count()
-    response = upload(client, [member(" NEW@EXAMPLE.COM ", **{"Role": " TREASURER ", "Full Name": " New Member "}) + ["notes"]],
+    response = upload(client, [member(" NEW@EXAMPLE.COM ", **{"Role": " OFFICER ", "Full Name": " New Member "}) + ["notes"]],
                       [" " + h.upper() + " " for h in HEADERS] + ["Notes"])
     assert response.status_code == 201, response.text
     assert response.json()["inserted_count"] == 1
     stored = db.query(CiteMember).filter_by(email="new@example.com").one()
-    assert (stored.full_name, stored.role, stored.position, stored.organization_id) == ("New Member", "treasurer", None, orgs[0].id)
+    assert (stored.full_name, stored.role, stored.position, stored.organization_id) == ("New Member", "officer", None, orgs[0].id)
     assert stored.claimed_by_user_id is None
     assert db.query(User).count() == before
     assert db.query(AuditLog).filter_by(action="roster.created", entity_id=stored.id).count() == 1
@@ -101,7 +101,7 @@ def test_department_admin_and_super_admin_multi_organization(system, role):
     assert response.json()["inserted_count"] == 2
 
 
-@pytest.mark.parametrize("role", ["officer", "treasurer", "sds_staff", "signatory"])
+@pytest.mark.parametrize("role", ["officer", "sds_staff"])
 def test_non_admin_cannot_import(system, role):
     client, db, _, _, _, login = system
     login(role)

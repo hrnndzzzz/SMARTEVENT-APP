@@ -15,7 +15,7 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
     attachment = SAPAttachment(proposal_id=db.query(SAPProposal).one().id, revision_no=1,
         category='appendix', display_name='Budget.pdf', file_name='Budget.pdf',
         content_type='application/pdf', storage_ref='private/test-budget.pdf', sha256='a' * 64,
-        uploaded_by=users['treasurer'].id)
+        uploaded_by=users['officer'].id)
     db.add(attachment)
     db.commit()
     submitted = populate(sap_system)
@@ -52,7 +52,7 @@ def test_withdraw_preserves_history_and_carries_attachments_into_resubmission(sa
 
 
 # Officers may propose, so like any organization member they may withdraw a colleague's.
-@pytest.mark.parametrize('role', ['admin', 'signatory', 'sds_staff'])
+@pytest.mark.parametrize('role', ['admin', 'sds_staff'])
 def test_nonproposer_cannot_withdraw(sap_system, role):
     submitted = populate(sap_system)
     client, _, _, _, login, base = sap_system
@@ -97,7 +97,7 @@ def test_sds_review_in_progress_stays_on_the_withdrawn_revision(sap_system, revi
     else:
         assert checkpoint(sap_system, 1).status_code == 200
     before = (db.query(SAPReview).count(), db.query(SAPCheckpoint).filter(SAPCheckpoint.evidence.is_not(None)).count())
-    login('treasurer')
+    login('officer')
     response = client.post(base + '/withdraw', json={'expected_version': version(client, base)})
     assert response.status_code == 200, response.text
     assert response.json()['state'] == 'draft'
@@ -112,7 +112,7 @@ def test_signed_proposal_cannot_be_withdrawn(sap_system):
     populate(sap_system)
     client, _, _, _, login, base = sap_system
     sign_current(sap_system)
-    login('treasurer')
+    login('officer')
     assert client.post(base + '/withdraw', json={'expected_version': version(client, base)}).status_code == 409
 
 
@@ -121,7 +121,7 @@ def test_rejected_proposal_reopens_for_editing_and_resubmits(sap_system):
     client, db, _, event, login, base = sap_system
     login('sds_staff')
     assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'}).status_code == 200
-    login('treasurer')
+    login('officer')
     response = client.post(base + '/withdraw', json={'expected_version': version(client, base)})
     assert response.status_code == 200, response.text
     assert response.json()['state'] == 'draft' and event.status == 'draft'

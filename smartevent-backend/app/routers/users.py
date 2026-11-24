@@ -10,18 +10,10 @@ from app.dependencies import assert_record_scope, require_role, resolve_organiza
 from app.models import CiteMember, Department, Organization, User
 from app.rbac_policy import manageable_roles
 from app.routers.cite_members import ADMIN_NEEDS_DEPARTMENT
-from app.schemas import SignatoryOut, UserAccessUpdate, UserDepartmentUpdate, UserOut
+from app.schemas import UserAccessUpdate, UserDepartmentUpdate, UserOut
 from app.services.access_audit import record_access_change
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-@router.get("/signatories", response_model=list[SignatoryOut])
-def list_signatories(db: Session = Depends(get_db), current_user: User = Depends(require_role("admin"))):
-    return db.query(User).filter(
-        User.role == "signatory", User.is_active.is_(True),
-        User.is_suspended.is_(False), User.must_change_password.is_(False),
-    ).order_by(User.full_name, User.id).all()
 
 
 @router.get(
@@ -54,7 +46,7 @@ def list_users(
                 detail="You can only list users in your assigned department.",
             )
         query = scope_query_by_department(query, User.department_id, current_user).filter(
-            User.role.in_(["adviser", "treasurer", "officer"]),
+            User.role.in_(["adviser", "officer"]),
         )
 
     if is_active is not None:
@@ -128,7 +120,7 @@ def update_user_access(
         if "organization_id" in updates:
             raise HTTPException(status_code=403, detail="Only Super Admin can transfer an account")
     new_role = updates.get("role", target.role)
-    if new_role in {"sds_staff", "signatory"}:
+    if new_role == "sds_staff":
         if "organization_id" in updates:
             raise HTTPException(status_code=422, detail="School reviewers do not belong to an organization")
         updates["department_id"] = None

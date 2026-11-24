@@ -81,9 +81,9 @@ def test_scan_receipt_uses_authorized_organization_storage_path(system, monkeypa
         return "https://example.com/upload.jpg"
     monkeypatch.setattr("app.routers.expenses.upload_receipt_image", upload)
     file = {"file": ("receipt.jpg", b"image", "image/jpeg")}
-    login("treasurer")
+    login("officer")
     assert client.post("/expenses/scan-receipt", files=file).status_code == 200
-    assert uploaded == [(users["treasurer"].id, orgs[0].id)]
+    assert uploaded == [(users["officer"].id, orgs[0].id)]
     assert client.post("/expenses/scan-receipt", files=file,
         data={"organization_id": str(orgs[1].id)}).status_code == 403
     assert len(uploaded) == 1
@@ -91,7 +91,7 @@ def test_scan_receipt_uses_authorized_organization_storage_path(system, monkeypa
     assert client.post("/expenses/scan-receipt", files=file).status_code == 400
     assert client.post("/expenses/scan-receipt", files=file,
         data={"organization_id": str(orgs[1].id)}).status_code == 200
-    assert uploaded == [(users["treasurer"].id, orgs[0].id), (users["super_admin"].id, orgs[1].id)]
+    assert uploaded == [(users["officer"].id, orgs[0].id), (users["super_admin"].id, orgs[1].id)]
 
 
 @pytest.mark.parametrize("route,error,status", [
@@ -100,7 +100,7 @@ def test_scan_receipt_uses_authorized_organization_storage_path(system, monkeypa
 ])
 def test_receipt_provider_failures_do_not_expose_secrets(system, monkeypatch, route, error, status):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     monkeypatch.setattr("app.routers.expenses.prepare_image_for_upload", lambda raw: (raw, "image/jpeg"))
     monkeypatch.setattr("app.routers.expenses.upload_receipt_image", lambda *args: "https://example.com/upload.jpg")
     def fail(*args):
@@ -117,7 +117,7 @@ def test_receipt_provider_failures_do_not_expose_secrets(system, monkeypatch, ro
 
 def test_reviewed_evidence_blocks_expense_upload_before_storage(system, monkeypatch):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     expense = resources[0]["expenses"]
     response = client.post("/receipts", json={"expense_id": str(expense.id),
         "receipt_url": "https://example.com/receipt.jpg", "purpose": "Equipment"})
@@ -131,7 +131,7 @@ def test_reviewed_evidence_blocks_expense_upload_before_storage(system, monkeypa
 
 def test_expense_upload_rejects_existing_income_file_before_storage(system, monkeypatch):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     income = resources[0]["incomes"]
     response = client.post("/receipts", json={"income_id": str(income.id),
         "receipt_url": "https://example.com/donation.jpg", "purpose": "Donation"})
@@ -154,11 +154,11 @@ def test_stock_overflow_does_not_change_inventory_or_ledger(system, purchase):
     if purchase:
         expense, line = create_asset_expense(system)
         approve(system, expense)
-        login("treasurer")
+        login("officer")
         response = client.post(f"/expenses/{expense.id}/complete-purchase", json=completion_payload(line))
         assert expense.purchase_completed_at is None and line.converted_inventory_id is None
     else:
-        login("treasurer")
+        login("officer")
         response = move(system, "donation", 1)
     assert response.status_code == 409, response.text
     assert item.quantity == 2**31 - 1
@@ -171,7 +171,7 @@ def test_repeated_catalog_purchase_lines_apply_once_and_guard_combined_stock(sys
     item = resources[0]["inventory"]
     item.quantity = quantity
     db.commit()
-    login("treasurer")
+    login("officer")
     response = client.post("/expenses", json={
         "event_id": str(resources[0]["events"].id), "category_id": str(resources[0]["categories"].id),
         "description": "Chair purchase", "amount": 60,
@@ -183,7 +183,7 @@ def test_repeated_catalog_purchase_lines_apply_once_and_guard_combined_stock(sys
     expense = db.get(Expense, UUID(response.json()["id"]))
     lines = db.query(ExpenseItem).filter(ExpenseItem.expense_id == expense.id).order_by(ExpenseItem.name).all()
     approve(system, expense)
-    login("treasurer")
+    login("officer")
     payload = completion_payload(lines[0], items=[
         {"expense_item_id": str(line.id), "quantity": added, "unit": "pcs"}
         for line, added in zip(lines, (2, 3))

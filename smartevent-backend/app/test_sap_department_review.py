@@ -22,7 +22,7 @@ def test_an_sds_return_says_so_and_sending_again_clears_it(sap_system, route):
     assert returned.status_code == 200, returned.text
     assert returned.json()['returned_by'] == 'sds'
     assert returned.json()['return_remarks'] == 'Fix the budget'
-    login('treasurer')
+    login('officer')
     sent = client.post(base + '/submit', json={'expected_version': version(client, base)})
     assert sent.status_code == 200, sent.text
     assert sent.json()['returned_by'] is None and sent.json()['return_remarks'] is None
@@ -68,13 +68,13 @@ def test_sending_goes_to_the_moderator_first(sap_system):
     client, db, users, event, login, base = sap_system
     assert sent['state'] == 'pending_department_review' and event.status == 'pending_adviser'
     told = db.query(Notification).filter_by(kind='sap_workflow').all()
-    assert [row.user_id for row in told] == [users['treasurer'].id]
+    assert [row.user_id for row in told] == [users['officer'].id]
     assert 'department review' in told[0].body
     login('sds_staff')
     assert client.get('/events').json() == []
 
 
-@pytest.mark.parametrize('sender,creator', [('adviser', 'treasurer'), ('treasurer', 'adviser')])
+@pytest.mark.parametrize('sender,creator', [('adviser', 'officer'), ('officer', 'adviser')])
 def test_an_advisers_proposal_starts_with_the_dean(sap_system, sender, creator):
     client, db, users, event, login, base = sap_system
     event.proposed_by = users[creator].id
@@ -89,12 +89,12 @@ def test_withdrawing_during_department_review_tells_only_the_proposer(sap_system
     client, db, users, event, login, base = sap_system
     if after_moderator:
         assert decide(sap_system, 'adviser', 'approve').status_code == 200
-    login('treasurer')
+    login('officer')
     response = client.post(base + '/withdraw', json={'expected_version': version(client, base)})
     assert response.status_code == 200, response.text
     assert response.json()['state'] == 'draft' and event.status == 'draft'
     told = db.query(Notification).filter_by(title='SAP proposal withdrawn').all()
-    assert [row.user_id for row in told] == [users['treasurer'].id]
+    assert [row.user_id for row in told] == [users['officer'].id]
     assert decide(sap_system, 'admin', 'approve').status_code == 409
 
 
@@ -112,7 +112,7 @@ def test_moderator_then_dean_send_it_to_the_sds_office(sap_system):
     assert [(row.decision, row.reviewer_id) for row in db.query(Approval).order_by(Approval.step_order)] == [
         ('approved', users['adviser'].id), ('approved', users['admin'].id)]
     told = db.query(Notification).filter_by(title='SAP proposal sent to the SDS Office').all()
-    assert {row.user_id for row in told} == {users['treasurer'].id, users['sds_staff'].id}
+    assert {row.user_id for row in told} == {users['officer'].id, users['sds_staff'].id}
     login('sds_staff')
     assert client.get(base).status_code == 200
 
@@ -188,14 +188,14 @@ def test_a_return_goes_back_to_the_draft_naming_who_sent_it(sap_system, reviewer
     response = decide(sap_system, reviewer, 'reject', 'Move it to the afternoon')
     assert response.status_code == 200, response.text
     assert response.json()['status'] == 'draft'
-    login('treasurer')
+    login('officer')
     proposal = client.get(base).json()
     assert proposal['state'] == 'revision_requested'
     assert proposal['return_remarks'] == 'Move it to the afternoon'
     assert proposal['returned_by'] == ('moderator' if reviewer == 'adviser' else 'dean')
     assert proposal['clearance'] is None
     told = db.query(Notification).filter_by(title='SAP proposal returned').all()
-    assert [row.user_id for row in told] == [users['treasurer'].id]
+    assert [row.user_id for row in told] == [users['officer'].id]
     assert db.query(Approval).order_by(Approval.step_order.desc()).first().decision == 'returned'
 
 
@@ -207,7 +207,7 @@ def test_a_return_needs_remarks(sap_system, remarks):
     assert db.query(SAPProposal).one().state == 'pending_department_review'
 
 
-@pytest.mark.parametrize('role', ['treasurer', 'officer', 'signatory', 'sds_staff'])
+@pytest.mark.parametrize('role', ['officer', 'sds_staff'])
 def test_only_the_moderator_or_dean_decide(sap_system, role):
     send(sap_system)
     for verdict in ('approve', 'reject'):

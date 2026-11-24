@@ -42,7 +42,7 @@ def assignment(closure, participant_id, version=0):
         "reason": "Unable to attend; equivalent alternative provided", "version": version})
 
 
-@pytest.mark.parametrize("role", ["treasurer", "officer", "sds_staff", "signatory"])
+@pytest.mark.parametrize("role", ["officer", "sds_staff"])
 def test_attendance_and_closure_are_staff_only(closure, role):
     state, path = closure
     client, db, users, orgs, resources, login = state
@@ -111,7 +111,7 @@ def test_parallel_students_are_not_printed_and_closure_files_are_private(closure
     assert uploaded.status_code == 201
     document_path = path + "/compliance-documents/" + uploaded.json()["id"] + "/file"
     assert client.get(document_path).status_code == 200
-    login("treasurer")
+    login("officer")
     assert client.get(document_path).status_code == 403
     assert not client.get(path + "/logistics").json()["documents"]
 
@@ -228,7 +228,7 @@ def test_parallel_scope_and_file_privacy(closure):
     db.commit()
     student = db.query(EventParticipant).first()
     activity = assignment(closure, student.id).json()
-    login("treasurer")
+    login("officer")
     assert client.get(path + f"/parallel-activities/{activity['id']}/file").status_code == 403
     login("admin")
     assert client.get(path + f"/parallel-activities/{activity['id']}/file").status_code == 404

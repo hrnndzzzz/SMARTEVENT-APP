@@ -68,7 +68,7 @@ def test_the_sds_office_rejects_with_remarks_and_the_form_says_so(sap_system):
     token = db.query(SAPRevision).one().verification_token
     assert client.get('/sap/verify/' + token).json()['approval_state'] == 'rejected'
     told = db.query(Notification).filter_by(title='SAP proposal rejected').all()
-    assert users['treasurer'].id in {row.user_id for row in told}
+    assert users['officer'].id in {row.user_id for row in told}
 
 
 @pytest.mark.parametrize('remarks', ['', '   '])
@@ -79,7 +79,7 @@ def test_a_rejection_needs_remarks(sap_system, remarks):
     assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': remarks}).status_code == 422
 
 
-@pytest.mark.parametrize('role', ['treasurer', 'adviser', 'admin', 'officer', 'signatory'])
+@pytest.mark.parametrize('role', ['officer', 'adviser', 'admin'])
 def test_only_the_sds_office_can_reject(sap_system, monkeypatch, role):
     monkeypatch.setattr('app.services.sap.render_proposal', lambda *args, **kwargs: b'%PDF-1.4 submitted')
     populate(sap_system)
@@ -103,8 +103,8 @@ def test_a_signed_proposal_cannot_be_rejected(sap_system, monkeypatch):
 
 STROKES = [[{'x': 0.1, 'y': 0.2}, {'x': 0.8, 'y': 0.7}]]
 LATE_WRITES = [
-    ('treasurer', 'patch', '', {'details': {'title': 'Changed'}}),
-    ('treasurer', 'post', '/submit', {}),
+    ('officer', 'patch', '', {'details': {'title': 'Changed'}}),
+    ('officer', 'post', '/submit', {}),
     # The proposer may still take it back to edit (/withdraw); see test_sap_withdrawal.
     ('sds_staff', 'put', '/sds-review', {'overall_remarks': 'Late'}),
     ('sds_staff', 'post', '/sds-sign', {'signature_strokes': STROKES}),
@@ -175,7 +175,7 @@ def test_a_colleague_who_sent_it_hears_the_decision(sap_system):
     login('sds_staff')
     assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'}).status_code == 200
     told = {row.user_id for row in db.query(Notification).filter_by(title='SAP proposal rejected')}
-    assert {users['treasurer'].id, users['adviser'].id} <= told
+    assert {users['officer'].id, users['adviser'].id} <= told
 
 
 def test_a_proposer_who_also_sent_it_is_told_once(sap_system, monkeypatch):
@@ -186,7 +186,7 @@ def test_a_proposer_who_also_sent_it_is_told_once(sap_system, monkeypatch):
     login('sds_staff')
     assert client.post(base + '/sds-reject', json={'expected_version': version(client, base), 'remarks': 'No'}).status_code == 200
     told = [row.user_id for row in db.query(Notification).filter_by(title='SAP proposal rejected')]
-    assert len(told) == 2 and set(told) == {users['treasurer'].id, users['sds_staff'].id}
+    assert len(told) == 2 and set(told) == {users['officer'].id, users['sds_staff'].id}
 
 
 def test_a_stale_department_screen_is_refused(sap_system):

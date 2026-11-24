@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_active_account
-from app.models import User, DocumentRouting, Approval
+from app.models import User, Approval
 from app.models_sap import SAPProposal, SAPItem, SAPRevision, SAPCheckpoint, SAPFinalCopy, SAPEvaluation, SAPAttachment, SAPReview
 from app.schemas_sap import Details, DraftWrite, Version, CollectionWrite, ClearanceWrite, ReturnWrite, DecisionWrite, CheckpointWrite, EvaluationWrite, SDSReviewWrite, ReviewNotesWrite, COLLECTIONS, validate_clearance, plain_error
 from app.schemas_sap import (SAPProposalOut, SAPWorkflowOut, SAPAttachmentOut,
@@ -124,8 +124,8 @@ def create(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(r
     event, existing = sap.load(db, event_id, user, write=True, proposer=True, required=False)
     if existing or event.status != 'draft':
         raise HTTPException(409, 'Create SAP only for an unsubmitted draft event')
-    if db.query(DocumentRouting.id).filter_by(event_id=event.id).first() or db.query(Approval.id).filter_by(entity_type='event', entity_id=event.id).first():
-        raise HTTPException(409, 'An event with existing generic routing cannot switch workflows')
+    if db.query(Approval.id).filter_by(entity_type='event', entity_id=event.id).first():
+        raise HTTPException(409, 'An event already under generic review cannot switch workflows')
     if event.organization_id is None:
         raise HTTPException(409, 'Assign an organization first')
     proposal = SAPProposal(event_id=event.id)

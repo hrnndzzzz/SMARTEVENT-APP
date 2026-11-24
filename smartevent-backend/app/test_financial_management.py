@@ -7,7 +7,7 @@ from app.models import AuditLog, Expense, IncomeRecord, Receipt
 
 def expense(system, *, event_index=0, amount="10.00", url=None, merchant=None, number=None):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     payload = {"event_id": str(resources[event_index]["events"].id),
                "category_id": str(resources[event_index]["categories"].id),
                "description": "Venue equipment", "amount": amount}
@@ -19,7 +19,7 @@ def expense(system, *, event_index=0, amount="10.00", url=None, merchant=None, n
 
 def attach(system, transaction, **kwargs):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     payload = {"expense_id": str(transaction.id), "receipt_url": "https://example.com/r1.jpg",
                "purpose": "Event supplies", "merchant": "School Store", "receipt_number": "ABC-1",
                "issued_on": "2026-09-20", **kwargs}
@@ -28,7 +28,7 @@ def attach(system, transaction, **kwargs):
 
 def test_event_reports_show_actual_sources_expenses_and_receipts(system):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     event_id = str(resources[0]["events"].id)
     income = client.post("/incomes", json={"event_id": event_id, "source": "ACME Sponsor",
         "source_type": "sponsorship", "purpose": "Venue support", "amount": "250.10",
@@ -53,7 +53,7 @@ def test_financial_periods_filters_and_decimal_totals(system, period, params):
     # Remove fixture income, replace it with known accounting dates and values.
     db.delete(resources[0]["incomes"])
     db.add_all([IncomeRecord(event_id=resources[0]["events"].id, source="Donor", source_type="donation",
-        purpose="Event", amount=amount, received_on=date(2026, 9, 23), recorded_by=users["treasurer"].id)
+        purpose="Event", amount=amount, received_on=date(2026, 9, 23), recorded_by=users["officer"].id)
         for amount in ("0.10", "0.20")])
     resources[0]["expenses"].status = "approved"
     resources[0]["expenses"].amount = "0.10"
@@ -76,7 +76,7 @@ def test_report_breakdowns_reconcile_with_its_totals(system):
     resources[0]["incomes"].received_on = date(2026, 9, 12)
     db.add(Expense(organization_id=orgs[0].id, department_id=resources[0]["events"].department_id,
                    category_id=resources[0]["categories"].id, description="Tarpaulin", amount="25.50",
-                   expense_date=date(2026, 9, 15), status="approved", recorded_by=users["treasurer"].id))
+                   expense_date=date(2026, 9, 15), status="approved", recorded_by=users["officer"].id))
     db.commit()
     login("officer")
     report = client.get("/reports/financial?period=monthly&reference_date=2026-09-20").json()
@@ -144,7 +144,7 @@ def dues(client, **overrides):
 
 def test_general_fund_income_is_recorded_without_an_event(system):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     response = dues(client)
     assert response.status_code == 201, response.text
     body = response.json()
@@ -164,7 +164,7 @@ def test_general_fund_income_is_recorded_without_an_event(system):
 
 def test_general_fund_income_reaches_reports_in_its_own_scope(system):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     assert dues(client).status_code == 201
     login("officer")
     for url in ("/reports/financial?period=monthly&reference_date=2026-09-20",
@@ -179,9 +179,9 @@ def test_general_fund_income_reaches_reports_in_its_own_scope(system):
     assert scoped["general_income_total"] == 0
     # Another organization's treasurer sees none of it.
     login("super_admin")
-    assert client.patch(f"/users/{users['treasurer'].id}/access",
+    assert client.patch(f"/users/{users['officer'].id}/access",
                         json={"organization_id": str(orgs[1].id)}).status_code == 200
-    login("treasurer")
+    login("officer")
     assert client.get("/reports/financial?period=school_year&school_year=2026-2027").json()["general_income_total"] == 0
     assert not [r for r in client.get("/incomes?include_general=true").json() if r["event_id"] is None]
 
@@ -200,7 +200,7 @@ def test_calendar_reports_use_transaction_dates_not_event_creation_date(system):
 @pytest.mark.parametrize("field,value", [("source", "   "), ("purpose", " \n "), ("amount", "1.234"), ("amount", "NaN"), ("source_type", "unknown")])
 def test_income_rejects_blank_sources_purposes_and_invalid_money(system, field, value):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     payload = {"event_id": str(resources[0]["events"].id), "source": "Donation", "purpose": "Event", "amount": "10.00", field: value}
     assert client.post("/incomes", json=payload).status_code == 422
 
@@ -235,7 +235,7 @@ def test_exact_receipt_duplicates_are_blocked_across_events(system, kind):
 def test_receipt_duplicates_block_atomic_income_creation(system):
     client, db, users, orgs, resources, login = system
     assert attach(system, resources[0]["expenses"]).status_code == 201
-    login("treasurer")
+    login("officer")
     response = client.post("/incomes", json={"event_id": str(resources[0]["events"].id),
         "source": "Donation", "purpose": "Event", "amount": 10,
         "receipt": {"receipt_url": "https://example.com/r1.jpg", "purpose": "Event"}})
@@ -265,7 +265,7 @@ def test_similar_receipt_requires_independent_review_before_approval(system):
 def test_similar_income_is_withheld_from_reports_until_cleared(system, decision):
     client, db, users, orgs, resources, login = system
     assert attach(system, resources[0]["expenses"]).status_code == 201
-    login("treasurer")
+    login("officer")
     response = client.post("/incomes", json={"event_id": str(resources[0]["events"].id), "source": "Donor", "source_type": "donation",
         "purpose": "Supplies", "amount": 10, "received_on": "2026-09-20",
         "receipt": {"receipt_url": "https://example.com/donor.jpg", "purpose": "Supplies", "merchant": "School Store", "issued_on": "2026-09-21"}})
@@ -304,13 +304,16 @@ def test_receipt_scope_and_role_restrictions(system):
     assert client.get(f"/receipts/{note_id}").status_code == 200
     assert client.post(f"/receipts/{note_id}/review", json={"reason": "Checking receipt evidence"}).status_code == 403
     login("super_admin")
-    assert client.patch(f"/users/{users['treasurer'].id}/access",
+    # The officer recorded the seeded expenses in both organizations, so
+    # moving that account is what puts a receipt of its own in the other
+    # one. The second officer stays here and must not see it.
+    assert client.patch(f"/users/{users['officer'].id}/access",
                         json={"organization_id": str(orgs[1].id)}).status_code == 200
-    login("treasurer")
+    login("officer")
     foreign = client.post("/receipts", json={"expense_id": str(resources[1]["expenses"].id),
         "receipt_url": "https://example.com/r1.jpg", "purpose": "Foreign event supplies"})
-    assert foreign.status_code == 201  # duplicate scope is organization, not global
-    login("officer")
+    assert foreign.status_code == 201, foreign.text  # duplicate scope is organization, not global
+    login("officer_b")
     assert client.get(f"/receipts/{foreign.json()['id']}").status_code == 403
     assert len(client.get("/receipts").json()) == 1
     login("sds_staff")

@@ -142,27 +142,6 @@ class Event(OrganizationScoped, Base):
     category = relationship("Category")
 
 
-class DocumentRouting(Base):
-    __tablename__ = "document_routing"
-    __table_args__ = (
-        UniqueConstraint("event_id", "review_round", "step_order", name="uq_routing_event_round_step"),
-        UniqueConstraint("event_id", "review_round", "signatory_id", name="uq_routing_event_round_signatory"),
-        CheckConstraint("review_round > 0 AND step_order > 0", name="routing_positive_order"),
-        CheckConstraint("status IN ('pending', 'approved', 'rejected')", name="routing_status_check"),
-        CheckConstraint("(status = 'pending' AND decided_at IS NULL) OR (status <> 'pending' AND decided_at IS NOT NULL)", name="routing_decision_check"),
-    )
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    event_id = Column(UUID(as_uuid=True), ForeignKey("events.id"), nullable=False)
-    review_round = Column(Integer, nullable=False, default=1, server_default="1")
-    step_order = Column(Integer, nullable=False)
-    signatory_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    status = Column(String(20), nullable=False, default="pending", server_default="pending")
-    remarks = Column(Text, nullable=True)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-
-
 class RequirementPreset(Base):
     __tablename__ = "requirement_presets"
     __table_args__ = (

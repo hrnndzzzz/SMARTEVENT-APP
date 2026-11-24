@@ -114,7 +114,7 @@ def validate_roster_workbook(db, current_user, content: bytes, filename: str) ->
         if role in SCHOOL_REVIEWER_ROLES:
             for column in ("Department", "Organization Full Name"):
                 if row[column]:
-                    error(column, "Leave blank: SDS Staff and Signatory accounts are school-wide")
+                    error(column, "Leave blank: SDS Staff accounts are school-wide")
         elif not row["Department"]:
             # Blank only for an organization that belongs to no department.
             organization_matches = organizations[(None, row["Organization Full Name"].casefold())]

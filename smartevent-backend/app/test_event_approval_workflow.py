@@ -7,15 +7,19 @@ from app.test_access_management import system
 
 
 @pytest.mark.parametrize("legacy_status", ["pending", "pending_adviser"])
-def test_adviser_admin_and_institutional_approval_history(system, legacy_status):
+def test_adviser_then_dean_approval_history(system, legacy_status):
+    """Two desks, in order, and the Dean's approval is the last one.
+
+    There used to be a third: institutional signatories signing in turn
+    after the Dean. They sign the printed form now, so an event the Dean
+    approves is approved outright.
+    """
     client, db, users, orgs, resources, login = system
     event = resources[0]["events"]
     event.status = legacy_status
     db.commit()
     endpoint = f"/events/{event.id}"
     login("admin")
-    routing = client.put(endpoint + "/routing", json={"signatory_ids": [str(users["signatory"].id)]})
-    assert routing.status_code == 200, routing.text
     assert client.post(endpoint + "/approve", json={}).status_code == 409
     login("adviser")
     first = client.post(endpoint + "/approve", json={"remarks": "Adviser review"})
@@ -25,19 +29,14 @@ def test_adviser_admin_and_institutional_approval_history(system, legacy_status)
     login("admin")
     admin_review = client.post(endpoint + "/approve", json={"remarks": "Admin review"})
     assert admin_review.status_code == 200, admin_review.text
-    assert admin_review.json()["status"] == "pending_institutional_review"
-    login("signatory")
-    final = client.post(endpoint + "/approve", json={"remarks": "Institutional review"})
-    assert final.status_code == 200, final.text
-    assert final.json()["status"] == "approved"
-    login("admin")
+    assert admin_review.json()["status"] == "approved"
     history = client.get(endpoint + "/approvals").json()
-    assert [row["step_order"] for row in history] == [1, 2, 3]
-    assert [row["reviewer_id"] for row in history] == [str(users[role].id) for role in ("adviser", "admin", "signatory")]
+    assert [row["step_order"] for row in history] == [1, 2]
+    assert [row["reviewer_id"] for row in history] == [str(users[role].id) for role in ("adviser", "admin")]
 
 
 @pytest.mark.parametrize("role,expected", [
-    ("treasurer", "pending_adviser"), ("adviser", "pending_admin"),
+    ("officer", "pending_adviser"), ("adviser", "pending_admin"),
     ("admin", "pending_adviser"), ("super_admin", "pending_adviser"),
 ])
 def test_creation_never_auto_approves_and_blocks_self_review(system, role, expected):
@@ -50,7 +49,7 @@ def test_creation_never_auto_approves_and_blocks_self_review(system, role, expec
     })
     assert result.status_code == 201, result.text
     assert result.json()["status"] == expected
-    if role != "treasurer":
+    if role != "officer":
         for action in ("approve", "reject"):
             assert client.post(f"/events/{result.json()['id']}/{action}", json={}).status_code == 403
 
@@ -91,6 +90,4 @@ def test_review_uses_adviser_organization_or_admin_department_scope(system, role
     event.status = "pending_adviser" if role == "adviser" else "pending_admin"
     db.commit()
     login(role)
-    if role == "admin" and action == "approve":
-        assert client.put(f"/events/{event.id}/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
     assert client.post(f"/events/{event.id}/{action}", json={}).status_code == (200 if role == "admin" else 403)

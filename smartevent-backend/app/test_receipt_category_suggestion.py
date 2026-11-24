@@ -25,7 +25,7 @@ def test_a_matching_name_is_suggested_by_id(system, monkeypatch):
                     allocated_budget=0, remaining_budget=0)
     db.add(food)
     db.commit()
-    login("treasurer")  # Organization A's
+    login("officer")  # Organization A's
 
     suggested, offered = scan(client, monkeypatch, "food and drinks")
 
@@ -35,6 +35,6 @@ def test_a_matching_name_is_suggested_by_id(system, monkeypatch):
 
 def test_an_unlisted_or_missing_answer_suggests_nothing(system, monkeypatch):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     assert scan(client, monkeypatch, "Catering")[0] is None
     assert scan(client, monkeypatch, None)[0] is None
