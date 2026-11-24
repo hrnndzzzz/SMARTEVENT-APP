@@ -70,14 +70,18 @@ CATEGORIES = [
 #
 # Every event also carries school year, semester and scope: the database
 # requires all three (`events_academic_metadata_required`), and a row
-# without them is rejected outright.
+# without them is rejected outright. Spending stays under the budget
+# because `chk_event_remaining_budget_nonnegative` forbids a negative
+# remainder — an overspent event cannot be represented here at all. The
+# ratios are uneven on purpose, so the budget suggestion has a spread to
+# reason from rather than one flat percentage.
 PAST_EVENTS = [
     ("DEMO Programming Bootcamp", "Two-day introduction to Python for first years.",
      "12000.00", "11250.00", 210, "completed", "2nd"),
     ("DEMO IT Week General Assembly", "Opening assembly with guest speakers.",
      "8000.00", "7400.00", 150, "completed", "2nd"),
     ("DEMO Capstone Showcase", "Exhibition of fourth-year capstone projects.",
-     "15000.00", "15600.00", 90, "completed", "1st"),
+     "15000.00", "14250.00", 90, "completed", "1st"),
     ("DEMO Leadership Seminar", "Officer training for the incoming term.",
      "6000.00", "4900.00", 45, "approved", "1st"),
 ]
