@@ -174,7 +174,6 @@ class OfflineSync extends ChangeNotifier {
           '',
           '/approvals',
           '/logistics',
-          '/routing',
           '/readiness',
           '/sap-proposal/workflow',
         ]) {
