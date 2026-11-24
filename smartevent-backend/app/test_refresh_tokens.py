@@ -27,7 +27,7 @@ def renew(client, key):
 
 def test_a_renewal_key_brings_a_fresh_token_and_stays_valid(system):
     client, db, users, *_ = system
-    key = sign_in(client, db, users["treasurer"])["refresh_token"]
+    key = sign_in(client, db, users["officer"])["refresh_token"]
     stored = db.query(RefreshToken).one()
     assert stored.token_hash != key  # only the hash is kept
     stored.expires_at = datetime.now(timezone.utc) + timedelta(days=1)
@@ -35,7 +35,7 @@ def test_a_renewal_key_brings_a_fresh_token_and_stays_valid(system):
 
     first = renew(client, key)
     assert first.status_code == 200, first.text
-    assert decode_access_token(first.json()["access_token"])["sub"] == str(users["treasurer"].id)
+    assert decode_access_token(first.json()["access_token"])["sub"] == str(users["officer"].id)
     # Not rotated, so a reply lost on a weak connection costs nothing.
     assert first.json()["refresh_token"] == key
     assert renew(client, key).status_code == 200
@@ -49,7 +49,7 @@ def test_a_renewal_key_brings_a_fresh_token_and_stays_valid(system):
 @pytest.mark.parametrize("ending", ["logout", "password_change", "suspended", "expired", "unknown"])
 def test_an_ended_renewal_key_is_refused(system, ending):
     client, db, users, *_ = system
-    user = users["treasurer"]
+    user = users["officer"]
     signed_in = sign_in(client, db, user)
     key = signed_in["refresh_token"]
     if ending == "logout":
@@ -75,7 +75,7 @@ def test_signing_in_still_works_before_the_migration_is_applied(system):
     client, db, users, *_ = system
     RefreshToken.__table__.drop(db.get_bind())
     try:
-        signed_in = sign_in(client, db, users["treasurer"])
+        signed_in = sign_in(client, db, users["officer"])
         assert signed_in["refresh_token"] is None and signed_in["access_token"]
         client.headers["Authorization"] = "Bearer " + signed_in["access_token"]
         changed = client.post("/auth/change-password", json={

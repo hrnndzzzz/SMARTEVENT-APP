@@ -33,7 +33,7 @@ def access(client, url):
     return client.get("/files", params={"reference": url})
 
 
-@pytest.mark.parametrize("role", ["treasurer", "officer", "super_admin"])
+@pytest.mark.parametrize("role", ["officer", "super_admin"])
 def test_financial_writers_can_read_own_new_organization_upload(system, signer, role):
     client, db, users, orgs, resources, login = system
     login(role)
@@ -56,17 +56,17 @@ def test_other_roles_cannot_read_unattached_uploads(system, signer, role):
 
 def test_upload_reference_cannot_follow_user_after_transfer(system, signer):
     client, db, users, orgs, resources, login = system
-    user = users["treasurer"]
+    user = users["officer"]
     url = reference("receipts", orgs[0].id, user.id, str(uuid4()) + ".jpg")
     user.organization_id = orgs[1].id
     db.commit()
-    login("treasurer")
+    login("officer")
     assert access(client, url).status_code == 404
     assert signer == []
 
 
 @pytest.mark.parametrize("model", ["receipt", "expense"])
-@pytest.mark.parametrize("role", ["officer", "adviser", "treasurer", "admin", "super_admin"])
+@pytest.mark.parametrize("role", ["officer", "adviser", "officer", "admin", "super_admin"])
 def test_recorded_receipts_authorize_other_uploaders_and_legacy_forms(system, signer, model, role):
     client, db, users, orgs, resources, login = system
     filename = str(uuid4()) + ".jpg"
@@ -79,7 +79,7 @@ def test_recorded_receipts_authorize_other_uploaders_and_legacy_forms(system, si
             organization_id=orgs[0].id, department_id=orgs[0].department_id,
             event_id=resources[0]["events"].id, income_id=resources[0]["incomes"].id,
             purpose="Evidence", receipt_url=stored_url, issued_on=date.today(), amount=100,
-            url_fingerprint=uuid4().hex, recorded_by=users["treasurer"].id,
+            url_fingerprint=uuid4().hex, recorded_by=users["officer"].id,
         ))
     db.commit()
     login(role)
@@ -110,7 +110,7 @@ def add_proposal(db, resources, users, index, url):
     db.commit()
 
 
-@pytest.mark.parametrize("role", ["adviser", "treasurer", "admin", "sds_staff", "super_admin"])
+@pytest.mark.parametrize("role", ["adviser", "officer", "admin", "sds_staff", "super_admin"])
 def test_proposals_need_record_access_and_support_sds_global_reads(system, signer, role):
     client, db, users, orgs, resources, login = system
     index = 1 if role in {"sds_staff", "super_admin"} else 0
@@ -123,11 +123,11 @@ def test_proposals_need_record_access_and_support_sds_global_reads(system, signe
 
 def test_proposal_writers_cannot_sign_arbitrary_or_foreign_records(system, signer):
     client, db, users, orgs, resources, login = system
-    foreign = reference("proposal-letters", orgs[1].id, users["treasurer"].id, str(uuid4()) + ".pdf")
+    foreign = reference("proposal-letters", orgs[1].id, users["officer"].id, str(uuid4()) + ".pdf")
     add_proposal(db, resources, users, 1, foreign)
-    login("treasurer")
+    login("officer")
     assert access(client, foreign).status_code == 404
-    own_unattached = reference("proposal-letters", orgs[0].id, users["treasurer"].id, str(uuid4()) + ".pdf")
+    own_unattached = reference("proposal-letters", orgs[0].id, users["officer"].id, str(uuid4()) + ".pdf")
     assert access(client, own_unattached).status_code == 404
     login("officer")
     assert access(client, foreign).status_code == 404  # officers may propose, but only see their own letters
@@ -149,10 +149,10 @@ def test_untrusted_references_are_rejected_before_signing(system, signer, url):
 
 def test_file_access_requires_authenticated_ready_account(system, signer):
     client, db, users, orgs, resources, login = system
-    url = reference("receipts", orgs[0].id, users["treasurer"].id, str(uuid4()) + ".jpg")
+    url = reference("receipts", orgs[0].id, users["officer"].id, str(uuid4()) + ".jpg")
     assert access(client, url).status_code == 401
-    login("treasurer")
-    users["treasurer"].must_change_password = True
+    login("officer")
+    users["officer"].must_change_password = True
     db.commit()
     assert access(client, url).status_code == 403
     assert signer == []
@@ -173,18 +173,18 @@ def test_legacy_filename_wildcards_are_literal_and_canonical_forms_match(system,
                                            (RuntimeError("private API key"), 503)])
 def test_file_signing_failures_are_sanitized(system, signer, monkeypatch, error, status):
     client, db, users, orgs, resources, login = system
-    url = reference("receipts", orgs[0].id, users["treasurer"].id, str(uuid4()) + ".jpg")
+    url = reference("receipts", orgs[0].id, users["officer"].id, str(uuid4()) + ".jpg")
     def fail(*args):
         raise error
     monkeypatch.setattr("app.routers.files.signed_file_url", fail)
-    login("treasurer")
+    login("officer")
     response = access(client, url)
     assert response.status_code == status and "private" not in response.text
 
 
 def test_record_lists_return_references_without_contacting_storage(system, signer):
     client, db, users, orgs, resources, login = system
-    receipt_url = reference("receipts", orgs[0].id, users["treasurer"].id, str(uuid4()) + ".jpg")
+    receipt_url = reference("receipts", orgs[0].id, users["officer"].id, str(uuid4()) + ".jpg")
     proposal_url = reference("proposal-letters", orgs[0].id, users["adviser"].id, str(uuid4()) + ".pdf")
     resources[0]["expenses"].receipt_url = receipt_url
     add_proposal(db, resources, users, 0, proposal_url)

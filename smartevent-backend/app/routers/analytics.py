@@ -140,7 +140,7 @@ def get_proposal_summary(
     event_ids = db.query(events.c.id)
 
     accepted, rejected = [], []
-    # Adviser, Dean and signatory decisions, including the Moderator's and Dean's SAP returns.
+    # Adviser and Dean decisions, including the Moderator's and Dean's SAP returns.
     for decision, remarks in (
         db.query(Approval.decision, Approval.remarks)
         .filter(Approval.entity_type == "event", Approval.entity_id.in_(event_ids))
@@ -215,7 +215,7 @@ def get_spending_trends(
 @router.get("/threats", response_model=list[ExpenseOut])
 def get_flagged_expenses(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("adviser", "treasurer", "officer", "admin")),
+    current_user: User = Depends(require_role("adviser", "officer", "admin")),
 ):
     query = scope_query_by_department(
         db.query(Expense), Expense.department_id, current_user

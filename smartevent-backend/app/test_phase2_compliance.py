@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.models import Approval, AuditLog, DocumentRouting, EventParticipant, RequirementPreset, StudentComplianceRecord
+from app.models import Approval, AuditLog, EventParticipant, RequirementPreset, StudentComplianceRecord
 from app.models_compliance import EventComplianceDocument, EventLogistics
 from app.test_access_management import system
 
@@ -70,7 +70,7 @@ def evidence(client, path, kind, vehicle=None, expiry=None):
     return result
 
 
-@pytest.mark.parametrize("role", ["treasurer", "officer", "sds_staff", "signatory"])
+@pytest.mark.parametrize("role", ["officer", "sds_staff"])
 def test_only_admin_and_adviser_manage_roster(phase2, role):
     system, path = phase2
     client, db, users, orgs, resources, login = system
@@ -89,7 +89,7 @@ def test_adviser_manages_own_organization_student_roster(phase2):
     assert db.query(EventParticipant).count() == 1
 
 
-@pytest.mark.parametrize("role", ["treasurer", "officer", "sds_staff", "signatory"])
+@pytest.mark.parametrize("role", ["officer", "sds_staff"])
 def test_private_student_records_are_staff_only(phase2, role):
     system, path = phase2
     client, db, users, orgs, resources, login = system
@@ -112,7 +112,7 @@ def test_staff_batch_physical_verification_and_notarization(phase2):
     assert all(row["evidence_mode"] == "physical" and not row["has_document"] and row["version"] == 2 for row in reviewed.json())
     assert all(row.reviewed_by == users["adviser"].id for row in db.query(StudentComplianceRecord))
     assert db.query(AuditLog).filter_by(action="compliance.student_documents_reviewed").count() == 1
-    assert len(users) == 7  # Roster records never provision accounts.
+    assert len(users) == 6  # Roster records never provision accounts.
 
 
 def test_digital_review_requires_file_and_versions_are_atomic(phase2):
@@ -203,14 +203,12 @@ def test_unknown_classification_blocks_admin_and_final_without_decision(phase2):
     db.delete(db.get(EventLogistics, event.id))
     event.status = "pending_admin"
     db.commit()
-    assert client.put(path + "/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
     assert client.post(path + "/approve", json={}).status_code == 409
     assert db.query(Approval).count() == 0
     event.status = "pending_institutional_review"
     db.commit()
-    login("signatory")
+    login("admin")
     assert client.post(path + "/approve", json={}).status_code == 409
-    assert db.query(DocumentRouting).one().status == "pending"
     assert db.query(Approval).count() == 0
 
 
@@ -272,23 +270,6 @@ def test_no_separate_workspace_or_student_portal(system):
     assert client.get("/student-portal").status_code == 404
 
 
-def test_signatory_reads_assigned_logistics_not_student_records(phase2):
-    system, path = phase2
-    client, db, users, orgs, resources, login = system
-    assert evidence(client, path, "lgu_coordination").status_code == 200
-    document = db.query(EventComplianceDocument).one()
-    assert client.put(path + "/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
-    resources[0]["events"].status = "pending_institutional_review"
-    db.commit()
-    login("signatory")
-    assert client.get(path + "/logistics").status_code == 200
-    assert client.get(path + "/readiness").status_code == 200
-    assert client.get(path + f"/compliance-documents/{document.id}/file").status_code == 200
-    assert client.get(path + "/compliance").status_code == 403
-    assert client.get(f"/events/{resources[1]['events'].id}/logistics").status_code == 403
-    assert client.post(path + f"/compliance-documents/{document.id}/review", json={}).status_code == 403
-
-
 def test_duplicate_roster_and_pic_do_not_inflate_counts(phase2):
     system, path = phase2
     client, db, *_ = system
@@ -311,14 +292,12 @@ def test_complete_off_campus_workflow_and_retained_paper_trail(phase2):
     for kind in ["lgu_coordination", "agency_acknowledgment"]:
         assert evidence(client, path, kind).status_code == 200
     assert client.delete(path).status_code == 409
-    assert client.put(path + "/routing", json={"signatory_ids": [str(users["signatory"].id)]}).status_code == 200
-    login("treasurer")
+    login("officer")
     assert client.post(path + "/submit").status_code == 200
     login("adviser")
     assert client.post(path + "/approve", json={}).status_code == 200
     login("admin")
-    assert client.post(path + "/approve", json={}).status_code == 200
-    login("signatory")
+    # The Dean's approval is the last one: the signatories sign on paper.
     final = client.post(path + "/approve", json={})
     assert final.status_code == 200, final.text
     assert final.json()["status"] == "approved"

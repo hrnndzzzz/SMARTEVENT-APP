@@ -13,7 +13,7 @@ from app.test_sap import fixture_data, sap_system, send
 def no_department(db, users, orgs, resources):
     """Organization A leaves its department; its Admin, who needs one, moves to B."""
     orgs[0].department_id = None
-    for role in ("adviser", "treasurer", "officer"):
+    for role in ("adviser", "officer"):
         users[role].department_id = None
     users["admin"].organization_id = orgs[1].id
     for record in resources[0].values():
@@ -83,7 +83,7 @@ def test_a_member_of_an_organization_with_no_department_sees_only_its_own(system
     db.flush()
     db.add(Event(organization_id=other.id, title="Not yours", proposed_by=users["super_admin"].id, status="draft"))
     db.commit()
-    login("treasurer")
+    login("officer")
     for module in ("events", "categories", "expenses", "inventory"):
         rows = client.get("/" + module)
         assert rows.status_code == 200, (module, rows.text)
@@ -115,7 +115,7 @@ def test_a_departmental_proposal_still_names_its_department(sap_system):
     client, db, users, event, login, base = sap_system
     data = fixture_data()
     data["details"]["department"] = ""
-    login("treasurer")
+    login("officer")
     version = client.get(base).json()["version"]
     assert client.patch(base, json={"expected_version": version, "details": data["details"]}).status_code == 200
     for key, items in data["collections"].items():

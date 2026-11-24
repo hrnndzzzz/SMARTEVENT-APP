@@ -21,7 +21,6 @@ from app.schemas import (
     RefreshRequest,
     ResetPasswordRequest,
     SdsRegisterRequest,
-    SignatoryRegisterRequest,
     Token,
     UserOut,
     VerifyOtpRequest,
@@ -202,15 +201,6 @@ def register_sds(
     current_user: User = Depends(require_role("super_admin")),
 ):
     return _register_school_reviewer(payload, "sds_staff", "user.sds_created", db, current_user)
-
-
-@router.post("/register/signatory", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register_signatory(
-    payload: SignatoryRegisterRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("super_admin")),
-):
-    return _register_school_reviewer(payload, "signatory", "user.signatory_created", db, current_user)
 
 
 def _register_school_reviewer(payload, role, action, db, current_user):

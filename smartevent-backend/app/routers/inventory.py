@@ -296,7 +296,7 @@ def create_transaction(
     inventory_id: uuid.UUID,
     payload: InventoryTransactionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("treasurer", "adviser", "admin", "officer")),
+    current_user: User = Depends(require_role("adviser", "admin", "officer")),
 ):
     item = _get_item_or_404(db, inventory_id, lock=True)
     assert_record_scope(current_user, item, allow_officer_read=True)

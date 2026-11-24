@@ -1,4 +1,4 @@
-"""Officers record money like the treasurer, and every member sees who last changed what."""
+"""Officers record money, and every member sees who last changed what."""
 from datetime import date, datetime, timedelta, timezone
 
 from app.models import AuditLog
@@ -12,7 +12,9 @@ def new_expense(resources, **extra):
 
 def test_officer_records_money_and_manages_only_own_pending_expenses(system):
     client, db, users, orgs, resources, login = system
-    login("officer")
+    # The second officer of the same organization: the seeded records belong
+    # to the first, so this one has colleagues' entries to be refused.
+    login("officer_b")
     income = client.post("/incomes", json={"event_id": str(resources[0]["events"].id), "source": "Sponsor",
                                            "purpose": "Snacks", "amount": "50.00"})
     assert income.status_code == 201, income.text
@@ -20,7 +22,7 @@ def test_officer_records_money_and_manages_only_own_pending_expenses(system):
     assert created.status_code == 201, created.text
     expense_id = created.json()["id"]
     assert client.patch(f"/expenses/{expense_id}", json={"description": "Snacks and water"}).status_code == 200
-    # The seeded expense is the treasurer's, so it stays theirs to change.
+    # The seeded expense is a colleague's, so it stays theirs to change.
     assert client.patch(f"/expenses/{resources[0]['expenses'].id}", json={"description": "Mine"}).status_code == 403
     assert client.delete(f"/expenses/{resources[0]['expenses'].id}").status_code == 403
     # Recording is not reviewing.
@@ -35,7 +37,7 @@ def test_manual_entries_and_look_alikes_are_flagged_when_saved(system):
     assert manual.status_code == 201, manual.text
     assert manual.json()["is_flagged"] is True
     assert "Vendor gave no receipt" in manual.json()["flag_reason"]
-    # Same name, amount and day as the treasurer's still-pending seeded expense.
+    # Same name, amount and day as the still-pending seeded expense.
     look_alike = client.post("/expenses", json=new_expense(resources, description=" SUPPLIES ", amount="10.00"))
     assert look_alike.json()["is_flagged"] is True
     assert "Possible duplicate of Supplies" in look_alike.json()["flag_reason"]
@@ -87,7 +89,7 @@ def test_latest_change_names_who_and_what_within_scope(system):
     ])
     db.commit()
 
-    login("treasurer")
+    login("officer")
     latest = client.get("/audit-logs/latest", params={"area": "finance"})
     assert latest.status_code == 200, latest.text
     assert {key: latest.json()[key] for key in ("action", "actor_name", "subject")} == {

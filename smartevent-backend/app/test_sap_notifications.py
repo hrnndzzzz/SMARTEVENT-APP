@@ -28,9 +28,9 @@ def test_sap_notification_payload_wording_and_recipients(sap_system, action, sta
     client, db, users, event, _, base = sap_system
     proposal = db.query(SAPProposal).one()
     proposal.state = state
-    sap.save(db, event, proposal, users['treasurer'], action, notify=True, notify_sds=sds_hears)
+    sap.save(db, event, proposal, users['officer'], action, notify=True, notify_sds=sds_hears)
     rows = db.query(Notification).filter_by(kind='sap_workflow').all()
-    assert {row.user_id for row in rows} == {users['treasurer'].id} | ({users['sds_staff'].id} if sds_hears else set())
+    assert {row.user_id for row in rows} == {users['officer'].id} | ({users['sds_staff'].id} if sds_hears else set())
     expected = {'event_id': str(event.id), 'proposal_id': str(proposal.id),
                 'revision_no': proposal.revision_no, 'state': state, 'action': action}
     for row in rows:
@@ -46,7 +46,7 @@ def test_sap_notification_payload_wording_and_recipients(sap_system, action, sta
 
 def test_legacy_notifications_have_null_payload_and_remain_private(sap_system):
     client, db, users, _, login, _ = sap_system
-    old = Notification(user_id=users['treasurer'].id, kind='old', title='Old', body='Legacy record', email_status='sent')
+    old = Notification(user_id=users['officer'].id, kind='old', title='Old', body='Legacy record', email_status='sent')
     db.add(old)
     db.commit()
     inbox = client.get('/notifications').json()
@@ -74,7 +74,7 @@ def test_sds_gets_the_filled_form_by_email_when_the_dean_approves(sap_system, mo
 def test_failed_email_retry_keeps_workflow_and_does_not_resend_sent(sap_system, monkeypatch):
     submitted = populate(sap_system)
     client, db, users, _, _, base = sap_system
-    notification = db.query(Notification).filter_by(user_id=users['treasurer'].id, title='SAP proposal submitted').one()
+    notification = db.query(Notification).filter_by(user_id=users['officer'].id, title='SAP proposal submitted').one()
     payload = dict(notification.payload)
     def fail(*args, **kwargs):
         raise RuntimeError('mail provider unavailable')

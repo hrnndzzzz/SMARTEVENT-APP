@@ -104,7 +104,7 @@ def test_storage_errors_do_not_disclose_provider_details(private_storage, monkey
 
 def test_foreign_uploaded_receipt_cannot_be_attached_even_via_top_level_url(system, private_storage):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     foreign = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{users['adviser'].id}/{uuid4()}.jpg"
     response = client.post("/expenses", json={"event_id": str(resources[0]["events"].id),
         "category_id": str(resources[0]["categories"].id), "description": "Event supplies",
@@ -115,7 +115,7 @@ def test_foreign_uploaded_receipt_cannot_be_attached_even_via_top_level_url(syst
         "receipt_url": foreign, "purpose": "Event supplies", "issued_on": str(date.today())})
     assert response.status_code == 403, response.text
     db.rollback()
-    own = foreign.replace(str(users["adviser"].id), str(users["treasurer"].id))
+    own = foreign.replace(str(users["adviser"].id), str(users["officer"].id))
     response = client.post("/receipts", json={"expense_id": str(resources[0]["expenses"].id),
         "receipt_url": own + "?token=old", "purpose": "Event supplies"})
     assert response.status_code == 201, response.text
@@ -125,11 +125,11 @@ def test_foreign_uploaded_receipt_cannot_be_attached_even_via_top_level_url(syst
 
 def test_receipt_scan_link_cannot_follow_uploader_to_another_organization(system, private_storage):
     client, db, users, orgs, resources, login = system
-    user = users["treasurer"]
+    user = users["officer"]
     old_scan = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{user.id}/{uuid4()}.jpg"
     user.organization_id = orgs[1].id
     db.commit()
-    login("treasurer")
+    login("officer")
     response = client.post("/incomes", json={"event_id": str(resources[1]["events"].id),
         "source": "Donor", "purpose": "Event supplies", "amount": 10,
         "receipt": {"receipt_url": old_scan, "purpose": "Event supplies"}})
@@ -138,8 +138,8 @@ def test_receipt_scan_link_cannot_follow_uploader_to_another_organization(system
 
 def test_legacy_public_url_fingerprints_still_prevent_duplicate_receipts(system, private_storage):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
-    url = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{users['treasurer'].id}/{uuid4()}.jpg"
+    login("officer")
+    url = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{users['officer'].id}/{uuid4()}.jpg"
     response = client.post("/incomes", json={"event_id": str(resources[0]["events"].id),
         "source": "Donor", "purpose": "Event supplies", "amount": 10,
         "receipt": {"receipt_url": url, "purpose": "Event supplies"}})
@@ -157,7 +157,11 @@ def test_legacy_public_url_fingerprints_still_prevent_duplicate_receipts(system,
 
 def test_proposal_upload_rejects_empty_spoofed_and_oversized_files(system, monkeypatch):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    # An officer uploads letters only to its own draft or rejected proposal,
+    # and the seeded event is pending. The subject here is the file itself.
+    resources[0]["events"].status = "draft"
+    db.commit()
+    login("officer")
     uploads = []
     monkeypatch.setattr("app.routers.proposal_letters.upload_proposal_letter", lambda *args: uploads.append(args))
     for data, mime in ((b"", "application/pdf"), (b"fake pdf", "application/pdf"),

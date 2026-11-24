@@ -26,7 +26,7 @@ from app.services.closure import review_student_records
 
 router = APIRouter(prefix="/events/{event_id}", tags=["pre-activity compliance"])
 staff = require_role("admin", "adviser")
-proposer = require_role("admin", "adviser", "treasurer")
+proposer = require_role("admin", "adviser", "officer")
 
 
 def save(db, event, user, action, details=None):
@@ -57,7 +57,7 @@ def get_readiness(event_id: uuid.UUID, db: Session = Depends(get_db), user: User
 
 
 @router.get("/logistics")
-def get_logistics(event_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(require_role("admin", "adviser", "treasurer", "signatory"))):
+def get_logistics(event_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(require_role("admin", "adviser", "officer"))):
     event = db.get(Event, event_id)
     if event is None:
         raise HTTPException(404, "Event not found")
@@ -300,7 +300,7 @@ def review_event_document(event_id: uuid.UUID, document_id: uuid.UUID, payload: 
 
 
 @router.get("/compliance-documents/{document_id}/file")
-def event_document_file(event_id: uuid.UUID, document_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(require_role("admin", "adviser", "treasurer", "signatory"))):
+def event_document_file(event_id: uuid.UUID, document_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(require_role("admin", "adviser", "officer"))):
     event = db.get(Event, event_id)
     if event is None:
         raise HTTPException(404, "Event not found")

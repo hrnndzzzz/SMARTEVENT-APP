@@ -13,8 +13,8 @@ Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
 NonnegativeMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
 FundSource = Literal["registration_fees", "sponsorship", "donation", "membership_dues", "fundraising", "other"]
 
-Role = Literal["super_admin", "admin", "adviser", "officer", "treasurer", "sds_staff", "signatory"]
-RosterRole = Literal["admin", "adviser", "officer", "treasurer", "sds_staff", "signatory"]  # = rbac_policy.ROSTER_ROLES
+Role = Literal["super_admin", "admin", "adviser", "officer", "sds_staff"]
+RosterRole = Literal["admin", "adviser", "officer", "sds_staff"]  # = rbac_policy.ROSTER_ROLES
 
 
 class CiteSelfRegisterRequest(BaseModel):
@@ -45,17 +45,6 @@ class SdsRegisterRequest(BaseModel):
     full_name: str = Field(min_length=1, max_length=150)
     email: AccountEmail
     position: str | None = Field(default=None, max_length=50)
-
-
-class SignatoryRegisterRequest(SdsRegisterRequest):
-    pass
-
-
-class SignatoryOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-    full_name: str
-    position: str | None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -133,7 +122,7 @@ class OrganizationOut(OrganizationCreate):
 
 class UserAccessUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    role: Literal["admin", "adviser", "treasurer", "officer", "sds_staff", "signatory"] | None = None
+    role: Literal["admin", "adviser", "officer", "sds_staff"] | None = None
     organization_id: uuid.UUID | None = None
     position: str | None = Field(default=None, max_length=50)
     is_suspended: bool | None = None
@@ -353,31 +342,6 @@ class ApprovalDecision(BaseModel):
         ge=1,
         description="SAP proposals only: the proposal version last read; a proposal that has changed since answers 409. Other events and expenses ignore it.",
     )
-
-
-class DocumentRoutingUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    signatory_ids: list[uuid.UUID] = Field(min_length=1, max_length=20)
-
-    @field_validator("signatory_ids")
-    @classmethod
-    def unique_signatories(cls, value):
-        if len(value) != len(set(value)):
-            raise ValueError("Assign each signatory only once per review round")
-        return value
-
-
-class DocumentRoutingOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: uuid.UUID
-    event_id: uuid.UUID
-    review_round: int
-    step_order: int
-    signatory_id: uuid.UUID
-    status: Literal["pending", "approved", "rejected"]
-    remarks: str | None
-    decided_at: datetime | None
-    created_at: datetime
 
 
 class RequirementPresetOut(BaseModel):

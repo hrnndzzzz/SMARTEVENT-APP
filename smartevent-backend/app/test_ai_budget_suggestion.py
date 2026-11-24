@@ -27,12 +27,12 @@ def gemini(monkeypatch):
 
 def past_event(db, users, org, category, title, budget, spent):
     event = Event(organization_id=org.id, department_id=org.department_id, title=title, status="completed",
-                  proposed_by=users["treasurer"].id, allocated_budget=budget, remaining_budget=0)
+                  proposed_by=users["officer"].id, allocated_budget=budget, remaining_budget=0)
     db.add(event)
     db.flush()
     db.add(Expense(organization_id=org.id, department_id=org.department_id, event_id=event.id, category_id=category.id,
                    description="Spent", amount=spent, expense_date=date.today(),
-                   recorded_by=users["treasurer"].id, status="approved"))
+                   recorded_by=users["officer"].id, status="approved"))
     return event
 
 
@@ -50,7 +50,7 @@ def test_the_suggestion_cites_only_events_it_was_shown(system, gemini, monkeypat
     db.commit()
     past_event(db, users, orgs[0], resources[0]["categories"], "Math Fair", 1200, 900)
     db.commit()
-    login("treasurer")  # Organization A's
+    login("officer")  # Organization A's
 
     body = ask(client)
 
@@ -65,7 +65,7 @@ def test_the_suggestion_cites_only_events_it_was_shown(system, gemini, monkeypat
 def test_too_few_events_no_key_or_a_bad_answer_suggests_nothing(system, gemini, monkeypatch):
     client, db, users, orgs, resources, login = system
     prompts, answer = gemini
-    login("treasurer")
+    login("officer")
     assert ask(client)["amount"] is None and prompts == []  # no past events at all
 
     past_event(db, users, orgs[0], resources[0]["categories"], "Math Fair", 1200, 900)
@@ -84,5 +84,5 @@ def test_a_gemini_failure_still_answers(system, gemini, monkeypatch):
     past_event(db, users, orgs[0], resources[0]["categories"], "Art Fair", 800, 700)
     db.commit()
     monkeypatch.setattr(recommendations.ocr, "_generate", lambda *_: (_ for _ in ()).throw(RuntimeError("503")))
-    login("treasurer")
+    login("officer")
     assert ask(client) == {"amount": None, "reason": None, "similar_events": []}

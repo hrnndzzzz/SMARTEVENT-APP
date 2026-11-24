@@ -10,8 +10,8 @@ from app.test_storage_security import private_storage  # noqa: F401
 
 def test_receipt_photos_older_than_30_days_are_deleted_and_the_record_kept(system, private_storage):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
-    base = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{users['treasurer'].id}/"
+    login("officer")
+    base = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{users['officer'].id}/"
     old_url, new_url = base + f"{uuid4()}.jpg", base + f"{uuid4()}.jpg"
     for url in (old_url, new_url):
         response = client.post("/incomes", json={"event_id": str(resources[0]["events"].id),
@@ -43,8 +43,8 @@ def test_receipt_photos_older_than_30_days_are_deleted_and_the_record_kept(syste
 
 def test_a_storage_failure_leaves_receipts_for_the_next_run(system, private_storage, monkeypatch):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
-    url = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{users['treasurer'].id}/{uuid4()}.jpg"
+    login("officer")
+    url = f"{settings.supabase_url}/storage/v1/object/receipts/{orgs[0].id}/{users['officer'].id}/{uuid4()}.jpg"
     assert client.post("/incomes", json={"event_id": str(resources[0]["events"].id),
         "source": "Donor", "purpose": "Event supplies", "amount": 10,
         "receipt": {"receipt_url": url, "purpose": "Event supplies"}}).status_code == 201

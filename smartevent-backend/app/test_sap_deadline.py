@@ -31,8 +31,8 @@ def test_one_still_with_the_department_29_days_out_is_rejected(sap_system):
     decision = db.query(Approval).filter_by(entity_id=event.id, decision='rejected').one()
     assert decision.reviewer_id is None and decision.remarks == REASON
     assert db.query(AuditLog).filter_by(action='sap_auto_rejected', user_id=None).count() == 1
-    assert users['treasurer'].id in told(db) and users['sds_staff'].id not in told(db)
-    login('treasurer')
+    assert users['officer'].id in told(db) and users['sds_staff'].id not in told(db)
+    login('officer')
     shown = client.get(base).json()
     assert (shown['state'], shown['return_remarks'], shown['returned_by']) == ('rejected', REASON, None)
     assert reject_undecided_proposals(db, today=date(2026, 9, 29)) == 0  # already done
@@ -43,8 +43,8 @@ def test_one_still_with_the_sds_office_is_rejected_and_the_office_told(sap_syste
     client, db, users, event, login, base = sap_system
     assert proposal_of(db, event).state == 'pending_sap_review'
     assert reject_undecided_proposals(db, today=date(2026, 10, 20)) == 1
-    assert {users['treasurer'].id, users['sds_staff'].id} <= told(db)
-    login('treasurer')
+    assert {users['officer'].id, users['sds_staff'].id} <= told(db)
+    login('officer')
     history = client.get(f'/events/{event.id}/approvals').json()
     assert (history[-1]['decision'], history[-1]['reviewer_id'], history[-1]['remarks']) == ('rejected', None, REASON)
 

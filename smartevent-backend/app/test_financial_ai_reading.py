@@ -39,7 +39,7 @@ def approve_all(db, resources):
 def test_the_reading_sends_figures_but_no_people_or_free_text_sources(system, gemini):
     client, db, users, orgs, resources, login = system
     approve_all(db, resources)
-    login("treasurer")
+    login("officer")
 
     response = client.get(URL)
 
@@ -55,7 +55,7 @@ def test_the_reading_sends_figures_but_no_people_or_free_text_sources(system, ge
 
 def test_the_reading_has_the_reports_own_checks(system, gemini):
     client, db, users, orgs, resources, login = system
-    login("treasurer")
+    login("officer")
     assert client.get("/reports/financial/ai-reading?period=semester").status_code == 422
     assert client.get("/reports/financial/ai-reading?period=semester&school_year=2026-2027").status_code == 422
 
@@ -63,7 +63,7 @@ def test_the_reading_has_the_reports_own_checks(system, gemini):
 def test_no_key_or_a_failure_still_answers(system, gemini, monkeypatch):
     client, db, users, orgs, resources, login = system
     approve_all(db, resources)
-    login("treasurer")
+    login("officer")
     monkeypatch.setattr(reports.ocr, "_generate", lambda *_: (_ for _ in ()).throw(RuntimeError("503")))
     assert client.get(URL).json() == EMPTY
 

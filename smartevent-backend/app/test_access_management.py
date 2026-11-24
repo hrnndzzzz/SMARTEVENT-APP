@@ -56,12 +56,17 @@ def system():
     db.add_all(organizations)
     db.flush()
     accounts = {}
-    for role in ("super_admin", "admin", "adviser", "treasurer", "officer", "sds_staff", "signatory"):
+    # "officer_b" is a second officer in the same organization. The seeded
+    # records below belong to "officer", so ownership rules — only your own
+    # pending expense, only your own proposal — need somebody else who is
+    # allowed to record money. That used to be the treasurer.
+    for role in ("super_admin", "admin", "adviser", "officer", "officer_b", "sds_staff"):
+        actual = "officer" if role == "officer_b" else role
         account = User(
             full_name=role, email=role + "@example.com", password_hash="unused",
-            role=role, is_active=True, must_change_password=False,
-            department_id=department.id if role not in ("super_admin", "sds_staff", "signatory") else None,
-            organization_id=organizations[0].id if role not in ("super_admin", "sds_staff", "signatory") else None,
+            role=actual, is_active=True, must_change_password=False,
+            department_id=department.id if actual not in ("super_admin", "sds_staff") else None,
+            organization_id=organizations[0].id if actual not in ("super_admin", "sds_staff") else None,
         )
         db.add(account)
         accounts[role] = account
@@ -74,7 +79,7 @@ def system():
         db.flush()
         event_record = Event(
             organization_id=organization.id, department_id=department.id, category_id=category.id,
-            title=f"Event {index}", proposed_by=accounts["treasurer"].id, status="pending",
+            title=f"Event {index}", proposed_by=accounts["officer"].id, status="pending",
             school_year="2026-2027", semester="1st", event_scope="organizational",
             allocated_budget=1000, remaining_budget=1000,
         )
@@ -84,12 +89,12 @@ def system():
         expense = Expense(
             organization_id=organization.id, department_id=department.id, category_id=category.id,
             event_id=event_record.id, description="Supplies", amount=10, expense_date=date.today(),
-            recorded_by=accounts["treasurer"].id,
+            recorded_by=accounts["officer"].id,
         )
         item = Inventory(organization_id=organization.id, department_id=department.id,
                          event_id=event_record.id, item_name="Chair", quantity=10, unit="pcs")
         income = IncomeRecord(event_id=event_record.id, source="Donation", purpose="Supplies",
-                              amount=100, received_on=date.today(), recorded_by=accounts["treasurer"].id)
+                              amount=100, received_on=date.today(), recorded_by=accounts["officer"].id)
         db.add_all([expense, item, income])
         db.flush()
         resources.append({"categories": category, "events": event_record, "expenses": expense,
@@ -111,7 +116,7 @@ def system():
     engine.dispose()
 
 
-@pytest.mark.parametrize("role", ["admin", "adviser", "treasurer", "officer"])
+@pytest.mark.parametrize("role", ["admin", "adviser", "officer"])
 @pytest.mark.parametrize("module", ["categories", "events", "expenses", "inventory", "incomes"])
 def test_lists_apply_department_admin_or_member_organization_scope(system, role, module):
     client, db, users, orgs, resources, login = system
@@ -145,7 +150,7 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
     checked = []
     for route_path, operations in app.openapi()["paths"].items():
         if route_path.startswith("/notifications") or (route_path.startswith("/auth/") and route_path not in
-                                               ("/auth/register/admin", "/auth/register/sds", "/auth/register/signatory")):
+                                               ("/auth/register/admin", "/auth/register/sds")):
             continue
         for method in {operation.upper() for operation in operations} & {"POST", "PUT", "PATCH", "DELETE"}:
             if (method, route_path) in {
@@ -154,7 +159,7 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
             }:
                 continue  # stock movements and adding/removing items are open to every officer
             if (method, route_path) in OFFICER_FINANCE_WRITES:
-                continue  # officers record money like the treasurer
+                continue  # officers are the accounts that record money
             if (method, route_path) in {
                 ("POST", "/events"), ("PATCH", "/events/{event_id}"),
                 ("DELETE", "/events/{event_id}"), ("POST", "/events/{event_id}/submit"),
@@ -165,6 +170,8 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
                 ("POST", "/events/{event_id}/sap-proposal/attachments"),
                 ("POST", "/events/{event_id}/sap-proposal/submit"),
                 ("POST", "/events/{event_id}/sap-proposal/withdraw"),
+                # A budget suggestion the proposer may ignore, not a record.
+                ("POST", "/recommendations/event-budget/ai"),
             }:
                 continue
             path = re.sub(r"\{[^}]+\}", lambda _: str(uuid4()), route_path)
@@ -174,17 +181,20 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
     assert len(checked) >= 25
 
 
-@pytest.mark.parametrize("role", ["treasurer", "officer"])
-def test_catalog_changes_require_administrator(system, role):
+def test_catalog_changes_require_administrator(system):
+    """The officer stocks the shelf; shaping the catalogue stays with its managers.
+
+    This used to run for the treasurer as well, which was the account that
+    could move stock without adding an item. With that role gone, the
+    officer is the only operational account left here.
+    """
     client, db, users, orgs, resources, login = system
-    login(role)
+    login("officer")
     assert client.post("/categories", json={"name": "New"}).status_code == 403
     adds = client.post("/inventory", json={"item_name": "Desk", "quantity": 1, "unit": "pcs",
                                            "event_id": str(resources[0]["events"].id)}).status_code
-    assert adds == (201 if role == "officer" else 403)
+    assert adds == 201
     assert client.patch(f"/inventory/{resources[0]['inventory'].id}", json={"item_name": "Changed"}).status_code == 403
-    if role == "treasurer":
-        assert client.delete(f"/inventory/{resources[0]['inventory'].id}").status_code == 403
     response = client.post(f"/inventory/{resources[0]['inventory'].id}/transactions", json={"change_qty": 1,
         "event_id": str(resources[0]["events"].id), "transaction_type": "donation", "reason": "Donated chair"})
     assert response.status_code == 201
@@ -222,9 +232,9 @@ def test_officer_deletes_a_new_item_and_archives_one_with_history(system):
     assert client.get(f"/inventory/{used.id}").status_code == 200
     assert client.post(f"/inventory/{used.id}/transactions", json={"change_qty": 1, "event_id": event_id,
         "transaction_type": "donation", "reason": "Again"}).status_code == 409
-    login("treasurer")
-    assert client.post("/inventory", json={"item_name": "Chair", "quantity": 0, "unit": "pcs",
-                                           "event_id": event_id}).status_code == 403
+    # The treasurer used to be refused here. Every operational account may
+    # add an item now, so what is left to check is that the archived item
+    # cannot be revived by adding another against the same event.
 
 
 def test_admin_cannot_promote_or_transfer_but_can_manage_department_members(system):
@@ -245,8 +255,8 @@ def test_role_change_updates_roster_and_existing_token_permissions(system):
     officer_token = login("officer")
     login("admin")
     endpoint = f"/users/{users['officer'].id}/access"
-    assert client.patch(endpoint, json={"role": "treasurer"}).status_code == 200
-    assert db.query(CiteMember).one().role == "treasurer"
+    assert client.patch(endpoint, json={"role": "officer"}).status_code == 200
+    assert db.query(CiteMember).one().role == "officer"
     client.headers["Authorization"] = "Bearer " + officer_token
     payload = {"event_id": str(resources[0]["events"].id), "source": "Donation", "purpose": "Event", "amount": 10}
     assert client.post("/incomes", json=payload).status_code == 201
@@ -276,10 +286,10 @@ def test_suspension_blocks_existing_token_and_registration_reactivation(system):
 def test_super_admin_transfer_does_not_transfer_historical_records(system):
     client, db, users, orgs, resources, login = system
     login("super_admin")
-    response = client.patch(f"/users/{users['treasurer'].id}/access",
+    response = client.patch(f"/users/{users['officer'].id}/access",
                             json={"organization_id": str(orgs[1].id)})
     assert response.status_code == 200
-    login("treasurer")
+    login("officer")
     assert [row["id"] for row in client.get("/events").json()] == [str(resources[1]["events"].id)]
     assert client.get(f"/events/{resources[0]['events'].id}").status_code == 403
 
