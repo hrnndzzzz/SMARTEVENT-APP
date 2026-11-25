@@ -92,6 +92,11 @@ async def database_error(request, exc):
     sqlstate = getattr(original, "pgcode", None) or getattr(original, "sqlstate", None)
     if not isinstance(sqlstate, str) or len(sqlstate) != 5 or not sqlstate.isascii() or not sqlstate.isalnum():
         sqlstate = "unknown"
+    if sqlstate == "P0001":
+        # A rule a database trigger enforces (RAISE EXCEPTION). Its fixed wording is ours and safe to
+        # show; calling it an outage told people to retry something that can never succeed.
+        message = getattr(getattr(original, "diag", None), "message_primary", None)
+        return JSONResponse({"detail": message or "The change breaks a rule the database enforces"}, status_code=409)
     hint = " Apply pending database migrations." if sqlstate in {"42703", "42P01"} else ""
     logger.error("Database request failed: %s (SQLSTATE %s).%s", type(exc).__name__, sqlstate, hint)
     return JSONResponse({"detail": "The database is temporarily unavailable"}, status_code=503)

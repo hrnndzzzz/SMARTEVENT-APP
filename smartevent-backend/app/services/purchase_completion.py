@@ -54,8 +54,9 @@ def complete_purchase(db, expense, payload, user):
             item = db.query(Inventory).filter(func.lower(Inventory.item_name) == row.name.strip().lower(),
                 Inventory.organization_id == expense.organization_id).with_for_update().first()
         if item:
-            if item.department_id != expense.department_id or item.event_id is None:
-                raise HTTPException(409, "Repair the existing catalog item's ownership and event link first")
+            # An item kept outside any event is restocked like any other; the movement carries the event.
+            if item.department_id != expense.department_id:
+                raise HTTPException(409, "Repair the existing catalog item's ownership first")
             if item.unit.strip().casefold() != confirmation.unit.casefold():
                 raise HTTPException(422, "Confirmed unit must match the existing catalog unit")
         else:
