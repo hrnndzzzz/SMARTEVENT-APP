@@ -126,8 +126,8 @@ The backend can run on Render's free tier from `smartevent-backend/Dockerfile`
   (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`), only a reinstall that wipes the data.
 
   One key, held by both of us, fixes it for good. **Do not generate a fresh one.**
-  Every release on the download link since v1.0.14 — v1.0.14, v1.0.15, v1.0.16 and
-  v1.0.17 — is signed by the same certificate, `083d0485…cb909756`, which is
+  Every release on the download link since v1.0.14 — v1.0.14 through v1.0.19 — is
+  signed by the same certificate, `083d0485…cb909756`, which is
   Jasper's `.android/debug.keystore` (alias `androiddebugkey`, valid to 2056). A
   new key would mean every one of those phones uninstalling once; adopting that
   keystore as the shared release key means the next update simply installs.
