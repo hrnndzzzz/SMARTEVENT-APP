@@ -21,9 +21,10 @@ import 'package:smartevent/theme/brut.dart';
 /// The server takes the scan only while the proposal is `sds_signed`, and
 /// slots 5 to 9 can be recorded only from there too. The button waited for
 /// `pending_sap_review` instead, where the nine can never be recorded, so it
-/// never opened. And the server takes the paper checkpoints, the scan and the
-/// evaluation from the SDS Office alone, while the screens asked only whether
-/// the session could write, which is an offline flag and not a role.
+/// never opened. And the server takes the scan and the evaluation from the
+/// SDS Office alone, while the screens asked only whether the session could
+/// write, which is an offline flag and not a role. The paper checkpoints are
+/// the organization's to record too.
 void main() {
   /// [role] is whose account is signed in; none hosts no [AppState] at all.
   Widget host(Widget home, {UserRole? role}) {
@@ -241,49 +242,55 @@ void main() {
   });
 
   group('the nine slots', () {
-    testWidgets('open for recording to the SDS Office', (tester) async {
-      for (final (state, recorded) in [
-        ('pending_sap_review', 1),
-        ('sds_signed', 4),
-      ]) {
-        final form = await loaded(state, recorded: recorded);
-        await open(tester, SapPart5Screen(form: form), role: UserRole.sdsStaff);
+    // The organization carries the paper from desk to desk, so it records
+    // each signature as it comes back, as the office does. The server holds
+    // every account to its own organization's proposals.
+    testWidgets('open for recording to the organization and the office', (
+      tester,
+    ) async {
+      for (final role in UserRole.values) {
+        for (final (state, recorded) in [
+          ('pending_sap_review', 1),
+          ('sds_signed', 4),
+        ]) {
+          final form = await loaded(state, recorded: recorded);
+          await open(tester, SapPart5Screen(form: form), role: role);
 
-        expect(
-          find.widgetWithText(BrutButton, 'Record'),
-          findsOneWidget,
-          reason: state,
-        );
+          expect(
+            find.widgetWithText(BrutButton, 'Record'),
+            findsOneWidget,
+            reason: '${role.name} on $state',
+          );
+        }
       }
     });
 
-    testWidgets('are not open to anyone else', (tester) async {
-      for (final role in everyoneElse) {
-        // Slot 5 is open, and recording it is the office's to do.
-        final form = await loaded('sds_signed', recorded: 4);
+    testWidgets('are not open with no account signed in', (tester) async {
+      final form = await loaded('sds_signed', recorded: 4);
+      await open(tester, SapPart5Screen(form: form));
+
+      expect(find.widgetWithText(BrutButton, 'Record'), findsNothing);
+    });
+
+    testWidgets('are not open on a session that cannot write', (tester) async {
+      for (final role in [UserRole.sdsStaff, UserRole.officer]) {
+        final form = await loaded('sds_signed', recorded: 4, readOnly: true);
         await open(tester, SapPart5Screen(form: form), role: role);
 
         expect(
           find.widgetWithText(BrutButton, 'Record'),
           findsNothing,
-          reason: '${role?.name}',
+          reason: role.name,
         );
       }
     });
 
-    testWidgets('are not open on a session that cannot write', (tester) async {
-      final form = await loaded('sds_signed', recorded: 4, readOnly: true);
-      await open(tester, SapPart5Screen(form: form), role: UserRole.sdsStaff);
-
-      expect(find.widgetWithText(BrutButton, 'Record'), findsNothing);
-    });
-
     testWidgets('say which of them open when', (tester) async {
       final form = await loaded('pending_sap_review', recorded: 1);
-      await open(tester, SapPart5Screen(form: form), role: UserRole.sdsStaff);
+      await open(tester, SapPart5Screen(form: form), role: UserRole.officer);
 
-      final hint = banner(tester, 'Slots 2 and 3');
-      expect(hint.text, contains('Slots 2 and 3 can be recorded in either'));
+      final hint = banner(tester, 'Slots 1 to 4');
+      expect(hint.text, contains('Slots 1 to 4 can be recorded in any order'));
       expect(hint.text, contains('Slots 5 to 9 open once the SDS Office has'));
       expect(hint.tone, BrutTone.neutral);
     });

@@ -360,8 +360,9 @@ class SapService {
     });
   }
 
-  /// `POST /workflow/{step_id}/record` — SDS records that it inspected a
-  /// physical signature.
+  /// `POST /workflow/{step_id}/record` — the event's organization or the
+  /// SDS Office records a physical signature as the paper comes back, in
+  /// any order (slots 5 to 9 once the office has signed).
   ///
   /// This is an administrative record of paper, not an electronic
   /// signature, and the UI must not describe it as one. Evidence recorded

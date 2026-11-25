@@ -7,14 +7,14 @@ import '../../state/sap_form.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brut.dart';
 import '../../widgets/brut_date_picker.dart';
-import 'sap_form_fields.dart';
 import 'sap_proposal_flow.dart';
 
 /// Part 5 — University Clearance.
 ///
 /// Nine physical signatures, collected on paper. Nothing here signs
-/// anything: the SDS Office records that it inspected a signed page, and
-/// the authoritative evidence is the scan uploaded afterwards. The
+/// anything: as the paper comes back from each signatory, the organization
+/// carrying it (or the SDS Office) records the signed page, in any order,
+/// and the authoritative evidence is the scan the office uploads. The
 /// wording is deliberate about that throughout — calling a recorded
 /// checkpoint a signature would misstate what the system knows.
 ///
@@ -165,10 +165,13 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
         final workflow = _form.workflow;
         final live = workflow?.hasStarted ?? false;
         // `isReadOnly` is the session being offline or signed out, which says
-        // nothing about whose account this is: the server takes the
-        // checkpoints and the scan from the SDS Office alone.
+        // nothing about whose account this is. The scan is the SDS Office's
+        // alone; the signatures are recorded by the organization too, and
+        // the server holds each account to its own organization's proposals.
         final isSds = SapProposalFlow.isSdsStaff(context);
         final canWrite = isSds && !_form.isReadOnly;
+        final canRecord =
+            SapProposalFlow.isSignedIn(context) && !_form.isReadOnly;
         final allRecorded =
             workflow != null && workflow.completedCount == workflow.totalCount;
         // Once the office has decided there is nothing left to record: a
@@ -187,15 +190,14 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SapSdsOnlyNotice(),
-              const SizedBox(height: 12),
               const BrutInlineMessage(
                 tone: BrutTone.neutral,
                 icon: Icons.draw_outlined,
                 text:
-                    'These are signed on paper. The SDS Office records that '
-                    'it has seen each signed page; the signed scan is the '
-                    'evidence, not this list.',
+                    'These are signed on paper. As the form comes back from '
+                    'each signatory, the organization or the SDS Office '
+                    'records it here, in any order. The signed scan the SDS '
+                    'Office uploads is the evidence, not this list.',
               ),
               const SizedBox(height: 12),
 
@@ -277,7 +279,7 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                     displayLabel: step.displayLabel,
                     recorded: step.isRecorded,
                     signerName: step.evidence?.signerName,
-                    onRecord: canWrite && step.actionable
+                    onRecord: canRecord && step.actionable
                         ? () => _record(step)
                         : null,
                   ),
@@ -289,11 +291,11 @@ class _SapPart5ScreenState extends State<SapPart5Screen> {
                     tone: BrutTone.neutral,
                     icon: Icons.info_outline,
                     text:
-                        'Slots 2 and 3 can be recorded in either order. The '
-                        'rest follow the page, each after the one above it. '
-                        'Slots 5 to 9 open once the SDS Office has signed. A '
-                        'checkpoint recorded wrongly is not overwritten: '
-                        'return the proposal and start a fresh revision.',
+                        'Slots 1 to 4 can be recorded in any order. Slots 5 '
+                        'to 9 open once the SDS Office has signed, then in '
+                        'any order too. A checkpoint recorded wrongly is not '
+                        'overwritten: the proposal goes back for a fresh '
+                        'revision.',
                   ),
                 ],
                 const SizedBox(height: 22),
@@ -391,7 +393,8 @@ class _SlotCard extends StatelessWidget {
   }
 }
 
-/// What SDS writes down about one signed page.
+/// What the organization or the SDS Office writes down about one signed
+/// page.
 class _RecordSheet extends StatefulWidget {
   const _RecordSheet({required this.step, required this.taken});
 
@@ -416,7 +419,7 @@ class _RecordSheetState extends State<_RecordSheet> {
     super.dispose();
   }
 
-  /// The rules the server applies, said here so SDS is not told four
+  /// The rules the server applies, said here so nobody is told four
   /// times in a row that something is wrong.
   String? get _problem {
     final name = _name.text.trim();
@@ -476,8 +479,8 @@ class _RecordSheetState extends State<_RecordSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Recording that the paper was inspected. This does not sign '
-              'anything.',
+              'Recording that this slot was signed on the paper that came '
+              'back. This does not sign anything.',
               style: AppText.caption,
             ),
             const SizedBox(height: 14),
@@ -506,7 +509,7 @@ class _RecordSheetState extends State<_RecordSheet> {
             BrutTextField(
               controller: _remarks,
               label: 'Remarks',
-              hint: 'Paper inspected by SDS',
+              hint: 'Signed at the Dean\'s office',
               maxLines: 2,
               onChanged: (_) => setState(() {}),
             ),
