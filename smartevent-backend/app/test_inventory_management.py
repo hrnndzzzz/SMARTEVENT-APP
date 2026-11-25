@@ -76,6 +76,19 @@ def test_approval_does_not_add_stock_and_complete_purchase_does_once(system):
     assert db.query(AuditLog).filter(AuditLog.action == "purchase.completed").count() == 1
 
 
+def test_a_purchase_restocks_an_item_kept_outside_any_event(system):
+    client, db, users, orgs, resources, login = system
+    resources[0]["inventory"].event_id = None
+    db.commit()
+    expense, line = create_asset_expense(system)  # more of the same "Chair"
+    approve(system, expense)
+    login("officer")
+    response = client.post(f"/expenses/{expense.id}/complete-purchase", json=completion_payload(line))
+    assert response.status_code == 200, response.text
+    assert resources[0]["inventory"].quantity == 13 and resources[0]["inventory"].event_id is None
+    assert db.query(InventoryTransaction).filter(InventoryTransaction.expense_item_id == line.id).one().event_id == expense.event_id
+
+
 def test_new_purchased_item_is_received_as_catalog_draft_with_event_and_history(system):
     client, db, users, orgs, resources, login = system
     expense, line = create_asset_expense(system, name="Projector")

@@ -648,6 +648,19 @@ def test_partial_draft_and_projection_before_review(sap_system):
     assert event.status == 'draft'
 
 
+def test_the_event_allocation_follows_the_form_budget(sap_system):
+    """Part 1 makes the event before the budget is final; there is no other screen to raise it on."""
+    client, db, users, event, login, base = sap_system
+    event.allocated_budget, event.remaining_budget = 1000, 400  # ₱600 already spent
+    db.commit()
+    details = fixture_data()['details']  # a ₱2,500 budget
+    assert client.patch(base, json={'expected_version': version(client, base), 'details': details}).status_code == 200
+    db.refresh(event)
+    assert (event.allocated_budget, event.remaining_budget) == (2500, 1900)
+    response = client.patch(base, json={'expected_version': version(client, base), 'details': {**details, 'total_budget': '500.00'}})
+    assert response.status_code == 422 and '₱600.00 already spent' in response.json()['detail']
+
+
 def test_submit_does_not_invalidate_unchanged_clearance(sap_system, monkeypatch):
     client, db, users, event, login, base = sap_system
     calls = []

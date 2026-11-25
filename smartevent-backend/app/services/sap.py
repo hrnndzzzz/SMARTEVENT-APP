@@ -150,6 +150,12 @@ def sync_event(db, event, d):
         invalidate_clearance(db, event)
     event.title, event.description = d.title, d.rationale
     event.event_date, event.estimated_cost = d.activity_date, d.total_budget
+    # The event is made from Part 1, often before the budget is final, and has no budget
+    # screen of its own, so its allocation follows the form's budget; what is spent stays spent.
+    spent = Decimal(str(event.allocated_budget or 0)) - Decimal(str(event.remaining_budget or 0))
+    if d.total_budget < spent:
+        raise HTTPException(422, f'The budget cannot be less than the ₱{spent:,.2f} already spent on this activity')
+    event.allocated_budget, event.remaining_budget = d.total_budget, d.total_budget - spent
     event.start_time, event.end_time = d.start_time, d.end_time
     event.school_year, event.event_scope = d.school_year, d.scope
     if logistics is None:
@@ -181,9 +187,6 @@ def submit(db, event, proposal, user, verification_base):
             raise ValueError('Set the event semester before submission')
         if event.department_id is not None and not d.department:
             raise ValueError('Name the department on the form')
-        # Allocation remains controlled by the existing financial workflow.
-        if d.total_budget > Decimal(event.allocated_budget or 0):
-            raise ValueError('Proposal budget exceeds the event allocation; update allocation through the budget workflow first')
         token = secrets.token_urlsafe(32)
         number = proposal.revision_no + 1
         pdf = render_proposal(data, number, verification_base.rstrip('/') + '/' + token)

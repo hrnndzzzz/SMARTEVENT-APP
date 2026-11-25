@@ -47,13 +47,17 @@ class RequestSecurityMiddleware:
                     if now - start >= 60:
                         del limits[key]
                 if address not in limits and len(limits) >= 2000:
-                    return await reject(429, "Too many authentication requests", {"Retry-After": "60"})
+                    # Make room instead of refusing everyone new: a full table is many addresses, not this one.
+                    del limits[next(iter(limits))]
             start, count = limits.get(address, (now, 0))
             if now - start >= 60:
                 start, count = now, 0
             if count >= self.max_auth_requests:
                 return await reject(429, "Too many authentication requests", {"Retry-After": str(max(1, int(60 - now + start)))})
             # ponytail: per-worker IP limits; enforce aggregate limits at the deployment proxy.
+            # shortcut: uvicorn takes the address from the first X-Forwarded-For entry, which the
+            # sender can write, so a script can dodge this limit (the per-account lockout still holds);
+            # key it on the address Render vouches for once that is checked on the live server.
             limits[address] = (start, count + 1)
 
         if scope["method"] in {"POST", "PUT", "PATCH", "DELETE"}:

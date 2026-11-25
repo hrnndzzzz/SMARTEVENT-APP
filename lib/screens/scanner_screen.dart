@@ -270,6 +270,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   String? _validate() {
     if (_categoryId == null) return 'Choose a category.';
+    // The server files every receipt under an event and refuses one
+    // without, so a scan or a photo needs one chosen here first.
+    if ((_scan != null || _hasImage) && _eventId == null) {
+      return 'Choose the event this receipt is for.';
+    }
     if (_vendorController.text.trim().isEmpty) {
       return 'Enter what this expense was for.';
     }
@@ -911,8 +916,8 @@ class _ReviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Optional in general, but required for anything that becomes '
-            'stock.',
+            'Required with a receipt or photo, and for anything that '
+            'becomes stock.',
             style: AppText.caption,
           ),
           if (requiresPurpose) ...[

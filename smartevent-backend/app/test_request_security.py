@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError, ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, InternalError, ProgrammingError, SQLAlchemyError
 
 from app.config import Settings
 from app.main import app, database_error
@@ -89,6 +89,22 @@ def test_auth_request_limits_ignore_untrusted_forwarding_headers():
     assert response.headers["Cache-Control"] == "no-store"
 
 
+def test_a_full_limit_table_does_not_refuse_everyone_new():
+    """2,000 made-up addresses in a minute used to lock every new phone out of signing in."""
+    from time import monotonic
+    limited_app = FastAPI()
+    limits = {f"10.0.{n // 256}.{n % 256}": (monotonic(), 1) for n in range(2000)}
+    limited_app.add_middleware(RequestSecurityMiddleware, auth_rate_limits=limits)
+
+    @limited_app.post("/auth/login")
+    def login():
+        return {"ok": True}
+
+    with TestClient(limited_app) as client:
+        assert client.post("/auth/login").status_code == 200
+    assert len(limits) == 2000 and "10.0.0.0" not in limits
+
+
 def test_request_limit_applies_before_parsing_even_without_content_length():
     calls, sent = [], []
     messages = iter([{"type": "http.request", "body": b"123", "more_body": True},
@@ -146,6 +162,27 @@ def test_database_errors_do_not_disclose_queries_or_credentials(error, expected,
         assert not [record for record in caplog.records if record.name == "app.main"]
     else:
         assert "SQLAlchemyError (SQLSTATE unknown)" in caplog.text
+
+
+def test_a_database_rule_refusal_is_a_conflict_with_its_own_words():
+    class Diagnostics:
+        message_primary = "Purchased stock requires a completed, paid and received, receipted asset transaction"
+
+    class RuleRefused(Exception):
+        pgcode = "P0001"
+        diag = Diagnostics()
+
+    failing_app = FastAPI()
+    failing_app.add_exception_handler(SQLAlchemyError, database_error)
+
+    @failing_app.get("/")
+    def fail():
+        raise InternalError("private-query", {"password": "private-password"}, RuleRefused("private-error"))
+
+    with TestClient(failing_app) as client:
+        response = client.get("/")
+    assert response.status_code == 409
+    assert response.json() == {"detail": Diagnostics.message_primary}
 
 
 @pytest.mark.parametrize("sqlstate", ["42703", "42P01"])
