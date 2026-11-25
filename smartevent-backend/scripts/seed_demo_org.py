@@ -134,9 +134,17 @@ def remove(db) -> None:
         for category in categories:
             db.delete(category)
 
+    # The accounts go last, and only once everything pointing at them is
+    # gone. categories.created_by, events.proposed_by and expenses
+    # .recorded_by are plain foreign keys with no relationship() behind
+    # them, so SQLAlchemy cannot work out that order for itself: without
+    # this flush it tries to delete the users first and Postgres refuses.
+    db.flush()
+
     print(f"  accounts       {len(users)}")
     for user in users:
         db.delete(user)
+    db.flush()
 
     if organization is not None:
         db.delete(organization)
