@@ -39,8 +39,14 @@ pip install -r requirements-dev.txt
 
 ## Database migrations
 
-Apply each unapplied SQL migration in `scripts/` through the Supabase SQL
-Editor before using the corresponding backend features. In particular, run
+Apply each unapplied SQL migration through the Supabase SQL Editor before
+using the corresponding backend features. **They live in two places:** the
+numbered setup scripts in `scripts/` (001 to 009, run once when the
+database is first built) and every migration since, in
+`supabase/migrations/`, applied oldest first by the timestamp in the
+filename. A deploy does not run them — Render builds the Dockerfile and
+nothing in it touches the database — so code can be live against a schema
+that has not caught up. In particular, run
 `scripts/002_otp_registration_purpose.sql` to allow registration OTP rows in
 an existing database. Apply `008_security_hardening.sql` before deploying this version; production configuration and private file access are covered in the security review.
 
