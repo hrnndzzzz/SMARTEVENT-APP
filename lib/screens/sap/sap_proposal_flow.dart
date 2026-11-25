@@ -297,6 +297,13 @@ abstract final class SapProposalFlow {
         _ => false,
       };
 
+  /// Whether any account is signed in. The Part 5 signatures are recorded
+  /// by the organization as well as the office, and the server holds each
+  /// account to its own organization's proposals, so the role does not
+  /// decide it. False with no [AppState], like [isSdsStaff].
+  static bool isSignedIn(BuildContext context) =>
+      _appOf(context)?.currentRole != null;
+
   /// Puts the account's own organization and department on the form.
   ///
   /// Which organization an event belongs to is a fact about the account,
@@ -442,13 +449,14 @@ class SapProposalStatus extends StatelessWidget {
       SapState.pendingReview => (
         'With the SDS Office',
         'They check Part 4, then it is printed for the nine signatures. '
-            'You will be told when it has been approved.',
+            'Record each one in Part 5 as the paper comes back; slots 1 to '
+            '4 can be recorded now.',
         BrutTone.sun,
       ),
       SapState.sdsSigned => (
         'Signed by the SDS Office',
         'The form is locked and printed. It is going round for the nine '
-            'physical signatures.',
+            'physical signatures; record each in Part 5, in any order.',
         BrutTone.sun,
       ),
       SapState.approved => (

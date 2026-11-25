@@ -49,7 +49,7 @@ Base: **/events/{eventId}/sap-proposal**.
 | GET /pdf?revision_no=1 | Event scope or SDS | Specific historical revision. |
 | GET /pdf?draft=true | Event scope or SDS | Preview current editable changes. Cannot combine with revision_no or request on a locked proposal. |
 | GET /workflow | Event scope or SDS | Existing paper evidence checkpoints. |
-| POST /workflow/{id}/record | SDS | Existing physical evidence request. Slots 5 to 9 only once the proposal is signed. |
+| POST /workflow/{id}/record | SDS or the event's organization | Existing physical evidence request, in any order. Slots 5 to 9 only once the proposal is signed. |
 | POST /final-signed-copy | SDS, signed | Multipart expected_version, file; all checkpoints and every page of the signed PDF/addenda are required. |
 | GET /final-signed-copy | SDS | Private final-scan download URL. |
 

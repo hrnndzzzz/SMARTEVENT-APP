@@ -1,5 +1,5 @@
 """SAP proposal API for supporting files, SDS review, e-signing, and paper evidence."""
-from datetime import date, timezone, timedelta
+from datetime import timezone, timedelta
 from io import BytesIO
 from uuid import UUID
 import hashlib
@@ -308,7 +308,9 @@ def workflow(event_id: UUID, db: Session = Depends(get_db), user: User = Depends
 
 @router.post('/workflow/{step_id}/record', response_model=SAPWorkflowOut, response_model_exclude_unset=True)
 def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
-    event, proposal = sap.load(db, event_id, user, write=True, sds=True)
+    # The organization carries the paper from desk to desk, so its members record each signature as it
+    # comes back, as does the SDS Office; load holds everyone but the office to the event's organization.
+    event, proposal = sap.load(db, event_id, user, write=True)
     sap.check_version(proposal, payload.expected_version)
     if proposal.state not in {'pending_sap_review', 'sds_signed'}:
         raise HTTPException(409, 'Only the current reviewed revision can receive checkpoints')
@@ -319,19 +321,16 @@ def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session 
         raise HTTPException(404, 'Checkpoint not found in the current revision')
     if row.slot >= 5 and proposal.state != 'sds_signed':
         raise HTTPException(409, 'Slots 5 to 9 are signed after the SDS Office signs')
+    # Signatories sign in whatever order the paper reaches them; only the SDS signature gates slots 5 to 9.
     signed = {r.slot: r for r in rows if r.evidence}
-    if row.evidence or not set(sap.prerequisites(row.slot)) <= signed.keys():
-        raise HTTPException(409, 'Checkpoint already recorded or required predecessors incomplete')
+    if row.evidence:
+        raise HTTPException(409, 'This signature is already recorded')
     submitted_at = rev.submitted_at.replace(tzinfo=timezone.utc) if rev.submitted_at.tzinfo is None else rev.submitted_at
     submitted_day = submitted_at.astimezone(timezone(timedelta(hours=8))).date()
     if payload.physical_signature_date > institution_today() or payload.physical_signature_date < submitted_day:
         raise HTTPException(422, 'Physical signature must be dated between submission and today')
-    for predecessor in sap.prerequisites(row.slot):
-        if payload.physical_signature_date < date.fromisoformat(signed[predecessor].evidence['physical_signature_date']):
-            raise HTTPException(422, 'Signature date cannot precede required predecessors')
+    # Slot 1 ("Prepared by") is whoever signed it, often the President rather than the proposer.
     proposer = db.get(User, event.proposed_by)
-    if row.slot == 1 and payload.assigned_user_id != event.proposed_by:
-        raise HTTPException(422, 'Preparation attestation must identify the event proposer account')
     if row.slot != 1 and (payload.assigned_user_id == event.proposed_by or payload.signer_name.casefold() == proposer.full_name.strip().casefold()):
         raise HTTPException(403, 'Proposer cannot independently review their own proposal')
     if payload.assigned_user_id:

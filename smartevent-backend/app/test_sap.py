@@ -180,15 +180,11 @@ def test_admin_edits_a_colleagues_draft_but_sends_only_their_own(sap_system):
     assert client.post(base + '/submit', json={'expected_version': version(client, base)}).status_code == 403
 
 
-def test_parallel_moderators_and_order(sap_system):
+def test_signatures_are_recorded_in_any_order(sap_system):
     populate(sap_system)
-    assert checkpoint(sap_system, 4).status_code == 409
-    assert checkpoint(sap_system, 1).status_code == 200
-    assert checkpoint(sap_system, 3).status_code == 200
-    assert checkpoint(sap_system, 4).status_code == 409
-    assert checkpoint(sap_system, 2).status_code == 200
-    assert checkpoint(sap_system, 4).status_code == 200
-    assert checkpoint(sap_system, 4).status_code == 409
+    for slot in (4, 2, 1, 3):
+        assert checkpoint(sap_system, slot).status_code == 200
+    assert checkpoint(sap_system, 4).status_code == 409  # once only
 
 
 def test_proposer_cannot_review(sap_system):
@@ -684,16 +680,32 @@ def test_pre_activity_readiness_blocks_submission(sap_system, monkeypatch):
 
 
 @pytest.mark.parametrize('role', ['officer', 'adviser', 'admin'])
-def test_only_sds_may_record_or_evaluate(sap_system, role):
+def test_the_organization_records_signatures_but_only_sds_evaluates(sap_system, role):
     client, db, users, event, login, base = sap_system
     populate(sap_system)
     step = client.get(base + '/workflow').json()['steps'][0]['id']
     current = version(client, base)
     login(role)
+    # Slot 1 needs no linked account: "Prepared by" is whoever signed it.
     assert client.post(base + f'/workflow/{step}/record', json={
         'expected_version': current, 'signer_name': 'Someone', 'signer_reference': 'person-1',
-        'physical_signature_date': date.today().isoformat()}).status_code == 403
+        'physical_signature_date': date.today().isoformat(), 'recorded_on_behalf': True}).status_code == 200
+    current = version(client, base)
     assert client.post(base + '/evaluation', json={'expected_version': current, 'outcome': 'canceled', 'remarks': 'Cancelled'}).status_code == 403
+
+
+def test_another_organization_cannot_record_signatures(sap_system):
+    client, db, users, event, login, base = sap_system
+    populate(sap_system)
+    step = client.get(base + '/workflow').json()['steps'][0]['id']
+    current = version(client, base)
+    users['officer_b'].organization_id = db.query(Organization).filter(Organization.id != event.organization_id).first().id
+    db.commit()
+    login('officer_b')
+    response = client.post(base + f'/workflow/{step}/record', json={
+        'expected_version': current, 'signer_name': 'Someone', 'signer_reference': 'person-1',
+        'physical_signature_date': date.today().isoformat(), 'recorded_on_behalf': True})
+    assert response.status_code == 403
 
 
 def test_private_storage_failure_does_not_approve(sap_system, monkeypatch):

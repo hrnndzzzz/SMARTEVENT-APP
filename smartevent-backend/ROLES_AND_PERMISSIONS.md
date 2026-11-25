@@ -67,8 +67,10 @@ references. Rejection/resubmission history and no-self-review rules remain intac
 
 For SAP proposals, Officers can prepare their own draft or
 returned Parts 1–3, manage supporting attachments, and submit to the existing SAP
-paper workflow. SDS-only clearance, signing, paper evidence and closeout powers
-remain separate. Private proposal-letter links require the same event ownership.
+paper workflow. Members of the event's organization, like the SDS Office, record
+each Part 5 (University Clearance) signature as the paper comes back, in any
+order; slots 5–9 open once the SDS Office has signed. Part 4 clearance, SDS
+signing, the final signed scan and closeout remain the SDS Office's. Private proposal-letter links require the same event ownership.
 
 ## Signatory duties and institutional review
 
