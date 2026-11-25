@@ -83,10 +83,6 @@ def steps(db, rev):
     return db.query(SAPCheckpoint).filter_by(revision_id=rev.id).order_by(SAPCheckpoint.slot).all()
 
 
-def prerequisites(slot):
-    return [] if slot == 1 else [1] if slot in (2, 3) else list(range(1, slot))
-
-
 def workflow(db, proposal):
     rows = steps(db, revision(db, proposal)) if proposal.revision_no else []
     signed = {row.slot for row in rows if row.evidence}
@@ -94,7 +90,7 @@ def workflow(db, proposal):
             'completed_count': len(signed), 'total_count': 9,
             'steps': [dict(id=row.id, slot=row.slot, position=row.position, display_label=row.label,
                            revision_no=proposal.revision_no, status='recorded' if row.evidence else 'pending',
-                           actionable=proposal.state in {'pending_sap_review', 'sds_signed'} and (row.slot < 5 or proposal.state == 'sds_signed') and not row.evidence and set(prerequisites(row.slot)) <= signed,
+                           actionable=proposal.state in {'pending_sap_review', 'sds_signed'} and (row.slot < 5 or proposal.state == 'sds_signed') and not row.evidence,
                            evidence=row.evidence, recorded_by=row.recorded_by, recorded_at=row.recorded_at)
                       for row in rows]}
 

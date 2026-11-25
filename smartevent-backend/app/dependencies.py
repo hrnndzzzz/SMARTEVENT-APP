@@ -38,6 +38,8 @@ OFFICER_PROPOSAL_WRITES = {
     ("POST", "/events/{event_id}/sap-proposal/attachments"),
     ("POST", "/events/{event_id}/sap-proposal/submit"),
     ("POST", "/events/{event_id}/sap-proposal/withdraw"),
+    # The organization records each University Clearance signature as the paper comes back.
+    ("POST", "/events/{event_id}/sap-proposal/workflow/{step_id}/record"),
     # A suggestion, not a record: it reads past events and answers with a
     # number the proposer may ignore. A POST only because the event title
     # and description go in the body.

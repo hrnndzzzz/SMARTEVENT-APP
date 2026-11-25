@@ -170,6 +170,8 @@ def test_officer_cannot_use_unrelated_operational_write_routes(system, position)
                 ("POST", "/events/{event_id}/sap-proposal/attachments"),
                 ("POST", "/events/{event_id}/sap-proposal/submit"),
                 ("POST", "/events/{event_id}/sap-proposal/withdraw"),
+                # The organization records the University Clearance signatures.
+                ("POST", "/events/{event_id}/sap-proposal/workflow/{step_id}/record"),
                 # A budget suggestion the proposer may ignore, not a record.
                 ("POST", "/recommendations/event-budget/ai"),
             }:
