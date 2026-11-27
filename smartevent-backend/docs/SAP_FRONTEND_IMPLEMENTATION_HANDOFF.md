@@ -51,7 +51,7 @@ Base: **/events/{eventId}/sap-proposal**.
 | GET /workflow | Event scope or SDS | Existing paper evidence checkpoints. |
 | POST /workflow/{id}/record | SDS or the event's organization | Existing physical evidence request, in any order. Slots 5 to 9 only once the proposal is signed. |
 | POST /final-signed-copy | SDS, signed | Multipart expected_version, file; all checkpoints and every page of the signed PDF/addenda are required. |
-| GET /final-signed-copy | SDS | Private final-scan download URL. |
+| GET /final-signed-copy | Authorized proposal viewer | Private final-scan download URL. |
 
 ### Remarks and signing
 

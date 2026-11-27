@@ -128,7 +128,7 @@ Base: `/events/{event_id}/sap-proposal`. UUID path identifiers.
 | POST `/sds-reject` | Same as `/return` | Reject a pending proposal for good; aggregate in `rejected` |
 | GET `/pdf` | Optional `revision_no` >= 1, `comments` (default false) | Authenticated PDF attachment; `comments=true` adds the SDS remarks as margin comments (file name ends `-comments`); 409 for a signed revision whose Part 4 is gone (see PDF section) |
 | POST `/final-signed-copy` | Multipart `expected_version`, `file` | 201 approved aggregate |
-| GET `/final-signed-copy` | None; SDS only | Short-lived private URL + SHA-256 |
+| GET `/final-signed-copy` | None; authorized proposal viewers | Short-lived private URL + SHA-256 |
 | POST `/evaluation` | `{expected_version, outcome, remarks}` | Completed aggregate |
 | GET `/sap/verify/{token}` | Public; not nested under base | Minimal verification JSON |
 
@@ -303,7 +303,7 @@ exposed. There is no automatic waiver of incomplete student compliance.
 
 Generated artifacts reside in backend-only revision storage, with SHA-256;
 final scans reuse the private proposal-letter bucket with unique, non-upsert paths.
-Only authenticated SDS may request a signed scan URL (300 seconds). Never store
+Only authenticated users authorized to view the proposal may request a signed scan URL (300 seconds). Never store
 signed URLs or tokens in analytics, public logs or frontend persistent caches.
 
 QR payload uses configured HTTPS `SAP_VERIFICATION_BASE_URL/{random-token}`.
