@@ -104,7 +104,7 @@ def checkpoint(ctx, slot):
     row = workflow['steps'][slot - 1]
     return client.post(base + f"/workflow/{row['id']}/record", json={
         'expected_version': workflow['version'], 'signer_name': users['officer'].full_name if slot == 1 else f'Physical signer {slot}',
-        'signer_reference': f'institution-person-{slot}', 'assigned_user_id': str(users['officer'].id) if slot == 1 else None,
+'assigned_user_id': str(users['officer'].id) if slot == 1 else None,
         'physical_signature_date': date.today().isoformat(), 'remarks': 'SDS checked the paper', 'recorded_on_behalf': True})
 
 
@@ -194,7 +194,7 @@ def test_proposer_cannot_review(sap_system):
     workflow = client.get(base + '/workflow').json()
     response = client.post(base + f"/workflow/{workflow['steps'][1]['id']}/record", json={
         'expected_version': workflow['version'], 'signer_name': users['officer'].full_name,
-        'signer_reference': 'different', 'assigned_user_id': str(users['officer'].id), 'physical_signature_date': date.today().isoformat()})
+'assigned_user_id': str(users['officer'].id), 'physical_signature_date': date.today().isoformat()})
     assert response.status_code == 403
 
 
@@ -695,7 +695,7 @@ def test_the_organization_records_signatures_but_only_sds_evaluates(sap_system, 
     login(role)
     # Slot 1 needs no linked account: "Prepared by" is whoever signed it.
     assert client.post(base + f'/workflow/{step}/record', json={
-        'expected_version': current, 'signer_name': 'Someone', 'signer_reference': 'person-1',
+        'expected_version': current, 'signer_name': 'Someone',
         'physical_signature_date': date.today().isoformat(), 'recorded_on_behalf': True}).status_code == 200
     current = version(client, base)
     assert client.post(base + '/evaluation', json={'expected_version': current, 'outcome': 'canceled', 'remarks': 'Cancelled'}).status_code == 403

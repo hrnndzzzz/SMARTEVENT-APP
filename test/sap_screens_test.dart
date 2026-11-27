@@ -534,6 +534,12 @@ void main() {
     expect(find.text('APPROVED BY'), findsOneWidget);
   });
 
+  testWidgets('Part 5 recording form has no person reference field', (tester) async {
+    await tester.pumpWidget(host(SapPart5Screen(form: blankForm())));
+    await tester.pumpAndSettle();
+    expect(find.text('Person reference'), findsNothing);
+  });
+
   testWidgets('Part 5 never calls a checkpoint a signature', (tester) async {
     await tester.pumpWidget(host(SapPart5Screen(form: blankForm())));
     await tester.pumpAndSettle();

@@ -343,8 +343,7 @@ def record(event_id: UUID, step_id: UUID, payload: CheckpointWrite, db: Session 
         raise HTTPException(422, 'Recording another physical signer must be marked on behalf')
     for previous in signed.values():
         evidence = previous.evidence
-        if (evidence['signer_reference'].casefold() == payload.signer_reference.casefold()
-                or evidence['signer_name'].casefold() == payload.signer_name.casefold()
+        if (evidence['signer_name'].casefold() == payload.signer_name.casefold()
                 or (payload.assigned_user_id and evidence.get('assigned_user_id') == str(payload.assigned_user_id))):
             raise HTTPException(422, 'All nine slots require distinct physical signers')
     row.evidence = payload.model_dump(mode='json', exclude={'expected_version'})
