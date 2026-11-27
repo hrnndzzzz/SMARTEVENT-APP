@@ -507,7 +507,7 @@ class SapClearance {
 class SapCheckpointEvidence {
   const SapCheckpointEvidence({
     required this.signerName,
-    required this.signerReference,
+    this.signerReference = '',
     this.assignedUserId,
     required this.physicalSignatureDate,
     this.remarks,
@@ -535,7 +535,6 @@ class SapCheckpointEvidence {
 
   Map<String, dynamic> toJson() => {
     'signer_name': signerName,
-    'signer_reference': signerReference,
     'assigned_user_id': assignedUserId,
     'physical_signature_date': _dateToWire(physicalSignatureDate),
     if (remarks != null) 'remarks': remarks,

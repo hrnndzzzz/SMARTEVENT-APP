@@ -407,14 +407,12 @@ class _RecordSheet extends StatefulWidget {
 
 class _RecordSheetState extends State<_RecordSheet> {
   final _name = TextEditingController();
-  final _reference = TextEditingController();
   final _remarks = TextEditingController();
   DateTime? _signedOn;
 
   @override
   void dispose() {
     _name.dispose();
-    _reference.dispose();
     _remarks.dispose();
     super.dispose();
   }
@@ -423,12 +421,7 @@ class _RecordSheetState extends State<_RecordSheet> {
   /// times in a row that something is wrong.
   String? get _problem {
     final name = _name.text.trim();
-    final reference = _reference.text.trim();
     if (name.isEmpty) return 'Who signed it?';
-    if (reference.isEmpty) {
-      return 'A person reference is needed, so the same signer is not '
-          'recorded twice by accident.';
-    }
     if (_signedOn == null) return 'When was it signed?';
     if (_signedOn!.isAfter(DateTime.now())) {
       return 'A signature cannot be dated in the future.';
@@ -437,9 +430,6 @@ class _RecordSheetState extends State<_RecordSheet> {
       if (e.signerName.toLowerCase() == name.toLowerCase()) {
         return 'Slot ${widget.step.slot} needs a different person; that '
             'name is already recorded.';
-      }
-      if (e.signerReference.toLowerCase() == reference.toLowerCase()) {
-        return 'That reference is already recorded against another slot.';
       }
     }
     return null;
@@ -492,13 +482,6 @@ class _RecordSheetState extends State<_RecordSheet> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
-            BrutTextField(
-              controller: _reference,
-              label: 'Person reference',
-              hint: 'institution-person-004',
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
             BrutDateField(
               label: 'Date on the paper',
               value: _signedOn,
@@ -529,7 +512,6 @@ class _RecordSheetState extends State<_RecordSheet> {
                   : () => Navigator.of(context).pop(
                       SapCheckpointEvidence(
                         signerName: _name.text.trim(),
-                        signerReference: _reference.text.trim(),
                         // Left unset: linking an account makes the server
                         // demand the name match it exactly, and most of
                         // these signers have no account at all.

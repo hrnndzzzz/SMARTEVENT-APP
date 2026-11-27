@@ -149,7 +149,6 @@ class ReturnWrite(Version):
 
 class CheckpointWrite(Version):
     signer_name: str = Field(min_length=1, max_length=150)
-    signer_reference: str = Field(min_length=1, max_length=100)
     assigned_user_id: UUID | None = None
     physical_signature_date: date
     remarks: str = Field(default='', max_length=300)
@@ -323,7 +322,6 @@ class SAPProposalOut(BaseModel):
 
 class SAPCheckpointEvidenceOut(BaseModel):
     signer_name: str
-    signer_reference: str
     assigned_user_id: UUID | None
     physical_signature_date: date
     remarks: str
