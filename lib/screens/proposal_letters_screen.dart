@@ -198,26 +198,24 @@ class _LetterCard extends StatelessWidget {
               }
             },
           ),
-          if (context.watch<AppState>().currentRole
-              case UserRole.sdsStaff || UserRole.superAdmin)
-            TextButton.icon(
-              icon: const Icon(Icons.picture_as_pdf),
-              label: const Text('Open final signed scan'),
-              onPressed: () async {
-                try {
-                  final file = await context
-                      .read<AppState>()
-                      .sapService
-                      .finalScanFile(letter.eventId);
-                  await ExportSaver.share(file, subject: letter.title);
-                } catch (error) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('$error')));
-                }
-              },
-            ),
+          TextButton.icon(
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Open final signed scan'),
+            onPressed: () async {
+              try {
+                final file = await context
+                    .read<AppState>()
+                    .sapService
+                    .finalScanFile(letter.eventId);
+                await ExportSaver.share(file, subject: letter.title);
+              } catch (error) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('$error')));
+              }
+            },
+          ),
         ],
       ),
     );

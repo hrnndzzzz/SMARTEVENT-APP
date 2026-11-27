@@ -70,7 +70,7 @@ returned Parts 1–3, manage supporting attachments, and submit to the existing 
 paper workflow. Members of the event's organization, like the SDS Office, record
 each Part 5 (University Clearance) signature as the paper comes back, in any
 order; slots 5–9 open once the SDS Office has signed. Part 4 clearance, SDS
-signing, the final signed scan and closeout remain the SDS Office's. Private proposal-letter links require the same event ownership.
+signing, final signed-scan upload and closeout remain the SDS Office's. Authorized viewers of the proposal may read the private signed scan; private proposal-letter links require the same event ownership.
 
 ## Signatory duties and institutional review
 

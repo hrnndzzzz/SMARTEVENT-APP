@@ -247,8 +247,15 @@ def test_hack_future_return_sign_scan_evaluate(sap_system, monkeypatch, outcome)
     assert response.json()['evaluation']['outcome'] == outcome and event.status == 'completed'
     assert bool(initialized) == (outcome == 'conducted')
     assert db.query(Notification).filter_by(kind='sap_workflow').count() > 0
+    monkeypatch.setattr('app.routers.sap.storage.signed_file_url', lambda ref: ref + '?token=temporary')
     login('officer')
-    assert client.get(base + '/final-signed-copy').status_code == 403
+    response = client.get(base + '/final-signed-copy')
+    assert response.status_code == 200
+    assert response.json() == {
+        'url': 'https://private.invalid/scan.pdf?token=temporary',
+        'expires_in': 300,
+        'sha256': hashlib.sha256(scan).hexdigest(),
+    }
 
 
 def test_generic_routes_cannot_bypass_sap(sap_system):

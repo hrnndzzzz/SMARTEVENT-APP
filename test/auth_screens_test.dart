@@ -210,5 +210,6 @@ void main() {
       findsOneWidget,
       reason: 'the adviser may upload',
     );
+    expect(find.text('Open final signed scan'), findsOneWidget);
   });
 }

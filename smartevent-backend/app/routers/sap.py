@@ -496,7 +496,7 @@ def final_copy(event_id: UUID, expected_version: int = Form(..., ge=1), file: Up
 
 @router.get('/final-signed-copy', response_model=SAPDownloadOut, response_model_exclude_unset=True)
 def signed_copy(event_id: UUID, db: Session = Depends(get_db), user: User = Depends(require_active_account)):
-    _, proposal = sap.load(db, event_id, user, sds=True)
+    _, proposal = sap.load(db, event_id, user)
     rev = sap.revision(db, proposal)
     row = db.query(SAPFinalCopy).filter_by(revision_id=rev.id).first()
     if row is None:
